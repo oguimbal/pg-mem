@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "name": "Attach UTs",
+            "request": "attach",
+            "port": 9239,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**",
+            ],
+            "skipFiles": [
+                // "<node_internals>/**", => weird ... webpack-internal ends up in node_internals
+                "<node_internals>/*.js",
+                "**/loader.js", // webpack hmr reloader
+                "node_modules/core-js/**",
+                "node_modules/async-listener/**",
+                "node_modules/why-is-node-running/**",
+                "node_modules/tsconfig-paths/**",
+                "node_modules/inversify/**",
+                "node_modules/q/**",
+                "node_modules/multirepo-tsnode/**",
+                "output/**",
+            ]
+        }
+    ]
+}
