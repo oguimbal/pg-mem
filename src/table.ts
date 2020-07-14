@@ -1,19 +1,20 @@
 import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent } from './interfaces';
-import { _ISelection, IValue, _ITable } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId } from './interfaces-private';
 import { buildValue } from './predicate';
 import { Parser } from 'node-sql-parser';
 import { BIndex } from './btree-index';
 import { Selection } from './filters/selection';
-
+import { IsNullValue } from './datatypes';
 
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
-    private all = new Set<T>();
+    private all = new Map<string, T>();
     private _schema: Schema;
     private indices = new Map<string, BIndex<T>>();
     private handlers = new Map<TableEvent, Set<() => void>>();
 
     readonly selection: _ISelection<T>;
+    private it = 0;
 
     get entropy() {
         return this.all.size;
@@ -50,21 +51,21 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
     enumerate(): Iterable<T> {
         this.raise('seq-scan');
-        return this.all;
+        return this.all.values();
     }
 
     insert(toInsert: T): void {
-        if (this.all.has(toInsert)) {
-            throw new RecordExists();
-        }
+        const newId = this._schema.name + '_' + (this.it++);
+        setId(toInsert, newId);
         for (const k of this.indices.values()) {
             k.add(toInsert);
         }
-        this.all.add(toInsert);
+        this.all.set(newId, toInsert);
     }
 
     hasItem(item: T) {
-        return this.all.has(item);
+        const id = getId(item);
+        return this.all.has(id);
     }
 
     getIndex(forValue: IValue) {
@@ -79,7 +80,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         return this._schema.name;
     }
 
-    createIndex(expressions: string[]) {
+    createIndex(expressions: string[]): this {
         if (!expressions.length) {
             throw new QueryError('Empty index');
         }
@@ -96,15 +97,25 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
             keys.push(getter);
         }
 
-        const final = keys.map(x => x.hash).sort().join('|');
-        if (this.indices.has(final)) {
-            throw new QueryError('Index already exists');
-        }
         const index = new BIndex(keys, this);
-        this.indices.set(final, index);
 
-        for (const e of this.all) {
+        // create the query index
+        this.addIndex(index, keys);
+        // create the null index
+        // this.addIndex(index, keys.map(x => IsNullValue.of(x)), true);
+
+
+        for (const e of this.all.values()) {
             index.add(e);
         }
+        return this;
+    }
+
+    private addIndex(index: BIndex<T>, keys: IValue<any>[], allowOverwrite = false) {
+        const final = keys.map(x => x.hash).sort().join('|');
+        if (!allowOverwrite && this.indices.has(final)) {
+            throw new QueryError('Index already exists');
+        }
+        this.indices.set(final, index);
     }
 }

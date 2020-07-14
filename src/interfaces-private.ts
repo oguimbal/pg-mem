@@ -3,6 +3,22 @@ import { IMemoryDb, IMemoryTable, DataType } from './interfaces';
 export * from './interfaces';
 
 // export type PrimaryKey = string | number;
+const ID = Symbol('_id');
+export function getId(item: any): string {
+    const got = item[ID];
+    if (!got) {
+        throw new Error('Unexpected: cannot get an ID of something which is not a record');
+    }
+    return got;
+}
+
+export function setId(item: any, id: string) {
+    const got = item[ID];
+    if (got) {
+        throw new Error('Unexpected: Cannto update an ID');
+    }
+    item[ID] = id;
+}
 
 export interface _ISelectionSource<T = any> {
     /** Statistical measure of how many items will be returned by this selection */

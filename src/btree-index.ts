@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
 
 type IndexKey = any[];
@@ -30,8 +30,12 @@ interface BIterator<T> {
 export class BIndex<T = any> implements _IIndex<T> {
 
 
-    private asBinary: BTree<Set<T>>;
-    size = 0;
+    private asBinary: BTree<Map<string, T>>;
+    private byId = new Set<string>();
+
+    get size() {
+        return this.byId.size;
+    }
 
     get entropy() {
         if (!this.asBinary.length) {
@@ -51,10 +55,20 @@ export class BIndex<T = any> implements _IIndex<T> {
         });
     }
 
-    private compare(a: any, b: any) {
+    private compare(_a: any, _b: any) {
         for (let i = 0; i < this.expressions.length; i++) {
             const k = this.expressions[i];
-            if (k.equals(a[i], b[i])) {
+            const a = _a[i];
+            const b = _b[i];
+            if (a === null || b === null) {
+                if (a === b) {
+                    continue;
+                }
+                return a === null
+                    ? -1
+                    : 1;
+            }
+            if (k.equals(a, b)) {
                 continue;
             }
             return k.gt(a, b)
@@ -69,25 +83,25 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
     hasItem(raw: any) {
-        if (!this.asBinary) {
-            return false;
-        }
-        const key = this.buildKey(raw);
-        const id = this.asBinary.get(key);
-        return id !== undefined;
+        const key = getId(raw);
+        return this.byId.has(key);
     }
 
     add(raw: T) {
+        const id = getId(raw);
+        if (this.byId.has(id)) {
+            return;
+        }
         const key = this.buildKey(raw);
         let got = this.asBinary.get(key);
         if (!got) {
-            this.asBinary = this.asBinary.insert(key, got = new Set());
+            this.asBinary = this.asBinary.insert(key, got = new Map());
         }
-        if (got.has(raw)) {
+        if (got.has(id)) {
             return;
         }
-        this.size++;
-        got.add(raw);
+        got.set(id, raw);
+        this.byId.add(id);
     }
 
     delete(raw: any) {
@@ -96,11 +110,12 @@ export class BIndex<T = any> implements _IIndex<T> {
         if (!got) {
             return;
         }
-        if (!got.has(raw)) {
+        const id = getId(raw);
+        if (!got.has(id)) {
             return;
         }
-        this.size--;
-        got.delete(raw);
+        this.byId.delete(id);
+        got.delete(id);
         if (!got.size) {
             this.asBinary = this.asBinary.remove(key);
         }

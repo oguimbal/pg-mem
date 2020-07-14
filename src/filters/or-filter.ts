@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, _ITable } from '../interfaces-private';
+import { _ISelection, _IIndex, _ITable, getId } from '../interfaces-private';
 import { FilterBase } from './filter-base';
 
 
@@ -24,13 +24,13 @@ export class OrFilter<T = any> extends FilterBase<T> {
     }
 
     *enumerate(): Iterable<T> {
-        const yielded = new Set<T>();
+        const yielded = new Set<string>();
         for (const item of this.left.enumerate()) {
             yield item;
-            yielded.add(item);
+            yielded.add(getId(item));
         }
         for (const item of this.right.enumerate()) {
-            if (!yielded.has(item)) {
+            if (!yielded.has(getId(item))) {
                 yield item;
             }
         }

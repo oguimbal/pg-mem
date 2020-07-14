@@ -1,18 +1,24 @@
 import { IValue, _IIndex, _ISelection } from './interfaces-private';
 import { DataType, CastError } from './interfaces';
 import moment from 'moment';
+import hash from 'object-hash';
 
-export interface ValueCtor {
+interface ValueCtor {
     new(id: string
         , sql: string
         , hash: string
         , selection: _ISelection
-        , val: any | ((raw: any) => any)): IValue;
-    prototype: IValue;
+        , val: any | ((raw: any) => any)): ValueBase<any>;
+    prototype: ValueBase<any>;
 }
 
 abstract class ValueBase<T> implements IValue {
     abstract type: DataType;
+    abstract doConvert(to: DataType): ValueBase<any>;
+    abstract canConvert(to: DataType): boolean;
+    abstract doEquals(a: any, b: any): boolean;
+    abstract doGt(a: any, b: any): boolean;
+    abstract doLt(a: any, b: any): boolean;
 
     constructor(readonly id: string
         , readonly sql: string
@@ -41,6 +47,9 @@ abstract class ValueBase<T> implements IValue {
             if (typeof converted.val === 'function') {
                 converted.val = converted.val(null);
             }
+            if (converted.val === null) {
+                return NullValue.constant();
+            }
         }
         return converted;
     }
@@ -55,14 +64,25 @@ abstract class ValueBase<T> implements IValue {
         return new Wrapper<T>(newId, this);
     }
 
+    equals(a: any, b: any): boolean {
+        if (a === null || b === null) {
+            return false;
+        }
+        return this.doEquals(a, b);
+    }
 
-
-    protected abstract doConvert(to: DataType): ValueBase<any>;
-
-    abstract canConvert(to: DataType): boolean;
-    abstract equals(a: any, b: any): boolean;
-    abstract gt(a: any, b: any): boolean;
-    abstract lt(a: any, b: any): boolean;
+    gt(a: any, b: any): boolean {
+        if (a === null || b === null) {
+            return false;
+        }
+        return this.doGt(a, b);
+    }
+    lt(a: any, b: any): boolean {
+        if (a === null || b === null) {
+            return false;
+        }
+        return this.doLt(a, b);
+    }
 }
 
 class Wrapper<T> extends ValueBase<T> {
@@ -74,7 +94,7 @@ class Wrapper<T> extends ValueBase<T> {
         return this.w.type;
     }
 
-    protected doConvert(to: DataType): ValueBase<any> {
+    doConvert(to: DataType): ValueBase<any> {
         const conv = this.w.convert(to);
         if (conv === this.w) {
             return this;
@@ -86,16 +106,16 @@ class Wrapper<T> extends ValueBase<T> {
         return this.w.canConvert(to);
     }
 
-    equals(a: any, b: any): boolean {
-        return this.w.equals(a, b);
+    doEquals(a: any, b: any): boolean {
+        return this.w.doEquals(a, b);
     }
 
-    gt(a: any, b: any): boolean {
-        return this.w.gt(a, b);
+    doGt(a: any, b: any): boolean {
+        return this.w.doGt(a, b);
     }
 
-    lt(a: any, b: any): boolean {
-        return this.w.lt(a, b);
+    doLt(a: any, b: any): boolean {
+        return this.w.doLt(a, b);
     }
 }
 
@@ -116,39 +136,49 @@ export class TimestampValue extends ValueBase<moment.Moment> {
         throw new CastError(this.type, to);
     }
 
-    equals(a: any, b: any): boolean {
-        if (!a !== !b) {
-            return false;
-        }
-        if (!a && !b) {
-            return true;
-        }
+    doEquals(a: any, b: any): boolean {
         return moment(a).diff(moment(b)) < 0.1;
     }
-
-    gt(a: any, b: any): boolean {
-        if (!a !== !b) {
-            return false;
-        }
-        if (!a && !b) {
-            return true;
-        }
+    doGt(a: any, b: any): boolean {
         return moment(a).diff(moment(b)) > 0;
     }
-    lt(a: any, b: any): boolean {
-        if (!a !== !b) {
-            return false;
-        }
-        if (!a && !b) {
-            return true;
-        }
+    doLt(a: any, b: any): boolean {
         return moment(a).diff(moment(b)) < 0;
+    }
+}
+
+export class NullValue extends ValueBase<string> {
+    get type(): DataType {
+        return null;
+    }
+    static constant(): IValue {
+        return new NullValue(null, 'null', 'null', null, null);
+    }
+
+    doConvert(to: DataType): ValueBase<any> {
+        return new allTypes[to](null, 'null', 'null', null, null);
+    }
+
+    canConvert(to: DataType): boolean {
+        return true;
+    }
+
+    doEquals(a: any, b: any): boolean {
+        return false;
+    }
+
+    doGt(a: any, b: any): boolean {
+        return false;
+    }
+
+    doLt(a: any, b: any): boolean {
+        return false;
     }
 }
 
 export class TextValue extends ValueBase<string> {
 
-    static constant(value: string) {
+    static constant(value: string): IValue {
         return new TextValue(null
             , `[${value}]`
             , value
@@ -166,9 +196,10 @@ export class TextValue extends ValueBase<string> {
             case DataType.text:
                 return true;
         }
+        return false;
     }
 
-    protected doConvert(to: DataType) {
+    doConvert(to: DataType) {
         switch (to) {
             case DataType.text:
                 return this;
@@ -182,15 +213,15 @@ export class TextValue extends ValueBase<string> {
         }
     }
 
-    equals(a: any, b: any): boolean {
+    doEquals(a: any, b: any): boolean {
         return a === b;
     }
 
-    gt(a: any, b: any): boolean {
+    doGt(a: any, b: any): boolean {
         return a > b;
     }
 
-    lt(a: any, b: any): boolean {
+    doLt(a: any, b: any): boolean {
         return a < b;
     }
 }
@@ -213,22 +244,74 @@ export class BoolValue extends ValueBase<boolean> {
         return to === DataType.bool;
     }
 
-    protected doConvert(to: DataType) {
+    doConvert(to: DataType) {
         if (to === DataType.bool) {
             return this;
         }
         throw new CastError(this.type, to);
     }
 
-    equals(a: any, b: any): boolean {
+    doEquals(a: any, b: any): boolean {
         return a === b;
     }
 
-    gt(a: any, b: any): boolean {
+    doGt(a: any, b: any): boolean {
         return a < b;
     }
-    lt(a: any, b: any): boolean {
+    doLt(a: any, b: any): boolean {
         return a < b;
     }
 
 }
+
+export class IsNullValue extends ValueBase<boolean> {
+
+    static of(leftValue: IValue, expectNull: boolean) {
+        return new IsNullValue(null
+            , leftValue.sql + ' IS NULL'
+            , hash({ isNull: leftValue.hash })
+            , leftValue.selection
+            , expectNull ? (raw => {
+                const left = leftValue.get(raw);
+                return left === null;
+            }) : (raw => {
+                const left = leftValue.get(raw);
+                return left !== null && left !== undefined;
+            }));
+    }
+
+    get type(): DataType {
+        return DataType.bool;
+    }
+
+    doConvert(to: DataType): ValueBase<any> {
+        if (to === DataType.bool) {
+            return this;
+        }
+        throw new CastError(this.type, to);
+    }
+
+    canConvert(to: DataType): boolean {
+        return to === DataType.bool;
+    }
+
+    doEquals(a: any, b: any): boolean {
+        return a === b;
+    }
+
+    doGt(a: any, b: any): boolean {
+        return a > b;
+    }
+
+    doLt(a: any, b: any): boolean {
+        return a < b;
+    }
+
+}
+
+
+type Ctors = { [key in DataType]?: ValueCtor };
+export const allTypes: Ctors = {
+    [DataType.text]: TextValue,
+    [DataType.timestamp]: TimestampValue,
+};

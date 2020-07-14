@@ -1,9 +1,9 @@
-import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource } from '../interfaces-private';
+import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource, setId, getId } from '../interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema } from '../interfaces';
 import { buildValue } from '../predicate';
 import { trimNullish, NotSupported } from '../utils';
 import { EqFilter } from './eq-filter';
-import { BoolValue } from '../datatypes';
+import { BoolValue, NullValue, IsNullValue } from '../datatypes';
 import { FalseFilter } from './false-filter';
 import { buildAndFilter } from './and-filter';
 import { OrFilter } from './or-filter';
@@ -17,9 +17,10 @@ export function buildSelection(on: _ISelection, select: any[] | '*') {
     return new Selection(on, select);
 }
 
-
+let selCnt = 0;
 
 export class Selection<T> implements _ISelection<T> {
+    private selPrefix: string;
     // readonly index: _IIndex<T>; // <== ??
 
     get entropy(): number {
@@ -46,7 +47,9 @@ export class Selection<T> implements _ISelection<T> {
                 this.columns.push(col);
                 this.columnsById[col.id] = col;
             }
+            this.selPrefix = 's' + (selCnt++);
         } else {
+            this.selPrefix = '';
             for (const col of what.fields) {
                 const newCol = new Column(this, col);
                 this.columns.push(newCol.value);
@@ -66,12 +69,14 @@ export class Selection<T> implements _ISelection<T> {
     *enumerate(): Iterable<T> {
         for (const item of this.base.enumerate()) {
             const ret = {};
+            setId(ret, this.selPrefix + getId(item));
             for (const col of this.columns) {
-                ret[col.id] = col.get(item);
+                ret[col.id] = col.get(item) ?? null;
             }
             yield ret as any;
         }
     }
+
 
     getColumn(column: string): IValue {
         const ret = this.columnsById[column];
@@ -144,6 +149,25 @@ export class Selection<T> implements _ISelection<T> {
                 return operator === 'AND'
                     ? buildAndFilter(leftFilter, rightFilter)
                     : new OrFilter(leftFilter, rightFilter);
+            case 'IS':
+            case 'IS NOT': {
+                const rightValue = buildValue(this, right);
+                if (!(rightValue instanceof NullValue)) {
+                    throw new NotSupported('only IS NULL is supported');
+                }
+                const leftValue = buildValue(this, left)
+                if (leftValue.index && operator === 'IS') {
+                    return new EqFilter(leftValue, [rightValue]);
+                }
+                return new SeqScanFilter(this, IsNullValue.of(leftValue, operator === 'IS'));
+            }
+            case 'IS NOT': {
+                const rightValue = buildValue(this, right);
+                if (!(rightValue instanceof NullValue)) {
+                    throw new NotSupported('only IS NULL is supported');
+                }
+                return new EqFilter(buildValue(this, left), [rightValue]);
+            }
             default:
                 return new SeqScanFilter(this, buildValue(this, filter));
         }

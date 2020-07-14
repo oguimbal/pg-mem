@@ -19,6 +19,9 @@ describe('DB', () => {
             }, {
                 id: 'str',
                 type: DataType.text,
+            }, {
+                id: 'otherStr',
+                type: DataType.text,
             }],
         });
         return db;
@@ -54,15 +57,48 @@ describe('DB', () => {
     it('can insert and select null', async () => {
         const db = simpleDb();
         await db.query.none(`insert into data(id, str) values ('some id', null)`);
-        let got = await db.query.many('select * from data where id="some id"');
-        expect(got).to.deep.equal([{ id: 'some id', str: null }]);
-        got = await db.query.many('select * from data where str is null');
-        expect(got).to.deep.equal([{ id: 'some id', str: null }]);
+        let got = await db.query.many('select * from data where str is null');
+        expect(trimNullish(got)).to.deep.equal([{ id: 'some id' }]);
         got = await db.query.many('select * from data where str is not null');
         expect(got).to.deep.equal([]);
     });
 
+    it('does not equate null values on seq scan', async () => {
+        const db = simpleDb();
+        await db.query.none(`insert into data(id, str, otherStr) values ('id1', null, null)`);
+        await db.query.none(`insert into data(id, str, otherStr) values ('id2', 'A', 'A')`);
+        await db.query.none(`insert into data(id, str, otherStr) values ('id3', 'A', 'B')`);
+        await db.query.none(`insert into data(id, str, otherStr) values ('id4', null, 'B')`);
+        await db.query.none(`insert into data(id, str, otherStr) values ('id5', 'A', null)`);
+        const got = await db.query.many('select * from data where str = otherStr');
+        expect(got).to.deep.equal([{ id: 'id2', str: 'A', otherStr: 'A' }]);
+    });
 
+    async function setupNulls() {
+        const db = simpleDb()
+        db.getTable('data')
+            .createIndex(['str']);
+        await db.query.none(`insert into data(id, str) values ('id1', null)`);
+        await db.query.none(`insert into data(id, str) values ('id2', 'notnull2')`);
+        await db.query.none(`insert into data(id, str) values ('id3', null)`);
+        await db.query.none(`insert into data(id, str) values ('id4', 'notnull4')`);
+        return db;
+    }
+
+    it('uses indexes for null values', async () => {
+        const db = await setupNulls();
+        preventSeqScan(db);
+        const got = await db.query.many('select * from data where str is null');
+        expect(got).to.deep.equal([{ id: 'id1', str: null }, { id: 'id3', str: null }]);
+    });
+
+
+    it('uses indexes for not null values', async () => {
+        const db = await setupNulls();
+        preventSeqScan(db);
+        const got = await db.query.many('select * from data where str is not null');
+        expect(got).to.deep.equal([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
+    });
 
     it('"IN" clause with constants', async () => {
         const db = simpleDb();

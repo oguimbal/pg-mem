@@ -1,7 +1,7 @@
 import { _ISelection, IValue } from './interfaces-private';
 import { NotSupported, trimNullish } from './utils';
-import { DataType, CastError } from './interfaces';
-import { BoolValue, TextValue } from './datatypes';
+import { DataType, CastError, QueryError } from './interfaces';
+import { BoolValue, TextValue, NullValue, IsNullValue } from './datatypes';
 import hash from 'object-hash';
 
 
@@ -19,6 +19,8 @@ function _buildValue(data: _ISelection, val: any): IValue {
         case 'string':
         case 'single_quote_string':
             return TextValue.constant(val.value);
+        case 'null':
+            return NullValue.constant();
         default:
             throw new NotSupported('condition ' + val.type);
     }
@@ -35,8 +37,7 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
     } else {
         throw new CastError(leftValue.type, rightValue.type);
     }
-    const sql = `${leftValue.id} ${operator} ${rightValue.id}`;
-    const hashed = hash({ left: left.hash, operator, right: right.hash });
+
     let getter: (a: any, b: any) => boolean;
     switch (operator) {
         case '=':
@@ -75,10 +76,18 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
                 getter = (a, b) => a || b;
             }
             break;
+        case 'IS':
+        case 'IS NOT':
+            if (!(rightValue instanceof NullValue)) {
+                throw new NotSupported('Onlys supports IS NULL operator');
+            }
+            return IsNullValue.of(leftValue, operator === 'IS');
         default:
             throw new NotSupported('operator ' + operator);
     }
 
+    const sql = `${leftValue.id} ${operator} ${rightValue.id}`;
+    const hashed = hash({ left: left.hash, operator, right: right.hash });
     return new BoolValue(null
         , sql
         , hashed

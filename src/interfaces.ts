@@ -35,6 +35,7 @@ export interface IQuery {
 
 export type TableEvent = 'seq-scan';
 export interface IMemoryTable {
+    createIndex(expressions: string[]): this;
     on(event: TableEvent, handler: () => any): void;
 
 }

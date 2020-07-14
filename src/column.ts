@@ -1,17 +1,12 @@
 import { DataType, _ISelection, SchemaField, IValue } from './interfaces-private';
-import { ValueCtor, TextValue, TimestampValue } from './datatypes';
+import { TextValue, TimestampValue, allTypes } from './datatypes';
 import { NotSupported } from './utils';
 
 
-type Ctors = { [key in DataType]: ValueCtor };
-const types: Ctors = {
-    [DataType.text]: TextValue,
-    [DataType.timestamp]: TimestampValue,
-} as any;
 
 export class Column {
     constructor(selection: _ISelection, schema: SchemaField) {
-        const ctor = types[schema.type];
+        const ctor = allTypes[schema.type];
         if (!ctor) {
             throw new NotSupported('type ' + schema.type);
         }
