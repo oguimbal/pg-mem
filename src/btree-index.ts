@@ -86,10 +86,10 @@ export class BIndex<T = any> implements _IIndex<T> {
                     ? -1
                     : 1;
             }
-            if (k.equals(a, b)) {
+            if (k.type.equals(a, b)) {
                 continue;
             }
-            return k.gt(a, b)
+            return k.type.gt(a, b)
                 ? 1
                 : -1;
         }

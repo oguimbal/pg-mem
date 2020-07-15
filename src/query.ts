@@ -120,7 +120,7 @@ export class Query implements IQuery {
                 const notConv = buildValue(null, val.value[i]);
                 const col = t.selection.getColumn(columns[i]);
                 if (!notConv.canConvert(col.type)) {
-                    throw new CastError(notConv.type, col.type);
+                    throw new CastError(notConv.type.primary, col.type.primary);
                 }
                 const converted = notConv.convert(col.type);
                 toInsert[columns[i]] = converted.get(null);

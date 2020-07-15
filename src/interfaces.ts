@@ -1,3 +1,5 @@
+
+
 export interface Schema {
     name: string;
     fields: SchemaField[];
@@ -5,19 +7,27 @@ export interface Schema {
 
 export interface SchemaField {
     id: string;
-    type: DataType;
+    type: IType;
     primary?: boolean;
     notNull?: boolean;
 }
 
+export interface IType {
+    /** Data type */
+    readonly primary: DataType;
+    toString(): string;
+}
+
 export enum DataType {
     text = 'text',
+    array = 'array',
     long = 'long',
     double = 'double',
     jsonb = 'jsonb',
     json = 'json',
     blob = 'blob',
     timestamp = 'timestamp',
+    null = 'null',
     bool = 'bool',
 }
 

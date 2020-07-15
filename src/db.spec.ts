@@ -5,6 +5,7 @@ import { DataType, IMemoryDb } from './interfaces';
 import { expect, assert } from 'chai';
 import { trimNullish } from './utils';
 import { Parser } from 'node-sql-parser';
+import { Types } from './datatypes';
 
 describe('DB', () => {
 
@@ -14,14 +15,14 @@ describe('DB', () => {
             name: 'data',
             fields: [{
                 id: 'id',
-                type: DataType.text,
+                type: Types.text,
                 primary: true,
             }, {
                 id: 'str',
-                type: DataType.text,
+                type: Types.text,
             }, {
                 id: 'otherStr',
-                type: DataType.text,
+                type: Types.text,
             }],
         });
         return db;

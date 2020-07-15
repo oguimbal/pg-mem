@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType } from './interfaces';
 
 export * from './interfaces';
 
@@ -53,7 +53,21 @@ export interface _IDb extends IMemoryDb {
     getTable(name: string): _ITable;
 }
 
+export interface _IType<TRaw = any> extends IType {
+    /** Data type */
+    readonly primary: DataType;
+
+    toString(): string;
+    equals(a: TRaw, b: TRaw): boolean;
+    gt(a: TRaw, b: TRaw): boolean;
+    lt(a: TRaw, b: TRaw): boolean;
+    canConvert(to: DataType | _IType<TRaw>): boolean;
+    convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;
+}
+
 export interface IValue<TRaw = any> {
+    readonly type: _IType<TRaw>;
+
     readonly isConstant: boolean;
 
     /** Will be set if there is an index on this value */
@@ -62,8 +76,6 @@ export interface IValue<TRaw = any> {
     /** Originates from this selection */
     readonly selection: _ISelection;
 
-    /** Data type */
-    readonly type: DataType;
 
     /** Column ID, or null */
     readonly id: string;
@@ -74,13 +86,10 @@ export interface IValue<TRaw = any> {
     /** Clean debug reconsitutition of SQL used to parse this value */
     readonly sql: string;
 
-    canConvert(to: DataType): boolean;
-    convert(to: DataType): IValue;
-    equals(a: TRaw, b: TRaw): boolean;
-    gt(a: TRaw, b: TRaw): boolean;
-    lt(a: TRaw, b: TRaw): boolean;
     get(raw: TRaw): any;
     setId(newId: string): IValue;
+    canConvert(to: DataType | _IType): boolean;
+    convert<T = any>(to: DataType | _IType<T>): IValue<T>;
 }
 
 export interface _IIndex<T = any> {

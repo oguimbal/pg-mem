@@ -1,8 +1,9 @@
-import { _ISelection, IValue } from './interfaces-private';
+import { _ISelection, IValue, _IType } from './interfaces-private';
 import { NotSupported, trimNullish } from './utils';
 import { DataType, CastError, QueryError } from './interfaces';
-import { BoolValue, TextValue, NullValue, IsNullValue } from './datatypes';
 import hash from 'object-hash';
+import { Value, Evaluator } from './valuetypes';
+import { Types } from './datatypes';
 
 
 export function buildValue(data: _ISelection, val: any): IValue {
@@ -18,12 +19,12 @@ function _buildValue(data: _ISelection, val: any): IValue {
             return data.getColumn(val.column);
         case 'string':
         case 'single_quote_string':
-            return TextValue.constant(val.value);
+            return Value.text(val.value);
         case 'null':
-            return NullValue.constant();
+            return Value.null();
         case 'expr_list':
             const vals = (val.value as any[]).map(x => _buildValue(data, x));
-            flkdjsf
+            return Value.array(vals);
         default:
             throw new NotSupported('condition ' + val.type);
     }
@@ -33,42 +34,45 @@ function _buildValue(data: _ISelection, val: any): IValue {
 function buildBinary(data: _ISelection, left: any, operator: string, right: any): IValue {
     let leftValue = _buildValue(data, left);
     let rightValue = _buildValue(data, right);
+    let type: _IType;
     if (rightValue.canConvert(leftValue.type)) {
         rightValue = rightValue.convert(leftValue.type);
+        type = leftValue.type;
     } else if (leftValue.canConvert(rightValue.type)) {
         leftValue = leftValue.convert(rightValue.type);
+        type = rightValue.type;
     } else {
-        throw new CastError(leftValue.type, rightValue.type);
+        throw new CastError(leftValue.type.primary, rightValue.type.primary);
     }
 
     let getter: (a: any, b: any) => boolean;
     switch (operator) {
         case '=':
-            getter = (a, b) => leftValue.equals(a, b);
+            getter = (a, b) => type.equals(a, b);
             break;
         case '!=':
         case '<>': // ?
-            getter = (a, b) => !leftValue.equals(a, b);
+            getter = (a, b) => !type.equals(a, b);
             break;
         case '>':
-            getter = (a, b) => leftValue.gt(a, b);
+            getter = (a, b) => type.gt(a, b);
             break;
         case '<':
-            getter = (a, b) => leftValue.lt(a, b);
+            getter = (a, b) => type.lt(a, b);
             break;
         case '>=':
-            getter = (a, b) => leftValue.gt(a, b) || leftValue.equals(a, b);
+            getter = (a, b) => type.gt(a, b) || type.equals(a, b);
             break;
         case '<=':
-            getter = (a, b) => leftValue.lt(a, b) || leftValue.equals(a, b);
+            getter = (a, b) => type.lt(a, b) || type.equals(a, b);
             break;
         case 'AND':
         case 'OR':
             if (!leftValue.canConvert(DataType.bool)) {
-                throw new CastError(leftValue.type, DataType.bool);
+                throw new CastError(leftValue.type.primary, DataType.bool);
             }
             if (!rightValue.canConvert(DataType.bool)) {
-                throw new CastError(rightValue.type, DataType.bool);
+                throw new CastError(rightValue.type.primary, DataType.bool);
             }
             leftValue = leftValue.convert(DataType.bool);
             rightValue = rightValue.convert(DataType.bool);
@@ -81,17 +85,19 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
             break;
         case 'IS':
         case 'IS NOT':
-            if (!(rightValue instanceof NullValue)) {
+            if (rightValue.type !== Types.null) {
                 throw new NotSupported('Onlys supports IS NULL operator');
             }
-            return IsNullValue.of(leftValue, operator === 'IS');
+            return Value.isNull(leftValue, operator === 'IS');
         default:
             throw new NotSupported('operator ' + operator);
     }
 
     const sql = `${leftValue.id} ${operator} ${rightValue.id}`;
     const hashed = hash({ left: left.hash, operator, right: right.hash });
-    return new BoolValue(null
+    return new Evaluator(
+        Types.bool
+        , null
         , sql
         , hashed
         , data

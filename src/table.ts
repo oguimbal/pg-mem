@@ -4,7 +4,6 @@ import { buildValue } from './predicate';
 import { Parser } from 'node-sql-parser';
 import { BIndex } from './btree-index';
 import { Selection } from './filters/selection';
-import { IsNullValue } from './datatypes';
 
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
@@ -102,7 +101,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         // create the query index
         this.addIndex(index, keys);
         // create the null index
-        // this.addIndex(index, keys.map(x => IsNullValue.of(x)), true);
+        // this.addIndex(index, keys.map(x => Values.isNull(x)), true);
 
 
         for (const e of this.all.values()) {

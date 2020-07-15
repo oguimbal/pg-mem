@@ -1,15 +1,15 @@
-import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource, setId, getId } from '../interfaces-private';
+import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource, setId, getId, _IType } from '../interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema } from '../interfaces';
 import { buildValue } from '../predicate';
 import { trimNullish, NotSupported } from '../utils';
 import { EqFilter } from './eq-filter';
-import { BoolValue, NullValue, IsNullValue } from '../datatypes';
 import { FalseFilter } from './false-filter';
 import { buildAndFilter } from './and-filter';
 import { OrFilter } from './or-filter';
 import { SeqScanFilter } from './seq-scan';
-import { Column } from '../column';
 import { NeqFilter } from './neq-filter';
+import { Types } from '../datatypes';
+import { Value, Evaluator } from '../valuetypes';
 
 export function buildSelection(on: _ISelection, select: any[] | '*') {
     if (select === '*') {
@@ -51,10 +51,17 @@ export class Selection<T> implements _ISelection<T> {
             this.selPrefix = 's' + (selCnt++);
         } else {
             this.selPrefix = '';
-            for (const col of what.fields) {
-                const newCol = new Column(this, col);
-                this.columns.push(newCol.value);
-                this.columnsById[newCol.value.id] = newCol.value;
+            for (const _col of what.fields) {
+                const col = _col;
+                const newCol = new Evaluator(
+                    col.type as _IType
+                    , col.id
+                    , col.id
+                    , col.id
+                    , this
+                    , raw => raw[col.id])
+                this.columns.push(newCol);
+                this.columnsById[newCol.id] = newCol;
             }
         }
     }
@@ -110,10 +117,10 @@ export class Selection<T> implements _ISelection<T> {
                 throw new Error('Was not expecing multiples expressions filter');
             }
             const itype = built.index.expressions[0].type;
-            if (itype !== DataType.bool) {
-                throw new CastError(itype, DataType.bool);
+            if (itype !== Types.bool) {
+                throw new CastError(itype.primary, DataType.bool);
             }
-            return new EqFilter(built, [BoolValue.constant(true)]);
+            return new EqFilter(built, [Value.bool(true)]);
         }
 
         // if this filter is a constant expression (ex: 1 = 1)
@@ -153,7 +160,7 @@ export class Selection<T> implements _ISelection<T> {
             case 'IS':
             case 'IS NOT': {
                 const rightValue = buildValue(this, right);
-                if (!(rightValue instanceof NullValue)) {
+                if (rightValue.type !== Types.null) {
                     throw new NotSupported('only IS NULL is supported');
                 }
                 const leftValue = buildValue(this, left)
@@ -162,7 +169,7 @@ export class Selection<T> implements _ISelection<T> {
                         ? new EqFilter(leftValue, [rightValue])
                         : new NeqFilter(leftValue, [rightValue]);
                 }
-                return new SeqScanFilter(this, IsNullValue.of(leftValue, operator === 'IS'));
+                return new SeqScanFilter(this, Value.isNull(leftValue, operator === 'IS'));
             }
             default:
                 return new SeqScanFilter(this, buildValue(this, filter));
