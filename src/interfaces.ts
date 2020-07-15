@@ -18,11 +18,14 @@ export interface IType {
     toString(): string;
 }
 
+// todo support all types https://www.postgresql.org/docs/9.5/datatype.html
 export enum DataType {
     text = 'text',
     array = 'array',
     long = 'long',
-    double = 'double',
+    float = 'float',
+    decimal = 'decimal',
+    int = 'int',
     jsonb = 'jsonb',
     json = 'json',
     blob = 'blob',
@@ -39,8 +42,8 @@ export interface IMemoryDb {
 }
 
 export interface IQuery {
-    many(query: string): Promise<any[]>;
-    none(query: string): Promise<void>;
+    many(query: string): any[];
+    none(query: string): void;
 }
 
 export type TableEvent = 'seq-scan';

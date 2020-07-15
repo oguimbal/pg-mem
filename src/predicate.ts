@@ -27,6 +27,8 @@ function _buildValue(data: _ISelection, val: any): IValue {
         case 'expr_list':
             const vals = (val.value as any[]).map(x => _buildValue(data, x));
             return Value.array(vals);
+        case 'number':
+            return Value.number(val.value);
         default:
             throw new NotSupported('condition ' + val.type);
     }

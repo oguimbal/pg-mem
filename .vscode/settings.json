@@ -16,6 +16,10 @@
         "package-lock.json": true
     },
     "mochaExplorer.env": {
-        "NOCHECKFULLQUERYUSAGE": "true",
+        // set this to 'true' to disable AST full utilization monitorying.
+        // ... this will not check that the full query is used anymore
+        //  but it is easyier to debug
+        //  ( ⚠ set it back to 'false' once you're done)
+        "NOCHECKFULLQUERYUSAGE": "false",
     }
 }

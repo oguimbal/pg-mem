@@ -162,5 +162,7 @@ interface CreateTable_Def {
 }
 
 interface CreateTable_ColDef {
+    suffix?: any[];
     dataType: string;
+    length?: number;
 }

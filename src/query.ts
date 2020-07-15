@@ -5,24 +5,22 @@ import { NotSupported, trimNullish, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types } from './datatypes';
 
-const typeMap: {[key: string]: IType } = {
-    'TEXT': Types.text,
-}
+
 
 export class Query implements IQuery {
 
     constructor(private db: _IDb) {
     }
 
-    async none(query: string): Promise<void> {
-        await this._query(query);
+    none(query: string): void {
+        this._query(query);
     }
 
-    many(query: string): Promise<any[]> {
+    many(query: string): any[] {
         return this._query(query);
     }
 
-    private async _query(query: string): Promise<any[]> {
+    private _query(query: string): any[] {
         const parser = new Parser();
         let parsed = parser.astify(query, {
             database: 'PostgresQL',
@@ -80,15 +78,32 @@ export class Query implements IQuery {
                                 default:
                                     throw new NotSupported(f.unique_or_primary);
                             }
-                            const type: IType = typeMap[f.definition.dataType];
-                            if (!type) {
-                                throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
+
+                            const type: IType = (() => {
+                                switch (f.definition.dataType) {
+                                    case 'TEXT':
+                                    case 'VARCHAR':
+                                        return Types.text(f.definition.length);
+                                    case 'INT':
+                                    case 'INTEGER':
+                                        return Types.int;
+                                    case 'DECIMAL':
+                                    case 'FLOAT':
+                                        return Types.float;
+                                    default:
+                                        throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
+                                }
+                            })();
+
+                            if (f.definition.suffix?.length) {
+                                throw new NotSupported('column suffix');
                             }
+
                             return {
                                 id: f.column.column,
                                 type,
                                 primary,
-                        }
+                            }
                         })
                 });
                 return null;
@@ -156,9 +171,6 @@ export class Query implements IQuery {
             for (let i = 0; i < val.value.length; i++) {
                 const notConv = buildValue(null, val.value[i]);
                 const col = t.selection.getColumn(columns[i]);
-                if (!notConv.canConvert(col.type)) {
-                    throw new CastError(notConv.type.primary, col.type.primary);
-                }
                 const converted = notConv.convert(col.type);
                 toInsert[columns[i]] = converted.get(null);
             }

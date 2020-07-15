@@ -1,18 +1,27 @@
 import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
-import { DataType, CastError, IType } from './interfaces';
+import { DataType, CastError, IType, QueryError } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
 import { NotSupported } from './utils';
 import { Evaluator, Value } from './valuetypes';
+import { Query } from './query';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
     abstract primary: DataType;
     doConvert?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any>;
     doCanConvert?(to: _IType<TRaw>): boolean;
-    abstract doEquals(a: TRaw, b: TRaw): boolean;
-    abstract doGt(a: TRaw, b: TRaw): boolean;
-    abstract doLt(a: TRaw, b: TRaw): boolean;
+    doEquals(a: any, b: any): boolean {
+        return a === b;
+    }
+
+    doGt(a: any, b: any): boolean {
+        return a > b;
+    }
+
+    doLt(a: any, b: any): boolean {
+        return a < b;
+    }
     toString(): string {
         throw new Error('Method not implemented.');
     }
@@ -115,6 +124,48 @@ class NullType extends TypeBase<null> {
     }
 }
 
+const integers = new Set([DataType.int, DataType.long]);
+const numbers = new Set([DataType.int, DataType.long, DataType.decimal, DataType.float]);
+class NumberType extends TypeBase<number> {
+    constructor(readonly primary: DataType) {
+        super();
+    }
+
+    canConvert(to: _IType) {
+        switch (to.primary) {
+            case DataType.int:
+            case DataType.long:
+            case DataType.float:
+            case DataType.decimal:
+                return true;
+            default:
+                return false;
+        }
+    }
+    doConvert(value: Evaluator<any>, to: _IType): Evaluator<any> {
+        if (!integers.has(value.type.primary) && integers.has(to.primary)) {
+            return new Evaluator(to
+                , value.id
+                , value.sql
+                , value.hash
+                , value.selection
+                , raw => {
+                    const got = value.get(raw);
+                    return typeof got === 'number'
+                        ? Math.round(got)
+                        : got;
+                }
+            );
+        }
+        return new Evaluator(to
+            , value.id
+            , value.sql
+            , value.hash
+            , value.selection
+            , value.val
+        );
+    }
+}
 
 class TextType extends TypeBase<string> {
 
@@ -122,8 +173,20 @@ class TextType extends TypeBase<string> {
         return DataType.text;
     }
 
+    constructor(private len: number | null) {
+        super();
+    }
+
     doCanConvert(to: _IType): boolean {
-        return to.primary === DataType.timestamp;
+        switch (to.primary) {
+            case DataType.timestamp:
+                return true;
+            case DataType.text:
+                return true;
+        }
+        if (numbers.has(to.primary)) {
+            return true;
+        }
     }
 
     doConvert(value: Evaluator<string>, to: _IType) {
@@ -133,36 +196,48 @@ class TextType extends TypeBase<string> {
                     const got = value.get(raw);
                     return moment(got);
                 });
+            case DataType.text:
+                const fromStr = to as TextType;
+                const toStr = to as TextType;
+                if (toStr.len === null || fromStr.len < toStr.len) {
+                    // no need to truncate
+                    return value.setType(to);
+                }
+                return value
+                    .setType(toStr)
+                    .setValue(raw => {
+                        const str: string = value.get(raw);
+                        if (str.length > toStr.len) {
+                            throw new QueryError(`value too long for type character varying(${toStr.len})`);
+                        }
+                        return str;
+                    });
         }
-    }
-
-    doEquals(a: any, b: any): boolean {
-        return a === b;
-    }
-
-    doGt(a: any, b: any): boolean {
-        return a > b;
-    }
-
-    doLt(a: any, b: any): boolean {
-        return a < b;
+        if (numbers.has(to.primary)) {
+            const isInt = integers.has(to.primary);
+            return value
+                .setType(to)
+                .setValue(raw => {
+                    const str: string = value.get(raw);
+                    if (str === null || str === undefined) {
+                        return null;
+                    }
+                    const val = Number.parseFloat(str);
+                    if (!Number.isFinite(val)) {
+                        throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`);
+                    }
+                    if (isInt && Math.floor(val) !== val) {
+                        throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`)
+                    }
+                    return val;
+                })
+        }
     }
 }
 
 class BoolType extends TypeBase<boolean> {
     get primary(): DataType {
         return DataType.bool;
-    }
-
-    doEquals(a: any, b: any): boolean {
-        return a === b;
-    }
-
-    doGt(a: any, b: any): boolean {
-        return a < b;
-    }
-    doLt(a: any, b: any): boolean {
-        return a < b;
     }
 }
 
@@ -171,7 +246,7 @@ export class ArrayType extends TypeBase<any[]> {
         return DataType.array;
     }
 
-    constructor(readonly of: _IType)  {
+    constructor(readonly of: _IType) {
         super();
     }
 
@@ -238,14 +313,27 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
     return to;
 }
 
-type Ctors = {
-    [key in DataType]?: _IType;
-};
-export const Types: Ctors = {
+// type Ctors = {
+//     [key in DataType]?: _IType;
+// };
+export const Types = { // : Ctors
     [DataType.bool]: new BoolType(),
-    [DataType.text]: new TextType(),
+    [DataType.text]: (len = null) => makeText(len),
     [DataType.timestamp]: new TimestampType(),
     [DataType.null]: new NullType(),
+    [DataType.float]: new NumberType(DataType.float),
+    [DataType.int]: new NumberType(DataType.int),
+    [DataType.long]: new NumberType(DataType.long),
+}
+
+const texts = new Map<number, _IType>();
+export function makeText(len: number = null) {
+    len = len ?? null;
+    let got = texts.get(len);
+    if (!got) {
+        texts.set(len, got = new TextType(len));
+    }
+    return got;
 }
 
 const arrays = new Map<_IType, _IType>();

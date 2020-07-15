@@ -16,6 +16,49 @@ export class Evaluator<T = any> implements IValue<T> {
         , public val: T | ((raw: any) => T)) {
     }
 
+    setType(type: _IType) {
+        if (this.type === type) {
+            return this;
+        }
+        return new Evaluator<T>(
+            type
+            , this.id
+            , this.sql
+            , this.hash
+            , this.selection
+            , this.val
+        );
+    }
+
+
+    setValue(val: (T | ((raw: any) => any))) {
+        if (this.val === val) {
+            return this;
+        }
+        return new Evaluator<T>(
+            this.type
+            , this.id
+            , this.sql
+            , this.hash
+            , this.selection
+            , val
+        ).asConstant(this.isConstant);
+    }
+
+    setId(newId: string): IValue {
+        if (this.id === newId) {
+            return this;
+        }
+        return new Evaluator<T>(
+            this.type
+            , newId
+            , this.sql
+            , this.hash
+            , this.selection
+            , this.val
+        );
+    }
+
     get index() {
         return this.selection?.getIndex(this);
     }
@@ -41,21 +84,6 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.hash
             , this.selection
             , this.get(null));
-    }
-
-
-    setId(newId: string): IValue {
-        if (this.id === newId) {
-            return this;
-        }
-        return new Evaluator<T>(
-            this.type
-            , newId
-            , this.sql
-            , this.hash
-            , this.selection
-            , this.val
-        );
     }
 
     canConvert(to: DataType | _IType<T>): boolean {
@@ -134,12 +162,21 @@ export const Value = {
     null(): IValue {
         return new Evaluator(Types.null, null, 'null', 'null', null, null);
     },
-    text(value: string) {
+    text(value: string, length: number = null) {
         return new Evaluator(
-            Types.text
+            Types.text(length)
             , null
             , `[${value}]`
             , value
+            , null
+            , value);
+    },
+    number(value: number, type = Types.float) {
+        return new Evaluator(
+            type
+            , null
+            , `[${value}]`
+            , value.toString(10)
             , null
             , value);
     },

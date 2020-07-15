@@ -199,7 +199,12 @@ export class Selection<T> implements _ISelection<T> {
         let rightValue = buildValue(this, right);
 
         if (leftValue.isConstant && rightValue.isConstant) {
-            throw new Error('Was not expecting constants on both sides of comparison');
+            const global = buildValue(this, filter);
+            const got = global.get(null);
+            if (got) {
+                return this;
+            }
+            return new FalseFilter(this);
         }
 
         if (operator === '=' || operator === '!=' || operator === '<>') {

@@ -1,4 +1,5 @@
 import moment from 'moment';
+import { Stack } from 'immutable';
 
 export class NotSupported extends Error {
     constructor(what?: string) {
@@ -32,15 +33,15 @@ export function trimNullish<T>(value: T, depth = 5): T {
 }
 
 
-export function watchUse<T>(value: T): T & { check?(); } {
-    if (!value || globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE']) {
+export function watchUse<T>(value: T, stack: Stack<string> = Stack()): T & { check?(); } {
+    if (!value || globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
         return value;
     }
     if (typeof value !== 'object') {
         throw new NotSupported();
     }
     const ret = {};
-    const toUse = new Set<string>();
+    const toUse = new Map<string, any>();
     const watchables: { check(); }[] = [];
     for (const [k, _v] of Object.entries(value)) {
         let v = _v;
@@ -48,7 +49,7 @@ export function watchUse<T>(value: T): T & { check?(); } {
             const trans = [];
             for (const x of v) {
                 if (typeof x === 'object' && x) {
-                    const w = watchUse(x);
+                    const w = watchUse(x, stack.push(`[${trans.length}]`));
                     watchables.push(w);
                     trans.push(w);
                 } else {
@@ -57,13 +58,13 @@ export function watchUse<T>(value: T): T & { check?(); } {
             }
             v = trans;
         } else if (typeof v === 'object' && v) {
-            v = watchUse(v);
+            v = watchUse(v, stack.push('.' + k));
             watchables.push(v);
         }
         if (v === null || v === undefined) {
             continue;
         }
-        toUse.add(k);
+        toUse.set(k, v);
         Object.defineProperty(ret, k, {
             get() {
                 toUse.delete(k);
@@ -74,7 +75,10 @@ export function watchUse<T>(value: T): T & { check?(); } {
     }
     ret['check'] = function () {
         if (toUse.size) {
-            throw new NotSupported('query parts ' + [...toUse].join(', '));
+            const st = stack.join('');
+            throw new NotSupported('query parts ' + [...toUse.entries()]
+                .map(([k, v]) => st + '.' + k + ' (' + JSON.stringify(v) + ')')
+                .join(', '));
         }
         for (const w of watchables) {
             w?.check();
