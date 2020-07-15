@@ -98,15 +98,55 @@ describe('DB', () => {
         const db = await setupNulls();
         preventSeqScan(db);
         const got = await db.query.many('select * from data where str is not null');
-        expect(got).to.deep.equal([{ id: 'id4', str: 'notnull4' }, { id: 'id2', str: 'notnull2' }]);
+        expect(got).to.deep.equal([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
     });
 
-    it('"IN" clause with constants', async () => {
+    it('"IN" clause with constants and no index', async () => {
         const db = simpleDb();
         await db.query.none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3')`);
         const got = await db.query.many(`select * from data where str in ('str1', 'str3')`);
-        expect(got).to.deep.equal([{ id: 'id1', str: 'str1' }, { id: 'id3', str: 'str3' }]);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'id1', str: 'str1' }, { id: 'id3', str: 'str3' }]);
     });
+
+    it('"IN" clause with constants index', async () => {
+        const db = simpleDb();
+        db.getTable('data').createIndex(['str']);
+        preventSeqScan(db);
+        await db.query.none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3')`);
+        const got = await db.query.many(`select * from data where str in ('str1', 'str3')`);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'id1', str: 'str1' }, { id: 'id3', str: 'str3' }]);
+    });
+
+    it('"IN" clause with no constant', async () => {
+        const db = simpleDb();
+        await db.query.none(`insert into data(id, str, otherStr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')`);
+        const got = await db.query.many(`select * from data where id in (str, otherStr)`);
+        expect(got.map(x => x.id)).to.deep.equal(['A', 'C']);
+    });
+
+    it('"IN" clause with constant value', async () => {
+        const db = simpleDb();
+        await db.query.none("insert into data(id, str, otherStr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')");
+        const got = await db.query.many(`select * from data where 'A' in (str, otherStr)`);
+        expect(got.map(x => x.id)).to.deep.equal(['A', 'C']);
+    });
+
+    it('"NOT IN" clause with constants and no index', async () => {
+        const db = simpleDb();
+        await db.query.none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3'), ('id4', 'str4')`);
+        const got = await db.query.many(`select * from data where str not in ('str1', 'str3')`);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'id2', str: 'str2' }, { id: 'id4', str: 'str4' }]);
+    });
+
+    it('"NOT IN" clause with constants index', async () => {
+        const db = simpleDb();
+        db.getTable('data').createIndex(['str']);
+        preventSeqScan(db);
+        await db.query.none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3'), ('id4', 'str4')`);
+        const got = await db.query.many(`select * from data where str not in ('str1', 'str3')`);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'id2', str: 'str2' }, { id: 'id4', str: 'str4' }]);
+    });
+
 
     it('AND query', async () => {
         const db = simpleDb();

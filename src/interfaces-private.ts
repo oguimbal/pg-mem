@@ -92,6 +92,7 @@ export interface IValue<TRaw = any> {
     convert<T = any>(to: DataType | _IType<T>): IValue<T>;
 }
 
+export type IndexKey = any[];
 export interface _IIndex<T = any> {
     /** How many items in this index */
     readonly size: number;
@@ -103,15 +104,17 @@ export interface _IIndex<T = any> {
     add(raw: T): void;
 
     /** Get values equating the given key */
-    eq(rawKey: any[]): Iterable<T>;
+    eq(rawKey: IndexKey): Iterable<T>;
+    /** Get all values that are NOT  equating any of the given keys */
+    nin(rawKey: IndexKey[]): Iterable<T>;
     /** Get values NOT equating the given key */
-    neq(rawKey: any[]): Iterable<T>;
+    neq(rawKey: IndexKey): Iterable<T>;
     /** Get greater the given key */
-    gt(rawKey: any[]): Iterable<T>;
+    gt(rawKey: IndexKey): Iterable<T>;
     /** Get lower the given key */
-    lt(rawKey: any[]): Iterable<T>;
+    lt(rawKey: IndexKey): Iterable<T>;
     /** Get greater or equal the given key */
-    ge(rawKey: any[]): Iterable<T>;
+    ge(rawKey: IndexKey): Iterable<T>;
     /** Get lower or equal the given key */
-    le(rawKey: any[]): Iterable<T>;
+    le(rawKey: IndexKey): Iterable<T>;
 }

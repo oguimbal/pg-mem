@@ -4,6 +4,7 @@ import { DataType, CastError, QueryError } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types } from './datatypes';
+import { Query } from './query';
 
 
 export function buildValue(data: _ISelection, val: any): IValue {
@@ -14,6 +15,9 @@ export function buildValue(data: _ISelection, val: any): IValue {
 function _buildValue(data: _ISelection, val: any): IValue {
     switch (val.type) {
         case 'binary_expr':
+            if (val.operator === 'IN' || val.operator === 'NOT IN') {
+                return buildIn(data, val.left, val.right, val.operator === 'IN');
+            }
             return buildBinary(data, val.left, val.operator, val.right);
         case 'column_ref':
             return data.getColumn(val.column);
@@ -30,6 +34,11 @@ function _buildValue(data: _ISelection, val: any): IValue {
     }
 }
 
+function buildIn(data: _ISelection, left: any, array: any, inclusive: boolean): IValue {
+    let leftValue = _buildValue(data, left);
+    let rightValue = _buildValue(data, array);
+    return Value.in(leftValue, rightValue, inclusive);
+}
 
 function buildBinary(data: _ISelection, left: any, operator: string, right: any): IValue {
     let leftValue = _buildValue(data, left);

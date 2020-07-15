@@ -1,7 +1,7 @@
-import { IValue, _IIndex, _ITable, getId } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
 
-type IndexKey = any[];
+
 // https://www.npmjs.com/package/functional-red-black-tree
 interface BTree<T> {
     readonly keys: Iterable<IndexKey>;
@@ -73,7 +73,7 @@ export class BIndex<T = any> implements _IIndex<T> {
         });
     }
 
-    private compare(_a: any, _b: any) {
+    compare(_a: any, _b: any) {
         for (let i = 0; i < this.expressions.length; i++) {
             const k = this.expressions[i];
             const a = _a[i];
@@ -148,6 +148,31 @@ export class BIndex<T = any> implements _IIndex<T> {
         }
     }
 
+    *nin(rawKey: IndexKey[]): Iterable<T> {
+        rawKey.sort((a, b) => this.compare(a, b));
+        const kit = rawKey[Symbol.iterator]();
+        let cur = kit.next();
+        let it = this.asBinary.begin;
+        while (!cur.done) {
+            // yield previous
+            while (it.valid && this.compare(it.key, cur.value) < 0) {
+                yield* it.value.values();
+                it.next();
+            }
+            // skip equals
+            if (this.compare(it.key, cur.value) === 0) {
+                it = this.asBinary.gt(cur.value);
+            }
+            cur = kit.next();
+        }
+
+        // finish
+        while (it.valid) {
+            yield* it.value.values();
+            it.next();
+        }
+    }
+
 
     *neq(key: IndexKey): Iterable<T> {
         // yield before
@@ -157,10 +182,10 @@ export class BIndex<T = any> implements _IIndex<T> {
             it.next();
         }
         // yield after
-        it = this.asBinary.end
-        while (it.valid && this.compare(it.key, key) > 0) {
+        it = this.asBinary.gt(key);
+        while (it.valid) {
             yield* it.value.values();
-            it.prev();
+            it.next();
         }
     }
 

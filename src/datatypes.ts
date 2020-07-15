@@ -166,13 +166,32 @@ class BoolType extends TypeBase<boolean> {
     }
 }
 
-class ArrayType extends TypeBase<any[]> {
+export class ArrayType extends TypeBase<any[]> {
     get primary(): DataType {
         return DataType.array;
     }
 
     constructor(readonly of: _IType)  {
         super();
+    }
+
+    doCanConvert(to: _IType) {
+        return to instanceof ArrayType
+            && to.canConvert(this.of);
+    }
+
+    doConvert(value: IValue, _to: _IType) {
+        const to = _to as ArrayType;
+        const valueType = value.type as ArrayType;
+        return new Evaluator(to
+            , value.id
+            , value.sql
+            , value.hash
+            , value.selection
+            , raw => {
+                const arr = value.get(raw) as any[];
+                return arr.map(x => Value.constant(x, valueType.of).convert(to.of).get(raw));
+            });
     }
 
     doEquals(a: any[], b: any[]): boolean {
@@ -231,7 +250,7 @@ export const Types: Ctors = {
 
 const arrays = new Map<_IType, _IType>();
 
-export function MakeArray(of: _IType): IType {
+export function makeArray(of: _IType): _IType {
     let got = arrays.get(of);
     if (got) {
         return got;

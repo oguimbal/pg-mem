@@ -8,8 +8,10 @@ import { buildAndFilter } from './and-filter';
 import { OrFilter } from './or-filter';
 import { SeqScanFilter } from './seq-scan';
 import { NeqFilter } from './neq-filter';
-import { Types } from '../datatypes';
+import { Types, makeArray } from '../datatypes';
 import { Value, Evaluator } from '../valuetypes';
+import { InFilter } from './in-filter';
+import { NotInFilter } from './not-in-filter';
 
 export function buildSelection(on: _ISelection, select: any[] | '*') {
     if (select === '*') {
@@ -163,7 +165,7 @@ export class Selection<T> implements _ISelection<T> {
                 if (rightValue.type !== Types.null) {
                     throw new NotSupported('only IS NULL is supported');
                 }
-                const leftValue = buildValue(this, left)
+                const leftValue = buildValue(this, left);
                 if (leftValue.index) {
                     return operator === 'IS'
                         ? new EqFilter(leftValue, [rightValue])
@@ -171,6 +173,19 @@ export class Selection<T> implements _ISelection<T> {
                 }
                 return new SeqScanFilter(this, Value.isNull(leftValue, operator === 'IS'));
             }
+            case 'IN':
+            case 'NOT IN':
+                const value = buildValue(this, left);
+                const array = buildValue(this, right).convert(makeArray(value.type));
+                // only support scanning indexes with one expression
+                if (array.isConstant && value.index?.expressions.length === 1) {
+                    return operator === 'IN'
+                        ? new InFilter(value, array)
+                        : new NotInFilter(value, array);
+                }
+                // todo use indexes on queries like "WHERE 'whatever' in (indexedOne, indexedTwo)"
+                //   => this is an OrFilter
+                return new SeqScanFilter(this, Value.in(value, array, operator === 'IN'));
             default:
                 return new SeqScanFilter(this, buildValue(this, filter));
         }
