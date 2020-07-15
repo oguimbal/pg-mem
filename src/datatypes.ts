@@ -2,7 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
-import { NotSupported } from './utils';
+import { NotSupported, deepEqual, deepCompare } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { Query } from './query';
 
@@ -79,7 +79,52 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 }
 
 
-class TimestampType extends TypeBase<moment.Moment> {
+class JSONBType extends TypeBase<any> {
+    constructor(readonly primary: DataType) {
+        super();
+    }
+
+    doCanConvert(_to: _IType): boolean {
+        switch (_to.primary) {
+            case DataType.text:
+            case DataType.json:
+            case DataType.jsonb:
+                return true;
+        }
+    }
+
+    doConvert(a: Evaluator, to: _IType): Evaluator {
+        if (to.primary === DataType.json) {
+            return a
+                .setType(Types.text())
+                .setValue(raw => {
+                    const json = a.get(raw);
+                    if (json === null || json === undefined) {
+                        return null;
+                    }
+                    return JSON.stringify(json);
+                })
+                .convert(to) as Evaluator; // <== might need truncation
+        }
+
+        // json
+        return a.setType(to);
+    }
+
+    doEquals(a: any, b: any): boolean {
+        return deepEqual(a, b, false);
+    }
+
+    doGt(a: any, b: any): boolean {
+        return deepCompare(a, b) > 0;
+    }
+
+    doLt(a: any, b: any): boolean {
+        return deepCompare(a, b) < 0;
+    }
+}
+
+class TimestampType extends TypeBase<Date> {
 
     get primary(): DataType {
         return DataType.timestamp;
@@ -183,6 +228,9 @@ class TextType extends TypeBase<string> {
                 return true;
             case DataType.text:
                 return true;
+            case DataType.jsonb:
+            case DataType.json:
+                return true;
         }
         if (numbers.has(to.primary)) {
             return true;
@@ -194,8 +242,19 @@ class TextType extends TypeBase<string> {
             case DataType.timestamp:
                 return new Evaluator(Types.timestamp, value.id, value.sql, value.hash, value.selection, raw => {
                     const got = value.get(raw);
-                    return moment(got);
+                    return moment(got).toDate();
                 });
+            case DataType.json:
+            case DataType.jsonb:
+                return value
+                    .setType(to)
+                    .setValue(raw => {
+                        const str: string = value.get(raw);
+                        if (str === null || str === undefined) {
+                            return str;
+                        }
+                        return JSON.parse(str);
+                    })
             case DataType.text:
                 const fromStr = to as TextType;
                 const toStr = to as TextType;
@@ -207,7 +266,10 @@ class TextType extends TypeBase<string> {
                     .setType(toStr)
                     .setValue(raw => {
                         const str: string = value.get(raw);
-                        if (str.length > toStr.len) {
+                        if (str === null || str === undefined) {
+                            return str;
+                        }
+                        if (str?.length > toStr.len) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
                         return str;
@@ -320,6 +382,8 @@ export const Types = { // : Ctors
     [DataType.bool]: new BoolType(),
     [DataType.text]: (len = null) => makeText(len),
     [DataType.timestamp]: new TimestampType(),
+    [DataType.jsonb]: new JSONBType(DataType.jsonb),
+    [DataType.json]: new JSONBType(DataType.json),
     [DataType.null]: new NullType(),
     [DataType.float]: new NumberType(DataType.float),
     [DataType.int]: new NumberType(DataType.int),

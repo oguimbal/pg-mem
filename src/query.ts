@@ -90,6 +90,12 @@ export class Query implements IQuery {
                                     case 'DECIMAL':
                                     case 'FLOAT':
                                         return Types.float;
+                                    case 'TIMESTAMP':
+                                        return Types.timestamp;
+                                    case 'JSON':
+                                        return Types.json;
+                                    case 'JSONB':
+                                        return Types.jsonb;
                                     default:
                                         throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
                                 }
