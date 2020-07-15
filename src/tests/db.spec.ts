@@ -1,11 +1,10 @@
 import 'mocha';
 import 'chai';
-import { newDb } from './db';
-import { DataType, IMemoryDb } from './interfaces';
+import { newDb } from '../db';
+import { IMemoryDb } from '../interfaces';
 import { expect, assert } from 'chai';
-import { trimNullish } from './utils';
-import { Parser } from 'node-sql-parser';
-import { Types } from './datatypes';
+import { trimNullish } from '../utils';
+import { Types } from '../datatypes';
 
 describe('DB', () => {
 

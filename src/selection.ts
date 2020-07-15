@@ -1,17 +1,17 @@
-import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource, setId, getId, _IType } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema } from '../interfaces';
-import { buildValue } from '../predicate';
-import { trimNullish, NotSupported } from '../utils';
-import { EqFilter } from './eq-filter';
-import { FalseFilter } from './false-filter';
-import { buildAndFilter } from './and-filter';
-import { OrFilter } from './or-filter';
-import { SeqScanFilter } from './seq-scan';
-import { NeqFilter } from './neq-filter';
-import { Types, makeArray } from '../datatypes';
-import { Value, Evaluator } from '../valuetypes';
-import { InFilter } from './in-filter';
-import { NotInFilter } from './not-in-filter';
+import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource, setId, getId, _IType } from './interfaces-private';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema } from './interfaces';
+import { buildValue } from './predicate';
+import { trimNullish, NotSupported } from './utils';
+import { EqFilter } from './filters/eq-filter';
+import { FalseFilter } from './filters/false-filter';
+import { buildAndFilter } from './filters/and-filter';
+import { OrFilter } from './filters/or-filter';
+import { SeqScanFilter } from './filters/seq-scan';
+import { NeqFilter } from './filters/neq-filter';
+import { Types, makeArray } from './datatypes';
+import { Value, Evaluator } from './valuetypes';
+import { InFilter } from './filters/in-filter';
+import { NotInFilter } from './filters/not-in-filter';
 
 export function buildSelection(on: _ISelection, select: any[] | '*') {
     if (select === '*') {

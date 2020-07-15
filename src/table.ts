@@ -3,7 +3,7 @@ import { _ISelection, IValue, _ITable, setId, getId } from './interfaces-private
 import { buildValue } from './predicate';
 import { Parser } from 'node-sql-parser';
 import { BIndex } from './btree-index';
-import { Selection } from './filters/selection';
+import { Selection } from './selection';
 
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 

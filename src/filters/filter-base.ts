@@ -1,6 +1,6 @@
 import { _ISelection, IValue, BuildState, _IIndex } from '../interfaces-private';
 import { NotSupported } from '../utils';
-import { buildSelection } from './selection';
+import { buildSelection } from '../selection';
 
 export abstract class FilterBase<T> implements _ISelection<T> {
 
