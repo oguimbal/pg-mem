@@ -1,8 +1,13 @@
 import { Parser, Insert_Replace, Update, Select } from 'node-sql-parser';
-import { IQuery, TableNotFound, QueryError, CastError } from './interfaces';
-import { _IDb } from './interfaces-private';
-import { NotSupported, trimNullish } from './utils';
+import { IQuery, TableNotFound, QueryError, CastError, SchemaField, DataType, IType } from './interfaces';
+import { _IDb, AST2, CreateTable } from './interfaces-private';
+import { NotSupported, trimNullish, watchUse } from './utils';
 import { buildValue } from './predicate';
+import { Types } from './datatypes';
+
+const typeMap: {[key: string]: IType } = {
+    'TEXT': Types.text,
+}
 
 export class Query implements IQuery {
 
@@ -21,12 +26,13 @@ export class Query implements IQuery {
         const parser = new Parser();
         let parsed = parser.astify(query, {
             database: 'PostgresQL',
-        });
+        }) as AST2 | AST2[];
         if (!Array.isArray(parsed)) {
             parsed = [parsed];
         }
         let last;
-        for (const p of parsed) {
+        for (const _p of parsed) {
+            const p = watchUse(_p);
             switch (p.type) {
                 case 'insert':
                     last = this.executeInsert(p);
@@ -37,24 +43,69 @@ export class Query implements IQuery {
                 case 'select':
                     last = this.executeSelect(p);
                     break;
+                case 'create':
+                    last = this.executeCreate(p);
+                    break;
                 default:
                     throw new NotSupported();
             }
+            p.check?.();
         }
         return last;
+    }
+
+    executeCreate(p: CreateTable): any {
+        switch (p.keyword) {
+            case 'table':
+                // get creation parameters
+                const [{ table }] = p.table;
+                const def = p.create_definitions;
+
+                // perform creation
+                this.db.declareTable({
+                    name: table,
+                    fields: def.filter(f => f.resource === 'column')
+                        .map<SchemaField>(f => {
+                            if (f.column.type !== 'column_ref') {
+                                throw new NotSupported(f.column.type);
+                            }
+                            let primary = false;
+                            switch (f.unique_or_primary) {
+                                case 'primary key':
+                                    primary = true;
+                                    break;
+                                case null:
+                                case undefined:
+                                    break;
+                                default:
+                                    throw new NotSupported(f.unique_or_primary);
+                            }
+                            const type: IType = typeMap[f.definition.dataType];
+                            if (!type) {
+                                throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
+                            }
+                            return {
+                                id: f.column.column,
+                                type,
+                                primary,
+                        }
+                        })
+                });
+                return null;
+            default:
+                throw new NotSupported('create ' + p.keyword);
+        }
+        throw new Error('Method not implemented.');
     }
 
     executeSelect(p: Select): any[] {
         if (p.type !== 'select') {
             throw new NotSupported();
         }
-        delete p.type;
-        p = trimNullish(p);
         if (p.from?.length !== 1) {
             throw new NotSupported();
         }
         const [from] = p.from;
-        delete p.from;
         if (!('table' in from) || !from.table) {
             throw new NotSupported();
         }
@@ -62,11 +113,6 @@ export class Query implements IQuery {
             .selection
             .filter(p.where)
             .select(p.columns);
-        delete p.where;
-        delete p.columns;
-        if (Object.keys(p).length) {
-            throw new NotSupported();
-        }
         return [...t.enumerate()];
     }
 
@@ -78,23 +124,16 @@ export class Query implements IQuery {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }
-        delete p.type;
-        p = trimNullish(p);
         if (p.table?.length !== 1) {
             throw new NotSupported();
         }
 
         // get table to insert into
         let [into] = p.table;
-        delete p.table;
         if (!('table' in into) || !into.table) {
             throw new NotSupported();
         }
         const intoTable = into.table;
-        delete into.table;
-        if (Object.keys(trimNullish(into)).length > 0) {
-            throw new NotSupported();
-        }
         const t = this.db.getTable(intoTable);
         if (!t) {
             throw new TableNotFound(intoTable);
@@ -102,11 +141,9 @@ export class Query implements IQuery {
 
         // get columns to insert into
         const columns: string[] = p.columns ?? t.selection.columns.map(x => x.id);
-        delete p.columns;
 
         // get values to insert
         const values = p.values;
-        delete p.values;
 
         for (const val of values) {
             if (val.type !== 'expr_list') {
@@ -126,10 +163,6 @@ export class Query implements IQuery {
                 toInsert[columns[i]] = converted.get(null);
             }
             t.insert(toInsert);
-        }
-
-        if (Object.keys(p).length) {
-            throw new NotSupported();
         }
     }
 }

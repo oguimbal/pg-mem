@@ -44,9 +44,11 @@ export class Selection<T> implements _ISelection<T> {
                 throw new QueryError('Invalid selection');
             }
             for (const s of what) {
-                debugger;
-                const id = null;  // <== what ? 'as' ?
-                const col = buildValue(this, s).setId(id);
+                let col = buildValue(base as _ISelection, s.expr);
+                if (s.as) {
+                    debugger;
+                    col = col.setId(s.as);
+                }
                 this.columns.push(col);
                 this.columnsById[col.id] = col;
             }

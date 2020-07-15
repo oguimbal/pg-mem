@@ -14,5 +14,8 @@
         "node_modules": true,
         "output": true,
         "package-lock.json": true
+    },
+    "mochaExplorer.env": {
+        "NOCHECKFULLQUERYUSAGE": "true",
     }
 }

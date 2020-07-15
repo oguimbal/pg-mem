@@ -1,10 +1,10 @@
 import 'mocha';
 import 'chai';
 import { newDb } from '../db';
-import { IMemoryDb } from '../interfaces';
 import { expect, assert } from 'chai';
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
+import { preventSeqScan } from './test-utils';
 
 describe('Simple queries', () => {
 
@@ -25,12 +25,6 @@ describe('Simple queries', () => {
             }],
         });
         return db;
-    }
-
-    function preventSeqScan(db: IMemoryDb, table = 'data') {
-        db.getTable(table).on('seq-scan', () => {
-            assert.fail('Should have used index');
-        });
     }
 
     it('where on primary', async () => {

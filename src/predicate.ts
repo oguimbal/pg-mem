@@ -4,11 +4,9 @@ import { DataType, CastError, QueryError } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types } from './datatypes';
-import { Query } from './query';
 
 
 export function buildValue(data: _ISelection, val: any): IValue {
-    val = trimNullish(val);
     return _buildValue(data, val);
 }
 
