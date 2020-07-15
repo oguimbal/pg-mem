@@ -30,6 +30,7 @@ export enum DataType {
     json = 'json',
     blob = 'blob',
     timestamp = 'timestamp',
+    date = 'date',
     null = 'null',
     bool = 'bool',
 }

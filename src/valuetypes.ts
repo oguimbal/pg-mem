@@ -45,6 +45,16 @@ export class Evaluator<T = any> implements IValue<T> {
         ).asConstant(this.isConstant);
     }
 
+    setConversion(converter: (val: any) => any) {
+        return this.setValue(raw => {
+            const got = this.get(raw);
+            if (got === null || got === undefined) {
+                return null;
+            }
+            return converter(got);
+        })
+    }
+
     setId(newId: string): IValue {
         if (this.id === newId) {
             return this;

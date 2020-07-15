@@ -92,6 +92,8 @@ export class Query implements IQuery {
                                         return Types.float;
                                     case 'TIMESTAMP':
                                         return Types.timestamp;
+                                    case 'DATE':
+                                        return Types.date;
                                     case 'JSON':
                                         return Types.json;
                                     case 'JSONB':

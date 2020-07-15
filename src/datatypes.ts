@@ -97,13 +97,7 @@ class JSONBType extends TypeBase<any> {
         if (to.primary === DataType.json) {
             return a
                 .setType(Types.text())
-                .setValue(raw => {
-                    const json = a.get(raw);
-                    if (json === null || json === undefined) {
-                        return null;
-                    }
-                    return JSON.stringify(json);
-                })
+                .setConversion(json => JSON.stringify(json))
                 .convert(to) as Evaluator; // <== might need truncation
         }
 
@@ -126,10 +120,27 @@ class JSONBType extends TypeBase<any> {
 
 class TimestampType extends TypeBase<Date> {
 
-    get primary(): DataType {
-        return DataType.timestamp;
+    constructor(readonly primary: DataType) {
+        super();
     }
 
+    doCanConvert(to: _IType) {
+        switch (to.primary) {
+            case DataType.timestamp:
+            case DataType.date:
+                return true;
+        }
+    }
+
+    doConvert(value: Evaluator, to: _IType) {
+        switch (to.primary) {
+            case DataType.timestamp:
+                return value.setType(to);
+            case DataType.date:
+                value.setType(to)
+                    .setConversion(raw => moment(raw).startOf('day').toDate());
+        }
+    }
 
     doEquals(a: any, b: any): boolean {
         return moment(a).diff(moment(b)) < 0.1;
@@ -225,6 +236,7 @@ class TextType extends TypeBase<string> {
     doCanConvert(to: _IType): boolean {
         switch (to.primary) {
             case DataType.timestamp:
+            case DataType.date:
                 return true;
             case DataType.text:
                 return true;
@@ -240,21 +252,30 @@ class TextType extends TypeBase<string> {
     doConvert(value: Evaluator<string>, to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
-                return new Evaluator(Types.timestamp, value.id, value.sql, value.hash, value.selection, raw => {
-                    const got = value.get(raw);
-                    return moment(got).toDate();
-                });
+                return value
+                    .setType(to)
+                    .setConversion(str => {
+                        const conv = moment(str);
+                        if (!conv.isValid()) {
+                            throw new QueryError(`Invalid timestamp format: ` + str);
+                        }
+                        return conv.toDate()
+                    });
+            case DataType.date:
+                return value
+                    .setType(to)
+                    .setConversion(str => {
+                        const conv = moment(str);
+                        if (!conv.isValid()) {
+                            throw new QueryError(`Invalid timestamp format: ` + str);
+                        }
+                        return conv.startOf('day').toDate();
+                    });
             case DataType.json:
             case DataType.jsonb:
                 return value
                     .setType(to)
-                    .setValue(raw => {
-                        const str: string = value.get(raw);
-                        if (str === null || str === undefined) {
-                            return str;
-                        }
-                        return JSON.parse(str);
-                    })
+                    .setConversion(raw => JSON.parse(raw));
             case DataType.text:
                 const fromStr = to as TextType;
                 const toStr = to as TextType;
@@ -264,11 +285,7 @@ class TextType extends TypeBase<string> {
                 }
                 return value
                     .setType(toStr)
-                    .setValue(raw => {
-                        const str: string = value.get(raw);
-                        if (str === null || str === undefined) {
-                            return str;
-                        }
+                    .setConversion(str => {
                         if (str?.length > toStr.len) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
@@ -279,11 +296,7 @@ class TextType extends TypeBase<string> {
             const isInt = integers.has(to.primary);
             return value
                 .setType(to)
-                .setValue(raw => {
-                    const str: string = value.get(raw);
-                    if (str === null || str === undefined) {
-                        return null;
-                    }
+                .setConversion(str => {
                     const val = Number.parseFloat(str);
                     if (!Number.isFinite(val)) {
                         throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`);
@@ -381,7 +394,8 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
 export const Types = { // : Ctors
     [DataType.bool]: new BoolType(),
     [DataType.text]: (len = null) => makeText(len),
-    [DataType.timestamp]: new TimestampType(),
+    [DataType.timestamp]: new TimestampType(DataType.timestamp),
+    [DataType.date]: new TimestampType(DataType.date),
     [DataType.jsonb]: new JSONBType(DataType.jsonb),
     [DataType.json]: new JSONBType(DataType.json),
     [DataType.null]: new NullType(),
