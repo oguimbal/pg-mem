@@ -4,11 +4,29 @@ import createTree from 'functional-red-black-tree';
 type IndexKey = any[];
 // https://www.npmjs.com/package/functional-red-black-tree
 interface BTree<T> {
-    remove(key: IndexKey): BTree<T>;
-    find(key: IndexKey): BIterator<T>;
+    readonly keys: Iterable<IndexKey>;
+    readonly values: Iterable<IndexKey>;
+    readonly length: number;
     get(key: IndexKey): T;
     insert(key: IndexKey, value: T): BTree<T>;
-    readonly length: number;
+    remove(key: IndexKey): BTree<T>;
+    find(key: IndexKey): BIterator<T>;
+    /** Find the first item in the tree whose key is >= key */
+    ge(key: IndexKey): BIterator<T>;
+    /** Finds the first item in the tree whose key is > key */
+    gt(key: IndexKey): BIterator<T>;
+    /** Finds the last item in the tree whose key is < key */
+    lt(key: IndexKey): BIterator<T>;
+    /** Finds the last item in the tree whose key is <= key */
+    le(key: IndexKey): BIterator<T>;
+
+    at(pos: number): BIterator<T>;
+
+    readonly begin: BIterator<T>;
+    readonly end: BIterator<T>;
+    /**  If a truthy value is returned from the visitor, then iteration is stopped. */
+    forEach(fn: (key: IndexKey, value: T) => boolean, low?: number, high?: number);
+    // root;
 }
 
 interface BIterator<T> {
@@ -130,11 +148,32 @@ export class BIndex<T = any> implements _IIndex<T> {
         }
     }
 
-    *gt(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.find(key);
-        while (it.valid && this.compare(it.key, key) === 0) {
+
+    *neq(key: IndexKey): Iterable<T> {
+        // yield before
+        let it = this.asBinary.begin;
+        while (it.valid && this.compare(it.key, key) < 0) {
+            yield* it.value.values();
             it.next();
         }
+        // yield after
+        it = this.asBinary.end
+        while (it.valid && this.compare(it.key, key) > 0) {
+            yield* it.value.values();
+            it.prev();
+        }
+    }
+
+    *gt(key: IndexKey): Iterable<T> {
+        const it = this.asBinary.gt(key);
+        while (it.valid) {
+            yield* it.value.values();
+            it.next();
+        }
+    }
+
+    *ge(key: IndexKey): Iterable<T> {
+        const it = this.asBinary.ge(key);
         while (it.valid) {
             yield* it.value.values();
             it.next();
@@ -142,26 +181,15 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
     *lt(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.find(key);
-        while (it.valid && this.compare(it.key, key) === 0) {
-            it.prev();
-        }
+        const it = this.asBinary.lt(key);
         while (it.valid) {
             yield* it.value.values();
             it.prev();
-        }
-    }
-
-    *ge(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.find(key);
-        while (it.valid) {
-            yield* it.value.values();
-            it.next();
         }
     }
 
     *le(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.find(key);
+        const it = this.asBinary.le(key);
         while (it.valid) {
             yield* it.value.values();
             it.prev();

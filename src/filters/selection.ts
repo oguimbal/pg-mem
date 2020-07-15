@@ -9,6 +9,7 @@ import { buildAndFilter } from './and-filter';
 import { OrFilter } from './or-filter';
 import { SeqScanFilter } from './seq-scan';
 import { Column } from '../column';
+import { NeqFilter } from './neq-filter';
 
 export function buildSelection(on: _ISelection, select: any[] | '*') {
     if (select === '*') {
@@ -156,17 +157,12 @@ export class Selection<T> implements _ISelection<T> {
                     throw new NotSupported('only IS NULL is supported');
                 }
                 const leftValue = buildValue(this, left)
-                if (leftValue.index && operator === 'IS') {
-                    return new EqFilter(leftValue, [rightValue]);
+                if (leftValue.index) {
+                    return operator === 'IS'
+                        ? new EqFilter(leftValue, [rightValue])
+                        : new NeqFilter(leftValue, [rightValue]);
                 }
                 return new SeqScanFilter(this, IsNullValue.of(leftValue, operator === 'IS'));
-            }
-            case 'IS NOT': {
-                const rightValue = buildValue(this, right);
-                if (!(rightValue instanceof NullValue)) {
-                    throw new NotSupported('only IS NULL is supported');
-                }
-                return new EqFilter(buildValue(this, left), [rightValue]);
             }
             default:
                 return new SeqScanFilter(this, buildValue(this, filter));
@@ -182,12 +178,16 @@ export class Selection<T> implements _ISelection<T> {
             throw new Error('Was not expecting constants on both sides of comparison');
         }
 
-        if (operator === '=') {
+        if (operator === '=' || operator === '!=' || operator === '<>') {
             if (leftValue.index && rightValue.isConstant) {
-                return new EqFilter(leftValue, [rightValue]);
+                return operator === '='
+                    ? new EqFilter(leftValue, [rightValue])
+                    : new NeqFilter(leftValue, [rightValue])
             }
             if (rightValue.index && leftValue.isConstant) {
-                return new EqFilter(rightValue, [leftValue]);
+                return operator === '='
+                    ? new EqFilter(rightValue, [leftValue])
+                    : new NeqFilter(rightValue, [leftValue]);
             }
         }
 

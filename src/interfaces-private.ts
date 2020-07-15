@@ -95,6 +95,8 @@ export interface _IIndex<T = any> {
 
     /** Get values equating the given key */
     eq(rawKey: any[]): Iterable<T>;
+    /** Get values NOT equating the given key */
+    neq(rawKey: any[]): Iterable<T>;
     /** Get greater the given key */
     gt(rawKey: any[]): Iterable<T>;
     /** Get lower the given key */

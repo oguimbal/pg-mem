@@ -306,9 +306,7 @@ export class IsNullValue extends ValueBase<boolean> {
     doLt(a: any, b: any): boolean {
         return a < b;
     }
-
 }
-
 
 type Ctors = { [key in DataType]?: ValueCtor };
 export const allTypes: Ctors = {

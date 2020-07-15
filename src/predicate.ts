@@ -21,6 +21,9 @@ function _buildValue(data: _ISelection, val: any): IValue {
             return TextValue.constant(val.value);
         case 'null':
             return NullValue.constant();
+        case 'expr_list':
+            const vals = (val.value as any[]).map(x => _buildValue(data, x));
+            flkdjsf
         default:
             throw new NotSupported('condition ' + val.type);
     }

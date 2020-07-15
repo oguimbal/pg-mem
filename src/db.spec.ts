@@ -97,7 +97,7 @@ describe('DB', () => {
         const db = await setupNulls();
         preventSeqScan(db);
         const got = await db.query.many('select * from data where str is not null');
-        expect(got).to.deep.equal([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
+        expect(got).to.deep.equal([{ id: 'id4', str: 'notnull4' }, { id: 'id2', str: 'notnull2' }]);
     });
 
     it('"IN" clause with constants', async () => {
