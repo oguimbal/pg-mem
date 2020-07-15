@@ -6,7 +6,7 @@ import { expect, assert } from 'chai';
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 
-describe('DB', () => {
+describe('Simple queries', () => {
 
     function simpleDb() {
         const db = newDb();
