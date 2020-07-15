@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IType } from './interfaces-private';
-import { NotSupported, trimNullish } from './utils';
+import { NotSupported, trimNullish, queryJson } from './utils';
 import { DataType, CastError, QueryError } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
@@ -98,6 +98,9 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
                 throw new NotSupported('Onlys supports IS NULL operator');
             }
             return Value.isNull(leftValue, operator === 'IS');
+        case '@>':
+            getter = (a, b) => queryJson(b, a);
+            break;
         default:
             throw new NotSupported('operator ' + operator);
     }

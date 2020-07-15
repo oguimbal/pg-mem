@@ -178,4 +178,13 @@ describe('Simple queries', () => {
         got = db.query.many(`select * from data where id='some id' or str='some str'`);
         expect(got).to.deep.equal([{ id: 'some id', str: 'some str' }]);
     });
+
+
+    it ('@> on value query', () => {
+        const db = newDb();
+        const result = db.query.many(`create table test(id text primary key, data jsonb);
+                                        insert into test values ('id1', '{"prop": "A","in":1}'), ('id2', '{"prop": "B","in":2}'), ('id4', '{"prop": "A","in":3}'), ('id5', null);
+                                        select id from test where data @> '{"prop": "A"}';`);
+        expect(result.map(x => x.id)).to.deep.equal(['id1', 'id4']);
+    })
 });

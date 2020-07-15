@@ -1,7 +1,7 @@
 import 'mocha';
 import 'chai';
 import { expect, assert } from 'chai';
-import { watchUse } from '../utils';
+import { watchUse, queryJson } from '../utils';
 
 describe('Test utils', () => {
     it('checkUse() checks everything', () => {
@@ -34,5 +34,16 @@ describe('Test utils', () => {
         } finally {
             globalThis.process.env['NOCHECKFULLQUERYUSAGE'] = old;
         }
+    });
+
+
+    it('queryJson() works', () => {
+        assert.isTrue(queryJson({ a: 1 }, { a: 1, b: 2 }));
+        assert.isFalse(queryJson([{ a: 1 }], { a: 1, b: 2 }));
+        assert.isTrue(queryJson([{ a: 1 }], [{ a: 1, b: 2 }]));
+        assert.isFalse(queryJson({ a: 1 }, [{ a: 1, b: 2 }]));
+        assert.isTrue(queryJson({ a: [1] }, { a: [1, 2, 3] }));
+        assert.isTrue(queryJson({ a: [{ b: 'test' }] }, { a: [{ b: 'test', c: 42 }] }));
+        assert.isTrue(queryJson({ a: [{ b: 'test' }, { c: 12 }] }, { a: [{ c: 12 }, { b: 'test' }] }));
     })
 });

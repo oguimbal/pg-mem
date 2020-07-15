@@ -1,5 +1,6 @@
 import moment from 'moment';
 import { Stack } from 'immutable';
+import { ArrayType } from './datatypes';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -190,10 +191,73 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
         ? Object.keys(a)
         : new Set([...Object.keys(a), ...Object.keys(b)]);
     for (const k of set) {
-        const inner  = deepCompare(a[k], b[k], strict, depth - 1, numberDelta);
+        const inner = deepCompare(a[k], b[k], strict, depth - 1, numberDelta);
         if (inner) {
             return inner;
         }
     }
     return 0;
+}
+
+
+type Json = { [key: string]: Json } | Json[] | string | number | null;
+export function queryJson(a: Json, b: Json) {
+    if (!a || !b) {
+        return (a ?? null) === (b ?? null);
+    }
+    if (a === b) {
+        return true;
+    }
+
+    if (typeof a === 'string' || typeof b === 'string') {
+        return false;
+    }
+
+    if (typeof a === 'number' || typeof b === 'number') {
+        return false;
+    }
+
+    if (Array.isArray(a)) {
+        // expecting array
+        if (!Array.isArray(b)) {
+            return false;
+        }
+        // => must match all those criteria
+        const toMatch = [...a];
+        for (const be of b) {
+            for (let i = 0; i < toMatch.length; i++) {
+                if (queryJson(toMatch[i], be)) {
+                    // matched this criteria
+                    toMatch.splice(i, 1);
+                    break;
+                }
+            }
+            if (!toMatch.length) {
+                break;
+            }
+        }
+        return !toMatch.length;
+    }
+
+    if (Array.isArray(b)) {
+        return false;
+    }
+
+    if ((typeof a === 'object') !== (typeof b === 'object')) {
+        return false;
+    }
+    const akeys = Object.keys(a);
+    const bkeys = Object.keys(b);
+    if (akeys.length > bkeys.length) {
+        return false;
+    }
+    for (const ak of akeys) {
+        if (!(ak in (b as any))) {
+            return false;
+        }
+        if (!queryJson(a[ak], b[ak])) {
+            return false;
+        }
+    }
+    return true;
 }
