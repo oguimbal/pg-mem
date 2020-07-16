@@ -79,11 +79,25 @@ export class Selection<T> implements _ISelection<T> {
     }
 
     *enumerate(): Iterable<T> {
+        const ids = new Set(this.columns.map(x => x.id));
+        let cid = 0;
+        const columnIds = this.columns
+            .map(x => {
+                if (x.id) {
+                    return x.id;
+                }
+                let nm: string;
+                do {
+                    nm = 'column' + (cid++);
+                } while(ids.has(nm));
+                return nm;
+            });
         for (const item of this.base.enumerate()) {
             const ret = {};
             setId(ret, this.selPrefix + getId(item));
-            for (const col of this.columns) {
-                ret[col.id] = col.get(item) ?? null;
+            for (let i = 0; i < this.columns.length; i++) {
+                const col = this.columns[i];
+                ret[columnIds[i]] = col.get(item) ?? null;
             }
             yield ret as any;
         }

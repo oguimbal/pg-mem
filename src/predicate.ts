@@ -29,6 +29,13 @@ function _buildValue(data: _ISelection, val: any): IValue {
             return Value.array(vals);
         case 'number':
             return Value.number(val.value);
+        case 'function':
+            if (val.args.type !== 'expr_list') {
+                throw new QueryError('Expecting expr_list as arguments');
+            }
+            const args = val.args.value.map(x => _buildValue(data, x));
+            return Value.function(val.name, args);
+            debugger;
         default:
             throw new NotSupported('condition ' + val.type);
     }

@@ -380,6 +380,9 @@ export class ArrayType extends TypeBase<any[]> {
 
 export function makeType(to: DataType | _IType<any>): _IType<any> {
     if (typeof to === 'string') {
+        if (to === DataType.text) {
+            return Types.text();
+        }
         if (!Types[to]) {
             throw new Error('Unsupported raw type: ' + to);
         }

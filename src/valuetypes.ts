@@ -3,6 +3,7 @@ import { DataType, QueryError, CastError } from './interfaces';
 import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType } from './datatypes';
 import { Query } from './query';
+import { buildCall } from './functions';
 
 
 export class Evaluator<T = any> implements IValue<T> {
@@ -189,6 +190,9 @@ export const Value = {
             , value.toString(10)
             , null
             , value);
+    },
+    function(value: string, args: IValue[]) {
+        return buildCall(value, args);
     },
     bool(value: boolean) {
         const str = value ? 'true' : 'false';
