@@ -56,6 +56,16 @@ export class Evaluator<T = any> implements IValue<T> {
         })
     }
 
+    setWrapper(wrap: (val: any) => any) {
+        return this.setValue(raw => {
+            const got = wrap(raw)
+            if (got === null || got === undefined) {
+                return null;
+            }
+            return this.get(got);
+        })
+    }
+
     setId(newId: string): IValue {
         if (this.id === newId) {
             return this;

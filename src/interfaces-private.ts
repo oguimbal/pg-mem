@@ -107,6 +107,8 @@ export interface IValue<TRaw = any> {
     setId(newId: string): IValue;
     canConvert(to: DataType | _IType): boolean;
     convert<T = any>(to: DataType | _IType<T>): IValue<T>;
+
+    setWrapper(wrap: (val: any) => any): IValue<TRaw>;
 }
 
 export type IndexKey = any[];

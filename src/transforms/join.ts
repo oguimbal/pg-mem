@@ -3,6 +3,7 @@ import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType } from '../interfaces';
 import { DataSourceBase } from './transform-base';
 import { buildColumnIds } from '../utils';
+import { Evaluator } from 'src/valuetypes';
 
 let jCnt = 0;
 
@@ -21,12 +22,12 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
         return this._columns;
     }
 
-    get leftColumns(): IValue<any>[] {
-        return this.left.columns;
+    private get leftColumns() {
+        return this.left.columns
     }
 
-    get rightColumns(): IValue<any>[] {
-        return this.right.columns;
+    private get rightColumns() {
+        return this.right.columns
     }
 
     get entropy(): number {
@@ -42,8 +43,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
 
         this.joinId = jCnt++;
         this._columns = [
-            ...this.leftColumns
-            , ...this.rightColumns
+            ...this.leftColumns.map(c => c.setWrapper(x => x['>left']))
+            , ...this.rightColumns.map(c => c.setWrapper(x => x['>right']))
         ];
         this.columnIds = buildColumnIds(this.columns);
 
@@ -67,8 +68,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
     }
 
     getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
-        const onLeft = this.left.getColumn(column, true);
-        const onRight = this.right.getColumn(column, true);
+        const onLeft = this.left.getColumn(column, true)?.setWrapper(x => x['>left']);
+        const onRight = this.right.getColumn(column, true)?.setWrapper(x => x['>right']);
         if (!onLeft && !onRight) {
             if (nullIfNotFound) {
                 return null;
@@ -99,7 +100,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
 
             // find the right value using index
             if (this.indexedRight) {
-                const joinValue = this.leftExpression.get(l);
+                const joinValue = this.leftExpression.get(this.buildItem(l, null));
                 // get corresponding right value
                 r = this.indexedRight.eqFirst([joinValue]);
             } else {
@@ -124,23 +125,25 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
     }
 
     private buildItem(l: TLeft, r: TRight) {
-        const ret = {};
+        const ret = { '>right': r, '>left': l }
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
-
-        let i = 0;
-
-        // build left part result
-        for (; i < this.leftColumns.length; i++) {
-            const col = this.leftColumns[i];
-            ret[this.columnIds[i]] = col.get(l) ?? null;
-        }
-
-        // build right part result
-        const rnul = r === null || r === undefined;
-        for (; i < this.columns.length; i++) {
-            const col = this.columns[i];
-            ret[this.columnIds[i]] = rnul ? null : (col.get(r) ?? null);
-        }
         return ret;
+
+        // const ret = {};
+        // let i = 0;
+
+        // // build left part result
+        // for (; i < this.leftColumns.length; i++) {
+        //     const col = this.leftColumns[i];
+        //     ret[this.columnIds[i]] = col.get(l) ?? null;
+        // }
+
+        // // build right part result
+        // const rnul = r === null || r === undefined;
+        // for (; i < this.columns.length; i++) {
+        //     const col = this.columns[i];
+        //     ret[this.columnIds[i]] = rnul ? null : (col.get(r) ?? null);
+        // }
+        // return ret;
     }
 }

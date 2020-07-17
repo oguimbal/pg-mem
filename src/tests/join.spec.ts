@@ -32,7 +32,7 @@ describe('Joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-
+        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
@@ -52,6 +52,7 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
 
+        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
         ]);
@@ -69,6 +70,7 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 left outer join tb on ta.bid = tb.bid`);
 
+        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: null, aid: 'aid2', abid: 'bid2', bbid: null }
@@ -88,6 +90,7 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 right outer join tb on ta.bid = tb.bid`);
 
+        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
         ]);
