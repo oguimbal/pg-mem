@@ -178,8 +178,7 @@ export class Query implements IQuery {
                 throw new NotSupported('Joint type not supported ' + from.join);
             }
             // handle joins
-            debugger;
-            t = new JoinSelection(t, newT, from.on);
+            t = new JoinSelection(this.db, t, newT, from.on);
         }
         t = t.filter(p.where)
             .select(p.columns);

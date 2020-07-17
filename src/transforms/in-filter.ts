@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IIndex, _ITable, getId } from '../interfaces-private';
-import { FilterBase } from './filter-base';
+import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
 export class InFilter<T = any> extends FilterBase<T> {

@@ -36,15 +36,16 @@ module.exports = {
                     transpileOnly: true,
                 },
             },
-            {
-                test: /\.ts$/,
-                exclude: /\.spec\.ts$/,
-                enforce: 'post',
-                use: {
-                    loader: 'istanbul-instrumenter-loader',
-                    options: { esModules: true }
-                }
-            },
+            ...isCoverage ? [
+                {
+                    test: /\.ts$/,
+                    exclude: /\.spec\.ts$/,
+                    enforce: 'post',
+                    use: {
+                        loader: 'istanbul-instrumenter-loader',
+                        options: { esModules: true }
+                    }
+                }] : [],
         ],
     },
     resolve: {

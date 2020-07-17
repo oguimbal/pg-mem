@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent } from './interfaces';
 import { AST, ColumnRef } from 'node-sql-parser';
 
 export * from './interfaces';
@@ -6,6 +6,9 @@ export * from './interfaces';
 // export type PrimaryKey = string | number;
 const ID = Symbol('_id');
 export function getId(item: any): string {
+    if (!item) {
+        return '';
+    }
     const got = item[ID];
     if (!got) {
         throw new Error('Unexpected: cannot get an ID of something which is not a record');
@@ -40,7 +43,8 @@ export interface _ISelection<T = any> extends _ISelectionSource {
 }
 
 export interface _IDb extends IMemoryDb {
-    raise(table: string, event: TableEvent): void;
+    raiseTable(table: string, event: TableEvent): void;
+    raiseGlobal(event: GlobalEvent): void;
 }
 
 export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
@@ -122,6 +126,7 @@ export interface _IIndex<T = any> {
     add(raw: T): void;
 
     /** Get values equating the given key */
+    eqFirst(rawKey: IndexKey): T;
     eq(rawKey: IndexKey): Iterable<T>;
     /** Get all values that are NOT  equating any of the given keys */
     nin(rawKey: IndexKey[]): Iterable<T>;

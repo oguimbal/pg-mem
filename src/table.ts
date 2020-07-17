@@ -52,7 +52,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         for (const h of got ?? []) {
             h();
         }
-        this.owner.raise(this._schema.name, event);
+        this.owner.raiseTable(this._schema.name, event);
     }
 
 

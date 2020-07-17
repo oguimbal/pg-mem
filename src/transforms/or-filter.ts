@@ -1,5 +1,5 @@
 import { _ISelection, _IIndex, _ITable, getId } from '../interfaces-private';
-import { FilterBase } from './filter-base';
+import { FilterBase } from './transform-base';
 
 
 export class OrFilter<T = any> extends FilterBase<T> {

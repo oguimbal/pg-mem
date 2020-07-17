@@ -156,6 +156,12 @@ export class BIndex<T = any> implements _IIndex<T> {
         }
     }
 
+    eqFirst(rawKey: IndexKey): T {
+        for (const r of this.eq(rawKey)) {
+            return r;
+        }
+    }
+
 
     *eq(key: IndexKey): Iterable<T> {
         const it = this.asBinary.find(key);

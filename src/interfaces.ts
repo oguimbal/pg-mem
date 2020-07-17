@@ -41,6 +41,7 @@ export interface IMemoryDb {
     declareTable(table: Schema): IMemoryTable;
     query: IQuery;
     getTable(table: string): IMemoryTable;
+    on(event: GlobalEvent, handler: () => any);
     on(event: TableEvent, handler: (table: string) => any);
 }
 
@@ -51,6 +52,8 @@ export interface IQuery {
 
 
 export type TableEvent = 'seq-scan';
+export type GlobalEvent = 'catastrophic-join-optimization';
+
 export interface IMemoryTable {
     createIndex(expressions: string[]): this;
     on(event: TableEvent, handler: () => any): void;

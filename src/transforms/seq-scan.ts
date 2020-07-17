@@ -1,6 +1,6 @@
 import { IValue, _ISelection } from '../interfaces-private';
 import { DataType } from '../interfaces';
-import { FilterBase } from './filter-base';
+import { FilterBase } from './transform-base';
 
 export class SeqScanFilter<T = any> extends FilterBase<T> {
 

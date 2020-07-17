@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IIndex, _ITable } from '../interfaces-private';
-import { FilterBase } from './filter-base';
+import { FilterBase } from './transform-base';
 
 export class NeqFilter<T = any> extends FilterBase<T> {
 

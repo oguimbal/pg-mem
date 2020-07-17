@@ -61,10 +61,27 @@ describe('Operators', () => {
                             select a/b as res from test`);
         expect(result.map(x => x.res)).to.deep.equal([2.5]);
     });
+
     it('* on ints', () => {
         const result = many(`create table test(a int, b int);
                             insert into test values (4, 2);
                             select a*b as res from test`);
+        expect(result.map(x => x.res)).to.deep.equal([8]);
+    });
+
+
+    it('respects operator precedence', () => {
+        const result = many(`create table test(a int, b int);
+                            insert into test values (2, 2);
+                            select a + b * a as res from test`);
+        expect(result.map(x => x.res)).to.deep.equal([6]);
+    });
+
+
+    it('respects parenthesis', () => {
+        const result = many(`create table test(a int, b int);
+                            insert into test values (2, 2);
+                            select (a + b) * a as res from test`);
         expect(result.map(x => x.res)).to.deep.equal([8]);
     });
 });

@@ -1,5 +1,5 @@
 import { _ISelection, _IIndex, _ITable } from '../interfaces-private';
-import { FilterBase } from './filter-base';
+import { FilterBase } from './transform-base';
 
 export function buildAndFilter<T>(left: _ISelection<T>, right: _ISelection<T>) {
     if (left.entropy < right.entropy) {

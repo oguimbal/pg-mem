@@ -17,9 +17,11 @@ function _buildValue(data: _ISelection, val: any): IValue {
             if (val.operator === 'IN' || val.operator === 'NOT IN') {
                 return buildIn(data, val.left, val.right, val.operator === 'IN');
             }
-            return buildBinary(data, val.left, val.operator, val.right);
+            return buildBinary(data, val);
         case 'column_ref':
-            return data.getColumn(val.column);
+            return val.table
+                ? data.getColumn(val.table + '.' + val.column)
+                : data.getColumn(val.column);
         case 'string':
         case 'single_quote_string':
             return Value.text(val.value);
@@ -53,7 +55,13 @@ function buildIn(data: _ISelection, left: any, array: any, inclusive: boolean): 
     return Value.in(leftValue, rightValue, inclusive);
 }
 
-function buildBinary(data: _ISelection, left: any, operator: string, right: any): IValue {
+function nop(ignore) {
+    // do nothing
+}
+
+function buildBinary(data: _ISelection, val: any): IValue {
+    const { left, right, operator, parentheses } = val;
+    nop(parentheses); // <== just ignore that.
     let leftValue = _buildValue(data, left);
     let rightValue = _buildValue(data, right);
     let type: _IType;
@@ -109,7 +117,7 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
                     break;
                 case '/':
                     if (isInteger(type)) {
-                        getter = (a, b) => Math.trunc(a/b);
+                        getter = (a, b) => Math.trunc(a / b);
                     } else {
                         getter = (a, b) => a / b;
                     }

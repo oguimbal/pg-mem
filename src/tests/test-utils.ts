@@ -12,4 +12,8 @@ export function preventSeqScan(db: IMemoryDb, table?: string) {
             assert.fail('Should have used index when requesting table ' + table);
         });
     }
+
+    db.on('catastrophic-join-optimization', () => {
+        assert.fail('Should have used index when performing join');
+    });
 }

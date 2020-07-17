@@ -1,6 +1,6 @@
 import moment from 'moment';
 import { Stack } from 'immutable';
-import { ArrayType } from './datatypes';
+import { IValue } from './interfaces-private';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -260,4 +260,24 @@ export function queryJson(a: Json, b: Json) {
         }
     }
     return true;
+}
+
+export function buildColumnIds(columns: IValue[]) {
+    const exists = new Set(columns.map(x => x.id));
+    const got = new Set();
+    let cid = 0;
+    return columns
+        .map(x => {
+            if (x.id && !got.has(x.id)) {
+                got.add(x.id);
+                return x.id;
+            }
+            let base = x.id ?? 'column';
+            let nm: string;
+            do {
+                nm = base + (cid++);
+            } while (exists.has(nm) || got.has(nm));
+            got.add(nm);
+            return nm;
+        });
 }

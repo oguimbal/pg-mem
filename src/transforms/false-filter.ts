@@ -1,5 +1,5 @@
 import { _ISelection, IValue } from '../interfaces-private';
-import { FilterBase } from './filter-base';
+import { FilterBase } from './transform-base';
 
 export class FalseFilter<T = any> extends FilterBase<T> {
 
