@@ -1,9 +1,10 @@
 import { Parser, Insert_Replace, Update, Select } from 'node-sql-parser';
 import { IQuery, TableNotFound, QueryError, CastError, SchemaField, DataType, IType } from './interfaces';
-import { _IDb, AST2, CreateTable, CreateIndexColDef } from './interfaces-private';
+import { _IDb, AST2, CreateTable, CreateIndexColDef, _ISelection } from './interfaces-private';
 import { NotSupported, trimNullish, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types } from './datatypes';
+import { JoinSelection } from './transforms/join';
 
 
 
@@ -154,18 +155,33 @@ export class Query implements IQuery {
 
     executeSelect(p: Select): any[] {
         if (p.type !== 'select') {
-            throw new NotSupported();
+            throw new NotSupported(p.type);
         }
-        if (p.from?.length !== 1) {
-            throw new NotSupported();
+        let t: _ISelection;
+        const aliases = new Set<string>();
+        for (const from of (p.from as any[])) {
+            if (!('table' in from) || !from.table) {
+                throw new NotSupported('no table name');
+            }
+            if (aliases.has(from.as ?? from.table)) {
+                throw new Error(`Table name "${from.as ?? from.table}" specified more than once`)
+            }
+            const newT = this.db.getTable(from.table)
+                .selection
+                .setAlias(from.as);
+            if (!t) {
+                // first table to be selected
+                t = newT;
+                continue;
+            }
+            if (from.join !== 'INNER JOIN') {
+                throw new NotSupported('Joint type not supported ' + from.join);
+            }
+            // handle joins
+            debugger;
+            t = new JoinSelection(t, newT, from.on);
         }
-        const [from] = p.from;
-        if (!('table' in from) || !from.table) {
-            throw new NotSupported();
-        }
-        const t = this.db.getTable(from.table)
-            .selection
-            .filter(p.where)
+        t = t.filter(p.where)
             .select(p.columns);
         return [...t.enumerate()];
     }

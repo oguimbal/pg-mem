@@ -3,7 +3,7 @@ import { NotSupported, trimNullish, queryJson } from './utils';
 import { DataType, CastError, QueryError, IType } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
-import { Types, isNumeric, isInteger } from './datatypes';
+import { Types, isNumeric, isInteger, singleSelection } from './datatypes';
 import { Query } from './query';
 
 
@@ -153,7 +153,7 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
         , null
         , sql
         , hashed
-        , data
+        , singleSelection([leftValue, rightValue])
         , raw => {
             const leftRaw = leftValue.get(raw);
             const rightRaw = rightValue.get(raw);

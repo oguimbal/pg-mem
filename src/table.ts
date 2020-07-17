@@ -3,7 +3,7 @@ import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndex
 import { buildValue } from './predicate';
 import { Parser } from 'node-sql-parser';
 import { BIndex } from './btree-index';
-import { Selection } from './selection';
+import { Selection } from './transforms/selection';
 
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
@@ -24,7 +24,9 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     constructor(private owner: _IDb, schema: Schema) {
         this._schema = schema;
         // this.primary = raw => primaries.map(x => raw[x.id]).join('|');
-        this.selection = new Selection(this, this._schema);
+        this.selection = new Selection(this, {
+            schema: this._schema,
+        });
 
         const primaries = schema.fields
             .filter(x => x.primary)
@@ -86,7 +88,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     }
 
     getIndex(forValue: IValue) {
-        if (forValue.selection !== this.selection) {
+        if (forValue.origin !== this.selection) {
             return null;
         }
         const got = this.indicesByHash.get(forValue.hash);

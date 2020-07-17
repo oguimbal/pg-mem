@@ -212,7 +212,7 @@ class NumberType extends TypeBase<number> {
                 , value.id
                 , value.sql
                 , value.hash
-                , value.selection
+                , value.origin
                 , raw => {
                     const got = value.get(raw);
                     return typeof got === 'number'
@@ -225,7 +225,7 @@ class NumberType extends TypeBase<number> {
             , value.id
             , value.sql
             , value.hash
-            , value.selection
+            , value.origin
             , value.val
         );
     }
@@ -345,7 +345,7 @@ export class ArrayType extends TypeBase<any[]> {
             , value.id
             , value.sql
             , value.hash
-            , value.selection
+            , value.origin
             , raw => {
                 const arr = value.get(raw) as any[];
                 return arr.map(x => Value.constant(x, valueType.of).convert(to.of).get(raw));
@@ -397,6 +397,20 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
         return Types[to];
     }
     return to;
+}
+
+export function singleSelection(args: IValue[]){
+    let sel: _ISelection;
+    for (const a of args) {
+        if (!a.origin) {
+            continue;
+        }
+        if (sel && a.origin !== sel) {
+            return null;
+        }
+        sel = a.origin;
+    }
+    return sel;
 }
 
 // type Ctors = {

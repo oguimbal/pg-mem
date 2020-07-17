@@ -1,29 +1,41 @@
-import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType } from './interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema } from './interfaces';
-import { buildValue } from './predicate';
-import { trimNullish, NotSupported } from './utils';
-import { EqFilter } from './filters/eq-filter';
-import { FalseFilter } from './filters/false-filter';
-import { buildAndFilter } from './filters/and-filter';
-import { OrFilter } from './filters/or-filter';
-import { SeqScanFilter } from './filters/seq-scan';
-import { NeqFilter } from './filters/neq-filter';
-import { Types, makeArray } from './datatypes';
-import { Value, Evaluator } from './valuetypes';
-import { InFilter } from './filters/in-filter';
-import { NotInFilter } from './filters/not-in-filter';
+import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType } from '../interfaces-private';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema } from '../interfaces';
+import { buildValue } from '../predicate';
+import { trimNullish, NotSupported } from '../utils';
+import { EqFilter } from './eq-filter';
+import { FalseFilter } from './false-filter';
+import { buildAndFilter } from './and-filter';
+import { OrFilter } from './or-filter';
+import { SeqScanFilter } from './seq-scan';
+import { NeqFilter } from './neq-filter';
+import { Types, makeArray } from '../datatypes';
+import { Value, Evaluator } from '../valuetypes';
+import { InFilter } from './in-filter';
+import { NotInFilter } from './not-in-filter';
+import { Query } from '../query';
 
 export function buildSelection(on: _ISelection, select: any[] | '*') {
     if (select === '*') {
         return on;
     }
-    return new Selection(on, select);
+    return new Selection(on, {
+        columns: select,
+    });
+}
+
+export function buildAlias(on: _ISelection, alias?: string) {
+    if (!alias) {
+        return on;
+    }
+    return new Selection(on, {
+        alias,
+    });
 }
 
 let selCnt = 0;
 
 export class Selection<T> implements _ISelection<T> {
-    private selPrefix: string;
+    private alias: string;
     // readonly index: _IIndex<T>; // <== ??
 
     get entropy(): number {
@@ -38,12 +50,16 @@ export class Selection<T> implements _ISelection<T> {
     private columnsById: { [key: string]: IValue } = {};
 
 
-    constructor(private base: _ISelectionSource<any>, what: any[] | Schema) {
-        if (Array.isArray(what)) {
-            if (!what.length) {
+    constructor(private base: _ISelectionSource<any>, opts: {
+        schema?: Schema;
+        columns?: any[];
+        alias?: string;
+    }) {
+        if (opts.columns) {
+            if (!opts.columns.length) {
                 throw new QueryError('Invalid selection');
             }
-            for (const s of what) {
+            for (const s of opts.columns) {
                 let col = buildValue(base as _ISelection, s.expr);
                 if (s.as) {
                     debugger;
@@ -52,10 +68,10 @@ export class Selection<T> implements _ISelection<T> {
                 this.columns.push(col);
                 this.columnsById[col.id] = col;
             }
-            this.selPrefix = 's' + (selCnt++);
-        } else {
-            this.selPrefix = '';
-            for (const _col of what.fields) {
+            this.alias = 'selection:' + (selCnt++);
+        } else if (opts.schema) {
+            this.alias = opts.schema.name;
+            for (const _col of opts.schema.fields) {
                 const col = _col;
                 const newCol = new Evaluator(
                     col.type as _IType
@@ -67,6 +83,18 @@ export class Selection<T> implements _ISelection<T> {
                 this.columns.push(newCol);
                 this.columnsById[newCol.id] = newCol;
             }
+        } else if (opts.alias) {
+            const asSel = base as _ISelection;
+            if (!asSel.columns) { // istanbul ignore next
+                throw new Error('Should only apply aliases on actual selection');
+            }
+            this.columns = asSel.columns;
+            this.alias = opts.alias;
+            for (const k of this.columns) {
+                this.columnsById[k.id] = k;
+            }
+        } else {
+            throw new NotSupported('selection does nothing');
         }
     }
 
@@ -81,12 +109,12 @@ export class Selection<T> implements _ISelection<T> {
                 let nm: string;
                 do {
                     nm = 'column' + (cid++);
-                } while(ids.has(nm));
+                } while (ids.has(nm));
                 return nm;
             });
         for (const item of this.base.enumerate()) {
             const ret = {};
-            setId(ret, this.selPrefix + getId(item));
+            setId(ret, this.alias + getId(item));
             for (let i = 0; i < this.columns.length; i++) {
                 const col = this.columns[i];
                 ret[columnIds[i]] = col.get(item) ?? null;
@@ -96,9 +124,22 @@ export class Selection<T> implements _ISelection<T> {
     }
 
 
-    getColumn(column: string): IValue {
+    getColumn(column: string, nullIfNotFound?: boolean): IValue {
+        const exec = /^([^.]+)\.(.+)$/.exec(column);
+        if (exec) {
+            if (exec[1] !== this.alias) {
+                if (nullIfNotFound) {
+                    return null;
+                }
+                throw new QueryError(`Alias '${exec[1]}' not found`)
+            }
+            column = exec[2];
+        }
         const ret = this.columnsById[column];
         if (!ret) {
+            if (nullIfNotFound) {
+                return null;
+            }
             throw new ColumnNotFound(column);
         }
         return ret;
@@ -231,5 +272,10 @@ export class Selection<T> implements _ISelection<T> {
 
     getIndex(forValue: IValue): _IIndex<any> {
         return this.base.getIndex(forValue);
+    }
+
+
+    setAlias(alias?: string): _ISelection<any> {
+        return buildAlias(this, alias);
     }
 }

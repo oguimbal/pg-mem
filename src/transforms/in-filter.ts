@@ -18,7 +18,7 @@ export class InFilter<T = any> extends FilterBase<T> {
 
     constructor(private onValue: IValue<T>
         , private elts: IValue) {
-        super(onValue.selection);
+        super(onValue.origin);
         if (onValue.index.expressions.length !== 1) {
             throw new Error('Only supports IN with signle expressions index');
         }

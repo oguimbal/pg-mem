@@ -35,7 +35,8 @@ export interface _ISelection<T = any> extends _ISelectionSource {
     readonly columns: IValue[];
     filter(where: any): _ISelection;
     select(select: any[] | '*'): _ISelection;
-    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue;
+    setAlias(alias?: string): _ISelection;
 }
 
 export interface _IDb extends IMemoryDb {
@@ -86,7 +87,7 @@ export interface IValue<TRaw = any> {
     readonly index: _IIndex;
 
     /** Originates from this selection */
-    readonly selection: _ISelection;
+    readonly origin: _ISelection;
 
 
     /** Column ID, or null */

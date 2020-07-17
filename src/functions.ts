@@ -1,5 +1,5 @@
 import { IValue, _IType, _ISelection } from './interfaces-private';
-import { Types } from './datatypes';
+import { Types, singleSelection } from './datatypes';
 import { QueryError, DataType } from './interfaces';
 import { NotSupported } from './utils';
 import { Evaluator } from './valuetypes';
@@ -8,7 +8,7 @@ import hash from 'object-hash';
 export function buildCall(name: string, args: IValue[]) {
     let type: _IType;
     let get: (...args: any[]) => any;
-    const sels = [...new Set(args.map(x => x.selection).filter(x => !!x))];
+
     name = name.toLowerCase();
     switch (name) {
         case 'lower':
@@ -37,7 +37,7 @@ export function buildCall(name: string, args: IValue[]) {
         , null
         , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })
-        , sels.length === 1 ? sels[0] : null
+        , singleSelection(args)
         , raw => {
             const argRaw = args.map(x => x.get(raw));
             return get(...argRaw);

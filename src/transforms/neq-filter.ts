@@ -1,11 +1,7 @@
 import { _ISelection, IValue, _IIndex, _ITable } from '../interfaces-private';
 import { FilterBase } from './filter-base';
 
-export class EqFilter<T = any> extends FilterBase<T> {
-
-    get index() {
-        return null;
-    }
+export class NeqFilter<T = any> extends FilterBase<T> {
 
     get entropy() {
         return this.onValue.index.entropy;
@@ -17,7 +13,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
 
     constructor(private onValue: IValue<T>
         , private other: IValue[]) {
-        super(onValue.selection);
+        super(onValue.origin);
         if (onValue.index.expressions.length !== other.length) {
             throw new Error('Unexpected index equality expressions count mismatch');
         }
@@ -34,7 +30,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
             const otherConv = this.other[i].convert(v.type);
             return otherConv.get(null);
         });
-        for (const item of index.eq(map)) {
+        for (const item of index.neq(map)) {
             yield item;
         }
     }

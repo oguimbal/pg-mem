@@ -67,7 +67,7 @@ export class CastError extends Error {
 }
 export class ColumnNotFound extends Error {
     constructor(columnName: string) {
-        super('Column not found: ' + columnName);
+        super(`column "${columnName}" does not exist`);
     }
 }
 

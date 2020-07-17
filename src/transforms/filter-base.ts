@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IIndex } from '../interfaces-private';
 import { NotSupported } from '../utils';
-import { buildSelection } from '../selection';
+import { buildSelection, buildAlias } from './selection';
 
 export abstract class FilterBase<T> implements _ISelection<T> {
 
@@ -20,13 +20,18 @@ export abstract class FilterBase<T> implements _ISelection<T> {
         throw new NotSupported();
     }
 
-    getColumn(column: string): IValue<any> {
-        return this._base.getColumn(column);
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+        return this._base.getColumn(column, nullIfNotFound);
     }
 
     select(select: any[] | "*"): _ISelection<any> {
         return buildSelection(this, select);
     }
+
+    setAlias(alias?: string): _ISelection<any> {
+        return buildAlias(this, alias);
+    }
+
 
     getIndex(forValue: IValue): _IIndex<any> {
         return this._base.getIndex(forValue);

@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
 import { DataType, QueryError, CastError } from './interfaces';
 import hash from 'object-hash';
-import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
+import { Types, makeArray, makeType, ArrayType, isNumeric, singleSelection } from './datatypes';
 import { Query } from './query';
 import { buildCall } from './functions';
 
@@ -13,7 +13,7 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly id: string
         , readonly sql: string
         , readonly hash: string
-        , readonly selection: _ISelection
+        , readonly origin: _ISelection
         , public val: T | ((raw: any) => T)) {
     }
 
@@ -26,7 +26,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.id
             , this.sql
             , this.hash
-            , this.selection
+            , this.origin
             , this.val
         );
     }
@@ -41,7 +41,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.id
             , this.sql
             , this.hash
-            , this.selection
+            , this.origin
             , val
         ).asConstant(this.isConstant);
     }
@@ -65,13 +65,13 @@ export class Evaluator<T = any> implements IValue<T> {
             , newId
             , this.sql
             , this.hash
-            , this.selection
+            , this.origin
             , this.val
         );
     }
 
     get index() {
-        return this.selection?.getIndex(this);
+        return this.origin?.getIndex(this);
     }
 
     get isConstant(): boolean {
@@ -93,7 +93,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.id
             , this.sql
             , this.hash
-            , this.selection
+            , this.origin
             , this.get(null));
     }
 
@@ -231,7 +231,7 @@ export const Value = {
             , null
             , value.sql + ' IN ' + array.sql
             , hash({ val: value.hash, in: array.hash })
-            , value.selection
+            , value.origin
             , raw => {
                 const rawValue = value.get(raw);
                 const rawArray = array.get(raw);
@@ -249,7 +249,7 @@ export const Value = {
             , null
             , leftValue.sql + ' IS NULL'
             , hash({ isNull: leftValue.hash })
-            , leftValue.selection
+            , leftValue.origin
             , expectNull ? (raw => {
                 const left = leftValue.get(raw);
                 return left === null;
@@ -284,7 +284,7 @@ export const Value = {
             , null
             , '(' + converted.map(x => x.sql).join(', ') + ')'
             , hash(converted.map(x => x.hash))
-            , null
+            , singleSelection(converted)
             , raw => {
                 const arr = values.map(x => x.get(raw));
                 return arr;
