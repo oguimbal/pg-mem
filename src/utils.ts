@@ -1,15 +1,9 @@
 import moment from 'moment';
 import { Stack } from 'immutable';
-import { IValue } from './interfaces-private';
+import { IValue, NotSupported } from './interfaces-private';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
-}
-
-export class NotSupported extends Error {
-    constructor(what?: string) {
-        super('Not supported' + (what ? ': ' + what : ''));
-    }
 }
 
 

@@ -37,12 +37,22 @@ export enum DataType {
 }
 
 export interface IMemoryDb {
+    adapters: LibAdapters;
     /** Declares the existence of a table */
     declareTable(table: Schema): IMemoryTable;
     query: IQuery;
     getTable(table: string): IMemoryTable;
     on(event: GlobalEvent, handler: () => any);
     on(event: TableEvent, handler: (table: string) => any);
+}
+
+export interface LibAdapters {
+    /** Create a PG module that will be equivalent to require('pg') */
+    createPg(queryLatency?: number): { Pool: any; Client: any };
+    /**  */
+    createPgPromise(queryLatency?: number): any;
+    /** Hook a not-yet-connected Typeorm connection */
+    createTypeormConnection(typeOrmConnection: any, queryLatency?: number);
 }
 
 export interface IQuery {
@@ -87,5 +97,16 @@ export class QueryError extends Error {
 export class RecordExists extends Error {
     constructor() {
         super('Records already exists');
+    }
+}
+
+export class NotSupported extends Error {
+    constructor(what?: string) {
+        super('Not supported' + (what ? ': ' + what : ''));
+    }
+}
+export class ReadOnlyError extends Error {
+    constructor(what?: string) {
+        super('You cannot modify ' + (what ? ': ' + what : 'this'));
     }
 }

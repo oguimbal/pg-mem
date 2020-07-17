@@ -1,7 +1,6 @@
 import { IValue, _IType, _ISelection } from './interfaces-private';
 import { Types, singleSelection } from './datatypes';
-import { QueryError, DataType } from './interfaces';
-import { NotSupported } from './utils';
+import { QueryError, DataType, NotSupported } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 

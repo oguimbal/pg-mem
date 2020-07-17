@@ -2,7 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
-import { NotSupported, deepEqual, deepCompare } from './utils';
+import { deepEqual, deepCompare } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { Query } from './query';
 

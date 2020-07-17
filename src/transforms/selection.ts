@@ -1,7 +1,7 @@
 import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema } from '../interfaces';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported } from '../interfaces';
 import { buildValue } from '../predicate';
-import { NotSupported, buildColumnIds } from '../utils';
+import { buildColumnIds } from '../utils';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
 

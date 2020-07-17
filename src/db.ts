@@ -1,10 +1,14 @@
-import { Schema, IMemoryDb, IQuery, TableEvent, GlobalEvent } from './interfaces';
+import { Schema, IMemoryDb, IQuery, TableEvent, GlobalEvent, TableNotFound, QueryError } from './interfaces';
 import { MemoryTable } from './table';
 import { _IDb, _ISelection, _ITable } from './interfaces-private';
 import { Query } from './query';
 import { initialize } from './transforms/transform-base';
 import { buildSelection, buildAlias } from './transforms/selection';
 import { buildFilter } from './transforms/build-filter';
+import { Adapters } from './adapters';
+import { Types } from './datatypes';
+import { TablesSchema } from './schema/table-list';
+import { ColumnsListSchema } from './schema/columns-list';
 
 export function newDb(): IMemoryDb {
     initialize({
@@ -17,11 +21,42 @@ export function newDb(): IMemoryDb {
 
 class MemoryDb implements _IDb {
 
-    private tables = new Map<string, MemoryTable>();
-    private handlers = new Map<TableEvent | GlobalEvent, Set<(... args: any[]) => any>>();
+    private tables = new Map<string, _ITable>();
+    private handlers = new Map<TableEvent | GlobalEvent, Set<(...args: any[]) => any>>();
 
-    get query(): IQuery {
-        return new Query(this);
+    readonly adapters = new Adapters(this);
+    readonly query = new Query(this);
+    private otherSchemas = new Map<string, _IDb>();
+
+    constructor(private defaultSchema?: _IDb, private name?: string) {
+        this.declareTable({
+            name: 'current_schema',
+            fields: [
+                { id: 'current_schema', type: Types.text() },
+            ]
+        })
+            .insert({ current_schema: 'public' })
+            .setHidden()
+            .setReadonly();
+
+        if (!name) {
+            const schema = this.declareSchema('information_schema');
+            // SELECT * FROM "information_schema"."tables" WHERE ("table_schema" = 'public' AND "table_name" = 'user')
+            schema.tables.set('tables', new TablesSchema(this))
+            schema.tables.set('columns', new ColumnsListSchema(this))
+        }
+    }
+
+    declareSchema(name: string) {
+        if (this.name) {
+            throw new Error('Only default schema can declare a schema');
+        }
+        if (this.otherSchemas.has(name)) {
+            throw new Error('Schema exists: ' + name);
+        }
+        const ret = new MemoryDb(this, name);
+        this.otherSchemas.set(name, ret);
+        return ret;
     }
 
     declareTable(table: Schema) {
@@ -34,9 +69,15 @@ class MemoryDb implements _IDb {
         return ret;
     }
 
-    getTable(name: string): _ITable {
+
+    getTable(name: string, nullIfNotExists?: boolean): _ITable {
         name = name.toLowerCase();
-        return this.tables.get(name);
+        const got = this.tables.get(name);
+
+        if (!got && !nullIfNotExists) {
+            throw new TableNotFound(name);
+        }
+        return got;
     }
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any) {
@@ -60,4 +101,29 @@ class MemoryDb implements _IDb {
             h();
         }
     }
+
+    get tablesCount(): number {
+        return this.tables.size;
+    }
+
+    *listTables(): Iterable<_ITable> {
+        for (const t of this.tables.values()) {
+            if (!t.hidden) {
+                yield t;
+            }
+        }
+    }
+
+    getSchema(db: string): _IDb {
+        if (!db || db === 'public') {
+
+            return this.defaultSchema ?? this;
+        }
+        const got = this.otherSchemas.get(db);
+        if(!got) {
+            throw new QueryError('schema not found: ' + db);
+        }
+        return got;
+    }
+
 }

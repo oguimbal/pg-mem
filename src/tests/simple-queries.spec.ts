@@ -214,4 +214,30 @@ describe('Simple queries', () => {
         expect(result.map(x => x.id)).to.deep.equal(['id1', 'id3']);
     });
 
+
+    it('can select current_schema', () => {
+        simpleDb();
+        expect(many('select * from current_schema')).to.deep.equal([{ current_schema: 'public' }]);
+    });
+
+
+    it('can select info tables', () => {
+        simpleDb();
+        expect(many('select table_name from information_schema.tables')).to.deep.equal([{ table_name: 'data' }]);
+    });
+
+
+    it('can select info columns', () => {
+        simpleDb();
+        expect(many(`select column_name from information_schema.columns where table_name='data'`))
+            .to.deep.equal([{ column_name: 'id' }
+                , { column_name: 'str' }
+                , { column_name: 'otherStr' }]);
+    });
+
+    it('can process typeorm columns schema selection', () => {
+        simpleDb();
+        expect(many(`SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`))
+            .to.deep.equal([{}])
+    })
 });

@@ -1,13 +1,16 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId } from '../interfaces-private';
 import { buildValue } from '../predicate';
-import { QueryError, ColumnNotFound, DataType } from '../interfaces';
+import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
 import { buildColumnIds } from '../utils';
-import { Evaluator } from 'src/valuetypes';
 
 let jCnt = 0;
 
-export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLeft & TRight> {
+interface JoinRaw<TLeft, TRight> {
+    '>left': TLeft;
+    '>right': TRight;
+}
+export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
 
 
     private _columns: IValue<any>[] = [];
@@ -82,16 +85,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
         return onLeft ?? onRight;
     }
 
-    hasItem(value: TLeft & TRight): boolean {
-        throw new Error('todo');
-    }
-
-    getIndex(forValue: IValue<any>): _IIndex<any> { // istanbul ignore next
-        throw new Error('todo: filter using indexes of tables (index propagation)');
-        return null;
-    }
-
-
 
     *enumerate(): Iterable<any> {
         // todo: filter & indexes
@@ -146,4 +139,15 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
         // }
         // return ret;
     }
+
+
+    hasItem(value: JoinRaw<TLeft, TRight>): boolean {
+        throw new NotSupported('lookups on joins');
+    }
+
+    getIndex(forValue: IValue<any>): _IIndex<any> { // istanbul ignore next
+        // todo: filter using indexes of tables (index propagation)'
+        return null;
+    }
+
 }

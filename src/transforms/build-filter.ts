@@ -1,10 +1,9 @@
-import { _ISelection, CastError, DataType } from '../interfaces-private';
+import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private';
 import { buildValue } from '../predicate';
 import { Types, makeArray } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../valuetypes';
 import { FalseFilter } from './false-filter';
-import { NotSupported } from '../utils';
 import { buildAndFilter } from './and-filter';
 import { OrFilter } from './or-filter';
 import { NeqFilter } from './neq-filter';

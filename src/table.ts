@@ -1,4 +1,4 @@
-import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent } from './interfaces';
+import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb } from './interfaces-private';
 import { buildValue } from './predicate';
 import { Parser } from 'node-sql-parser';
@@ -16,9 +16,15 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     readonly selection: _ISelection<T>;
     private it = 0;
     private hasPrimary: boolean;
+    private readonly: boolean;
+    hidden: boolean;
 
     get entropy() {
         return this.all.size;
+    }
+
+    get name() {
+        return this._schema.name;
     }
 
     constructor(private owner: _IDb, schema: Schema) {
@@ -55,17 +61,30 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         this.owner.raiseTable(this._schema.name, event);
     }
 
+    setReadonly() {
+        this.readonly = true;
+        return this;
+    }
+    setHidden() {
+        this.hidden = true;
+        return this;
+    }
+
 
     enumerate(): Iterable<T> {
         this.raise('seq-scan');
         return this.all.values();
     }
 
-    insert(toInsert: T): void {
+    insert(toInsert: T): this {
+        if (this.readonly) {
+            throw new ReadOnlyError(this._schema.name);
+        }
         const newId = this._schema.name + '_' + (this.it++);
         setId(toInsert, newId);
         this.indexElt(toInsert);
         this.all.set(newId, toInsert);
+        return this;
     }
 
     private indexElt(toInsert: T) {
@@ -96,6 +115,9 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     }
 
     createIndex(expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique'): this {
+        if (this.readonly) {
+            throw new ReadOnlyError(this._schema.name);
+        }
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
             for (const e of expressions) {

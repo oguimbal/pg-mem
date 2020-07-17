@@ -23,6 +23,25 @@
                 "node_modules/multirepo-tsnode/**",
                 "output/**",
             ]
-        }
+        }, {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug pg",
+            "cwd": "${workspaceFolder}",
+            "args": [
+              "${workspaceFolder}/output/postgres.js"
+            ],
+            "protocol": "inspector",
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+              "${workspaceFolder}/**",
+              "!**/node_modules/**"
+            ],
+            "skipFiles": [
+              "<node_internals>/*.js",
+              "${workspaceFolder}\\output/**",
+              "${workspaceFolder}\\webpack\\bootstrap"
+            ]
+          }
     ]
 }

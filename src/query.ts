@@ -1,7 +1,7 @@
 import { Parser, Insert_Replace, Update, Select } from 'node-sql-parser';
-import { IQuery, TableNotFound, QueryError, CastError, SchemaField, DataType, IType } from './interfaces';
+import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported } from './interfaces';
 import { _IDb, AST2, CreateTable, CreateIndexColDef, _ISelection } from './interfaces-private';
-import { NotSupported, trimNullish, watchUse } from './utils';
+import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -23,6 +23,12 @@ export class Query implements IQuery {
 
     private _query(query: string): any[] {
         const parser = new Parser();
+        // see #todo.md
+        query = query.replace(/START TRANSACTION/g, '');
+        query = query.replace(/COMMIT/g, '');
+        query = query.replace(/ROLLBACK/g, '');
+        query = query.replace(/current_schema\(\)/g, 'current_schema');
+        console.log(query);
         let parsed = parser.astify(query, {
             database: 'PostgresQL',
         }) as AST2 | AST2[];
@@ -31,6 +37,9 @@ export class Query implements IQuery {
         }
         let last;
         for (const _p of parsed) {
+            if (!_p) {
+                continue;
+            }
             const p = watchUse(_p);
             switch (p.type) {
                 case 'insert':
@@ -88,7 +97,13 @@ export class Query implements IQuery {
     executeCreateTable(p: CreateTable): any {
         // get creation parameters
         const [{ table }] = p.table;
+        if (p.table.length !== 1) {
+            throw new NotSupported('Multiple table creations in a single statement');
+        }
         const def = p.create_definitions;
+        if (this.db.getTable(table, true)) {
+            throw new QueryError('Table exists: ' + table);
+        }
 
         // perform creation
         this.db.declareTable({
@@ -166,7 +181,7 @@ export class Query implements IQuery {
             if (aliases.has(from.as ?? from.table)) {
                 throw new Error(`Table name "${from.as ?? from.table}" specified more than once`)
             }
-            const newT = this.db.getTable(from.table)
+            const newT = this.db.getSchema(from.db).getTable(from.table)
                 .selection
                 .setAlias(from.as);
             if (!t) {
@@ -213,9 +228,6 @@ export class Query implements IQuery {
         }
         const intoTable = into.table;
         const t = this.db.getTable(intoTable);
-        if (!t) {
-            throw new TableNotFound(intoTable);
-        }
 
         // get columns to insert into
         const columns: string[] = p.columns ?? t.selection.columns.map(x => x.id);

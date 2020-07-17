@@ -43,14 +43,20 @@ export interface _ISelection<T = any> extends _ISelectionSource {
 }
 
 export interface _IDb extends IMemoryDb {
+    readonly tablesCount: number;
+    getSchema(db: string): _IDb;
+    listTables(): Iterable<_ITable>;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent): void;
 }
 
 export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
+    readonly hidden: boolean;
+    readonly name: string;
     readonly selection: _ISelection<T>;
     insert(toInsert: T): void;
     createIndex(expressions: string[] | CreateIndexDef): this;
+    setReadonly(): this;
 }
 
 export interface CreateIndexDef {
@@ -67,7 +73,7 @@ export interface CreateIndexColDef {
 }
 
 export interface _IDb extends IMemoryDb {
-    getTable(name: string): _ITable;
+    getTable(name: string, nullIfNotExists?: boolean): _ITable;
 }
 
 export interface _IType<TRaw = any> extends IType {

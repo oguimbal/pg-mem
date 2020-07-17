@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IType } from './interfaces-private';
-import { NotSupported, trimNullish, queryJson } from './utils';
-import { DataType, CastError, QueryError, IType } from './interfaces';
+import { trimNullish, queryJson } from './utils';
+import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, singleSelection } from './datatypes';

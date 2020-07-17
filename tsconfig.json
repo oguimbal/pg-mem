@@ -4,13 +4,15 @@
         "module": "commonjs",
         "sourceMap": true,
         "esModuleInterop": true,
+        "experimentalDecorators": true,
         "types": [],
         "skipLibCheck": true,
         "moduleResolution": "node",
         "baseUrl": "."
     },
     "include": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "samples/**/*.ts"
     ],
     "exclude": [
         "node_modules"
