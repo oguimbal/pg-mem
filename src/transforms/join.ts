@@ -33,7 +33,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
         return this.left.entropy;
     }
 
-    constructor(private db: _IDb, private left: _ISelection<TLeft>, private right: _ISelection<TRight>, on: any) {
+    constructor(private db: _IDb
+        , private left: _ISelection<TLeft>
+        , private right: _ISelection<TRight>
+        , on: any
+        , private innerJoin: boolean) {
         super();
 
         this.joinId = jCnt++;
@@ -109,6 +113,10 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<TLe
                         break;
                     }
                 }
+            }
+
+            if (!r && this.innerJoin) {
+                continue; // skip
             }
 
             yield this.buildItem(l, r);

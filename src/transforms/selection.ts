@@ -51,7 +51,6 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             for (const s of opts.columns) {
                 let col = buildValue(base as _ISelection, s.expr);
                 if (s.as) {
-                    debugger;
                     col = col.setId(s.as);
                 }
                 this._columns.push(col);

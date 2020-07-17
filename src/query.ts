@@ -174,11 +174,20 @@ export class Query implements IQuery {
                 t = newT;
                 continue;
             }
-            if (from.join !== 'INNER JOIN') {
-                throw new NotSupported('Joint type not supported ' + from.join);
+
+            switch (from.join) {
+                case 'RIGHT JOIN':
+                    t = new JoinSelection(this.db, newT, t, from.on, from.join === 'INNER JOIN');
+                    break;
+                case 'INNER JOIN':
+                    t = new JoinSelection(this.db, t, newT, from.on, true);
+                    break;
+                case 'LEFT JOIN':
+                    t = new JoinSelection(this.db, t, newT, from.on, false);
+                    break;
+                default:
+                    throw new NotSupported('Joint type not supported ' + from.join);
             }
-            // handle joins
-            t = new JoinSelection(this.db, t, newT, from.on);
         }
         t = t.filter(p.where)
             .select(p.columns);
