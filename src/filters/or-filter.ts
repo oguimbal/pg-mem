@@ -4,10 +4,6 @@ import { FilterBase } from './filter-base';
 
 export class OrFilter<T = any> extends FilterBase<T> {
 
-    get index(): _IIndex<T> {
-        return null;
-    }
-
     get entropy() {
         return this.left.entropy + this.right.entropy;
     }
@@ -18,7 +14,7 @@ export class OrFilter<T = any> extends FilterBase<T> {
 
     constructor(private left: _ISelection<T>, private right: _ISelection<T>) {
         super(left);
-        if (left.columns !== right.columns) {
+        if (left.columns !== right.columns) { //  istanbul ignore next
             throw new Error('Column set mismatch');
         }
     }
@@ -34,12 +30,5 @@ export class OrFilter<T = any> extends FilterBase<T> {
                 yield item;
             }
         }
-    }
-
-    sql(state) {
-        state = state ?? { alias: 0 };
-        const lower = this.left.sql(state);
-        const higher = this.right.sql(state);
-        return `(${lower} OR ${higher})`;
     }
 }

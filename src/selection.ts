@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, IValue, BuildState, _ISelectionSource, setId, getId, _IType } from './interfaces-private';
+import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType } from './interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema } from './interfaces';
 import { buildValue } from './predicate';
 import { trimNullish, NotSupported } from './utils';
@@ -68,14 +68,6 @@ export class Selection<T> implements _ISelection<T> {
                 this.columnsById[newCol.id] = newCol;
             }
         }
-    }
-
-
-    sql(state: BuildState) {
-        state = state ?? { alias: 0 };
-        state.alias++;
-        const alias = 'a' + state.alias;
-        return `(SELECT ${this.columns.map(x => alias + '.' + x.id)} FROM ${this.base.sql(state)} ${alias})`;
     }
 
     *enumerate(): Iterable<T> {

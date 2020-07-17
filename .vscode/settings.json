@@ -13,7 +13,9 @@
         "**/.DS_Store": true,
         "node_modules": true,
         "output": true,
-        "package-lock.json": true
+        "package-lock.json": true,
+        ".nyc_output": true,
+        "coverage": true
     },
     "mochaExplorer.env": {
         // set this to 'true' to disable AST full utilization monitorying.

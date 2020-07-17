@@ -36,12 +36,4 @@ class AndFilter<T = any> extends FilterBase<T> {
             }
         }
     }
-
-
-    sql(state) {
-        state = state ?? { alias: 0 };
-        const lower = this.lower.sql(state);
-        const higher = this.higher.sql(state);
-        return `${lower} AND ${higher}`;
-    }
 }

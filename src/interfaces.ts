@@ -9,6 +9,7 @@ export interface SchemaField {
     id: string;
     type: IType;
     primary?: boolean;
+    unique?: boolean;
     notNull?: boolean;
 }
 
@@ -40,6 +41,7 @@ export interface IMemoryDb {
     declareTable(table: Schema): IMemoryTable;
     query: IQuery;
     getTable(table: string): IMemoryTable;
+    on(event: TableEvent, handler: (table: string) => any);
 }
 
 export interface IQuery {
@@ -47,10 +49,14 @@ export interface IQuery {
     none(query: string): void;
 }
 
+
 export type TableEvent = 'seq-scan';
 export interface IMemoryTable {
     createIndex(expressions: string[]): this;
     on(event: TableEvent, handler: () => any): void;
+}
+
+export interface IndexDef {
 
 }
 

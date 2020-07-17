@@ -1,4 +1,4 @@
-import { IValue, _ISelection, BuildState } from '../interfaces-private';
+import { IValue, _ISelection } from '../interfaces-private';
 import { DataType } from '../interfaces';
 import { FilterBase } from './filter-base';
 
@@ -29,9 +29,5 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
                 yield raw;
             }
         }
-    }
-
-    sql(state?: BuildState): string {
-        return this.getter.id;
     }
 }

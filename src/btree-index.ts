@@ -1,5 +1,6 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
+import { QueryError } from './interfaces';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -50,6 +51,7 @@ export class BIndex<T = any> implements _IIndex<T> {
 
     private asBinary: BTree<Map<string, T>>;
     private byId = new Set<string>();
+    expressions: IValue[];
 
     get size() {
         return this.byId.size;
@@ -63,35 +65,39 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
 
-    constructor(readonly expressions: IValue[]
-        , readonly onTable: _ITable<T>) {
+    constructor(private cols: CreateIndexColDef[]
+        , readonly onTable: _ITable<T>
+        , public indexName: string
+        , private unique: boolean
+        , private notNull: boolean) {
         this.asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });
         this.asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });
+        this.expressions = cols.map(x => x.value);
     }
 
     compare(_a: any, _b: any) {
         for (let i = 0; i < this.expressions.length; i++) {
-            const k = this.expressions[i];
+            const k = this.cols[i];
             const a = _a[i];
             const b = _b[i];
             if (a === null || b === null) {
                 if (a === b) {
                     continue;
                 }
-                return a === null
+                return (a === null
                     ? -1
-                    : 1;
+                    : 1) * (k.nullsLast ? 1 : -1);
             }
-            if (k.type.equals(a, b)) {
+            if (k.value.type.equals(a, b)) {
                 continue;
             }
-            return k.type.gt(a, b)
+            return (k.value.type.gt(a, b)
                 ? 1
-                : -1;
+                : -1) * (k.desc ? -1 : 1);
         }
         return 0;
     }
@@ -105,12 +111,23 @@ export class BIndex<T = any> implements _IIndex<T> {
         return this.byId.has(key);
     }
 
+    hasKey(key: IndexKey[]): boolean {
+        const it = this.asBinary.find(key);
+        return it.valid;
+    }
+
     add(raw: T) {
         const id = getId(raw);
         if (this.byId.has(id)) {
             return;
         }
         const key = this.buildKey(raw);
+        if (this.notNull && key.some(x => x === null || x === undefined)) {
+            throw new QueryError('Cannot add a null record in index ' + this.indexName);
+        }
+        if (this.unique && this.hasKey(key)) {
+            throw new QueryError('Unique constraint violated while adding a record to index ' + this.indexName);
+        }
         let got = this.asBinary.get(key);
         if (!got) {
             this.asBinary = this.asBinary.insert(key, got = new Map());

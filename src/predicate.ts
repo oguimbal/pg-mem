@@ -1,9 +1,10 @@
 import { _ISelection, IValue, _IType } from './interfaces-private';
 import { NotSupported, trimNullish, queryJson } from './utils';
-import { DataType, CastError, QueryError } from './interfaces';
+import { DataType, CastError, QueryError, IType } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
-import { Types } from './datatypes';
+import { Types, isNumeric, isInteger } from './datatypes';
+import { Query } from './query';
 
 
 export function buildValue(data: _ISelection, val: any): IValue {
@@ -35,7 +36,12 @@ function _buildValue(data: _ISelection, val: any): IValue {
             }
             const args = val.args.value.map(x => _buildValue(data, x));
             return Value.function(val.name, args);
-            debugger;
+        case 'unary_expr':
+            const expr = _buildValue(data, val.expr);
+            if (val.operator !== '-') {
+                throw new NotSupported('Unary operator not supported: ' + val.operator)
+            }
+            return Value.negate(expr);
         default:
             throw new NotSupported('condition ' + val.type);
     }
@@ -61,7 +67,8 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
         throw new CastError(leftValue.type.primary, rightValue.type.primary);
     }
 
-    let getter: (a: any, b: any) => boolean;
+    let getter: (a: any, b: any) => any;
+    let returnType: _IType = Types.bool;
     switch (operator) {
         case '=':
             getter = (a, b) => type.equals(a, b);
@@ -81,6 +88,33 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
             break;
         case '<=':
             getter = (a, b) => type.lt(a, b) || type.equals(a, b);
+            break;
+        case '+':
+        case '-':
+        case '*':
+        case '/':
+            if (!isNumeric(type)) {
+                throw new QueryError(`Cannot apply ${operator} on non numeric type ${type.primary}`);
+            }
+            returnType = type;
+            switch (operator) {
+                case '+':
+                    getter = (a, b) => a + b;
+                    break;
+                case '-':
+                    getter = (a, b) => a - b;
+                    break;
+                case '*':
+                    getter = (a, b) => a * b;
+                    break;
+                case '/':
+                    if (isInteger(type)) {
+                        getter = (a, b) => Math.trunc(a/b);
+                    } else {
+                        getter = (a, b) => a / b;
+                    }
+                    break;
+            }
             break;
         case 'AND':
         case 'OR':
@@ -115,7 +149,7 @@ function buildBinary(data: _ISelection, left: any, operator: string, right: any)
     const sql = `${leftValue.id} ${operator} ${rightValue.id}`;
     const hashed = hash({ left: left.hash, operator, right: right.hash });
     return new Evaluator(
-        Types.bool
+        returnType
         , null
         , sql
         , hashed

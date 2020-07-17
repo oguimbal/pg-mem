@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, BuildState } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable } from '../interfaces-private';
 import { FilterBase } from './filter-base';
 
 export class EqFilter<T = any> extends FilterBase<T> {
@@ -38,13 +38,4 @@ export class EqFilter<T = any> extends FilterBase<T> {
             yield item;
         }
     }
-
-    sql(state?: BuildState): string {
-        const map = this.onValue.index.expressions.map((v, i) => {
-            const otherConv = this.other[i].convert(v.type);
-            return `${v.id} = ${otherConv.id}`;
-        });
-        return map.join(' AND ');
-    }
-
 }

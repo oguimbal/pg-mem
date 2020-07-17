@@ -1,4 +1,4 @@
-import { _ISelection, IValue, BuildState } from '../interfaces-private';
+import { _ISelection, IValue } from '../interfaces-private';
 import { FilterBase } from './filter-base';
 
 export class FalseFilter<T = any> extends FilterBase<T> {
@@ -18,9 +18,4 @@ export class FalseFilter<T = any> extends FilterBase<T> {
     enumerate(): Iterable<T> {
         return [];
     }
-
-    sql(state?: BuildState): string {
-        return '1 = 0';
-    }
-
 }

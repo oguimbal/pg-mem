@@ -8,6 +8,8 @@ import hash from 'object-hash';
 export function buildCall(name: string, args: IValue[]) {
     let type: _IType;
     let get: (...args: any[]) => any;
+    const sels = [...new Set(args.map(x => x.selection).filter(x => !!x))];
+    name = name.toLowerCase();
     switch (name) {
         case 'lower':
         case 'upper':
@@ -22,6 +24,11 @@ export function buildCall(name: string, args: IValue[]) {
                 get = (x: string) => x?.toUpperCase();
             }
             break;
+        case 'concat':
+            args = args.map(x => x.convert(DataType.text));
+            type = Types.text();
+            get = (...x: string[]) => x.join('');
+            break;
         default:
             throw new NotSupported('Unsupported function: ' + name);
     }
@@ -29,8 +36,8 @@ export function buildCall(name: string, args: IValue[]) {
         type
         , null
         , `${name}(${args.map(x => x.sql).join(', ')})`
-        , hash({call: name, args: args.map(x => x.hash)})
-        , null
+        , hash({ call: name, args: args.map(x => x.hash) })
+        , sels.length === 1 ? sels[0] : null
         , raw => {
             const argRaw = args.map(x => x.get(raw));
             return get(...argRaw);

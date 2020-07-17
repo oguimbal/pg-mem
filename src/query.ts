@@ -1,6 +1,6 @@
 import { Parser, Insert_Replace, Update, Select } from 'node-sql-parser';
 import { IQuery, TableNotFound, QueryError, CastError, SchemaField, DataType, IType } from './interfaces';
-import { _IDb, AST2, CreateTable } from './interfaces-private';
+import { _IDb, AST2, CreateTable, CreateIndexColDef } from './interfaces-private';
 import { NotSupported, trimNullish, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types } from './datatypes';
@@ -42,83 +42,114 @@ export class Query implements IQuery {
                     last = this.executeSelect(p);
                     break;
                 case 'create':
-                    last = this.executeCreate(p);
+                    switch (p.keyword) {
+                        case 'table':
+                            last = this.executeCreateTable(p);
+                            break;
+                        case 'index':
+                            last = this.executeCreateIndex(p);
+                            break;
+                        default:
+                            throw new NotSupported('create ' + p.keyword);
+                    }
                     break;
                 default:
-                    throw new NotSupported();
+                    throw new NotSupported(p.type);
             }
             p.check?.();
         }
         return last;
     }
-
-    executeCreate(p: CreateTable): any {
-        switch (p.keyword) {
-            case 'table':
-                // get creation parameters
-                const [{ table }] = p.table;
-                const def = p.create_definitions;
-
-                // perform creation
-                this.db.declareTable({
-                    name: table,
-                    fields: def.filter(f => f.resource === 'column')
-                        .map<SchemaField>(f => {
-                            if (f.column.type !== 'column_ref') {
-                                throw new NotSupported(f.column.type);
-                            }
-                            let primary = false;
-                            switch (f.unique_or_primary) {
-                                case 'primary key':
-                                    primary = true;
-                                    break;
-                                case null:
-                                case undefined:
-                                    break;
-                                default:
-                                    throw new NotSupported(f.unique_or_primary);
-                            }
-
-                            const type: IType = (() => {
-                                switch (f.definition.dataType) {
-                                    case 'TEXT':
-                                    case 'VARCHAR':
-                                        return Types.text(f.definition.length);
-                                    case 'INT':
-                                    case 'INTEGER':
-                                        return Types.int;
-                                    case 'DECIMAL':
-                                    case 'FLOAT':
-                                        return Types.float;
-                                    case 'TIMESTAMP':
-                                        return Types.timestamp;
-                                    case 'DATE':
-                                        return Types.date;
-                                    case 'JSON':
-                                        return Types.json;
-                                    case 'JSONB':
-                                        return Types.jsonb;
-                                    default:
-                                        throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
-                                }
-                            })();
-
-                            if (f.definition.suffix?.length) {
-                                throw new NotSupported('column suffix');
-                            }
-
-                            return {
-                                id: f.column.column,
-                                type,
-                                primary,
-                            }
-                        })
-                });
-                return null;
-            default:
-                throw new NotSupported('create ' + p.keyword);
+    executeCreateIndex(p: any): any {
+        if (p.on_kw !== 'on') {
+            throw new NotSupported(p.on_kw);
         }
-        throw new Error('Method not implemented.');
+        if (!p.with_before_where) { // what is this ? (always true)
+            throw new NotSupported();
+        }
+        const indexName = p.index;
+        const onTable = this.db.getTable(p.table.table);
+        const columns = (p.index_columns as any[])
+            .map<CreateIndexColDef>(x => {
+                return {
+                    value: buildValue(onTable.selection, x.column),
+                    nullsLast: x.nulls === 'nulls last', // nulls are first by default
+                    desc: x.order === 'desc',
+                }
+            });
+        onTable
+            .createIndex({
+                columns,
+                indexName,
+            });
+    }
+
+    executeCreateTable(p: CreateTable): any {
+        // get creation parameters
+        const [{ table }] = p.table;
+        const def = p.create_definitions;
+
+        // perform creation
+        this.db.declareTable({
+            name: table,
+            fields: def.filter(f => f.resource === 'column')
+                .map<SchemaField>(f => {
+                    if (f.column.type !== 'column_ref') {
+                        throw new NotSupported(f.column.type);
+                    }
+                    let primary = false;
+                    let unique = false;
+                    switch (f.unique_or_primary) {
+                        case 'primary key':
+                            primary = true;
+                            break;
+                        case 'unique':
+                            unique = true;
+                            break;
+                        case null:
+                        case undefined:
+                            break;
+                        default:
+                            throw new NotSupported(f.unique_or_primary);
+                    }
+
+                    const type: IType = (() => {
+                        switch (f.definition.dataType) {
+                            case 'TEXT':
+                            case 'VARCHAR':
+                                return Types.text(f.definition.length);
+                            case 'INT':
+                            case 'INTEGER':
+                                return Types.int;
+                            case 'DECIMAL':
+                            case 'FLOAT':
+                                return Types.float;
+                            case 'TIMESTAMP':
+                                return Types.timestamp;
+                            case 'DATE':
+                                return Types.date;
+                            case 'JSON':
+                                return Types.json;
+                            case 'JSONB':
+                                return Types.jsonb;
+                            default:
+                                throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
+                        }
+                    })();
+
+                    if (f.definition.suffix?.length) {
+                        throw new NotSupported('column suffix');
+                    }
+
+                    return {
+                        id: f.column.column,
+                        type,
+                        primary,
+                        unique,
+                    }
+                })
+        });
+        return null;
     }
 
     executeSelect(p: Select): any[] {

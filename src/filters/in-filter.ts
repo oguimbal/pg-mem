@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, BuildState, getId } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId } from '../interfaces-private';
 import { FilterBase } from './filter-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
@@ -48,9 +48,4 @@ export class InFilter<T = any> extends FilterBase<T> {
             }
         }
     }
-
-    sql(state?: BuildState): string {
-        return this.onValue.sql + ' IN ' + this.elts.sql;
-    }
-
 }

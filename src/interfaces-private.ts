@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType, IType } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent } from './interfaces';
 import { AST, ColumnRef } from 'node-sql-parser';
 
 export * from './interfaces';
@@ -29,9 +29,6 @@ export interface _ISelectionSource<T = any> {
 
     /** Gets the index associated with this value (or returns null) */
     getIndex(forValue: IValue): _IIndex<any>;
-
-    /** Rebuilds a clean statement */
-    sql(state?: BuildState): string;
 }
 
 export interface _ISelection<T = any> extends _ISelectionSource {
@@ -40,14 +37,28 @@ export interface _ISelection<T = any> extends _ISelectionSource {
     select(select: any[] | '*'): _ISelection;
     getColumn(column: string): IValue;
 }
-export interface BuildState {
-    alias: number;
-}
 
+export interface _IDb extends IMemoryDb {
+    raise(table: string, event: TableEvent): void;
+}
 
 export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
     readonly selection: _ISelection<T>;
     insert(toInsert: T): void;
+    createIndex(expressions: string[] | CreateIndexDef): this;
+}
+
+export interface CreateIndexDef {
+    columns: CreateIndexColDef[];
+    indexName?: string;
+    unique?: boolean;
+    notNull?: boolean;
+    primary?: boolean;
+}
+export interface CreateIndexColDef {
+    value: IValue;
+    nullsLast?: boolean;
+    desc?: boolean
 }
 
 export interface _IDb extends IMemoryDb {
@@ -97,11 +108,16 @@ export type IndexKey = any[];
 export interface _IIndex<T = any> {
     /** How many items in this index */
     readonly size: number;
+    readonly indexName: string;
     /** Returns a measure of how many items there are per index key */
     readonly entropy: number;
     readonly expressions: IValue[];
     readonly onTable: _ITable<T>;
+    /** Check if THIS record exists in this index */
     hasItem(raw: T): boolean;
+    /** Check if this key is present in this index */
+    hasKey(key: IndexKey[]): boolean;
+    /** Add an element to this index */
     add(raw: T): void;
 
     /** Get values equating the given key */
@@ -148,7 +164,7 @@ interface CreateTable_Def {
     column: ColumnRef;
     definition: CreateTable_ColDef;
     resource: 'column';
-    unique_or_primary?: 'primary key';
+    unique_or_primary?: 'primary key' | 'unique';
 
     // NOT HANDLED
     auto_increment?: any;

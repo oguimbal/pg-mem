@@ -182,6 +182,14 @@ class NullType extends TypeBase<null> {
 
 const integers = new Set([DataType.int, DataType.long]);
 const numbers = new Set([DataType.int, DataType.long, DataType.decimal, DataType.float]);
+
+export function isNumeric(t: IType) {
+    return numbers.has(t.primary);
+}
+export function isInteger(t: IType) {
+    return integers.has(t.primary);
+}
+
 class NumberType extends TypeBase<number> {
     constructor(readonly primary: DataType) {
         super();

@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
 import { DataType, QueryError, CastError } from './interfaces';
 import hash from 'object-hash';
-import { Types, makeArray, makeType, ArrayType } from './datatypes';
+import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
 import { Query } from './query';
 import { buildCall } from './functions';
 
@@ -103,6 +103,10 @@ export class Evaluator<T = any> implements IValue<T> {
 
     convert<T = any>(to: DataType | _IType<T>): IValue<T> {
         return this.type.convert(this, to);
+    }
+
+    toString() {
+        return this.sql;
     }
 }
 
@@ -253,6 +257,13 @@ export const Value = {
                 const left = leftValue.get(raw);
                 return left !== null && left !== undefined;
             })).asConstant(leftValue.isConstant);
+    },
+    negate(value: IValue) {
+        if (!isNumeric(value.type)) {
+            throw new QueryError('Can only apply "-" unary operator to numeric types');
+        }
+        return (value as Evaluator)
+            .setConversion(x => -x);
     },
     array(values: IValue[]) {
         if (!values.length) {

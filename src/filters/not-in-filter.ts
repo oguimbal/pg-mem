@@ -1,12 +1,8 @@
-import { _ISelection, IValue, _IIndex, _ITable, BuildState, getId } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId } from '../interfaces-private';
 import { FilterBase } from './filter-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
 export class NotInFilter<T = any> extends FilterBase<T> {
-
-    get index() {
-        return null;
-    }
 
     get entropy() {
         return this.onValue.index.entropy;
@@ -40,9 +36,4 @@ export class NotInFilter<T = any> extends FilterBase<T> {
             yield item;
         }
     }
-
-    sql(state?: BuildState): string {
-        return this.onValue.sql + ' IN ' + this.elts.sql;
-    }
-
 }

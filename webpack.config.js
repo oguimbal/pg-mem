@@ -2,13 +2,13 @@ const webpack = require('webpack');
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 
+var isCoverage = process.env.NODE_ENV === 'coverage';
 
 module.exports = {
     entry: {
-        // entry for your application
-        // 'main': ['webpack/hot/poll?100', './src/main.ts'],
-        // entry for your tests
-        'tests': ['webpack/hot/poll?100', './tests-index.js'],
+        'tests': isCoverage
+            ? ['./tests-index.js']
+            : ['webpack/hot/poll?100', './tests-index.js']
     },
     watch: true,
     target: 'node',
@@ -30,12 +30,20 @@ module.exports = {
     module: {
         rules: [
             {
-                test: /.tsx?$/,
+                test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
                     transpileOnly: true,
                 },
-                exclude: /node_modules/,
+            },
+            {
+                test: /\.ts$/,
+                exclude: /\.spec\.ts$/,
+                enforce: 'post',
+                use: {
+                    loader: 'istanbul-instrumenter-loader',
+                    options: { esModules: true }
+                }
             },
         ],
     },

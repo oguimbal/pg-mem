@@ -1,4 +1,4 @@
-import { _ISelection, IValue, BuildState, _IIndex } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex } from '../interfaces-private';
 import { NotSupported } from '../utils';
 import { buildSelection } from '../selection';
 
@@ -7,7 +7,6 @@ export abstract class FilterBase<T> implements _ISelection<T> {
     abstract readonly entropy: number;
     abstract enumerate(): Iterable<T>;
     abstract hasItem(value: T): boolean;
-    abstract sql(state?: BuildState): string;
 
     constructor(private _base: _ISelection<T>) {
     }
