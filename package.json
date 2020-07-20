@@ -15,11 +15,10 @@
     "functional-red-black-tree": "^1.0.1",
     "immutable": "^4.0.0-rc.12",
     "moment": "^2.27.0",
+    "moo": "^0.5.1",
     "nearley": "^2.19.5",
-    "node-sql-parser": "^2.3.0",
     "object-hash": "^2.0.3",
-    "pg-escape": "^0.2.0",
-    "moo": "^0.5.1"
+    "pg-escape": "^0.2.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
@@ -33,7 +32,6 @@
     "istanbul-instrumenter-loader": "^3.0.1",
     "mocha": "^8.0.1",
     "mochapack": "^2.0.3",
-    "nearley-loader": "^2.0.0",
     "nyc": "^15.1.0",
     "pg": "^8.3.0",
     "source-map-support": "^0.5.19",

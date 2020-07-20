@@ -25,7 +25,7 @@ export const lexer = moo.compile({
     },
     star: '*',
     comma: ',',
-    space: { match: /[\s\t\n\r]+/, lineBreaks: true },
+    space: { match: /[\s\t\n\v\f\r]+/, lineBreaks: true },
     int: /[0-9]+/,
     // word: /[a-zA-Z][A-Za-z0-9_\-]*/,
     comment: {

@@ -50,10 +50,12 @@ module.exports = {
             //     loader: 'pegjs-loader'
             // },
             {
-              test: /\.ne$/,
-              use: [
-                'nearley-loader',
-              ],
+                test: /\.ne$/,
+                use: [
+                    {
+                        loader: path.resolve(__dirname, 'nearley-loader.js')
+                    }
+                ],
             },
         ],
     },

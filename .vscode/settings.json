@@ -6,7 +6,7 @@
     "mochaExplorer.debuggerPort": 9239,
     "mochaExplorer.require": "source-map-support/register",
     "mochaExplorer.skipFrames": [
-        "src/parser/spec-utils.ts"
+        "src/parser/tests/spec-utils.ts"
     ],
     "files.exclude": {
         "**/.git": true,

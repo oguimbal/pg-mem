@@ -1,18 +1,7 @@
-@{%
-    const {lexer} = require('./lexer.ts');
-    function unwrap(e) {
-        if (Array.isArray(e) && e.length === 1) {
-            return unwrap(e[0]);
-        }
-        return e;
-    }
-%}
 @lexer lexer
-# @preprocessor typescript
+@include "base.ne"
 
-main -> expr {% unwrap %}
-
-# Utils
+# === MACROS
 opt_paren[X]
     -> lparen _ $X _ rparen {% x => x[2] %}
     | $X {% ([x]) => x[0] %}
@@ -37,10 +26,13 @@ expr_left_unary[KW, This, Next]
                 }) %}
     | $Next  {% unwrap %}
 
-# Operator precedence
+
+
+
+# ======== Operator precedence
 #  -> https://www.postgresql.org/docs/12/sql-syntax-lexical.html#SQL-PRECEDENCE
-expr -> expr_parent {% unwrap %} | expr_or {% unwrap %}
-expr_paren -> lparen _ expr _ rparen {% x => x[2] %}
+expr -> expr_paren {% unwrap %} | expr_or {% unwrap %}
+expr_paren -> lparen _ expr _ rparen {% get(2) %}
 expr_or -> expr_binary[%kw_or, expr_or, expr_and]
 expr_and -> expr_binary[%kw_or, expr_and, expr_not]
 expr_not -> expr_left_unary[%kw_not, expr_not, expr_is]
@@ -70,26 +62,14 @@ expr_cast
     | expr_dot {% unwrap %}
 
 expr_dot
-    -> expr_dot %dot word {% ([operand, _, member]) => ({ type: 'member', operand: unwrap(operand), member: unwrap(member)}) %}
+    -> expr_dot %dot (word | star) {% ([operand, _, member]) => ({ type: 'member', operand: unwrap(operand), member: unwrap(member)}) %}
     | expr_final {% unwrap %}
 
 expr_final
     -> %word {% ([{value}]) => ({ type: 'ref', name: value}) %}
     | float {% ([value]) => ({ type: 'numeric', value: value }) %}
     | int {% ([value]) => ({ type: 'integer', value: value }) %}
+    | star {% ([value]) => ({ type: 'star' }) %}
 
 
 ops_like ->  (%kw_not __):? (%kw_like | %kw_ilike)
-
-
-# =========== UTILITIES & KEYWORDS
-_ -> %space:?
-__ -> %space
-lparen -> %lparen
-rparen -> %rparen
-number -> float | int
-dot -> %dot {% id %}
-float
-    -> %int dot %int:? {% args => parseFloat(args.join('')) %}
-    | dot %int {% args => parseFloat(args.join('')) %}
-int -> %int {% arg => parseInt(arg, 10) %}
