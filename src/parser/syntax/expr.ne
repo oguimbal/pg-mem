@@ -73,3 +73,8 @@ expr_final
 
 
 ops_like ->  (%kw_not __):? (%kw_like | %kw_ilike)
+
+# x,y,z
+expr_list -> expr (_ comma _ expr {% last %}):* {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}

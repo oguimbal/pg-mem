@@ -1,6 +1,6 @@
 import 'mocha';
 import 'chai';
-import { checkTree } from './spec-utils';
+import { checkTree, checkInvalid } from './spec-utils';
 
 describe('PG syntax: Select statements', () => {
 
@@ -57,9 +57,9 @@ describe('PG syntax: Select statements', () => {
 
 
     checkTree(['select * from test a where a.b > 42' // yea yea, all those are valid & equivalent..
-            , 'select*from test"a"where a.b > 42'
-            , 'select*from test as"a"where a.b > 42'
-            , 'select*from test as a where a.b > 42'], {
+        , 'select*from test"a"where a.b > 42'
+        , 'select*from test as"a"where a.b > 42'
+        , 'select*from test as a where a.b > 42'], {
         type: 'select',
         from: { subject: 'test', alias: 'a' },
         columns: [{ type: 'star' }],
@@ -77,4 +77,20 @@ describe('PG syntax: Select statements', () => {
             },
         }
     });
+
+
+    checkInvalid('select * from (select id from test)'); // <== missing alias
+
+    checkTree('select * from (select id from test) d', {
+        type: 'select',
+        columns: [{ type: 'star' }],
+        from: {
+            subject: {
+                type: 'select',
+                from: { subject: 'test' },
+                columns: [{ type: 'ref', name: 'id' }],
+            },
+            alias: 'd'
+        }
+    })
 });

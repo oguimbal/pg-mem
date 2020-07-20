@@ -9,16 +9,12 @@ export function checkTree(value: string | string[], expected: any, start?: strin
     }
     for (const sql of value) {
         it('parses ' + sql, () => {
-            const got = /^[a-zA-Z\s]+^s+\:\s+/.exec(sql);
-            let toTest = got
-                ? sql.substr(got.length)
-                : sql;
             const gram = Grammar.fromCompiled(grammar);
             if (start) {
                 gram.start = start
             }
             const parser = new Parser(gram);
-            parser.feed(toTest);
+            parser.feed(sql);
             const ret = parser.finish();
             if (!ret.length) {
                 assert.fail('Unexpected end of input');
@@ -28,6 +24,20 @@ export function checkTree(value: string | string[], expected: any, start?: strin
                 .to.deep.equal(expected);
         });
     }
+}
+
+export function checkInvalid(sql: string, start?: string) {
+    it('does not parses ' + sql, () => {
+        const gram = Grammar.fromCompiled(grammar);
+        if (start) {
+            gram.start = start
+        }
+        assert.throws(() => {
+            const parser = new Parser(gram);
+            parser.feed(sql);
+            expect(parser.results).not.to.deep.equal([]);
+        });
+    });
 }
 
 export function checkTreeExpr(value: string | string[], expected: any) {
