@@ -20,14 +20,12 @@ module.exports = {
         __dirname: false
     },
 
-    // do not bundle node_modules diretory
     externals: [
         nodeExternals({
             whitelist: ['webpack/hot/poll?100'],
         }),
     ],
 
-    // typescript loader
     module: {
         rules: [
             {
@@ -47,10 +45,20 @@ module.exports = {
                         options: { esModules: true }
                     }
                 }] : [],
+            // {
+            //     test: /\.pegjs$/,
+            //     loader: 'pegjs-loader'
+            // },
+            {
+              test: /\.ne$/,
+              use: [
+                'nearley-loader',
+              ],
+            },
         ],
     },
     resolve: {
-        extensions: ['.tsx', '.ts', '.js'],
+        extensions: ['.tsx', '.ts', '.js', '.ne'], // '.pegjs',
         // this one is usually useful (not required for this example)
         // plugins: [new TsconfigPathsPlugin({ configFile: path.resolve(__dirname, 'tsconfig.json') })],
     },

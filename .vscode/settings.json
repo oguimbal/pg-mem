@@ -5,6 +5,9 @@
     // otherwise, you wont be able to use mocha tests in multiple instances of vscode.
     "mochaExplorer.debuggerPort": 9239,
     "mochaExplorer.require": "source-map-support/register",
+    "mochaExplorer.skipFrames": [
+        "src/parser/spec-utils.ts"
+    ],
     "files.exclude": {
         "**/.git": true,
         "**/.svn": true,
