@@ -6,9 +6,8 @@
         }
         return e;
     }
-    function get(i) {
-        return x => x[i];
-    }
+    const get = i => x => x[i];
+    const last = x => x && x[x.length - 1];
 %}
 # @preprocessor typescript
 

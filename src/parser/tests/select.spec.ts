@@ -25,7 +25,7 @@ describe('PG syntax: Select statements', () => {
 
     checkTree(['select * from test', 'select*from"test"', 'select* from"test"', 'select *from"test"', 'select*from "test"', 'select * from "test"'], {
         type: 'select',
-        table: 'test',
+        from: { subject: 'test' },
         columns: [{ type: 'star' }]
     });
 
@@ -53,5 +53,28 @@ describe('PG syntax: Select statements', () => {
         columns: [
             { type: 'ref', name: 'a' },
             { type: 'ref', name: 'b' }]
+    });
+
+
+    checkTree(['select * from test a where a.b > 42' // yea yea, all those are valid & equivalent..
+            , 'select*from test"a"where a.b > 42'
+            , 'select*from test as"a"where a.b > 42'
+            , 'select*from test as a where a.b > 42'], {
+        type: 'select',
+        from: { subject: 'test', alias: 'a' },
+        columns: [{ type: 'star' }],
+        where: {
+            type: 'binary',
+            op: '>',
+            left: {
+                type: 'member',
+                operand: { type: 'ref', name: 'a' },
+                member: 'b',
+            },
+            right: {
+                type: 'integer',
+                value: 42,
+            },
+        }
     });
 });
