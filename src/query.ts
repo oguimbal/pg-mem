@@ -4,7 +4,7 @@ import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 
 
@@ -69,20 +69,14 @@ export class Query implements IQuery {
         }
         return last;
     }
-    executeCreateIndex(p: any): any {
-        if (p.on_kw !== 'on') {
-            throw new NotSupported(p.on_kw);
-        }
-        if (!p.with_before_where) { // what is this ? (always true)
-            throw new NotSupported();
-        }
-        const indexName = p.index;
-        const onTable = this.db.getTable(p.table.table);
-        const columns = (p.index_columns as any[])
+    executeCreateIndex(p: CreateIndexStatement): any {
+        const indexName = p.indexName;
+        const onTable = this.db.getTable(p.table);
+        const columns = p.expressions
             .map<CreateIndexColDef>(x => {
                 return {
-                    value: buildValue(onTable.selection, x.column),
-                    nullsLast: x.nulls === 'nulls last', // nulls are first by default
+                    value: buildValue(onTable.selection, x.expression),
+                    nullsLast: x.nulls === 'last', // nulls are first by default
                     desc: x.order === 'desc',
                 }
             });
