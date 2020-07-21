@@ -89,4 +89,19 @@ describe('PG syntax: Lexer', () => {
         next({ type: 'comma' });
         next({ type: 'int', value: '2' });
     })
+
+
+    it('tokenizes ->', () => {
+        lexer.reset('a->b');
+        next({ type: 'word', value: 'a' });
+        next({ type: 'op_member' });
+        next({ type: 'word', value: 'b' });
+    });
+
+    it('tokenizes ->>', () => {
+        lexer.reset('a->>b');
+        next({ type: 'word', value: 'a' });
+        next({ type: 'op_membertext' });
+        next({ type: 'word', value: 'b' });
+    });
 });

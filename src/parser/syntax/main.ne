@@ -6,6 +6,7 @@
 @include "create-table.ne"
 @include "create-index.ne"
 @include "simple-statements.ne"
+@include "insert.ne"
 
 
 # list of statements, separated by ";"
@@ -17,3 +18,4 @@ statement
     | createtable_statement
     | createindex_statement
     | simplestatements_all
+    | insert_statement

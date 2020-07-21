@@ -15,7 +15,7 @@ const caseInsensitiveKeywords = (map) => {
 // build lexer
 export const lexer = moo.compile({
     word: {
-        match: /[a-zA-Z][A-Za-z0-9_\-]*/,
+        match: /[a-zA-Z][A-Za-z0-9_]*/,
         type: caseInsensitiveKeywords(keywodsMap),
     },
     wordQuoted: {
@@ -32,7 +32,7 @@ export const lexer = moo.compile({
     star: '*',
     comma: ',',
     space: { match: /[\s\t\n\v\f\r]+/, lineBreaks: true },
-    int: /[0-9]+/,
+    int: /\-?[0-9]+/,
     // word: /[a-zA-Z][A-Za-z0-9_\-]*/,
     commentLine: /\-\-.*?$[\s\r\n]*/,
     commentFull: /(?<!\/)\/\*(?:.|[\r\n])+\*\/[\s\r\n]*/,
@@ -44,10 +44,12 @@ export const lexer = moo.compile({
     dot: '.',
     op_cast: '::',
     op_plus: '+',
-    op_minus: /(?<!\-)\-(?!\-)/,
+    op_minus: /(?<!\-)\-(?!\-)(?!\>)/,
     op_div: /(?<!\/)\/(?!\/)/,
     op_mod: '%',
     op_exp: '^',
+    op_member: /\-\>(?!\>)/,
+    op_membertext: '->>',
     op_additive: {
         // group other additive operators
         match: ['||', '-', '#-', '&&'],

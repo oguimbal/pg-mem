@@ -1,64 +1,76 @@
 import 'mocha';
 import 'chai';
 import { checkSelect, checkInvalid } from './spec-utils';
+import { SelectedColumn, Expr } from './ast';
 
 describe('PG syntax: Select statements', () => {
 
+
+    function noAlias(x: Expr[]): SelectedColumn[] {
+        return x.map(expr => ({ expr }));
+    }
+
     checkSelect(['select 42', 'select(42)'], {
         type: 'select',
-        columns: [{
+        columns: noAlias([{
             type: 'integer',
             value: 42
-        }],
+        }]),
     });
 
     checkSelect(['select 42, 53', 'select 42,53', 'select(42),53'], {
         type: 'select',
-        columns: [{
+        columns: noAlias([{
             type: 'integer',
             value: 42
         }, {
             type: 'integer',
             value: 53
-        }],
+        }]),
     });
 
     checkSelect(['select * from test', 'select*from"test"', 'select* from"test"', 'select *from"test"', 'select*from "test"', 'select * from "test"'], {
         type: 'select',
         from: [{ type: 'table', table: 'test' }],
-        columns: [{ type: 'star' }]
+        columns: noAlias([{ type: 'ref', name: '*' }])
+    });
+
+    checkSelect(['select a as a1, b as b1 from test', 'select a a1,b b1 from test', 'select a a1 ,b b1 from test'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: [{
+            expr: { type: 'ref', name: 'a' },
+            alias: 'a1',
+        }, {
+            expr: { type: 'ref', name: 'b' },
+            alias: 'b1',
+        }],
     });
 
     checkSelect(['select * from db.test'], {
         type: 'select',
         from: [{ type: 'table', table: 'test', db: 'db' }],
-        columns: [{ type: 'star' }]
+        columns: noAlias([{ type: 'ref', name: '*' }]),
     });
 
     checkSelect(['select a.*, b.*'], {
         type: 'select',
-        columns: [{
-            type: 'member',
-            operand: {
-                type: 'ref',
-                name: 'a'
-            },
-            member: '*',
+        columns: noAlias([{
+            type: 'ref',
+            name: '*',
+            table: 'a',
         }, {
-            type: 'member',
-            operand: {
-                type: 'ref',
-                name: 'b'
-            },
-            member: '*',
-        }]
+            type: 'ref',
+            name: '*',
+            table: 'b',
+        }])
     });
 
     checkSelect(['select a, b'], {
         type: 'select',
-        columns: [
+        columns: noAlias([
             { type: 'ref', name: 'a' },
-            { type: 'ref', name: 'b' }]
+            { type: 'ref', name: 'b' }])
     });
 
 
@@ -68,14 +80,14 @@ describe('PG syntax: Select statements', () => {
         , 'select*from test as a where a.b > 42'], {
         type: 'select',
         from: [{ type: 'table', table: 'test', alias: 'a' }],
-        columns: [{ type: 'star' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
         where: {
             type: 'binary',
             op: '>',
             left: {
-                type: 'member',
-                operand: { type: 'ref', name: 'a' },
-                member: 'b',
+                type: 'ref',
+                table: 'a',
+                name: 'b',
             },
             right: {
                 type: 'integer',
@@ -89,13 +101,13 @@ describe('PG syntax: Select statements', () => {
 
     checkSelect('select * from (select id from test) d', {
         type: 'select',
-        columns: [{ type: 'star' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
         from: [{
             type: 'statement',
             statement: {
                 type: 'select',
                 from: [{ type: 'table', table: 'test' }],
-                columns: [{ type: 'ref', name: 'id' }],
+                columns: noAlias([{ type: 'ref', name: 'id' }]),
             },
             alias: 'd'
         }]

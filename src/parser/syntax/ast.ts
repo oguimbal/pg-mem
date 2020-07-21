@@ -2,6 +2,7 @@ export type Statement = SelectStatement
     | CreateTableStatement
     | CreateIndexStatement
     | CommitStatement
+    | InsertStatement
     | RollbackStatement
     | StartTransactionStatement;
 
@@ -14,6 +15,14 @@ export interface CommitStatement {
 }
 export interface RollbackStatement {
     type: 'rollback';
+}
+
+export interface InsertStatement {
+    type: 'insert';
+    into: TableRefAliased;
+    columns?: string[];
+    values?: Expr[][];
+    select?: SelectStatement;
 }
 
 export interface CreateIndexStatement {
@@ -59,18 +68,29 @@ type ColumnConstraint = {
 
 export interface SelectStatement {
     type: 'select',
-    columns?: Expr[];
+    columns?: SelectedColumn[];
     from?: From[];
     where?: Expr;
 }
 
+export interface SelectedColumn {
+    expr: Expr;
+    alias?: string;
+}
+
 export type From = FromTable | FromStatement;
 
-export interface FromTable {
-    type: 'table',
+export interface TableRef {
     table: string;
     db?: string;
+}
+
+export interface TableRefAliased extends TableRef {
     alias?: string;
+}
+
+export interface FromTable extends TableRefAliased {
+    type: 'table',
     join?: JoinClause;
 }
 
@@ -88,7 +108,6 @@ export interface JoinClause {
 }
 
 export type Expr = ExprRef
-    | ExprStar
     | ExprList
     | ExprNull
     | ExprInteger
@@ -149,15 +168,14 @@ export interface ExprUnary {
 export interface ExprRef {
     type: 'ref';
     table?: string;
-    name: string;
+    name: string | '*';
 }
 
 export interface ExprMember {
     type: 'member';
     operand: Expr;
-    /** If not provided, then is a classic member access with '.' */
-    op?: '->' | '->>'; // <== todo
-    member: '*' | string | number;
+    op: '->' | '->>'; // <== todo
+    member: string | number;
 }
 
 export interface ExprCall {
@@ -177,9 +195,6 @@ export interface ExprArrayIndex {
     index: Expr;
 }
 
-export interface ExprStar {
-    type: 'star';
-}
 export interface ExprNull {
     type: 'null';
 }

@@ -66,16 +66,18 @@ expr_exp -> expr_binary[%op_exp, expr_exp, expr_unary_add]
 expr_unary_add -> expr_left_unary[(%op_plus | %op_minus), expr_unary_add, expr_array_index]
 
 expr_array_index
-    -> expr_array_index _ %lbracket _ expr_cast _ %rbracket {% x => ({ type: 'arrayIndex', array: x[0], index: x[4] }) %}
-    | expr_cast {% unwrap %}
+    -> expr_array_index _ %lbracket _ expr_member _ %rbracket {% x => ({ type: 'arrayIndex', array: x[0], index: x[4] }) %}
+    | expr_member {% unwrap %}
 
-expr_cast
-    -> (expr_cast | expr_paren) %op_cast word {% ([operand, _, to]) => ({ type: 'cast', operand: unwrap(operand), to: to.toUpperCase() }) %}
+expr_member
+    -> (expr_member | expr_paren) (_ ops_member _ {% get(1) %}) (string | int) {% ([operand, op, member]) => ({ type: 'member', operand: unwrap(operand), op, member: unwrap(member)}) %}
+    | (expr_member | expr_paren) %op_cast word {% ([operand, _, to]) => ({ type: 'cast', operand: unwrap(operand), to: to.toUpperCase() }) %}
     | expr_dot {% unwrap %}
 
 expr_dot
-    -> expr_dot (_ %dot _) (word | star) {% ([operand, _, member]) => ({ type: 'member', operand: unwrap(operand), member: unwrap(member)}) %}
+    -> word (_ %dot _) (word | star) {% ([operand, _, member]) => ({ type: 'ref', table: unwrap(operand), name: unwrap(member)}) %}
     | expr_final {% unwrap %}
+
 
 expr_final
     -> expr_basic
@@ -83,7 +85,7 @@ expr_final
 
 expr_basic
     -> expr_call
-    | word {% ([value]) => ({ type: 'ref', name: value}) %}
+    | (word | star) {% ([value]) => ({ type: 'ref', name: unwrap(value) }) %}
 
 expr_call -> word _ lparen _ expr_list _ rparen {% x => ({
         type: 'call',
@@ -97,13 +99,13 @@ expr_primary
     | string {% ([value]) => ({ type: 'string', value: value }) %}
     | %kw_true {% () => ({ type: 'boolean', value: true }) %}
     | %kw_false {% () => ({ type: 'boolean', value: false }) %}
-    | star {% ([value]) => ({ type: 'star' }) %}
     | %kw_null {% ([value]) => ({ type: 'null' }) %}
 
 
 ops_like ->  (%kw_not __):? (%kw_like | %kw_ilike)
 ops_in -> (%kw_not __):? %kw_in
 ops_between -> (%kw_not __):? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].value}`.toUpperCase() : x[1].value %}
+ops_member -> (%op_member | %op_membertext) {% x => unwrap(x).value %}
 
 # x,y,z
 expr_list -> expr (_ comma _ expr {% last %}):* {% ([head, tail]) => {

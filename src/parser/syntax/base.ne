@@ -62,6 +62,7 @@ word -> %word  {% x => {
     return val[0] === '"' ? val.substr(1, val.length - 2) : val;
 } %}
 
+
 # === Non reserved keywords
 # ... which are not in keywords.ts (thus parsed as words)
 @{%
@@ -79,6 +80,8 @@ kw_start -> %word {% notReservedKw('start')  %}
 kw_commit -> %word {% notReservedKw('commit')  %}
 kw_transaction -> %word {% notReservedKw('transaction')  %}
 kw_rollback -> %word {% notReservedKw('rollback')  %}
+kw_insert -> %word {% notReservedKw('insert')  %}
+kw_values -> %word {% notReservedKw('values')  %}
 
 
 # === Composite keywords
@@ -91,3 +94,23 @@ data_type -> word (_ lparen _ int _ rparen {% get(3) %}):? {% x => ({
     type: unwrap(x[0]).toLowerCase(),
     ... (x[1] >= 0 ) ? { length: x[1] } : {},
 }) %}
+
+
+# === Table ref  (ex:  [db.]mytable [as X] )
+
+# [AS x] or just [x]
+ident_aliased -> (%kw_as _ ident {% last %}) | ident {% unwrap %}
+
+table_ref -> (ident _ dot _ {% id %}):? ident {% x => ({
+    table: unwrap(x[1]),
+    ...x[0] ? { db: unwrap(x[0]) } : {},
+})%}
+
+# Select on tables MAY have an alias
+table_ref_aliased -> table_ref (_ ident_aliased {% last %}):? {% x => {
+    const alias = unwrap(x[1]);
+    return {
+        ...unwrap(x[0]),
+        ...alias ? { alias } : {},
+    }
+} %}

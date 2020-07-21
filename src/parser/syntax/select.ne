@@ -20,31 +20,29 @@ select_statement_paren -> lparen _ select_statement _ rparen {% get(2) %}
 select_from -> %kw_from _ select_subject {% last %}
 
 # Table name or another select statement wrapped in parens
-select_subject -> select_subject_ident | select_subject_select_statement
-
-# Select on tables MAY have an alias
-select_subject_ident -> (ident _ dot _ {% id %}):? ident _ select_alias:? {% x => {
-    const alias = unwrap(x[3]);
-    return {
-        type: 'table',
-        ...x[0] ? { db: unwrap(x[0]) } : {},
-        table: unwrap(x[1]),
-        ...alias ? { alias } : {},
-    }
-} %}
+select_subject
+    -> table_ref_aliased {% x => ({ type: 'table', ...x[0]}) %}
+    | select_subject_select_statement
 
 # Selects on subselects MUST have an alias
-select_subject_select_statement -> select_statement_paren _ select_alias {% x => ({
+select_subject_select_statement -> select_statement_paren _ ident_aliased {% x => ({
     type: 'statement',
     statement: unwrap(x[0]),
     alias: unwrap(x[2])
 }) %}
 
-# [AS x] or just [x]
-select_alias -> (%kw_as _ ident {% last %}) | ident {% unwrap %}
 
-# SELECT x,y,z
-select_what -> %kw_select _ expr_list {% last %}
+# SELECT x,y as YY,z
+select_what -> %kw_select _ select_expr_list_aliased {% last %}
+
+select_expr_list_aliased -> select_expr_list_item (_ comma _ select_expr_list_item {% last %}):* {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}
+
+select_expr_list_item -> expr (_ ident_aliased {% last %}):? {% x => ({
+    expr: x[0],
+    ...x[1] ? {alias: unwrap(x[1]) } : {},
+}) %}
 
 # WHERE [expr]
 select_where -> %kw_where _ expr {% last %}

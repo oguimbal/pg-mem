@@ -4,7 +4,7 @@ import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 
 
@@ -47,9 +47,9 @@ export class Query implements IQuery {
                     continue;
                 case 'rollback':
                     throw new QueryError('Transaction rollback not supported !');
-                // case 'insert':
-                //     last = this.executeInsert(p);
-                //     break;
+                case 'insert':
+                    last = this.executeInsert(p);
+                    break;
                 // case 'update':
                 //     last = this.executeUpdate(p);
                 //     break;
@@ -219,43 +219,44 @@ export class Query implements IQuery {
         throw new Error('Method not implemented.');
     }
 
-    executeInsert(p: any): void {
+    executeInsert(p: InsertStatement): void {
         if (p.type !== 'insert') {
-            throw new NotSupported();
-        }
-        if (p.table?.length !== 1) {
             throw new NotSupported();
         }
 
         // get table to insert into
-        let [into] = p.table;
-        if (!('table' in into) || !into.table) {
-            throw new NotSupported();
-        }
-        const intoTable = into.table;
-        const t = this.db.getTable(intoTable);
+        const t = this.db
+            .getSchema(p.into.db)
+            .getTable(p.into.table);
 
         // get columns to insert into
         const columns: string[] = p.columns ?? t.selection.columns.map(x => x.id);
 
         // get values to insert
-        const values = p.values;
+        if (p.values) {
+            const values = p.values;
 
-        for (const val of values) {
-            if (val.type !== 'expr_list') {
-                throw new NotSupported('insert value type ' + val.type);
+            for (const val of values) {
+                if (val.length !== columns.length) {
+                    throw new QueryError('Insert columns / values count mismatch');
+                }
+                const toInsert = {};
+                for (let i = 0; i < val.length; i++) {
+                    const notConv = buildValue(null, val[i]);
+                    const col = t.selection.getColumn(columns[i]);
+                    const converted = notConv.convert(col.type);
+                    if (!converted.isConstant) {
+                        throw new QueryError('Cannot insert non constant expression');
+                    }
+                    toInsert[columns[i]] = converted.get(null);
+                }
+                t.insert(toInsert);
             }
-            if (val.value.length !== columns.length) {
-                throw new QueryError('Insert columns / values count mismatch');
-            }
-            const toInsert = {};
-            for (let i = 0; i < val.value.length; i++) {
-                const notConv = buildValue(null, val.value[i]);
-                const col = t.selection.getColumn(columns[i]);
-                const converted = notConv.convert(col.type);
-                toInsert[columns[i]] = converted.get(null);
-            }
-            t.insert(toInsert);
+        } else if (p.select) {
+            const selection = this.executeSelect(p.select);
+            throw new Error('todo: array-mode iteration');
+        } else {
+            throw new QueryError('Nothing to insert');
         }
     }
 }

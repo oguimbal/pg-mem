@@ -65,25 +65,104 @@ describe('PG syntax: Expressions', () => {
         });
 
         checkTreeExpr('*', {
-            type: 'star',
+            type: 'ref',
+            name: '*',
         });
 
         checkTreeExpr('a.*', {
-            type: 'member',
-            operand: {
-                type: 'ref',
-                name: 'a',
-            },
-            member: '*',
+            type: 'ref',
+            table: 'a',
+            name: '*',
         });
 
         checkTreeExpr('a.b', {
+            type: 'ref',
+            table: 'a',
+            name: 'b',
+        });
+
+        checkTreeExpr([`a->>'b'`, `a ->> 'b'`], {
             type: 'member',
+            op: '->>',
+            member: 'b',
             operand: {
                 type: 'ref',
                 name: 'a',
-            },
+            }
+        });
+
+        checkTreeExpr([`t.a->'b'`, `t."a" -> 'b'`], {
+            type: 'member',
+            op: '->',
             member: 'b',
+            operand: {
+                type: 'ref',
+                name: 'a',
+                table: 't',
+            }
+        });
+
+        checkTreeExpr([`data::jsonb->'b'`, `(data::jsonb) -> 'b'`], {
+            type: 'member',
+            op: '->',
+            member: 'b',
+            operand: {
+                type: 'cast',
+                to: 'JSONB',
+                operand: {
+                    type: 'ref',
+                    name: 'data',
+                }
+            }
+        });
+
+        checkTreeExpr([`data::jsonb->'b'::json`, `((data::jsonb) -> 'b')::json`], {
+            type: 'cast',
+            to: 'JSON',
+            operand: {
+                type: 'member',
+                op: '->',
+                member: 'b',
+                operand: {
+                    type: 'cast',
+                    to: 'JSONB',
+                    operand: {
+                        type: 'ref',
+                        name: 'data',
+                    }
+                }
+            }
+        });
+
+        checkTreeExpr(`a->>42`, {
+            type: 'member',
+            op: '->>',
+            member: 42,
+            operand: {
+                type: 'ref',
+                name: 'a',
+            }
+        });
+
+        checkTreeExpr(`a->>-1`, {
+            type: 'member',
+            op: '->>',
+            member: -1,
+            operand: {
+                type: 'ref',
+                name: 'a',
+            }
+        });
+
+        checkTreeExpr(`a.b->-1`, {
+            type: 'member',
+            op: '->',
+            member: -1,
+            operand: {
+                type: 'ref',
+                name: 'b',
+                table: 'a',
+            }
         });
 
         checkTreeExpr(['42.', '42.0'], {
@@ -267,9 +346,9 @@ describe('PG syntax: Expressions', () => {
             type: 'binary',
             op: 'OR',
             left: {
-                type: 'member',
-                operand: { type: 'ref', name: 'a' },
-                member: 'b',
+                type: 'ref',
+                table: 'a',
+                name: 'b',
             },
             right: { type: 'ref', name: 'c' },
         });
@@ -441,7 +520,7 @@ describe('PG syntax: Expressions', () => {
                     { type: 'ref', name: 'b' },
                     { type: 'ref', name: 'c' },
                 ]
-             },
+            },
         });
 
         checkTreeExpr(['a not like b', '"a"not LIKE"b"'], {
@@ -490,9 +569,9 @@ describe('PG syntax: Expressions', () => {
         checkTreeExpr(['a.b[c]', 'a . b[c]', 'a."b"["c"]'], {
             type: 'arrayIndex',
             array: {
-                type: 'member',
-                operand: { type: 'ref', name: 'a' },
-                member: 'b'
+                type: 'ref',
+                table: 'a',
+                name: 'b',
             },
             index: { type: 'ref', name: 'c' }
         })
