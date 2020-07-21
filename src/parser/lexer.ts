@@ -23,14 +23,19 @@ export const lexer = moo.compile({
         type: () => 'word',
         value: x => x.substr(1, x.length - 2),
     },
+    string: {
+        match: /'(?:[^']|\'\')+'/,
+        value: x => JSON.parse('"' + x.substr(1, x.length - 2)
+            .replace(/''/g, '\'')
+            .replace(/"/g, '\\"') + '"'),
+    },
     star: '*',
     comma: ',',
     space: { match: /[\s\t\n\v\f\r]+/, lineBreaks: true },
     int: /[0-9]+/,
     // word: /[a-zA-Z][A-Za-z0-9_\-]*/,
-    comment: {
-        match: /\-\-.*?$/,
-    },
+    commentLine: /\-\-.*?$[\s\r\n]*/,
+    commentFull: /(?<!\/)\/\*(?:.|[\r\n])+\*\/[\s\r\n]*/,
     lparen: '(',
     rparen: ')',
     lbracket: '[',
@@ -39,8 +44,8 @@ export const lexer = moo.compile({
     dot: '.',
     op_cast: '::',
     op_plus: '+',
-    op_minus: '-',
-    op_div: '/',
+    op_minus: /(?<!\-)\-(?!\-)/,
+    op_div: /(?<!\/)\/(?!\/)/,
     op_mod: '%',
     op_exp: '^',
     op_additive: {

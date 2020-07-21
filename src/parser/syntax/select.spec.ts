@@ -1,10 +1,10 @@
 import 'mocha';
 import 'chai';
-import { checkTree, checkInvalid } from './spec-utils';
+import { checkSelect, checkInvalid } from './spec-utils';
 
 describe('PG syntax: Select statements', () => {
 
-    checkTree(['select 42', 'select(42)'], {
+    checkSelect(['select 42', 'select(42)'], {
         type: 'select',
         columns: [{
             type: 'integer',
@@ -12,7 +12,7 @@ describe('PG syntax: Select statements', () => {
         }],
     });
 
-    checkTree(['select 42, 53', 'select 42,53', 'select(42),53'], {
+    checkSelect(['select 42, 53', 'select 42,53', 'select(42),53'], {
         type: 'select',
         columns: [{
             type: 'integer',
@@ -23,13 +23,13 @@ describe('PG syntax: Select statements', () => {
         }],
     });
 
-    checkTree(['select * from test', 'select*from"test"', 'select* from"test"', 'select *from"test"', 'select*from "test"', 'select * from "test"'], {
+    checkSelect(['select * from test', 'select*from"test"', 'select* from"test"', 'select *from"test"', 'select*from "test"', 'select * from "test"'], {
         type: 'select',
         from: { subject: 'test' },
         columns: [{ type: 'star' }]
     });
 
-    checkTree(['select a.*, b.*'], {
+    checkSelect(['select a.*, b.*'], {
         type: 'select',
         columns: [{
             type: 'member',
@@ -48,7 +48,7 @@ describe('PG syntax: Select statements', () => {
         }]
     });
 
-    checkTree(['select a, b'], {
+    checkSelect(['select a, b'], {
         type: 'select',
         columns: [
             { type: 'ref', name: 'a' },
@@ -56,7 +56,7 @@ describe('PG syntax: Select statements', () => {
     });
 
 
-    checkTree(['select * from test a where a.b > 42' // yea yea, all those are valid & equivalent..
+    checkSelect(['select * from test a where a.b > 42' // yea yea, all those are valid & equivalent..
         , 'select*from test"a"where a.b > 42'
         , 'select*from test as"a"where a.b > 42'
         , 'select*from test as a where a.b > 42'], {
@@ -81,7 +81,7 @@ describe('PG syntax: Select statements', () => {
 
     checkInvalid('select * from (select id from test)'); // <== missing alias
 
-    checkTree('select * from (select id from test) d', {
+    checkSelect('select * from (select id from test) d', {
         type: 'select',
         columns: [{ type: 'star' }],
         from: {

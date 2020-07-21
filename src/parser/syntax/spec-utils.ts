@@ -2,8 +2,13 @@ import { Parser, Grammar } from 'nearley';
 import { expect, assert } from 'chai';
 import grammar from '../syntax/main.ne';
 import { trimNullish } from '../../utils';
+import { Value, Select } from './ast';
 
-export function checkTree(value: string | string[], expected: any, start?: string) {
+export function checkSelect(value: string | string[], expected: Select)  {
+    checkTree(value, expected);
+}
+
+function checkTree<T>(value: string | string[], expected: T, start?: string) {
     if (typeof value === 'string') {
         value = [value];
     }
@@ -40,6 +45,6 @@ export function checkInvalid(sql: string, start?: string) {
     });
 }
 
-export function checkTreeExpr(value: string | string[], expected: any) {
-    checkTree(value, expected, 'expr')
+export function checkTreeExpr(value: string | string[], expected: Value) {
+    checkTree(value, expected, 'expr');
 }
