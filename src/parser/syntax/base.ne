@@ -2,7 +2,10 @@
 @{%
     function unwrap(e) {
         if (Array.isArray(e) && e.length === 1) {
-            return unwrap(e[0]);
+            e = unwrap(e[0]);
+        }
+        if (Array.isArray(e) && !e.length) {
+            return null;
         }
         return e;
     }
@@ -72,8 +75,19 @@ kw_index -> %word {% notReservedKw('index')  %}
 kw_nulls -> %word {% notReservedKw('nulls')  %}
 kw_first -> %word {% notReservedKw('first')  %}
 kw_last -> %word {% notReservedKw('last')  %}
+kw_start -> %word {% notReservedKw('start')  %}
+kw_commit -> %word {% notReservedKw('commit')  %}
+kw_transaction -> %word {% notReservedKw('transaction')  %}
+kw_rollback -> %word {% notReservedKw('rollback')  %}
 
 
 # === Composite keywords
 kw_ifnotexists -> kw_if __ %kw_not __ kw_exists
 kw_not_null -> %kw_not __ %kw_null
+
+
+# === Datatype
+data_type -> word (_ lparen _ int _ rparen {% get(3) %}):? {% x => ({
+    type: unwrap(x[0]).toLowerCase(),
+    ... (x[1] >= 0 ) ? { length: x[1] } : {},
+}) %}

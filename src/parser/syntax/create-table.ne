@@ -16,7 +16,7 @@ createtable_columnList -> createtable_column (_ comma _ createtable_column {% la
     return [head, ...(tail || [])];
 } %}
 
-createtable_column -> word _ word _ createtable_column_constraint:? {% x => ({
+createtable_column -> word _ data_type _ createtable_column_constraint:? {% x => ({
     name: x[0],
     dataType: x[2],
     constraint: x[4],

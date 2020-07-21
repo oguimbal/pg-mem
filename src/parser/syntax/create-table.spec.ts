@@ -9,7 +9,7 @@ describe('PG syntax: Create table', () => {
         name: 'test',
         columns: [{
             name: 'value',
-            dataType: 'text',
+            dataType: { type: 'text' },
         }],
     });
 
@@ -19,7 +19,7 @@ describe('PG syntax: Create table', () => {
         ifNotExists: true,
         columns: [{
             name: 'value',
-            dataType: 'text',
+            dataType: { type: 'text' },
         }],
     });
 
@@ -28,7 +28,7 @@ describe('PG syntax: Create table', () => {
         name: 'test',
         columns: [{
             name: 'value',
-            dataType: 'text',
+            dataType: { type: 'text' },
             constraint: { type: 'primary key' },
         }],
     });
@@ -39,7 +39,7 @@ describe('PG syntax: Create table', () => {
         name: 'test',
         columns: [{
             name: 'value',
-            dataType: 'text',
+            dataType: { type: 'text' },
             constraint: { type: 'unique' },
         }],
     });
@@ -50,7 +50,7 @@ describe('PG syntax: Create table', () => {
         name: 'test',
         columns: [{
             name: 'value',
-            dataType: 'text',
+            dataType: { type: 'text' },
             constraint: { type: 'unique', notNull: true },
         }],
     });
@@ -61,11 +61,11 @@ describe('PG syntax: Create table', () => {
         name: 'test',
         columns: [{
             name: 'id',
-            dataType: 'text',
+            dataType: { type: 'text' },
             constraint: { type: 'primary key' },
-        },{
+        }, {
             name: 'value',
-            dataType: 'text',
+            dataType: { type: 'text' },
             constraint: { type: 'unique', notNull: true },
         }],
     });

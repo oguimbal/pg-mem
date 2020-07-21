@@ -74,7 +74,7 @@ expr_cast
     | expr_dot {% unwrap %}
 
 expr_dot
-    -> expr_dot %dot (word | star) {% ([operand, _, member]) => ({ type: 'member', operand: unwrap(operand), member: unwrap(member)}) %}
+    -> expr_dot (_ %dot _) (word | star) {% ([operand, _, member]) => ({ type: 'member', operand: unwrap(operand), member: unwrap(member)}) %}
     | expr_final {% unwrap %}
 
 expr_final

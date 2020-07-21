@@ -5,6 +5,7 @@
 @include "select.ne"
 @include "create-table.ne"
 @include "create-index.ne"
+@include "simple-statements.ne"
 
 
 # list of statements, separated by ";"
@@ -15,3 +16,4 @@ statement
     -> select_statement
     | createtable_statement
     | createindex_statement
+    | simplestatements_all

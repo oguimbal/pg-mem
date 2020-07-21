@@ -27,10 +27,8 @@ export class Query implements IQuery {
 
 
         // see #todo.md
-        query = query.replace(/START TRANSACTION/g, '');
-        query = query.replace(/COMMIT/g, '');
-        query = query.replace(/ROLLBACK/g, '');
-        query = query.replace(/current_schema\(\)/g, 'current_schema');
+
+        // query = query.replace(/current_schema\(\)/g, 'current_schema');
 
         let parsed = parse(query);
         if (!Array.isArray(parsed)) {
@@ -43,6 +41,12 @@ export class Query implements IQuery {
             }
             const p = watchUse(_p);
             switch (p.type) {
+                case 'start transaction':
+                case 'commit':
+                    // ignore those
+                    continue;
+                case 'rollback':
+                    throw new QueryError('Transaction rollback not supported !');
                 // case 'insert':
                 //     last = this.executeInsert(p);
                 //     break;
@@ -121,22 +125,22 @@ export class Query implements IQuery {
 
                     const type: IType = (() => {
                         switch (f.dataType.type) {
-                            case 'TEXT':
-                            case 'VARCHAR':
+                            case 'text':
+                            case 'varchar':
                                 return Types.text(f.dataType.length);
-                            case 'INT':
-                            case 'INTEGER':
+                            case 'int':
+                            case 'integer':
                                 return Types.int;
-                            case 'DECIMAL':
-                            case 'FLOAT':
+                            case 'decimal':
+                            case 'float':
                                 return Types.float;
-                            case 'TIMESTAMP':
+                            case 'timestamp':
                                 return Types.timestamp;
-                            case 'DATE':
+                            case 'date':
                                 return Types.date;
-                            case 'JSON':
+                            case 'json':
                                 return Types.json;
-                            case 'JSONB':
+                            case 'jsonb':
                                 return Types.jsonb;
                             default:
                                 throw new NotSupported('Type ' + JSON.stringify(f.dataType));
@@ -167,11 +171,8 @@ export class Query implements IQuery {
         let t: _ISelection;
         const aliases = new Set<string>();
         for (const from of p.from) {
-            if (!('subject' in from) || !from.subject) {
-                throw new NotSupported('no table name');
-            }
-            const alias = typeof from.subject === 'string'
-                ? from.alias ?? from.subject
+            const alias = from.type === 'table'
+                ? from.alias ?? from.table
                 : from.alias;
             if (!alias) {
                 throw new Error('No alias provided');
@@ -179,12 +180,15 @@ export class Query implements IQuery {
             if (aliases.has(alias)) {
                 throw new Error(`Table name "${alias}" specified more than once`)
             }
-            const newT = typeof from.subject !== 'string'
-                ? this.buildSelect(from.subject)
-                    .setAlias(alias)
-                : this.db.getSchema(from.db).getTable(from.subject)
-                    .selection
-                    .setAlias(alias);
+            // find what to select
+            let newT = from.type === 'statement'
+                ? this.buildSelect(from.statement)
+                : this.db.getSchema(from.db).getTable(from.table)
+                    .selection;
+
+            // set its alias
+            newT = newT.setAlias(alias);
+
             if (!t) {
                 // first table to be selected
                 t = newT;

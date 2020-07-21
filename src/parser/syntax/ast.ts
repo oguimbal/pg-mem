@@ -1,6 +1,20 @@
 export type Statement = SelectStatement
     | CreateTableStatement
-    | CreateIndexStatement;
+    | CreateIndexStatement
+    | CommitStatement
+    | RollbackStatement
+    | StartTransactionStatement;
+
+
+export interface StartTransactionStatement {
+    type: 'start transaction';
+}
+export interface CommitStatement {
+    type: 'commit';
+}
+export interface RollbackStatement {
+    type: 'rollback';
+}
 
 export interface CreateIndexStatement {
     type: 'create index';
@@ -50,13 +64,19 @@ export interface SelectStatement {
     where?: Expr;
 }
 
-export type From = {
-    subject: string;
+export type From = FromTable | FromStatement;
+
+export interface FromTable {
+    type: 'table',
+    table: string;
     db?: string;
     alias?: string;
     join?: JoinClause;
-} | {
-    subject: SelectStatement;
+}
+
+export interface FromStatement {
+    type: 'statement';
+    statement: SelectStatement;
     alias: string;
     db?: null;
     join?: JoinClause;

@@ -487,7 +487,7 @@ describe('PG syntax: Expressions', () => {
     // ====================================
 
     describe('Member access', () => {
-        checkTreeExpr(['a.b[c]', 'a."b"["c"]'], {
+        checkTreeExpr(['a.b[c]', 'a . b[c]', 'a."b"["c"]'], {
             type: 'arrayIndex',
             array: {
                 type: 'member',

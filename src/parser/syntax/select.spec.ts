@@ -25,7 +25,13 @@ describe('PG syntax: Select statements', () => {
 
     checkSelect(['select * from test', 'select*from"test"', 'select* from"test"', 'select *from"test"', 'select*from "test"', 'select * from "test"'], {
         type: 'select',
-        from: { subject: 'test' },
+        from: [{ type: 'table', table: 'test' }],
+        columns: [{ type: 'star' }]
+    });
+
+    checkSelect(['select * from db.test'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test', db: 'db' }],
         columns: [{ type: 'star' }]
     });
 
@@ -61,7 +67,7 @@ describe('PG syntax: Select statements', () => {
         , 'select*from test as"a"where a.b > 42'
         , 'select*from test as a where a.b > 42'], {
         type: 'select',
-        from: { subject: 'test', alias: 'a' },
+        from: [{ type: 'table', table: 'test', alias: 'a' }],
         columns: [{ type: 'star' }],
         where: {
             type: 'binary',
@@ -84,13 +90,14 @@ describe('PG syntax: Select statements', () => {
     checkSelect('select * from (select id from test) d', {
         type: 'select',
         columns: [{ type: 'star' }],
-        from: {
-            subject: {
+        from: [{
+            type: 'statement',
+            statement: {
                 type: 'select',
-                from: { subject: 'test' },
+                from: [{ type: 'table', table: 'test' }],
                 columns: [{ type: 'ref', name: 'id' }],
             },
             alias: 'd'
-        }
+        }]
     })
 });
