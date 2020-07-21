@@ -73,7 +73,7 @@ describe('PG syntax: Lexer', () => {
         next({ type: 'word', value: 'id' });
         next({ type: 'rparen' });
         next({ type: 'kw_from' });
-        next({ type: 'word', value: 'test' });
+        next({ type: 'word', value: '"test"' });
     });
 
     it('tokenizes additive binaries', () => {

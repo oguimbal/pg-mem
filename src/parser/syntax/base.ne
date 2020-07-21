@@ -36,6 +36,8 @@
 %}
 # @preprocessor typescript
 
+
+# === Basic constructs
 _ -> space:*
 __ -> space:+
 space -> %space | %commentLine | %commentFull
@@ -47,8 +49,23 @@ float
     -> %int dot %int:? {% args => parseFloat(args.join('')) %}
     | dot %int {% args => parseFloat(args.join('')) %}
 int -> %int {% arg => parseInt(arg, 10) %}
-ident -> %word {% x => x[0].value %}
-word -> %word  {% x => x[0].value %}
 comma -> %comma {% id %}
 star -> %star {% x => x[0].value %}
 string -> %string {% x => x[0].value %}
+
+ident -> word {% unwrap %}
+word -> %word  {% x => {
+    const val = x[0].value;
+    return val[0] === '"' ? val.substr(1, val.length - 2) : val;
+} %}
+kw_not_null -> %kw_not __ %kw_null
+
+# === Non reserved keywords
+# ... which are not in keywords.ts (thus parsed as words)
+@{%
+ const notReservedKw = (kw) => (x, _, rej) => x[0].value.toLowerCase() === kw ? x[0].value.toLowerCase() : rej
+%}
+kw_between -> %word {% notReservedKw('between')  %}
+kw_if -> %word {% notReservedKw('if')  %}
+kw_exists -> %word {% notReservedKw('exists')  %}
+kw_key -> %word {% notReservedKw('key')  %}

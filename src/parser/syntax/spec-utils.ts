@@ -2,9 +2,12 @@ import { Parser, Grammar } from 'nearley';
 import { expect, assert } from 'chai';
 import grammar from '../syntax/main.ne';
 import { trimNullish } from '../../utils';
-import { Value, Select } from './ast';
+import { Value, SelectStatement, CreateTableStatement } from './ast';
 
-export function checkSelect(value: string | string[], expected: Select)  {
+export function checkSelect(value: string | string[], expected: SelectStatement)  {
+    checkTree(value, expected);
+}
+export function checkCreateTable(value: string | string[], expected: CreateTableStatement)  {
     checkTree(value, expected);
 }
 

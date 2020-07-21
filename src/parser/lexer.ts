@@ -21,7 +21,7 @@ export const lexer = moo.compile({
     wordQuoted: {
         match: /"[^"]+"/,
         type: () => 'word',
-        value: x => x.substr(1, x.length - 2),
+        // value: x => x.substr(1, x.length - 2),
     },
     string: {
         match: /'(?:[^']|\'\')+'/,

@@ -1,5 +1,25 @@
+export interface CreateTableStatement {
+    type: 'create table';
+    name: string;
+    ifNotExists?: true;
+    columns: CreateColumnDef[];
+}
 
-export interface Select {
+export interface CreateColumnDef {
+    name: string;
+    dataType: string;
+    // collate?: string; (todo)
+    constraint?: ColumnConstraint;
+}
+
+type ColumnConstraint = {
+    type: 'unique';
+    notNull?: boolean;
+} | {
+    type: 'primary key';
+}
+
+export interface SelectStatement {
     type: 'select',
     columns?: Value[];
     from?: From;
@@ -10,7 +30,7 @@ export type From = {
     subject: string;
     alias?: string;
 } | {
-    subject: Select;
+    subject: SelectStatement;
     alias: string;
 }
 

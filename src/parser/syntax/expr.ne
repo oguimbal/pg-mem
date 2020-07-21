@@ -45,7 +45,7 @@ expr_not -> expr_left_unary[%kw_not, expr_not, expr_is]
 
 expr_is
     -> expr_is _ (%kw_isnull | %kw_is __ %kw_null) {% x => ({ type: 'unary', op: 'IS NULL', operand: unwrap(x[0]) }) %}
-    | expr_is _ (%kw_notnull | %kw_is __ %kw_not __ %kw_null)  {% x => ({ type: 'unary', op: 'IS NOT NULL', operand: unwrap(x[0])}) %}
+    | expr_is _ (%kw_notnull | %kw_is __ kw_not_null)  {% x => ({ type: 'unary', op: 'IS NOT NULL', operand: unwrap(x[0])}) %}
     | expr_is _ %kw_is __ (%kw_not __ {% id %}):? (%kw_true | %kw_false)  {% x => ({
             type: 'unary',
             op: 'IS ' + flattenStr([x[4], x[5]])
@@ -69,7 +69,7 @@ expr_array_index
     | expr_cast {% unwrap %}
 
 expr_cast
-    -> (expr_cast | expr_paren) %op_cast %word {% ([operand, _, to]) => ({ type: 'cast', operand: unwrap(operand), to: to.value.toUpperCase() }) %}
+    -> (expr_cast | expr_paren) %op_cast word {% ([operand, _, to]) => ({ type: 'cast', operand: unwrap(operand), to: to.toUpperCase() }) %}
     | expr_dot {% unwrap %}
 
 expr_dot
@@ -77,7 +77,7 @@ expr_dot
     | expr_final {% unwrap %}
 
 expr_final
-    -> %word {% ([{value}]) => ({ type: 'ref', name: value}) %}
+    -> word {% ([value]) => ({ type: 'ref', name: value}) %}
     | float {% ([value]) => ({ type: 'numeric', value: value }) %}
     | int {% ([value]) => ({ type: 'integer', value: value }) %}
     | string {% ([value]) => ({ type: 'string', value: value }) %}
@@ -87,7 +87,7 @@ expr_final
 
 
 ops_like ->  (%kw_not __):? (%kw_like | %kw_ilike)
-ops_between -> (%kw_not __):? %kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].value}`.toUpperCase() : x[1].value %}
+ops_between -> (%kw_not __):? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].value}`.toUpperCase() : x[1].value %}
 
 # x,y,z
 expr_list -> expr (_ comma _ expr {% last %}):* {% ([head, tail]) => {
