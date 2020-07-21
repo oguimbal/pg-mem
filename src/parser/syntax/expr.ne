@@ -77,8 +77,21 @@ expr_dot
     | expr_final {% unwrap %}
 
 expr_final
-    -> word {% ([value]) => ({ type: 'ref', name: value}) %}
-    | float {% ([value]) => ({ type: 'numeric', value: value }) %}
+    -> expr_basic
+    | expr_primary
+
+expr_basic
+    -> expr_call
+    | word {% ([value]) => ({ type: 'ref', name: value}) %}
+
+expr_call -> word _ lparen _ expr_list _ rparen {% x => ({
+        type: 'call',
+        function: x[0].toLowerCase(),
+        args: x[4],
+    }) %}
+
+expr_primary
+    -> float {% ([value]) => ({ type: 'numeric', value: value }) %}
     | int {% ([value]) => ({ type: 'integer', value: value }) %}
     | string {% ([value]) => ({ type: 'string', value: value }) %}
     | %kw_true {% () => ({ type: 'boolean', value: true }) %}

@@ -1,3 +1,18 @@
+export interface CreateIndexStatement {
+    type: 'create index';
+    table: string;
+    expressions: IndexExpression[];
+    unique?: true;
+    ifNotExists?: true;
+    indexName?: string;
+}
+
+export interface IndexExpression {
+    expression: Value;
+    order?: 'asc' | 'desc';
+    nulls?: 'first' | 'last';
+}
+
 export interface CreateTableStatement {
     type: 'create table';
     name: string;
@@ -45,6 +60,7 @@ export type Value = ValueRef
     | ValueUnary
     | ValueCast
     | ValueBool
+    | ValueCall
     | ValueTernary;
 
 
@@ -99,6 +115,12 @@ export interface ValueMember {
     /** If not provided, then is a classic member access with '.' */
     op?: '->' | '->>'; // <== todo
     member: '*' | string | number;
+}
+
+export interface ValueCall {
+    type: 'call';
+    function: string;
+    args: Value[];
 }
 
 export interface ValueArrayIndex {

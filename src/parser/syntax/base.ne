@@ -58,7 +58,6 @@ word -> %word  {% x => {
     const val = x[0].value;
     return val[0] === '"' ? val.substr(1, val.length - 2) : val;
 } %}
-kw_not_null -> %kw_not __ %kw_null
 
 # === Non reserved keywords
 # ... which are not in keywords.ts (thus parsed as words)
@@ -69,3 +68,12 @@ kw_between -> %word {% notReservedKw('between')  %}
 kw_if -> %word {% notReservedKw('if')  %}
 kw_exists -> %word {% notReservedKw('exists')  %}
 kw_key -> %word {% notReservedKw('key')  %}
+kw_index -> %word {% notReservedKw('index')  %}
+kw_nulls -> %word {% notReservedKw('nulls')  %}
+kw_first -> %word {% notReservedKw('first')  %}
+kw_last -> %word {% notReservedKw('last')  %}
+
+
+# === Composite keywords
+kw_ifnotexists -> kw_if __ %kw_not __ kw_exists
+kw_not_null -> %kw_not __ %kw_null

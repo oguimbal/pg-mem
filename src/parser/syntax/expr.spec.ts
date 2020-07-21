@@ -12,8 +12,8 @@ describe('PG syntax: Expressions', () => {
         checkTreeExpr(['2 /* yo */ + 2', '2 +/* yo */ 2', '2+-- yo \n2', '2-- yo \n+2', '2+-- yo \n  \n2'], {
             type: 'binary',
             op: '+',
-            left: { type: 'integer', value: 2},
-            right: { type: 'integer', value: 2},
+            left: { type: 'integer', value: 2 },
+            right: { type: 'integer', value: 2 },
         });
 
     });
@@ -463,6 +463,19 @@ describe('PG syntax: Expressions', () => {
                 member: 'b'
             },
             index: { type: 'ref', name: 'c' }
+        })
+    });
+
+
+    // ====================================
+    // ============== FUNCTIONS ===========
+    // ====================================
+
+    describe('Function calls', () => {
+        checkTreeExpr(['ab (c)', '"ab"( "c" )', 'AB(c)'], {
+            type: 'call',
+            function: 'ab',
+            args: [{ type: 'ref', name: 'c' }],
         })
     });
 });

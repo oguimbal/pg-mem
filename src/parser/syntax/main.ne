@@ -4,6 +4,7 @@
 @include "expr.ne"
 @include "select.ne"
 @include "create-table.ne"
+@include "create-index.ne"
 
 
 # list of statements, separated by ";"
@@ -13,3 +14,4 @@ main -> statement {% unwrap %} # _ statement:? (_ %semicolon _ statement:?):*
 statement
     -> select_statement
     | createtable_statement
+    | createindex_statement

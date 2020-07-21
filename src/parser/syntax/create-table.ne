@@ -3,7 +3,7 @@
 
 
 # https://www.postgresql.org/docs/12/sql-createtable.html
-createtable_statement -> %kw_create __ %kw_table (__ createtable_ifnotexists):? _ word _ lparen _ createtable_columnList _ rparen {% x => ({
+createtable_statement -> %kw_create __ %kw_table (__ kw_ifnotexists):? _ word _ lparen _ createtable_columnList _ rparen {% x => ({
     type: 'create table',
     ... !!x[3] ? { ifNotExists: true } : {},
     name: x[5],
@@ -11,7 +11,7 @@ createtable_statement -> %kw_create __ %kw_table (__ createtable_ifnotexists):? 
 }) %}
 
 
-createtable_ifnotexists -> kw_if __ %kw_not __ kw_exists
+
 createtable_columnList -> createtable_column (_ comma _ createtable_column {% last %}):* {% ([head, tail]) => {
     return [head, ...(tail || [])];
 } %}
