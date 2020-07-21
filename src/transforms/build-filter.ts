@@ -10,8 +10,9 @@ import { NeqFilter } from './neq-filter';
 import { SeqScanFilter } from './seq-scan';
 import { InFilter } from './in-filter';
 import { NotInFilter } from './not-in-filter';
+import { Expr, ExprBinary, ExprUnary } from '../parser/syntax/ast';
 
-export function buildFilter<T>(this: void, on: _ISelection<T>, filter: any): _ISelection<T> {
+export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> {
 
     // check if there is a direct index
     const built = buildValue(on, filter);
@@ -37,16 +38,34 @@ export function buildFilter<T>(this: void, on: _ISelection<T>, filter: any): _IS
         return new FalseFilter(on);
     }
     switch (filter.type) {
-        case 'binary_expr':
+        case 'binary':
             return buildBinaryFilter(on, filter);
+        case 'unary':
+            return buildUnaryFilter(on, filter);
         default:
             throw new NotSupported('condition ' + filter.type);
     }
 }
 
-function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: any): _ISelection<T> {
-    const { left, right, operator } = filter;
-    switch (operator) {
+function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary): _ISelection<T> {
+    const { operand, op } = filter;
+    switch (op) {
+        case 'IS NULL':
+        case 'IS NOT NULL': {
+            const leftValue = buildValue(on, operand);
+            if (leftValue.index) {
+                return op === 'IS NULL'
+                    ? new EqFilter(leftValue, [Value.null()])
+                    : new NeqFilter(leftValue, [Value.null()]);
+            }
+            return new SeqScanFilter(on, Value.isNull(leftValue, op === 'IS NULL'));
+        }
+    }
+}
+
+function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> {
+    const { left, right, op } = filter;
+    switch (op) {
         case '=':
         case '>':
         case '<':
@@ -57,43 +76,29 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: any): _ISe
         case 'OR':
             const leftFilter = buildFilter(on, left);
             const rightFilter = buildFilter(on, right);
-            return operator === 'AND'
+            return op === 'AND'
                 ? buildAndFilter(leftFilter, rightFilter)
                 : new OrFilter(leftFilter, rightFilter);
-        case 'IS':
-        case 'IS NOT': {
-            const rightValue = buildValue(on, right);
-            if (rightValue.type !== Types.null) {
-                throw new NotSupported('only IS NULL is supported');
-            }
-            const leftValue = buildValue(on, left);
-            if (leftValue.index) {
-                return operator === 'IS'
-                    ? new EqFilter(leftValue, [rightValue])
-                    : new NeqFilter(leftValue, [rightValue]);
-            }
-            return new SeqScanFilter(on, Value.isNull(leftValue, operator === 'IS'));
-        }
         case 'IN':
         case 'NOT IN':
             const value = buildValue(on, left);
             const array = buildValue(on, right).convert(makeArray(value.type));
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
-                return operator === 'IN'
+                return op === 'IN'
                     ? new InFilter(value, array)
                     : new NotInFilter(value, array);
             }
             // todo use indexes on queries like "WHERE 'whatever' in (indexedOne, indexedTwo)"
             //   => this is an OrFilter
-            return new SeqScanFilter(on, Value.in(value, array, operator === 'IN'));
+            return new SeqScanFilter(on, Value.in(value, array, op === 'IN'));
         default:
             return new SeqScanFilter(on, buildValue(on, filter));
     }
 }
 
-function buildComparison<T>(this: void, on: _ISelection<T>, filter: any): _ISelection<T> {
-    const { operator, left, right } = filter;
+function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> {
+    const { op, left, right } = filter;
     let leftValue = buildValue(on, left);
     let rightValue = buildValue(on, right);
 
@@ -106,14 +111,14 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: any): _ISele
         return new FalseFilter(on);
     }
 
-    if (operator === '=' || operator === '!=' || operator === '<>') {
+    if (op === '=' || op === '!=') {
         if (leftValue.index && rightValue.isConstant) {
-            return operator === '='
+            return op === '='
                 ? new EqFilter(leftValue, [rightValue])
                 : new NeqFilter(leftValue, [rightValue])
         }
         if (rightValue.index && leftValue.isConstant) {
-            return operator === '='
+            return op === '='
                 ? new EqFilter(rightValue, [leftValue])
                 : new NeqFilter(rightValue, [leftValue]);
         }

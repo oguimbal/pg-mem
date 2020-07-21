@@ -44,6 +44,8 @@ export const lexer = moo.compile({
     dot: '.',
     op_cast: '::',
     op_plus: '+',
+    op_eq: '=',
+    op_neq: '!=',
     op_minus: /(?<!\-)\-(?!\-)(?!\>)/,
     op_div: /(?<!\/)\/(?!\/)/,
     op_mod: '%',

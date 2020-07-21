@@ -3,6 +3,7 @@
 import type { _ISelection, IValue, _IIndex, _ISelectionSource } from '../interfaces-private';
 import type { buildSelection, buildAlias } from './selection';
 import type { buildFilter } from './build-filter';
+import { Expr, SelectedColumn } from '../parser/syntax/ast';
 
 interface Fns {
     buildSelection: typeof buildSelection;
@@ -23,11 +24,11 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract getIndex(forValue: IValue): _IIndex<any>;
 
 
-    select(select: any[] | "*"): _ISelection<any> {
+    select(select: SelectedColumn[]): _ISelection<any> {
         return fns.buildSelection(this, select);
     }
 
-    filter(filter: any): _ISelection {
+    filter(filter: Expr): _ISelection {
         if (!filter) {
             return this;
         }

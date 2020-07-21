@@ -84,6 +84,12 @@ export class ColumnNotFound extends Error {
     }
 }
 
+export class AmbiguousColumn extends Error {
+    constructor(columnName: string) {
+        super(`column "${columnName}" is ambiguous`);
+    }
+}
+
 export class TableNotFound extends Error {
     constructor(tableName: string) {
         super('Table not found: ' + tableName);

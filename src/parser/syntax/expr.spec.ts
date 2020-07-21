@@ -509,6 +509,20 @@ describe('PG syntax: Expressions', () => {
             right: { type: 'ref', name: 'b' },
         });
 
+        checkTreeExpr(['a = b', '"a"="b"'], {
+            type: 'binary',
+            op: '=',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a != b', '"a"!="b"'], {
+            type: 'binary',
+            op: '!=',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
         checkTreeExpr(['a in (a, b, c)'], {
             type: 'binary',
             op: 'IN',

@@ -1,12 +1,14 @@
 import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported } from '../interfaces';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn } from '../interfaces';
 import { buildValue } from '../predicate';
 import { buildColumnIds } from '../utils';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
+import { SelectedColumn } from '../parser/syntax/ast';
 
-export function buildSelection(on: _ISelection, select: any[] | '*') {
-    if (select === '*') {
+export function buildSelection(on: _ISelection, select: SelectedColumn[]) {
+    const [first] = select;
+    if (select.length === 1 && first.expr.type === 'ref' && first.expr.name === '*' && !first.expr.table) {
         return on;
     }
     return new Selection(on, {
@@ -30,17 +32,17 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     // readonly index: _IIndex<T>; // <== ??
 
     private _columns: IValue[] = [];
-    private columnIds: string[];
+    private columnIds: string[] = [];
 
     get columns(): IValue[] {
         return this._columns;
     }
-    private columnsById: { [key: string]: IValue } = {};
+    private columnsById: { [key: string]: IValue[] } = {};
 
 
     constructor(base: _ISelectionSource<any>, opts: {
         schema?: Schema;
-        columns?: any[];
+        columns?: SelectedColumn[];
         alias?: string;
     }) {
         super(base);
@@ -48,13 +50,27 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             if (!opts.columns.length) {
                 throw new QueryError('Invalid selection');
             }
+
+            // build columns to select
+            const cols: IValue[] = [];
             for (const s of opts.columns) {
-                let col = buildValue(base as _ISelection, s.expr);
-                if (s.as) {
-                    col = col.setId(s.as);
+                if (s.expr.type === 'ref' && s.expr.name === '*') {
+                    if (s.alias) {
+                        throw new QueryError('Cannot alias *');
+                    }
+                    cols.push(...(base as _ISelection).columns);
+                } else {
+                    let col = buildValue(base as _ISelection, s.expr);
+                    if (s.alias) {
+                        col = col.setId(s.alias);
+                    }
+                    cols.push(col);
                 }
-                this._columns.push(col);
-                this.columnsById[col.id] = col;
+            }
+
+            // push them
+            for (const col of cols) {
+                this.addColumn(col);
             }
             this.alias = 'selection:' + (selCnt++);
         } else if (opts.schema) {
@@ -68,25 +84,32 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                     , col.id
                     , this
                     , raw => raw[col.id])
-                this._columns.push(newCol);
-                this.columnsById[newCol.id] = newCol;
+                this.addColumn(newCol);
             }
         } else if (opts.alias) {
             const asSel = base as _ISelection;
             if (!asSel.columns) { // istanbul ignore next
                 throw new Error('Should only apply aliases on actual selection');
             }
-            this._columns = asSel.columns;
-            this.alias = opts.alias;
-            for (const k of this.columns) {
-                this.columnsById[k.id] = k;
+            for (const col of asSel.columns) {
+                this.addColumn(col);
             }
+            this.alias = opts.alias;
         } else {
             throw new NotSupported('selection does nothing');
         }
 
 
         this.columnIds = buildColumnIds(this.columns);
+    }
+
+    private addColumn(col: IValue<any>) {
+        this._columns.push(col);
+        let ci = this.columnsById[col.id];
+        if (!ci) {
+            this.columnsById[col.id] = ci = [];
+        }
+        ci.push(col);
     }
 
     *enumerate(): Iterable<T> {
@@ -114,12 +137,15 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             column = exec[2];
         }
         const ret = this.columnsById[column];
-        if (!ret) {
+        if (!ret?.length) {
             if (nullIfNotFound) {
                 return null;
             }
             throw new ColumnNotFound(column);
         }
-        return ret;
+        if (ret.length !== 1) {
+            throw new AmbiguousColumn(column);
+        }
+        return ret[0];
     }
 }

@@ -43,9 +43,9 @@ describe('Simple queries', () => {
         simpleDb();
         preventSeqScan(db);
         none(`insert into data(id) values ('some value')`);
-        let got = many('select * from data where id="SOME ID"');
+        let got = many(`select * from data where id='SOME ID'`);
         expect(got).to.deep.equal([]);
-        got = many('select * from data where id="some value"');
+        got = many(`select * from data where id='some value'`);
         expect(trimNullish(got)).to.deep.equal([{ id: 'some value' }]);
 
     });

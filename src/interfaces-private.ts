@@ -1,4 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent } from './interfaces';
+import { Expr, SelectedColumn } from './parser/syntax/ast';
 
 export * from './interfaces';
 
@@ -35,8 +36,8 @@ export interface _ISelectionSource<T = any> {
 
 export interface _ISelection<T = any> extends _ISelectionSource {
     readonly columns: IValue[];
-    filter(where: any): _ISelection;
-    select(select: any[] | '*'): _ISelection;
+    filter(where: Expr): _ISelection;
+    select(select: SelectedColumn[]): _ISelection;
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
     setAlias(alias?: string): _ISelection;
 }

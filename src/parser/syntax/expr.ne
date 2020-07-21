@@ -41,7 +41,8 @@ expr -> expr_paren {% unwrap %} | expr_or {% unwrap %}
 expr_paren -> lparen _ expr _ rparen {% get(2) %}
 expr_or -> expr_binary[%kw_or, expr_or, expr_and]
 expr_and -> expr_binary[%kw_and, expr_and, expr_not]
-expr_not -> expr_left_unary[%kw_not, expr_not, expr_is]
+expr_not -> expr_left_unary[%kw_not, expr_not, expr_eq]
+expr_eq -> expr_binary[(%op_eq | %op_neq), expr_eq, expr_is]
 
 expr_is
     -> expr_is _ (%kw_isnull | %kw_is __ %kw_null) {% x => ({ type: 'unary', op: 'IS NULL', operand: unwrap(x[0]) }) %}
