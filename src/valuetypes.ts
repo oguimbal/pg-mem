@@ -32,38 +32,41 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
 
-    setValue(val: (T | ((raw: any) => any))) {
-        if (this.val === val) {
-            return this;
-        }
+
+    setConversion(converter: (val: any) => any
+        , sqlConv: (sql: string) => string
+        , hashConv: (hash: string) => any) {
+        return new Evaluator<T>(
+            this.type
+            , this.id
+            , sqlConv(this.sql)
+            , hash(hashConv(this.hash))
+            , this.origin
+            , raw => {
+                const got = converter(raw)
+                if (got === null || got === undefined) {
+                    return null;
+                }
+                return this.get(got);
+            }
+        ).asConstant(this.isConstant);
+    }
+
+    setWrapper(wrap: (val: any) => any) {
         return new Evaluator<T>(
             this.type
             , this.id
             , this.sql
             , this.hash
             , this.origin
-            , val
+            , raw => {
+                const got = wrap(raw)
+                if (got === null || got === undefined) {
+                    return null;
+                }
+                return this.get(got);
+            }
         ).asConstant(this.isConstant);
-    }
-
-    setConversion(converter: (val: any) => any) {
-        return this.setValue(raw => {
-            const got = this.get(raw);
-            if (got === null || got === undefined) {
-                return null;
-            }
-            return converter(got);
-        })
-    }
-
-    setWrapper(wrap: (val: any) => any) {
-        return this.setValue(raw => {
-            const got = wrap(raw)
-            if (got === null || got === undefined) {
-                return null;
-            }
-            return this.get(got);
-        })
     }
 
     setId(newId: string): IValue {
@@ -120,67 +123,67 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 }
 
-export class ArrayEvaluator<T> {
+// export class ArrayEvaluator<T> implements IValue {
 
-    constructor(
-        readonly type: _IType<T>
-        , readonly id: string
-        , readonly sql: string
-        , readonly hash: string
-        , readonly selection: _ISelection
-        , public val: T | ((raw: any) => T)) {
-    }
+//     constructor(
+//         readonly type: _IType<T>
+//         , readonly id: string
+//         , readonly sql: string
+//         , readonly hash: string
+//         , readonly selection: _ISelection
+//         , public val: T | ((raw: any) => T)) {
+//     }
 
-    get index() {
-        return this.selection?.getIndex(this);
-    }
+//     get index() {
+//         return this.selection?.getIndex(this);
+//     }
 
-    get isConstant(): boolean {
-        return typeof this.val !== 'function';
-    }
+//     get isConstant(): boolean {
+//         return typeof this.val !== 'function';
+//     }
 
-    get(raw: any): T {
-        if (typeof this.val !== 'function') {
-            return this.val;
-        }
-        return (this.val as ((raw: any) => T))(raw);
-    }
+//     get(raw: any): T {
+//         if (typeof this.val !== 'function') {
+//             return this.val;
+//         }
+//         return (this.val as ((raw: any) => T))(raw);
+//     }
 
-    asConstant(perform = true) {
-        if (!perform || typeof this.val !== 'function') {
-            return this;
-        }
-        return new Evaluator(this.type
-            , this.id
-            , this.sql
-            , this.hash
-            , this.selection
-            , this.get(null));
-    }
+//     asConstant(perform = true) {
+//         if (!perform || typeof this.val !== 'function') {
+//             return this;
+//         }
+//         return new Evaluator(this.type
+//             , this.id
+//             , this.sql
+//             , this.hash
+//             , this.selection
+//             , this.get(null));
+//     }
 
 
-    setId(newId: string): IValue {
-        if (this.id === newId) {
-            return this;
-        }
-        return new Evaluator<T>(
-            this.type
-            , newId
-            , this.sql
-            , this.hash
-            , this.selection
-            , this.val
-        );
-    }
+//     setId(newId: string): IValue {
+//         if (this.id === newId) {
+//             return this;
+//         }
+//         return new Evaluator<T>(
+//             this.type
+//             , newId
+//             , this.sql
+//             , this.hash
+//             , this.selection
+//             , this.val
+//         );
+//     }
 
-    canConvert(to: DataType | _IType<T>): boolean {
-        return this.type.canConvert(to);
-    }
+//     canConvert(to: DataType | _IType<T>): boolean {
+//         return this.type.canConvert(to);
+//     }
 
-    convert<T = any>(to: DataType | _IType<T>): IValue<T> {
-        return this.type.convert(this, to);
-    }
-}
+//     convert<T = any>(to: DataType | _IType<T>): IValue<T> {
+//         return this.type.convert(this, to);
+//     }
+// }
 
 
 export const Value = {
@@ -257,8 +260,8 @@ export const Value = {
         return new Evaluator(
             Types.bool
             , null
-            , leftValue.sql + ' IS NULL'
-            , hash({ isNull: leftValue.hash })
+            , `${leftValue.sql} IS${expectNull ? '' : ' NOT'} NULL`
+            , hash({ isNull: leftValue.hash, expectNull })
             , leftValue.origin
             , expectNull ? (raw => {
                 const left = leftValue.get(raw);
@@ -268,12 +271,44 @@ export const Value = {
                 return left !== null && left !== undefined;
             })).asConstant(leftValue.isConstant);
     },
+    isTrue(leftValue: IValue, expectTrue: boolean) {
+        leftValue = leftValue.convert(Types.bool);
+        return new Evaluator(
+            Types.bool
+            , null
+            , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} TRUE`
+            , hash({ isTrue: leftValue.hash, expectTrue })
+            , leftValue.origin
+            , expectTrue ? (raw => {
+                const left = leftValue.get(raw);
+                return left === true; // never returns null
+            }) : (raw => {
+                const left = leftValue.get(raw);
+                return !(left === true); //  never returns null
+            })).asConstant(leftValue.isConstant);
+    },
+    isFalse(leftValue: IValue, expectFalse: boolean) {
+        leftValue = leftValue.convert(Types.bool);
+        return new Evaluator(
+            Types.bool
+            , null
+            , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} FALSE`
+            , hash({ isFalse: leftValue.hash, expectFalse })
+            , leftValue.origin
+            , expectFalse ? (raw => {
+                const left = leftValue.get(raw);
+                return left === false; // never returns null
+            }) : (raw => {
+                const left = leftValue.get(raw);
+                return !(left === false); //  never returns null
+            })).asConstant(leftValue.isConstant);
+    },
     negate(value: IValue) {
         if (!isNumeric(value.type)) {
             throw new QueryError('Can only apply "-" unary operator to numeric types');
         }
         return (value as Evaluator)
-            .setConversion(x => -x);
+            .setConversion(x => -x, x => '-(' + x + ')', x => ({neg: x}));
     },
     array(values: IValue[]) {
         if (!values.length) {

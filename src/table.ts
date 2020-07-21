@@ -1,9 +1,9 @@
 import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb } from './interfaces-private';
 import { buildValue } from './predicate';
-import { Parser } from 'node-sql-parser';
 import { BIndex } from './btree-index';
 import { Selection } from './transforms/selection';
+import { parse } from './parser/parser';
 
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
@@ -121,14 +121,8 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
             for (const e of expressions) {
-                const parser = new Parser();
-                const parsed = parser.astify('select * from x where ' + e, {
-                    database: 'PostgresQL',
-                });
-                if (!('type' in parsed) || parsed.type !== 'select') {
-                    throw new QueryError('Invalid index syntax: ' + e);
-                }
-                const getter = buildValue(this.selection, parsed.where);
+                const parsed = parse(e, 'expr');
+                const getter = buildValue(this.selection, parsed);
                 keys.push({
                     value: getter,
                 });

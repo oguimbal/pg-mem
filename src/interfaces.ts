@@ -104,6 +104,10 @@ export class NotSupported extends Error {
     constructor(what?: string) {
         super('Not supported' + (what ? ': ' + what : ''));
     }
+
+    static never(value: never, msg?: string) {
+        return new NotSupported(`${msg ?? ''} ${JSON.stringify(value)}`);
+    }
 }
 export class ReadOnlyError extends Error {
     constructor(what?: string) {

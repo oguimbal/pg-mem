@@ -28,20 +28,20 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
     equals(a: TRaw, b: TRaw): boolean {
         if (a === null || b === null) {
-            return false;
+            return null;
         }
         return this.doEquals(a, b);
     }
 
     gt(a: TRaw, b: TRaw): boolean {
         if (a === null || b === null) {
-            return false;
+            return null;
         }
         return this.doGt(a, b);
     }
     lt(a: TRaw, b: TRaw): boolean {
         if (a === null || b === null) {
-            return false;
+            return null;
         }
         return this.doLt(a, b);
     }
@@ -74,7 +74,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
                 return Value.null();
             }
         }
-        return converted;
+        return converted.setType(to);
     }
 }
 
@@ -97,7 +97,9 @@ class JSONBType extends TypeBase<any> {
         if (to.primary === DataType.json) {
             return a
                 .setType(Types.text())
-                .setConversion(json => JSON.stringify(json))
+                .setConversion(json => JSON.stringify(json)
+                    , s => `(${s})::JSONB`
+                    , toJsonB => ({ jsonb: toJsonB }))
                 .convert(to) as Evaluator; // <== might need truncation
         }
 
@@ -135,10 +137,12 @@ class TimestampType extends TypeBase<Date> {
     doConvert(value: Evaluator, to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
-                return value.setType(to);
+                return value;
             case DataType.date:
-                value.setType(to)
-                    .setConversion(raw => moment(raw).startOf('day').toDate());
+                value
+                    .setConversion(raw => moment(raw).startOf('day').toDate()
+                        , sql => `(${sql})::date`
+                        , toDate => ({ toDate }));
         }
     }
 
@@ -261,49 +265,52 @@ class TextType extends TypeBase<string> {
         switch (to.primary) {
             case DataType.timestamp:
                 return value
-                    .setType(to)
                     .setConversion(str => {
                         const conv = moment(str);
                         if (!conv.isValid()) {
                             throw new QueryError(`Invalid timestamp format: ` + str);
                         }
                         return conv.toDate()
-                    });
+                    }
+                        , sql => `(${sql})::timestamp`
+                        , toTs => ({ toTs }));
             case DataType.date:
                 return value
-                    .setType(to)
                     .setConversion(str => {
                         const conv = moment(str);
                         if (!conv.isValid()) {
                             throw new QueryError(`Invalid timestamp format: ` + str);
                         }
                         return conv.startOf('day').toDate();
-                    });
+                    }
+                        , sql => `(${sql})::date`
+                        , toDate => ({ toDate }));
             case DataType.json:
             case DataType.jsonb:
                 return value
-                    .setType(to)
-                    .setConversion(raw => JSON.parse(raw));
+                    .setConversion(raw => JSON.parse(raw)
+                        , sql => `(${sql})::jsonb`
+                        , toJsonb => ({ toJsonb }));
             case DataType.text:
                 const fromStr = to as TextType;
                 const toStr = to as TextType;
                 if (toStr.len === null || fromStr.len < toStr.len) {
                     // no need to truncate
-                    return value.setType(to);
+                    return value;
                 }
                 return value
-                    .setType(toStr)
                     .setConversion(str => {
                         if (str?.length > toStr.len) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
                         return str;
-                    });
+                    }
+                        , sql => `TRUNCATE(${sql}, ${toStr.len})`
+                        , truncate => ({ truncate, len: toStr.len }));
         }
         if (numbers.has(to.primary)) {
             const isInt = integers.has(to.primary);
             return value
-                .setType(to)
                 .setConversion(str => {
                     const val = Number.parseFloat(str);
                     if (!Number.isFinite(val)) {
@@ -313,7 +320,9 @@ class TextType extends TypeBase<string> {
                         throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`)
                     }
                     return val;
-                })
+                }
+                    , sql => `(${sql})::${to.primary}`
+                    , castNum => ({ castNum, to: to.primary }));
         }
     }
 }
@@ -399,7 +408,7 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
     return to;
 }
 
-export function singleSelection(args: IValue[]){
+export function singleSelection(args: IValue[]) {
     let sel: _ISelection;
     for (const a of args) {
         if (!a.origin) {

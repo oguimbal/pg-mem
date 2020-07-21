@@ -58,7 +58,8 @@ expr_is
 
 expr_compare -> expr_binary[%op_compare, expr_compare, expr_range]
 expr_range -> expr_ternary[ops_between, %kw_and, expr_range, expr_like]
-expr_like -> expr_binary[ops_like, expr_like, expr_add]
+expr_like -> expr_binary[ops_like, expr_like, expr_in]
+expr_in -> expr_binary[ops_in, expr_in, expr_add]
 expr_add -> expr_binary[(%op_plus | %op_minus | %op_additive), expr_add, expr_mult]
 expr_mult -> expr_binary[(%star | %op_div | %op_mod),  expr_mult, expr_exp]
 expr_exp -> expr_binary[%op_exp, expr_exp, expr_unary_add]
@@ -97,9 +98,11 @@ expr_primary
     | %kw_true {% () => ({ type: 'boolean', value: true }) %}
     | %kw_false {% () => ({ type: 'boolean', value: false }) %}
     | star {% ([value]) => ({ type: 'star' }) %}
+    | %kw_null {% ([value]) => ({ type: 'null' }) %}
 
 
 ops_like ->  (%kw_not __):? (%kw_like | %kw_ilike)
+ops_in -> (%kw_not __):? %kw_in
 ops_between -> (%kw_not __):? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].value}`.toUpperCase() : x[1].value %}
 
 # x,y,z

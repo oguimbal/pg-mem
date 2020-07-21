@@ -1,5 +1,4 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent } from './interfaces';
-import { AST, ColumnRef } from 'node-sql-parser';
 
 export * from './interfaces';
 
@@ -148,51 +147,4 @@ export interface _IIndex<T = any> {
     ge(rawKey: IndexKey): Iterable<T>;
     /** Get lower or equal the given key */
     le(rawKey: IndexKey): Iterable<T>;
-}
-
-
-export type AST2 = AST | CreateTable;
-export interface CreateTable {
-    type: 'create';
-    keyword: string;
-    create_definitions: CreateTable_Def[];
-    table?: CreateTable_Table[];
-
-    // NOT HANDLED
-    as?: any;
-    if_not_exists?: any;
-    ignore_replace?: any;
-    query_expr?: any;
-    table_options?: any;
-    temporary?: any;
-}
-interface CreateTable_Table {
-    table: string;
-
-    // NOT HANDLED
-    as?: any;
-    db?: any;
-}
-
-interface CreateTable_Def {
-    column: ColumnRef;
-    definition: CreateTable_ColDef;
-    resource: 'column';
-    unique_or_primary?: 'primary key' | 'unique';
-
-    // NOT HANDLED
-    auto_increment?: any;
-    collate?: any;
-    column_format?: any;
-    comment?: any;
-    default_val?: any;
-    nullable?: any;
-    reference_definition?: any;
-    storage?: any;
-}
-
-interface CreateTable_ColDef {
-    suffix?: any[];
-    dataType: string;
-    length?: number;
 }

@@ -1,10 +1,11 @@
-import { Parser, Insert_Replace, Update, Select } from 'node-sql-parser';
 import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported } from './interfaces';
-import { _IDb, AST2, CreateTable, CreateIndexColDef, _ISelection } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types } from './datatypes';
 import { JoinSelection } from './transforms/join';
+import { Statement, CreateTableStatement, SelectStatement } from './parser/syntax/ast';
+import { parse } from './parser/parser';
 
 
 
@@ -22,16 +23,16 @@ export class Query implements IQuery {
     }
 
     private _query(query: string): any[] {
-        const parser = new Parser();
+
+
+
         // see #todo.md
         query = query.replace(/START TRANSACTION/g, '');
         query = query.replace(/COMMIT/g, '');
         query = query.replace(/ROLLBACK/g, '');
         query = query.replace(/current_schema\(\)/g, 'current_schema');
-        console.log(query);
-        let parsed = parser.astify(query, {
-            database: 'PostgresQL',
-        }) as AST2 | AST2[];
+
+        let parsed = parse(query);
         if (!Array.isArray(parsed)) {
             parsed = [parsed];
         }
@@ -42,29 +43,23 @@ export class Query implements IQuery {
             }
             const p = watchUse(_p);
             switch (p.type) {
-                case 'insert':
-                    last = this.executeInsert(p);
-                    break;
-                case 'update':
-                    last = this.executeUpdate(p);
-                    break;
+                // case 'insert':
+                //     last = this.executeInsert(p);
+                //     break;
+                // case 'update':
+                //     last = this.executeUpdate(p);
+                //     break;
                 case 'select':
                     last = this.executeSelect(p);
                     break;
-                case 'create':
-                    switch (p.keyword) {
-                        case 'table':
-                            last = this.executeCreateTable(p);
-                            break;
-                        case 'index':
-                            last = this.executeCreateIndex(p);
-                            break;
-                        default:
-                            throw new NotSupported('create ' + p.keyword);
-                    }
+                case 'create table':
+                    last = this.executeCreateTable(p);
+                    break;
+                case 'create index':
+                    last = this.executeCreateIndex(p);
                     break;
                 default:
-                    throw new NotSupported(p.type);
+                    throw NotSupported.never(p, 'statement type');
             }
             p.check?.();
         }
@@ -94,13 +89,9 @@ export class Query implements IQuery {
             });
     }
 
-    executeCreateTable(p: CreateTable): any {
+    executeCreateTable(p: CreateTableStatement): any {
         // get creation parameters
-        const [{ table }] = p.table;
-        if (p.table.length !== 1) {
-            throw new NotSupported('Multiple table creations in a single statement');
-        }
-        const def = p.create_definitions;
+        const table = p.name;
         if (this.db.getTable(table, true)) {
             throw new QueryError('Table exists: ' + table);
         }
@@ -108,32 +99,31 @@ export class Query implements IQuery {
         // perform creation
         this.db.declareTable({
             name: table,
-            fields: def.filter(f => f.resource === 'column')
+            fields: p.columns
                 .map<SchemaField>(f => {
-                    if (f.column.type !== 'column_ref') {
-                        throw new NotSupported(f.column.type);
-                    }
                     let primary = false;
                     let unique = false;
-                    switch (f.unique_or_primary) {
+                    let notNull = false;
+                    switch (f.constraint?.type) {
                         case 'primary key':
                             primary = true;
                             break;
                         case 'unique':
                             unique = true;
+                            notNull = f.constraint.notNull;
                             break;
                         case null:
                         case undefined:
                             break;
                         default:
-                            throw new NotSupported(f.unique_or_primary);
+                            throw NotSupported.never(f.constraint);
                     }
 
                     const type: IType = (() => {
-                        switch (f.definition.dataType) {
+                        switch (f.dataType.type) {
                             case 'TEXT':
                             case 'VARCHAR':
-                                return Types.text(f.definition.length);
+                                return Types.text(f.dataType.length);
                             case 'INT':
                             case 'INTEGER':
                                 return Types.int;
@@ -149,71 +139,83 @@ export class Query implements IQuery {
                             case 'JSONB':
                                 return Types.jsonb;
                             default:
-                                throw new NotSupported('Type ' + JSON.stringify(f.definition.dataType));
+                                throw new NotSupported('Type ' + JSON.stringify(f.dataType));
                         }
                     })();
 
-                    if (f.definition.suffix?.length) {
-                        throw new NotSupported('column suffix');
-                    }
-
                     return {
-                        id: f.column.column,
+                        id: f.name,
                         type,
                         primary,
                         unique,
+                        notNull,
                     }
                 })
         });
         return null;
     }
 
-    executeSelect(p: Select): any[] {
+    executeSelect(p: SelectStatement): any[] {
+        const t = this.buildSelect(p);
+        return [...t.enumerate()];
+    }
+
+    buildSelect(p: SelectStatement): _ISelection {
         if (p.type !== 'select') {
             throw new NotSupported(p.type);
         }
         let t: _ISelection;
         const aliases = new Set<string>();
-        for (const from of (p.from as any[])) {
-            if (!('table' in from) || !from.table) {
+        for (const from of p.from) {
+            if (!('subject' in from) || !from.subject) {
                 throw new NotSupported('no table name');
             }
-            if (aliases.has(from.as ?? from.table)) {
-                throw new Error(`Table name "${from.as ?? from.table}" specified more than once`)
+            const alias = typeof from.subject === 'string'
+                ? from.alias ?? from.subject
+                : from.alias;
+            if (!alias) {
+                throw new Error('No alias provided');
             }
-            const newT = this.db.getSchema(from.db).getTable(from.table)
-                .selection
-                .setAlias(from.as);
+            if (aliases.has(alias)) {
+                throw new Error(`Table name "${alias}" specified more than once`)
+            }
+            const newT = typeof from.subject !== 'string'
+                ? this.buildSelect(from.subject)
+                    .setAlias(alias)
+                : this.db.getSchema(from.db).getTable(from.subject)
+                    .selection
+                    .setAlias(alias);
             if (!t) {
                 // first table to be selected
                 t = newT;
                 continue;
             }
 
-            switch (from.join) {
+
+            switch (from.join?.type) {
                 case 'RIGHT JOIN':
-                    t = new JoinSelection(this.db, newT, t, from.on, from.join === 'INNER JOIN');
+                    t = new JoinSelection(this.db, newT, t, from.join.on, false);
                     break;
                 case 'INNER JOIN':
-                    t = new JoinSelection(this.db, t, newT, from.on, true);
+                    t = new JoinSelection(this.db, t, newT, from.join.on, true);
                     break;
                 case 'LEFT JOIN':
-                    t = new JoinSelection(this.db, t, newT, from.on, false);
+                    t = new JoinSelection(this.db, t, newT, from.join.on, false);
                     break;
                 default:
-                    throw new NotSupported('Joint type not supported ' + from.join);
+                    throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
             }
         }
         t = t.filter(p.where)
             .select(p.columns);
-        return [...t.enumerate()];
+        return t;
     }
 
-    executeUpdate(p: Update): any[] {
+    executeUpdate(p: any): any[] {
         throw new Error('Method not implemented.');
     }
 
-    executeInsert(p: Insert_Replace): void {
+    executeInsert(p: any): void {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }

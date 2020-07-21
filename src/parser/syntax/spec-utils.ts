@@ -2,7 +2,7 @@ import { Parser, Grammar } from 'nearley';
 import { expect, assert } from 'chai';
 import grammar from '../syntax/main.ne';
 import { trimNullish } from '../../utils';
-import { Value, SelectStatement, CreateTableStatement, CreateIndexStatement } from './ast';
+import { Expr, SelectStatement, CreateTableStatement, CreateIndexStatement } from './ast';
 
 export function checkSelect(value: string | string[], expected: SelectStatement)  {
     checkTree(value, expected);
@@ -51,6 +51,6 @@ export function checkInvalid(sql: string, start?: string) {
     });
 }
 
-export function checkTreeExpr(value: string | string[], expected: Value) {
+export function checkTreeExpr(value: string | string[], expected: Expr) {
     checkTree(value, expected, 'expr');
 }

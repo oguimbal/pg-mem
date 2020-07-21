@@ -1,3 +1,7 @@
+export type Statement = SelectStatement
+    | CreateTableStatement
+    | CreateIndexStatement;
+
 export interface CreateIndexStatement {
     type: 'create index';
     table: string;
@@ -8,7 +12,7 @@ export interface CreateIndexStatement {
 }
 
 export interface IndexExpression {
-    expression: Value;
+    expression: Expr;
     order?: 'asc' | 'desc';
     nulls?: 'first' | 'last';
 }
@@ -22,9 +26,14 @@ export interface CreateTableStatement {
 
 export interface CreateColumnDef {
     name: string;
-    dataType: string;
+    dataType: DataTypeDef;
     // collate?: string; (todo)
     constraint?: ColumnConstraint;
+}
+
+export interface DataTypeDef {
+    type: string;
+    length?: number;
 }
 
 type ColumnConstraint = {
@@ -36,36 +45,47 @@ type ColumnConstraint = {
 
 export interface SelectStatement {
     type: 'select',
-    columns?: Value[];
-    from?: From;
-    where?: Value;
+    columns?: Expr[];
+    from?: From[];
+    where?: Expr;
 }
 
 export type From = {
     subject: string;
+    db?: string;
     alias?: string;
+    join?: JoinClause;
 } | {
     subject: SelectStatement;
     alias: string;
+    db?: null;
+    join?: JoinClause;
 }
 
-export type Value = ValueRef
-    | ValueStar
-    | ValueInteger
-    | ValueMember
-    | ValueArrayIndex
-    | ValueNumeric
-    | ValueString
-    | ValueBinary
-    | ValueUnary
-    | ValueCast
-    | ValueBool
-    | ValueCall
-    | ValueTernary;
+export interface JoinClause {
+    type: 'LEFT JOIN' | 'RIGHT JOIN' | 'INNER JOIN';
+    on: Expr;
+}
+
+export type Expr = ExprRef
+    | ExprStar
+    | ExprList
+    | ExprNull
+    | ExprInteger
+    | ExprMember
+    | ExprArrayIndex
+    | ExprNumeric
+    | ExprString
+    | ExprBinary
+    | ExprUnary
+    | ExprCast
+    | ExprBool
+    | ExprCall
+    | ExprTernary;
 
 
 export type LogicOperator = 'OR' | 'AND';
-export type EqualityOperator = 'LIKE' | 'NOT LIKE' | 'ILIKE' | 'NOT ILIKE';
+export type EqualityOperator = 'IN' | 'NOT IN' | 'LIKE' | 'NOT LIKE' | 'ILIKE' | 'NOT ILIKE' | '=' | '!=';
 export type ComparisonOperator = '>' | '>=' | '<' | '<=' | '@>' | '<@' | '?' | '?|' | '?&';
 export type AdditiveOperator = '||' | '-' | '#-' | '&&' | '+';
 export type MultiplicativeOperator = '*' | '%' | '/';
@@ -74,81 +94,92 @@ export type BinaryOperator = LogicOperator
     | ComparisonOperator
     | AdditiveOperator
     | MultiplicativeOperator
-    | '^';
+    | '^'
 
-export interface ValueBinary {
+export interface ExprBinary {
     type: 'binary';
-    left: Value;
-    right: Value;
+    left: Expr;
+    right: Expr;
     op: BinaryOperator;
 }
 
 
-export interface ValueTernary {
+export interface ExprTernary {
     type: 'ternary';
-    value: Value;
-    lo: Value;
-    hi: Value;
+    value: Expr;
+    lo: Expr;
+    hi: Expr;
     op: 'BETWEEN' | 'NOT BETWEEN';
 }
 
-export interface ValueCast {
+export interface ExprCast {
     type: 'cast';
     to: string;
-    operand: Value;
+    operand: Expr;
 }
 
-export interface ValueUnary {
+
+export type UnaryOperator = '+' | '-' | 'NOT' | 'IS NULL' | 'IS NOT NULL' | 'IS TRUE' | 'IS FALSE' | 'IS NOT TRUE' | 'IS NOT FALSE';
+export interface ExprUnary {
     type: 'unary';
-    operand: Value;
-    op: '+' | '-' | 'NOT' | 'IS NULL' | 'IS NOT NULL' | 'IS TRUE' | 'IS FALSE' | 'IS NOT TRUE' | 'IS NOT FALSE';
+    operand: Expr;
+    op: UnaryOperator;
 }
 
-export interface ValueRef {
+export interface ExprRef {
     type: 'ref';
+    table?: string;
     name: string;
 }
 
-export interface ValueMember {
+export interface ExprMember {
     type: 'member';
-    operand: Value;
+    operand: Expr;
     /** If not provided, then is a classic member access with '.' */
     op?: '->' | '->>'; // <== todo
     member: '*' | string | number;
 }
 
-export interface ValueCall {
+export interface ExprCall {
     type: 'call';
     function: string;
-    args: Value[];
+    args: Expr[];
 }
 
-export interface ValueArrayIndex {
+export interface ExprList {
+    type: 'list';
+    expressions: Expr[];
+}
+
+export interface ExprArrayIndex {
     type: 'arrayIndex',
-    array: Value;
-    index: Value;
+    array: Expr;
+    index: Expr;
 }
 
-export interface ValueStar {
+export interface ExprStar {
     type: 'star';
 }
+export interface ExprNull {
+    type: 'null';
+}
 
-export interface ValueInteger {
+export interface ExprInteger {
     type: 'integer';
     value: number;
 }
 
-export interface ValueNumeric {
+export interface ExprNumeric {
     type: 'numeric';
     value: number;
 }
 
-export interface ValueString {
+export interface ExprString {
     type: 'string';
     value: string;
 }
 
-export interface ValueBool {
+export interface ExprBool {
     type: 'boolean';
     value: boolean;
 }

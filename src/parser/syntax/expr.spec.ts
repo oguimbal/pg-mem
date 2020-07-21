@@ -29,6 +29,10 @@ describe('PG syntax: Expressions', () => {
             value: 42,
         });
 
+        checkTreeExpr(['null'], {
+            type: 'null',
+        });
+
         checkTreeExpr(['true', '(true)'], {
             type: 'boolean',
             value: true,
@@ -410,6 +414,34 @@ describe('PG syntax: Expressions', () => {
             op: 'LIKE',
             left: { type: 'ref', name: 'a' },
             right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a in b', '"a"IN"b"'], {
+            type: 'binary',
+            op: 'IN',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a not in b', '"a"NOT IN"b"'], {
+            type: 'binary',
+            op: 'NOT IN',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a in (a, b, c)'], {
+            type: 'binary',
+            op: 'IN',
+            left: { type: 'ref', name: 'a' },
+            right: {
+                type: 'list',
+                expressions: [
+                    { type: 'ref', name: 'a' },
+                    { type: 'ref', name: 'b' },
+                    { type: 'ref', name: 'c' },
+                ]
+             },
         });
 
         checkTreeExpr(['a not like b', '"a"not LIKE"b"'], {
