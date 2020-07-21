@@ -35,6 +35,12 @@ describe('PG syntax: Select statements', () => {
         columns: noAlias([{ type: 'ref', name: '*' }])
     });
 
+    checkSelect(['select * from current_schema()', 'select * from current_schema ( )'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'current_schema' }],
+        columns: noAlias([{ type: 'ref', name: '*' }])
+    });
+
     checkSelect(['select a as a1, b as b1 from test', 'select a a1,b b1 from test', 'select a a1 ,b b1 from test'], {
         type: 'select',
         from: [{ type: 'table', table: 'test' }],

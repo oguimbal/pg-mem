@@ -523,7 +523,16 @@ describe('PG syntax: Expressions', () => {
             right: { type: 'ref', name: 'b' },
         });
 
-        checkTreeExpr(['a in (a, b, c)'], {
+        checkTreeExpr(['(a, b, c)', '( a , b, c )'], {
+            type: 'list',
+            expressions: [
+                { type: 'ref', name: 'a' },
+                { type: 'ref', name: 'b' },
+                { type: 'ref', name: 'c' },
+            ]
+        });
+
+        checkTreeExpr(['a in (a, b, c)', 'a in ( a , b, c )'], {
             type: 'binary',
             op: 'IN',
             left: { type: 'ref', name: 'a' },
@@ -535,6 +544,13 @@ describe('PG syntax: Expressions', () => {
                     { type: 'ref', name: 'c' },
                 ]
             },
+        });
+
+        checkTreeExpr(['a in (b)', 'a in ( b )'], {
+            type: 'binary',
+            op: 'IN',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
         });
 
         checkTreeExpr(['a not like b', '"a"not LIKE"b"'], {

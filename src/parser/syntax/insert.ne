@@ -26,4 +26,4 @@ insert_values -> insert_value (_ comma _ insert_value {% last %}):* {% ([head, t
     return [head, ...(tail || [])];
 } %}
 
-insert_value -> lparen _ expr_list _ rparen {% get(2) %}
+insert_value -> lparen _ expr_list_raw _ rparen {% get(2) %}

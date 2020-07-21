@@ -38,7 +38,7 @@ expr_left_unary[KW, This, Next]
 # ======== Operator precedence
 #  -> https://www.postgresql.org/docs/12/sql-syntax-lexical.html#SQL-PRECEDENCE
 expr -> expr_paren {% unwrap %} | expr_or {% unwrap %}
-expr_paren -> lparen _ expr _ rparen {% get(2) %}
+expr_paren -> lparen _ (expr | expr_list_many) _ rparen {% get(2) %}
 expr_or -> expr_binary[%kw_or, expr_or, expr_and]
 expr_and -> expr_binary[%kw_and, expr_and, expr_not]
 expr_not -> expr_left_unary[%kw_not, expr_not, expr_eq]
@@ -88,7 +88,7 @@ expr_basic
     -> expr_call
     | (word | star) {% ([value]) => ({ type: 'ref', name: unwrap(value) }) %}
 
-expr_call -> word _ lparen _ expr_list _ rparen {% x => ({
+expr_call -> word _ lparen _ expr_list_raw _ rparen {% x => ({
         type: 'call',
         function: x[0].toLowerCase(),
         args: x[4],
@@ -109,6 +109,14 @@ ops_between -> (%kw_not __):? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[
 ops_member -> (%op_member | %op_membertext) {% x => unwrap(x).value %}
 
 # x,y,z
-expr_list -> expr (_ comma _ expr {% last %}):* {% ([head, tail]) => {
+expr_list_raw -> expr (_ comma _ expr {% last %}):* {% ([head, tail]) => {
     return [head, ...(tail || [])];
 } %}
+expr_list_raw_many -> expr (_ comma _ expr {% last %}):+ {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}
+
+expr_list_many -> expr_list_raw_many {% x => ({
+    type: 'list',
+    expressions: x[0],
+}) %}

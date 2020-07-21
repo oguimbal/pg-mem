@@ -82,7 +82,12 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
         case 'IN':
         case 'NOT IN':
             const value = buildValue(on, left);
-            const array = buildValue(on, right).convert(makeArray(value.type));
+            let arrayValue = buildValue(on, right);
+            // to support things like: "col in (value)" - which RHS does not parse to an array
+            if (arrayValue.type.primary !== DataType.array) {
+                arrayValue = Value.array([arrayValue]);
+            }
+            const array = arrayValue.convert(makeArray(value.type));
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
                 return op === 'IN'

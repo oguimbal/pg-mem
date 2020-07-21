@@ -10,7 +10,15 @@
 
 
 # list of statements, separated by ";"
-main -> statement {% unwrap %} # _ statement:? (_ %semicolon _ statement:?):*
+main -> _ statement (statement_separator:+ _ statement {% last %}):* statement_separator:* _  {% ([_, head, _tail]) => {
+    const tail = unwrap(_tail);
+    if (tail && tail.length) {
+        return [unwrap(head), ...tail];
+    }
+    return unwrap(head);
+} %}
+
+statement_separator -> _ %semicolon
 
 
 statement

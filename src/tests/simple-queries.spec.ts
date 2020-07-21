@@ -194,8 +194,8 @@ describe('Simple queries', () => {
 
     it('@> on value query', () => {
         const result = many(`create table test(id text primary key, data jsonb);
-                                        insert into test values ('id1', '{"prop": "A","in":1}'), ('id2', '{"prop": "B","in":2}'), ('id4', '{"prop": "A","in":3}'), ('id5', null);
-                                        select id from test where data @> '{"prop": "A"}';`);
+                            insert into test values ('id1', '{"prop": "A","in":1}'), ('id2', '{"prop": "B","in":2}'), ('id4', '{"prop": "A","in":3}'), ('id5', null);
+                            select id from test where data @> '{"prop": "A"}';`);
         expect(result.map(x => x.id)).to.deep.equal(['id1', 'id4']);
     });
 

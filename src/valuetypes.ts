@@ -236,7 +236,7 @@ export const Value = {
             throw new Error('Argument null');
         }
         if (array.type.primary !== DataType.array) {
-            throw new QueryError('Expecting element list');
+            array = Value.array([array]);
         }
         const of = (array.type as ArrayType).of;
         return new Evaluator(
