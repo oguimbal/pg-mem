@@ -237,7 +237,11 @@ describe('Simple queries', () => {
 
     it('can process typeorm columns schema selection', () => {
         simpleDb();
-        expect(many(`SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`))
-            .to.deep.equal([{}])
+        expect(many(`SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`).length)
+            .to.equal(3);
+        expect(many(`SELECT ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`))
+            .to.deep.equal([{ regtype: 'text' }
+                , { regtype: 'text' }
+                , { regtype: 'text' }]);
     })
 });

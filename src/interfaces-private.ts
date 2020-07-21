@@ -79,6 +79,7 @@ export interface _IDb extends IMemoryDb {
 export interface _IType<TRaw = any> extends IType {
     /** Data type */
     readonly primary: DataType;
+    readonly regTypeName: string;
 
     toString(): string;
     equals(a: TRaw, b: TRaw): boolean;

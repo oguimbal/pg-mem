@@ -13,7 +13,7 @@
 main -> _ statement (statement_separator:+ _ statement {% last %}):* statement_separator:* _  {% ([_, head, _tail]) => {
     const tail = unwrap(_tail);
     if (tail && tail.length) {
-        return [unwrap(head), ...tail];
+        return [unwrap(head), ...tail.map(unwrap)];
     }
     return unwrap(head);
 } %}

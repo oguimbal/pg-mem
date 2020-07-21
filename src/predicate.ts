@@ -3,7 +3,7 @@ import { trimNullish, queryJson } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
-import { Types, isNumeric, isInteger, singleSelection } from './datatypes';
+import { Types, isNumeric, isInteger, singleSelection, fromNative } from './datatypes';
 import { Query } from './query';
 import { Expr, ExprBinary, UnaryOperator } from './parser/syntax/ast';
 
@@ -39,8 +39,11 @@ function _buildValue(data: _ISelection, val: Expr): IValue {
         case 'call':
             const args = val.args.map(x => _buildValue(data, x));
             return Value.function(val.function, args);
+        case 'cast':
+            return _buildValue(data, val.operand)
+                .convert(fromNative(val.to))
         default:
-            throw new NotSupported('condition ' + val.type);
+            throw new NotSupported(val.type);
     }
 }
 
@@ -165,6 +168,10 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             break;
         case '@>':
             getter = (a, b) => queryJson(b, a);
+            break;
+        case '||':
+            getter = (a, b) => a + b;
+            returnType = Types.text();
             break;
         default:
             throw new NotSupported('operator ' + op);

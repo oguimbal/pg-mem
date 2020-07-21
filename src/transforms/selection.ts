@@ -70,7 +70,8 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
 
             // push them
             for (const col of cols) {
-                this.addColumn(col);
+                this._columns.push(col);
+                this.refColumn(col);
             }
             this.alias = 'selection:' + (selCnt++);
         } else if (opts.schema) {
@@ -84,17 +85,19 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                     , col.id
                     , this
                     , raw => raw[col.id])
-                this.addColumn(newCol);
+                this._columns.push(newCol);
+                this.refColumn(newCol);
             }
         } else if (opts.alias) {
             const asSel = base as _ISelection;
             if (!asSel.columns) { // istanbul ignore next
                 throw new Error('Should only apply aliases on actual selection');
             }
-            for (const col of asSel.columns) {
-                this.addColumn(col);
-            }
+            this._columns = asSel.columns;
             this.alias = opts.alias;
+            for (const col of asSel.columns) {
+                this.refColumn(col);
+            }
         } else {
             throw new NotSupported('selection does nothing');
         }
@@ -103,8 +106,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         this.columnIds = buildColumnIds(this.columns);
     }
 
-    private addColumn(col: IValue<any>) {
-        this._columns.push(col);
+    private refColumn(col: IValue<any>) {
         let ci = this.columnsById[col.id];
         if (!ci) {
             this.columnsById[col.id] = ci = [];

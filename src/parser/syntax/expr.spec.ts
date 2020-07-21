@@ -108,7 +108,7 @@ describe('PG syntax: Expressions', () => {
             member: 'b',
             operand: {
                 type: 'cast',
-                to: 'JSONB',
+                to: { type: 'jsonb' },
                 operand: {
                     type: 'ref',
                     name: 'data',
@@ -118,14 +118,14 @@ describe('PG syntax: Expressions', () => {
 
         checkTreeExpr([`data::jsonb->'b'::json`, `((data::jsonb) -> 'b')::json`], {
             type: 'cast',
-            to: 'JSON',
+            to: { type: 'json' },
             operand: {
                 type: 'member',
                 op: '->',
                 member: 'b',
                 operand: {
                     type: 'cast',
-                    to: 'JSONB',
+                    to: { type: 'jsonb' },
                     operand: {
                         type: 'ref',
                         name: 'data',
@@ -369,7 +369,7 @@ describe('PG syntax: Expressions', () => {
             },
             right: {
                 type: 'cast',
-                to: 'JSONB',
+                to: { type: 'jsonb' },
                 operand: {
                     type: 'ref',
                     name: 'b',
@@ -380,7 +380,7 @@ describe('PG syntax: Expressions', () => {
 
         checkTreeExpr(['(a + b)::jsonb', '(a + b)::"JSONB"'], {
             type: 'cast',
-            to: 'JSONB',
+            to: { type: 'jsonb' },
             operand: {
                 type: 'binary',
                 op: '+',

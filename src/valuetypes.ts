@@ -43,11 +43,11 @@ export class Evaluator<T = any> implements IValue<T> {
             , hash(hashConv(this.hash))
             , this.origin
             , raw => {
-                const got = converter(raw)
+                const got = this.get(raw);
                 if (got === null || got === undefined) {
                     return null;
                 }
-                return this.get(got);
+                return converter(got);
             }
         ).asConstant(this.isConstant);
     }

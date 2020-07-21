@@ -72,7 +72,7 @@ expr_array_index
 
 expr_member
     -> (expr_member | expr_paren) (_ ops_member _ {% get(1) %}) (string | int) {% ([operand, op, member]) => ({ type: 'member', operand: unwrap(operand), op, member: unwrap(member)}) %}
-    | (expr_member | expr_paren) %op_cast word {% ([operand, _, to]) => ({ type: 'cast', operand: unwrap(operand), to: to.toUpperCase() }) %}
+    | (expr_member | expr_paren) %op_cast data_type {% ([operand, _, to]) => ({ type: 'cast', operand: unwrap(operand), to }) %}
     | expr_dot {% unwrap %}
 
 expr_dot

@@ -153,7 +153,7 @@ export interface ExprTernary {
 
 export interface ExprCast {
     type: 'cast';
-    to: string;
+    to: DataTypeDef;
     operand: Expr;
 }
 

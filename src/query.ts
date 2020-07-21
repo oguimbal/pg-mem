@@ -2,7 +2,7 @@ import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported } from '
 import { _IDb, _ISelection, CreateIndexColDef } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
-import { Types } from './datatypes';
+import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
 import { Statement, CreateTableStatement, SelectStatement, InsertStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
@@ -123,33 +123,9 @@ export class Query implements IQuery {
                             throw NotSupported.never(f.constraint);
                     }
 
-                    const type: IType = (() => {
-                        switch (f.dataType.type) {
-                            case 'text':
-                            case 'varchar':
-                                return Types.text(f.dataType.length);
-                            case 'int':
-                            case 'integer':
-                                return Types.int;
-                            case 'decimal':
-                            case 'float':
-                                return Types.float;
-                            case 'timestamp':
-                                return Types.timestamp;
-                            case 'date':
-                                return Types.date;
-                            case 'json':
-                                return Types.json;
-                            case 'jsonb':
-                                return Types.jsonb;
-                            default:
-                                throw new NotSupported('Type ' + JSON.stringify(f.dataType));
-                        }
-                    })();
-
                     return {
                         id: f.name,
-                        type,
+                        type: fromNative(f.dataType),
                         primary,
                         unique,
                         notNull,

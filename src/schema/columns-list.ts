@@ -118,7 +118,7 @@ export class ColumnsListSchema implements _ITable {
             numeric_scale: null, // <== todo
 
             udt_catalog: 'pgmem',
-            udt_schema: 'pg_schema',
+            udt_schema: 'pg_catalog',
             udt_name: t.type.primary, // <== todo
 
             dtd_identifier: i, // <== todo

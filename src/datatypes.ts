@@ -1,14 +1,16 @@
 import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
-import { DataType, CastError, IType, QueryError } from './interfaces';
+import { DataType, CastError, IType, QueryError, NotSupported } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
 import { deepEqual, deepCompare } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { Query } from './query';
+import { DataTypeDef } from './parser/syntax/ast';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
     abstract primary: DataType;
+    abstract regTypeName: string;
     doConvert?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any>;
     doCanConvert?(to: _IType<TRaw>): boolean;
     doEquals(a: any, b: any): boolean {
@@ -79,7 +81,66 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 }
 
 
+class RegType extends TypeBase<_IType> {
+
+    get regTypeName(): string {
+        return 'regtype';
+    }
+
+    get primary(): DataType {
+        return DataType.regtype;
+    }
+
+    doCanConvert(_to: _IType): boolean {
+        switch (_to.primary) {
+            case DataType.text:
+            case DataType.int:
+                return true;
+        }
+    }
+
+    doConvert(a: Evaluator, to: _IType): Evaluator {
+        switch (to.primary) {
+            case DataType.text:
+                return a
+                    .setType(Types.text())
+                    .setConversion((raw: string) => {
+                        return raw;
+                    }
+                        , s => `(${s})::TEXT`
+                        , toText => ({ toText }))
+            case DataType.int:
+                return a
+                    .setType(Types.text())
+                    .setConversion((raw: string) => {
+                        const got = parseRegType(raw);
+                        return typeIndexes[got.primary]
+                    }
+                        , s => `(${s})::TEXT`
+                        , toText => ({ toText }))
+        }
+    }
+
+    doEquals(a: _IType, b: _IType): boolean {
+        return a.primary === b.primary;
+    }
+
+    doGt(a: _IType, b: _IType): boolean {
+        return a.primary > b.primary;
+    }
+
+    doLt(a: _IType, b: _IType): boolean {
+        return a.primary < b.primary;
+    }
+}
+
+
 class JSONBType extends TypeBase<any> {
+
+    get regTypeName(): string {
+        return 'jsonb';
+    }
+
     constructor(readonly primary: DataType) {
         super();
     }
@@ -99,7 +160,7 @@ class JSONBType extends TypeBase<any> {
                 .setType(Types.text())
                 .setConversion(json => JSON.stringify(json)
                     , s => `(${s})::JSONB`
-                    , toJsonB => ({ jsonb: toJsonB }))
+                    , toJsonB => ({ toJsonB }))
                 .convert(to) as Evaluator; // <== might need truncation
         }
 
@@ -121,6 +182,10 @@ class JSONBType extends TypeBase<any> {
 }
 
 class TimestampType extends TypeBase<Date> {
+
+    get regTypeName(): string {
+        return 'timestamp without time zone';
+    }
 
     constructor(readonly primary: DataType) {
         super();
@@ -159,6 +224,10 @@ class TimestampType extends TypeBase<Date> {
 
 class NullType extends TypeBase<null> {
 
+    get regTypeName(): string {
+        return null;
+    }
+
     get primary(): DataType {
         return DataType.null;
     }
@@ -195,6 +264,11 @@ export function isInteger(t: IType) {
 }
 
 class NumberType extends TypeBase<number> {
+
+    get regTypeName(): string {
+        return this.primary === DataType.int ? 'integer' : 'double precision';
+    }
+
     constructor(readonly primary: DataType) {
         super();
     }
@@ -205,6 +279,7 @@ class NumberType extends TypeBase<number> {
             case DataType.long:
             case DataType.float:
             case DataType.decimal:
+            case DataType.regtype:
                 return true;
             default:
                 return false;
@@ -225,6 +300,19 @@ class NumberType extends TypeBase<number> {
                 }
             );
         }
+        if (to.primary === DataType.regtype) {
+            return value
+                .setType(Types.regtype)
+                .setConversion((int: number) => {
+                    const got = Types[DataType[allTypes[int]]] as _IType;
+                    if (!got) {
+                        throw new CastError(DataType.int, DataType.regtype);
+                    }
+                    return got.regTypeName;
+                }
+                    , sql => `(${sql})::regtype`
+                    , intToRegType => ({ intToRegType }));
+        }
         return new Evaluator(to
             , value.id
             , value.sql
@@ -237,11 +325,15 @@ class NumberType extends TypeBase<number> {
 
 class TextType extends TypeBase<string> {
 
+    get regTypeName(): string {
+        return this.len ? 'character varying' : 'text';
+    }
+
     get primary(): DataType {
         return DataType.text;
     }
 
-    constructor(private len: number | null) {
+    constructor(readonly len: number | null) {
         super();
     }
 
@@ -254,6 +346,8 @@ class TextType extends TypeBase<string> {
                 return true;
             case DataType.jsonb:
             case DataType.json:
+                return true;
+            case DataType.regtype:
                 return true;
         }
         if (numbers.has(to.primary)) {
@@ -307,6 +401,18 @@ class TextType extends TypeBase<string> {
                     }
                         , sql => `TRUNCATE(${sql}, ${toStr.len})`
                         , truncate => ({ truncate, len: toStr.len }));
+            case DataType.regtype:
+                return value
+                    .setType(Types.regtype)
+                    .setConversion((str: string) => {
+                        let repl = str.replace(/["\s]+/g, '');
+                        if (repl.startsWith('pg_catalog.')) {
+                            repl = repl.substr('pg_catalog.'.length);
+                        }
+                        return parseRegType(repl).regTypeName;
+                    }
+                        , sql => `(${sql})::regtype`
+                        , strToRegType => ({ strToRegType }));
         }
         if (numbers.has(to.primary)) {
             const isInt = integers.has(to.primary);
@@ -328,6 +434,11 @@ class TextType extends TypeBase<string> {
 }
 
 class BoolType extends TypeBase<boolean> {
+
+    get regTypeName(): string {
+        return 'boolean';
+    }
+
     get primary(): DataType {
         return DataType.bool;
     }
@@ -337,6 +448,11 @@ export class ArrayType extends TypeBase<any[]> {
     get primary(): DataType {
         return DataType.array;
     }
+
+    get regTypeName(): string {
+        return this.of.regTypeName + '[]';
+    }
+
 
     constructor(readonly of: _IType) {
         super();
@@ -431,11 +547,19 @@ export const Types = { // : Ctors
     [DataType.timestamp]: new TimestampType(DataType.timestamp),
     [DataType.date]: new TimestampType(DataType.date),
     [DataType.jsonb]: new JSONBType(DataType.jsonb),
+    [DataType.regtype]: new RegType(),
     [DataType.json]: new JSONBType(DataType.json),
     [DataType.null]: new NullType(),
     [DataType.float]: new NumberType(DataType.float),
     [DataType.int]: new NumberType(DataType.int),
     [DataType.long]: new NumberType(DataType.long),
+}
+
+
+const typeIndexes = {};
+const allTypes = Object.keys(DataType);
+for (let i = 0; i < allTypes.length; i++) {
+    typeIndexes[DataType[allTypes[i]]] = i + 1;
 }
 
 const texts = new Map<number, _IType>();
@@ -457,4 +581,39 @@ export function makeArray(of: _IType): _IType {
     }
     arrays.set(of, got = new ArrayType(of));
     return got;
+}
+
+
+export function parseRegType(native: string): _IType {
+    if (/\[\]$/.test(native)) {
+        const inner = parseRegType(native.substr(0, native.length - 2));
+        return makeArray(inner);
+    }
+    return fromNative({ type: native });
+}
+
+export function fromNative(native: DataTypeDef): _IType {
+    switch (native.type) {
+        case 'text':
+        case 'varchar':
+            return Types.text(native.length);
+        case 'int':
+        case 'integer':
+            return Types.int;
+        case 'decimal':
+        case 'float':
+            return Types.float;
+        case 'timestamp':
+            return Types.timestamp;
+        case 'date':
+            return Types.date;
+        case 'json':
+            return Types.json;
+        case 'jsonb':
+            return Types.jsonb;
+        case 'regtype':
+            return Types.regtype;
+        default:
+            throw new NotSupported('Type ' + JSON.stringify(native.type));
+    }
 }
