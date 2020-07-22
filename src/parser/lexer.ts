@@ -31,7 +31,7 @@ export const lexer = moo.compile({
     },
     star: '*',
     comma: ',',
-    space: { match: /[\s\t\n\v\f\r]+/, lineBreaks: true },
+    space: { match: /[\s\t\n\v\f\r]+/, lineBreaks: true, },
     int: /\-?[0-9]+/,
     // word: /[a-zA-Z][A-Za-z0-9_\-]*/,
     commentLine: /\-\-.*?$[\s\r\n]*/,
@@ -62,3 +62,10 @@ export const lexer = moo.compile({
         match: ['>', '>=', '<', '<=', '@>', '<@', '?', '?|', '?&'],
     },
 });
+
+lexer.next = (next => () => {
+    let tok;
+    while ((tok = next.call(lexer)) && (tok.type === 'commentLine' || tok.type === 'commentFull' || tok.type === 'space')) {
+    }
+    return tok;
+})(lexer.next);

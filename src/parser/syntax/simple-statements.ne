@@ -11,7 +11,7 @@ simplestatements_all
 
 
 # https://www.postgresql.org/docs/12/sql-start-transaction.html
-simplestatements_start_transaction -> kw_start __ kw_transaction {% () => ({ type: 'start transaction' }) %}
+simplestatements_start_transaction -> kw_start kw_transaction {% () => ({ type: 'start transaction' }) %}
 
 # https://www.postgresql.org/docs/12/sql-commit.html
 simplestatements_commit -> kw_commit {% () => ({ type: 'commit' }) %}

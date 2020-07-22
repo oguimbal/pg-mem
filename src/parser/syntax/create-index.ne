@@ -3,20 +3,20 @@
 
 
 # https://www.postgresql.org/docs/12/sql-createindex.html
-createindex_statement -> %kw_create (__ %kw_unique):? __ kw_index (__ kw_ifnotexists):? (_ word {% last %}):? _ %kw_on _ word _ lparen _ createindex_expressions _ rparen {% x => ({
+createindex_statement -> %kw_create %kw_unique:? kw_index kw_ifnotexists:? word:? %kw_on word lparen createindex_expressions rparen {% x => ({
     type: 'create index',
     ... !!x[1] ? { unique: true } : {},
-    ... !!x[4] ? { ifNotExists: true } : {},
-    ... !!x[5] ? { indexName: x[5] } : {},
-    table: x[9],
-    expressions: x[13],
+    ... !!x[3] ? { ifNotExists: true } : {},
+    ... !!x[4] ? { indexName: x[4] } : {},
+    table: x[6],
+    expressions: x[8],
 }) %}
 
-createindex_expressions -> createindex_expression (_ comma _ createindex_expression {% last %}):* {% ([head, tail]) => {
+createindex_expressions -> createindex_expression (comma createindex_expression {% last %}):* {% ([head, tail]) => {
     return [head, ...(tail || [])];
 } %}
 
-createindex_expression -> (expr_basic | expr_paren) (_ (%kw_ask | %kw_desc) {% last %}):? (_ kw_nulls __ (kw_first | kw_last) {% last %}):? {% x => ({
+createindex_expression -> (expr_basic | expr_paren) (%kw_ask | %kw_desc):? (kw_nulls (kw_first | kw_last) {% last %}):? {% x => ({
     expression: unwrap(x[0]),
     ... !!x[1] ? { order: unwrap(x[1]).value.toLowerCase() } : {},
     ... !!x[2] ? { nulls: unwrap(x[2]) } : {},

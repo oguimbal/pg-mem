@@ -26,15 +26,11 @@ describe('PG syntax: Lexer', () => {
     it('tokenizes end comment', () => {
         lexer.reset(`SELECT -- test`);
         next({ type: 'kw_select' });
-        next({ type: 'space' });
-        next({ type: 'commentLine' });
     });
 
     it('tokenizes middle comment', () => {
         lexer.reset(`SELECT -- test\n*`);
         next({ type: 'kw_select' });
-        next({ type: 'space' });
-        next({ type: 'commentLine' });
         next({ type: 'star' });
     });
 
@@ -43,26 +39,20 @@ describe('PG syntax: Lexer', () => {
         lexer.reset(`2+-- yo\n2`);
         next({ type: 'int', value: '2' });
         next({ type: 'op_plus' });
-        next({ type: 'commentLine' });
         next({ type: 'int', value: '2' });
     });
 
     it('tokenizes star comment', () => {
         lexer.reset(`SELECT /* test */ *`);
         next({ type: 'kw_select' });
-        next({ type: 'space' });
-        next({ type: 'commentFull' });
         next({ type: 'star' });
     });
 
     it('tokenizes select', () => {
         lexer.reset(`SELECT * FROM test`);
         next({ type: 'kw_select' });
-        next({ type: 'space' });
         next({ type: 'star' });
-        next({ type: 'space' });
         next({ type: 'kw_from' });
-        next({ type: 'space' });
         next({ type: 'word', value: 'test' });
     });
 

@@ -41,9 +41,6 @@
 
 
 # === Basic constructs
-_ -> space:*
-__ -> space:+
-space -> %space | %commentLine | %commentFull
 lparen -> %lparen
 rparen -> %rparen
 number -> float | int
@@ -85,12 +82,12 @@ kw_values -> %word {% notReservedKw('values')  %}
 
 
 # === Composite keywords
-kw_ifnotexists -> kw_if __ %kw_not __ kw_exists
-kw_not_null -> %kw_not __ %kw_null
+kw_ifnotexists -> kw_if %kw_not kw_exists
+kw_not_null -> %kw_not %kw_null
 
 
 # === Datatype
-data_type -> word (_ lparen _ int _ rparen {% get(3) %}):? {% x => ({
+data_type -> word (lparen int rparen {% get(1) %}):? {% x => ({
     type: unwrap(x[0]).toLowerCase(),
     ... (x[1] >= 0 ) ? { length: x[1] } : {},
 }) %}
@@ -99,20 +96,20 @@ data_type -> word (_ lparen _ int _ rparen {% get(3) %}):? {% x => ({
 # === Table ref  (ex:  [db.]mytable [as X] )
 
 # [AS x] or just [x]
-ident_aliased -> (%kw_as _ ident {% last %}) | ident {% unwrap %}
+ident_aliased -> (%kw_as ident {% last %}) | ident {% unwrap %}
 
 table_ref
-    -> (ident _ dot _ {% id %}):? ident {% x => ({
+    -> (ident dot {% id %}):? ident {% x => ({
         table: unwrap(x[1]),
         ...x[0] ? { db: unwrap(x[0]) } : {},
     })%}
     # Handle select * from current_schema()
-    | %kw_current_schema (_ lparen _ rparen):? {% x => ({
+    | %kw_current_schema (lparen rparen):? {% x => ({
         table: 'current_schema'
     })%}
 
 # Select on tables MAY have an alias
-table_ref_aliased -> table_ref (_ ident_aliased {% last %}):? {% x => {
+table_ref_aliased -> table_ref ident_aliased:? {% x => {
     const alias = unwrap(x[1]);
     return {
         ...unwrap(x[0]),
