@@ -253,7 +253,7 @@ describe('Simple queries', () => {
     it('implicitely casts in case', () => {
         expect(many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') else '2017-01-03' end as x;`))
             .to.deep.equal([{ x: new Date('2017-01-03') }]);
-        expect(many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') case 2 > 3 then '2017-01-03' end as x;`))
+        expect(many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') when 2 > 3 then '2017-01-03' end as x;`))
             .to.deep.equal([{ x: new Date('2017-01-03') }]);
         expect(many(`select  case when 2 > 1 then '2017-01-03' else to_date('20170103','YYYYMMDD') end as x;`))
             .to.deep.equal([{ x: new Date('2017-01-03') }]);
@@ -291,8 +291,25 @@ describe('Simple queries', () => {
             .to.deep.equal([{ x: 'ab' }]);
     });
 
-    it('does not implicitely casts on operations even constant', () => {
+
+    it('supports to_date function', () => {
+        expect(many(`select to_date('20170103','YYYYMMDD') as x`))
+            .to.deep.equal([{ x: new Date('2017-01-03') }]);
+        expect(many(`select to_date('20170103',null) as x`))
+            .to.deep.equal([{ x: null }]);
+        expect(many(`select to_date(NULL, 'YYYYMMDD') as x`))
+            .to.deep.equal([{ x: null }]);
+        assert.throws(() => many(`select to_date('invalid date','YYYYMMDD') as x`));
+    });
+
+    it('does not implicitely casts on operations even constant on case', () => {
         assert.throw(() => many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') else ('2017-' || '01-03') end as x;`));
+    });
+
+    it('does not implicitely casts on operations even constant on comparison', () => {
+        expect(many(`select to_date('20170103','YYYYMMDD') > '2017-01-03' as x;`))
+            .to.deep.equal([{ x: false }]);
+        assert.throw(() => many(`select to_date('20170103','YYYYMMDD') > ('2017-' || '01-03') as x;`));
     })
 
 

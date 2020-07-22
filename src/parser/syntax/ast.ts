@@ -57,6 +57,7 @@ export interface CreateColumnDef {
 export interface DataTypeDef {
     type: string;
     length?: number;
+    arrayOf?: DataTypeDef;
 }
 
 type ColumnConstraint = {

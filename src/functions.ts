@@ -3,6 +3,7 @@ import { Types, singleSelection } from './datatypes';
 import { QueryError, DataType, NotSupported } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
+import moment from 'moment';
 
 export function buildCall(name: string, args: IValue[]) {
     let type: _IType;
@@ -27,6 +28,23 @@ export function buildCall(name: string, args: IValue[]) {
             args = args.map(x => x.convert(DataType.text));
             type = Types.text();
             get = (...x: string[]) => x.join('');
+            break;
+        case 'to_date':
+            if (args.length !== 2) {
+                throw new QueryError('to_date expects 2 arguments, given ' + args.length);
+            }
+            args = args.map(x => x.convert(DataType.text))
+            get = (data, format) => {
+                if ((data ?? null) === null || (format ?? null) === null) {
+                    return null; // if one argument is null => null
+                }
+                const ret = moment(data, format);
+                if (!ret.isValid()) {
+                    throw new QueryError(`The text '${data}' does not match the date format ${format}`);
+                }
+                return ret.toDate();
+            };
+            type = Types.date;
             break;
         default:
             throw new NotSupported('Unsupported function: ' + name);

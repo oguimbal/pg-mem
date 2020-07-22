@@ -56,6 +56,26 @@ describe('PG syntax: Create table', () => {
     });
 
 
+    checkCreateTable(['create table"test"(value text[])'], {
+        type: 'create table',
+        name: 'test',
+        columns: [{
+            name: 'value',
+            dataType: { type: 'array', arrayOf: { type: 'text' } },
+        }],
+    });
+
+
+    checkCreateTable(['create table"test"(value text[][])'], {
+        type: 'create table',
+        name: 'test',
+        columns: [{
+            name: 'value',
+            dataType: { type: 'array', arrayOf: { type: 'array', arrayOf: { type: 'text' } } },
+        }],
+    });
+
+
     checkCreateTable(['create table"test"(id"text"primary key, value text unique not null)'], {
         type: 'create table',
         name: 'test',

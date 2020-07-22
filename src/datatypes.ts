@@ -5,6 +5,7 @@ import hash from 'object-hash';
 import { deepEqual, deepCompare } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { DataTypeDef } from './parser/syntax/ast';
+import { parseArrayLiteral } from './parser/parser';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
@@ -417,7 +418,7 @@ class TextType extends TypeBase<string> {
     }
 
     doPrefer(to: _IType) {
-        if (this.canConvertImplicit(to)) {
+        if (this.canConvert(to)) {
             return to;
         }
         return null;
@@ -426,11 +427,7 @@ class TextType extends TypeBase<string> {
     doCanConvertImplicit(to: _IType): boolean {
         // text is implicitely convertible to dates
         switch (to.primary) {
-            case DataType.timestamp:
-            case DataType.date:
-            case DataType.jsonb:
             case DataType.text:
-            case DataType.json:
                 return true;
         }
     }
@@ -447,6 +444,8 @@ class TextType extends TypeBase<string> {
                 return true;
             case DataType.regtype:
                 return true;
+            case DataType.array:
+                return this.canConvert((to as ArrayType).of);
         }
         if (numbers.has(to.primary)) {
             return true;
@@ -511,6 +510,17 @@ class TextType extends TypeBase<string> {
                     }
                         , sql => `(${sql})::regtype`
                         , strToRegType => ({ strToRegType }));
+            case DataType.array:
+                return value
+                    .setType(to)
+                    .setConversion((str: string) => {
+                        const array = parseArrayLiteral(str);
+                        (to as ArrayType).convertLiteral(array);
+                        return array;
+                    }
+                        , sql => `(${sql})::${to.regTypeName}`
+                        , parseArray => ({ parseArray }));
+
         }
         if (numbers.has(to.primary)) {
             const isInt = integers.has(to.primary);
@@ -607,6 +617,29 @@ export class ArrayType extends TypeBase<any[]> {
         return a.length < b.length;
     }
 
+    convertLiteral(elts: any) {
+        if (elts === null || elts === undefined) {
+            return;
+        }
+        if (!Array.isArray(elts)) {
+            throw new QueryError('Array depth mismatch: was expecting an array item.');
+        }
+        if (this.of instanceof ArrayType) {
+            for (let i = 0; i < elts.length; i++) {
+                this.of.convertLiteral(elts[i]);
+            }
+        } else {
+            for (let i = 0; i < elts.length; i++) {
+                if (Array.isArray(elts[i])) {
+                    throw new QueryError('Array depth mismatch: was not expecting an array item.');
+                }
+                elts[i] = Value.text(elts[i])
+                    .convert(this.of)
+                    .get(null);
+            }
+        }
+        return elts;
+    }
 }
 
 export function makeType(to: DataType | _IType<any>): _IType<any> {
@@ -711,6 +744,8 @@ export function fromNative(native: DataTypeDef): _IType {
             return Types.jsonb;
         case 'regtype':
             return Types.regtype;
+        case 'array':
+            return makeArray(fromNative(native.arrayOf))
         default:
             throw new NotSupported('Type ' + JSON.stringify(native.type));
     }
@@ -739,7 +774,7 @@ export function reconciliateTypes(values: IValue[]): _IType {
 
     // check that all constant literals are matching this.
     for (const x of values) {
-        if (x.isConstantLiteral && !x.type.canConvertImplicit(foundType)) {
+        if (!x.isConstantLiteral && !x.type.canConvertImplicit(foundType)) {
             throw new CastError(x.type.primary, foundType.primary);
         }
     }

@@ -87,10 +87,21 @@ kw_not_null -> %kw_not %kw_null
 
 
 # === Datatype
-data_type -> word (lparen int rparen {% get(1) %}):? {% x => ({
-    type: unwrap(x[0]).toLowerCase(),
-    ... (x[1] >= 0 ) ? { length: x[1] } : {},
-}) %}
+data_type -> word (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% x => {
+    const brack = x[2];
+    const type = unwrap(x[0]).toLowerCase();
+    let ret = {
+        type,
+        ... (x[1] >= 0 ) ? { length: x[1] } : {},
+    };
+    for (const b of brack) {
+        ret = {
+            type: 'array',
+            arrayOf: ret,
+        };
+    }
+    return ret;
+} %}
 
 
 # === Table ref  (ex:  [db.]mytable [as X] )
