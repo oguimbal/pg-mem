@@ -12,8 +12,10 @@
 # list of statements, separated by ";"
 main -> _ statement (statement_separator:+ _ statement {% last %}):* statement_separator:* _  {% ([_, head, _tail]) => {
     const tail = unwrap(_tail);
-    if (tail && tail.length) {
-        return [unwrap(head), ...tail.map(unwrap)];
+    if (tail) {
+        return tail.length
+            ? [unwrap(head), ...tail.map(unwrap)]
+            : [unwrap(head), tail];
     }
     return unwrap(head);
 } %}
