@@ -34,7 +34,7 @@ interface BIterator<T> {
     readonly key: IndexKey;
     readonly value: T;
     // tree;
-    // index;
+    readonly index;
     readonly valid: boolean;
     clone(): BIterator<T>;
     remove(): BTree<T>;
@@ -97,7 +97,7 @@ export class BIndex<T = any> implements _IIndex<T> {
             }
             return (k.value.type.gt(a, b)
                 ? 1
-                : -1) * (k.desc ? -1 : 1);
+                : -1)// * (k.desc ? -1 : 1);
         }
         return 0;
     }
@@ -229,18 +229,46 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
     *lt(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.lt(key);
-        while (it.valid) {
-            yield* it.value.values();
-            it.prev();
+        const limit = this.asBinary.lt(key);
+        const it = this.asBinary.begin;
+        if (!limit.valid) {
+            // yield all
+            while (it.valid) {
+                yield* it.value.values();
+                it.next();
+            }
+            return;
         }
+        while (it.valid && limit.index >= it.index) {
+            yield* it.value.values();
+            it.next();
+        }
+        // const it = this.asBinary.lt(key);
+        // while (it.valid) {
+        //     yield* it.value.values();
+        //     it.prev();
+        // }
     }
 
     *le(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.le(key);
-        while (it.valid) {
-            yield* it.value.values();
-            it.prev();
+        const limit = this.asBinary.le(key);
+        const it = this.asBinary.begin;
+        if (!limit.valid) {
+            // yield all
+            while (it.valid) {
+                yield* it.value.values();
+                it.next();
+            }
+            return;
         }
+        while (it.valid && limit.index >= it.index) {
+            yield* it.value.values();
+            it.next();
+        }
+        // const it = this.asBinary.le(key);
+        // while (it.valid) {
+        //     yield* it.value.values();
+        //     it.prev();
+        // }
     }
 }

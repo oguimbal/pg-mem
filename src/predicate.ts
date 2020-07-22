@@ -1,18 +1,31 @@
 import { _ISelection, IValue, _IType } from './interfaces-private';
-import { trimNullish, queryJson } from './utils';
+import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, singleSelection, fromNative, reconciliateTypes, ArrayType } from './datatypes';
-import { Query } from './query';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary } from './parser/syntax/ast';
+import lru from 'lru-cache';
 
 
+const builtLru = new lru<Expr, IValue>({
+    max: 500,
+})
 export function buildValue(data: _ISelection, val: Expr): IValue {
     return _buildValue(data, val);
 }
 
 function _buildValue(data: _ISelection, val: Expr): IValue {
+    // cache expressions build (they almost are always rebuilt several times in a row)
+    let got = builtLru.get(val);
+    if (got) {
+        return got;
+    }
+    builtLru.set(val, got = _buildValueReal(data, val));
+    return got;
+}
+
+function _buildValueReal(data: _ISelection, val: Expr): IValue {
     switch (val.type) {
         case 'binary':
             if (val.op === 'IN' || val.op === 'NOT IN') {
@@ -176,8 +189,29 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             getter = (a, b) => a + b;
             returnType = Types.text();
             break;
+        case 'LIKE':
+        case 'ILIKE':
+        case 'NOT LIKE':
+        case 'NOT ILIKE':
+            const caseSenit = op === 'LIKE' || op === 'NOT LIKE';
+            const not = op === 'NOT ILIKE' || op === 'NOT LIKE';
+            if (rightValue.isConstant) {
+                const pattern = rightValue.get(null);
+                if (pattern === null) {
+                    return Value.null(Types.bool);
+                }
+                const matcher = buildLikeMatcher(pattern, caseSenit);
+                getter = not
+                    ? a => nullIsh(a) ? true : !matcher(a)
+                    : a => nullIsh(a) ? null : matcher(a);
+            } else {
+                getter = not
+                    ? (a, b) => nullIsh(a) ? true : !buildLikeMatcher(b, caseSenit)(a)
+                    : (a, b) => hasNullish(a, b) ? null : buildLikeMatcher(b, caseSenit)(a);
+            }
+            break;
         default:
-            throw new NotSupported('operator ' + op);
+            throw NotSupported.never(op, 'operator');
     }
 
     const sql = `${leftValue.id} ${op} ${rightValue.id}`;

@@ -26,6 +26,7 @@ export class Query implements IQuery {
     }
 
     private _query(query: string): any[] {
+        query = query + ';';
         console.log(query);
 
         let parsed = parse(query);

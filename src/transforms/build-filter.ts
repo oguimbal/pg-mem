@@ -10,10 +10,17 @@ import { NeqFilter } from './neq-filter';
 import { SeqScanFilter } from './seq-scan';
 import { InFilter } from './in-filter';
 import { NotInFilter } from './not-in-filter';
-import { Expr, ExprBinary, ExprUnary } from '../parser/syntax/ast';
+import { Expr, ExprBinary, ExprUnary, ExprTernary } from '../parser/syntax/ast';
+import { StartsWithFilter } from './startswith-filter';
+import { GreaterFilter } from './greater-filter';
+import { hasNullish, nullIsh } from '../utils';
+import { BetweenFilter, NotBetweenFilter } from './between-filter';
 
 export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> {
+    return _buildFilter(on, filter) ?? new SeqScanFilter(on, buildValue(on, filter))
+}
 
+function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> {
     // check if there is a direct index
     const built = buildValue(on, filter);
     if (built.index) {
@@ -42,8 +49,9 @@ export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _I
             return buildBinaryFilter(on, filter);
         case 'unary':
             return buildUnaryFilter(on, filter);
+        case 'ternary':
+            return buildTernaryFilter(on, filter);
         default:
-            throw new NotSupported('condition ' + filter.type);
     }
 }
 
@@ -73,14 +81,15 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
         case '>=':
             return buildComparison(on, filter);
         case 'AND':
-        case 'OR':
+        case 'OR': {
             const leftFilter = buildFilter(on, left);
             const rightFilter = buildFilter(on, right);
             return op === 'AND'
                 ? buildAndFilter(leftFilter, rightFilter)
                 : new OrFilter(leftFilter, rightFilter);
+        }
         case 'IN':
-        case 'NOT IN':
+        case 'NOT IN': {
             const value = buildValue(on, left);
             let arrayValue = buildValue(on, right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
@@ -90,15 +99,51 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             const array = arrayValue.convert(makeArray(value.type));
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
+                const arrCst = array.get(null);
+                if (nullIsh(arrCst)) {
+                    return new FalseFilter(on);
+                }
                 return op === 'IN'
-                    ? new InFilter(value, array)
-                    : new NotInFilter(value, array);
+                    ? new InFilter(value, arrCst)
+                    : new NotInFilter(value, arrCst);
             }
             // todo use indexes on queries like "WHERE 'whatever' in (indexedOne, indexedTwo)"
             //   => this is an OrFilter
             return new SeqScanFilter(on, Value.in(value, array, op === 'IN'));
-        default:
-            return new SeqScanFilter(on, buildValue(on, filter));
+        }
+        case 'LIKE': {
+            const value = buildValue(on, left);
+            if (value.index && value.index.expressions[0] === value) {
+                const valueToCompare = buildValue(on, right);
+                if (valueToCompare.isConstant) {
+                    const str = valueToCompare.get(null);
+                    if (str === null) {
+                        return new FalseFilter(on);
+                    }
+                    const got = /^([^%_]+)([%_]?.+)$/.exec(str);
+                    if (got) {
+                        const start = got[1];
+                        if (start.length === str) {
+                            // that's a full string with no tokens => just an '='
+                            return buildComparison(on, {
+                                type: 'binary',
+                                op: '=',
+                                left: left,
+                                right: right,
+                            });
+                        }
+                        // yea, we can use an index
+                        const indexed = new StartsWithFilter(value, start);
+                        if (got[2] === '%') {
+                            // just a starsWith
+                            return indexed;
+                        }
+                        // use index, but filter again on it.
+                        return new SeqScanFilter(indexed, buildValue(on, filter));
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -116,18 +161,58 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
         return new FalseFilter(on);
     }
 
-    if (op === '=' || op === '!=') {
-        if (leftValue.index && rightValue.isConstant) {
-            return op === '='
-                ? new EqFilter(leftValue, [rightValue])
-                : new NeqFilter(leftValue, [rightValue])
+    switch (op) {
+        case '=':
+        case '!=': {
+            if (leftValue.index && rightValue.isConstant) {
+                return op === '='
+                    ? new EqFilter(leftValue, [rightValue])
+                    : new NeqFilter(leftValue, [rightValue])
+            }
+            if (rightValue.index && leftValue.isConstant) {
+                return op === '='
+                    ? new EqFilter(rightValue, [leftValue])
+                    : new NeqFilter(rightValue, [leftValue]);
+            }
         }
-        if (rightValue.index && leftValue.isConstant) {
-            return op === '='
-                ? new EqFilter(rightValue, [leftValue])
-                : new NeqFilter(rightValue, [leftValue]);
+        case '>':
+        case '>=':
+        case '<':
+        case '<=':
+            if (leftValue.index && leftValue.index.expressions[0] === leftValue && rightValue.isConstant) {
+                const fop = op === '>' ? 'gt'
+                    : op === '>=' ? 'ge'
+                    : op === '<' ? 'lt'
+                    : 'le';
+                return new GreaterFilter(leftValue, fop, rightValue.get(null));
+            }
+            if (rightValue.index && rightValue.index.expressions[0] === rightValue && leftValue.isConstant) {
+                const fop = op === '>' ? 'le'
+                    : op === '>=' ? 'lt'
+                    : op === '<' ? 'ge'
+                    : 'gt';
+                return new GreaterFilter(rightValue, fop, leftValue.get(null));
+            }
+    }
+}
+
+function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTernary): _ISelection<T> {
+    switch (filter.op) {
+        case 'BETWEEN':
+        case 'NOT BETWEEN': {
+            const value = buildValue(on, filter.value);
+            const lo = buildValue(on, filter.lo);
+            const hi = buildValue(on, filter.hi);
+            if (value.index &&  value.index.expressions[0] === value && lo.isConstant && hi.isConstant) {
+                const lov = lo.get(null);
+                const hiv = hi.get(null);
+                if (hasNullish(lov, hiv)) {
+                    return new FalseFilter(on);
+                }
+                return filter.op === 'BETWEEN'
+                    ? new BetweenFilter(value, lov, hiv)
+                    : new NotBetweenFilter(value, lov, hiv)
+            }
         }
     }
-
-    return new SeqScanFilter(on, buildValue(on, filter));
 }

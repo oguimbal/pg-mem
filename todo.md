@@ -11,3 +11,5 @@
 - UT: "select * from tbl where id is null"  => MUST RETURN NULL VALUES ! ... with or without indexes
 - UT: check that throws ambiguous column: "select x.a from (select val1 as a, val2 as a from tbl) x;"
 - Handle "insert into tbl select * from otherTbl"
+
+- Review & refactor all .hasItem() & unit test them.

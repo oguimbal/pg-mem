@@ -28,6 +28,8 @@ export interface _ISelectionSource<T = any> {
     /** Statistical measure of how many items will be returned by this selection */
     readonly entropy: number;
     enumerate(): Iterable<T>;
+
+    /** Returns true if the given value is present in this */
     hasItem(value: T): boolean;
 
     /** Gets the index associated with this value (or returns null) */
@@ -84,7 +86,9 @@ export interface _IType<TRaw = any> extends IType {
     toString(): string;
     equals(a: TRaw, b: TRaw): boolean;
     gt(a: TRaw, b: TRaw): boolean;
+    ge(a: TRaw, b: TRaw): boolean;
     lt(a: TRaw, b: TRaw): boolean;
+    le(a: TRaw, b: TRaw): boolean;
     canConvertImplicit(to: DataType | _IType<TRaw>): boolean;
     canConvert(to: DataType | _IType<TRaw>): boolean;
     convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;

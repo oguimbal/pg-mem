@@ -62,6 +62,14 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
         return this.doLt(a, b);
     }
 
+    ge(a: TRaw, b: TRaw): boolean {
+        return this.gt(a, b) || this.equals(a, b);
+    }
+
+    le(a: TRaw, b: TRaw): boolean {
+        return this.lt(a, b) || this.equals(a, b);
+    }
+
     /**
      * When performing 'a+b', will be given 'b' type,
      * this returns the prefered resulting type, or null if they are not compatible

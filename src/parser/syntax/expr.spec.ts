@@ -488,9 +488,30 @@ describe('PG syntax: Expressions', () => {
         });
 
 
-        checkTreeExpr(['a like b', '"a"LIKE"b"'], {
+        checkTreeExpr(['a like b', '"a"LIKE"b"', 'a ~~ b', 'a~~b'], {
             type: 'binary',
             op: 'LIKE',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a not like b', 'a!~~b', '"a"not LIKE"b"'], {
+            type: 'binary',
+            op: 'NOT LIKE',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a ilike b', 'a~~*b'], {
+            type: 'binary',
+            op: 'ILIKE',
+            left: { type: 'ref', name: 'a' },
+            right: { type: 'ref', name: 'b' },
+        });
+
+        checkTreeExpr(['a not ilike b', 'a!~~*b'], {
+            type: 'binary',
+            op: 'NOT ILIKE',
             left: { type: 'ref', name: 'a' },
             right: { type: 'ref', name: 'b' },
         });
@@ -516,7 +537,7 @@ describe('PG syntax: Expressions', () => {
             right: { type: 'ref', name: 'b' },
         });
 
-        checkTreeExpr(['a != b', '"a"!="b"'], {
+        checkTreeExpr(['a != b', '"a"!="b"', 'a<>b'], {
             type: 'binary',
             op: '!=',
             left: { type: 'ref', name: 'a' },
@@ -549,13 +570,6 @@ describe('PG syntax: Expressions', () => {
         checkTreeExpr(['a in (b)', 'a in ( b )'], {
             type: 'binary',
             op: 'IN',
-            left: { type: 'ref', name: 'a' },
-            right: { type: 'ref', name: 'b' },
-        });
-
-        checkTreeExpr(['a not like b', '"a"not LIKE"b"'], {
-            type: 'binary',
-            op: 'NOT LIKE',
             left: { type: 'ref', name: 'a' },
             right: { type: 'ref', name: 'b' },
         });
@@ -617,7 +631,13 @@ describe('PG syntax: Expressions', () => {
             type: 'call',
             function: 'ab',
             args: [{ type: 'ref', name: 'c' }],
-        })
+        });
+
+        checkTreeExpr([`any(c)`], {
+            type: 'call',
+            function: 'any',
+            args: [{ type: 'ref', name: 'c' }],
+        });
     });
 
 

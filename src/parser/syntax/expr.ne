@@ -89,9 +89,9 @@ expr_basic
     | expr_case
     | (word | star) {% ([value]) => ({ type: 'ref', name: unwrap(value) }) %}
 
-expr_call -> word lparen expr_list_raw rparen {% x => ({
+expr_call -> expr_fn_name lparen expr_list_raw rparen {% x => ({
         type: 'call',
-        function: x[0].toLowerCase(),
+        function: flattenStr(x[0]).join('').toLowerCase(),
         args: x[2],
     }) %}
 
@@ -104,7 +104,16 @@ expr_primary
     | %kw_null {% ([value]) => ({ type: 'null' }) %}
 
 
-ops_like ->  %kw_not:? (%kw_like | %kw_ilike)
+# LIKE-kind operators
+ops_like ->  ops_like_keywors | ops_like_operators
+ops_like_keywors -> %kw_not:? (%kw_like | %kw_ilike)
+ops_like_operators
+    -> (%op_like {% () => 'LIKE' %})
+    | (%op_ilike {% () => 'ILIKE' %})
+    | (%op_not_like {% () => 'NOT LIKE' %})
+    | (%op_not_ilike {% () => 'NOT ILIKE' %})
+
+
 ops_in -> %kw_not:? %kw_in
 ops_between -> %kw_not:? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].value}`.toUpperCase() : x[1].value %}
 ops_member -> (%op_member | %op_membertext) {% x => unwrap(x).value %}
@@ -135,3 +144,5 @@ expr_case_whens -> %kw_when expr %kw_then expr {% x => ({
 }) %}
 
 expr_case_else -> %kw_else expr {% last %}
+
+expr_fn_name -> word | %kw_any

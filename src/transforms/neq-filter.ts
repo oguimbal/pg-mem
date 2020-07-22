@@ -8,7 +8,7 @@ export class NeqFilter<T = any> extends FilterBase<T> {
     }
 
     hasItem(item: T) {
-        return this.onValue.index.hasItem(item);
+        return !this.onValue.index.hasItem(item);
     }
 
     constructor(private onValue: IValue<T>

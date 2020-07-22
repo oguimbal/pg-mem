@@ -16,7 +16,7 @@ createindex_expressions -> createindex_expression (comma createindex_expression 
     return [head, ...(tail || [])];
 } %}
 
-createindex_expression -> (expr_basic | expr_paren) (%kw_ask | %kw_desc):? (kw_nulls (kw_first | kw_last) {% last %}):? {% x => ({
+createindex_expression -> (expr_basic | expr_paren) (%kw_asc | %kw_desc):? (kw_nulls (kw_first | kw_last) {% last %}):? {% x => ({
     expression: unwrap(x[0]),
     ... !!x[1] ? { order: unwrap(x[1]).value.toLowerCase() } : {},
     ... !!x[2] ? { nulls: unwrap(x[2]) } : {},

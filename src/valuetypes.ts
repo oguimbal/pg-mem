@@ -198,8 +198,8 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
 export const Value = {
-    null(): IValue {
-        return new Evaluator(Types.null, null, 'null', 'null', null, null);
+    null(ofType?: _IType): IValue {
+        return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null);
     },
     text(value: string, length: number = null) {
         return new Evaluator(
@@ -319,7 +319,7 @@ export const Value = {
             throw new QueryError('Can only apply "-" unary operator to numeric types');
         }
         return (value as Evaluator)
-            .setConversion(x => -x, x => '-(' + x + ')', x => ({neg: x}));
+            .setConversion(x => -x, x => '-(' + x + ')', x => ({ neg: x }));
     },
     array(values: IValue[]) {
         if (!values.length) {

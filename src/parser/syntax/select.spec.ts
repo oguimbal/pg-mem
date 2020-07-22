@@ -172,4 +172,6 @@ describe('PG syntax: Select statements', () => {
     checkSelect(['select * from ta full join tb on ta.id=tb.id'
         , 'select * from ta full outer join tb on ta.id=tb.id']
         , buildJoin('FULL JOIN'));
+
+
 });

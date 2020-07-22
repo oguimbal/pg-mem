@@ -275,3 +275,25 @@ export function buildColumnIds(columns: IValue[]) {
             return nm;
         });
 }
+
+export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
+    // Escape regex characters from likeCondition
+    likeCondition = likeCondition.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    let likeRegexString = likeCondition.replace(/\%/g, ".*").replace(/_/g, '.');
+    likeRegexString = "^" + likeRegexString + "$";
+    const reg = new RegExp(likeRegexString, caseSensitive ? '' : 'i');
+
+    return (stringToMatch: string | number) => {
+        if (typeof stringToMatch != "string") {
+            stringToMatch = stringToMatch.toString();
+        }
+        return reg.test(stringToMatch);
+    }
+}
+
+export function nullIsh(v: any) {
+    return v === null || v === undefined;
+}
+export function hasNullish(...vals: any[]) {
+    return vals.some(nullIsh);
+}

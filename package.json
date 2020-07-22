@@ -14,6 +14,7 @@
   "dependencies": {
     "functional-red-black-tree": "^1.0.1",
     "immutable": "^4.0.0-rc.12",
+    "lru-cache": "^6.0.0",
     "moment": "^2.27.0",
     "moo": "^0.5.1",
     "nearley": "^2.19.5",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
+    "@types/lru-cache": "^5.1.0",
     "@types/mocha": "^8.0.0",
     "@types/moo": "^0.5.3",
     "@types/nearley": "^2.11.1",
