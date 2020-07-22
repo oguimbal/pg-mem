@@ -120,6 +120,7 @@ export type Expr = ExprRef
     | ExprArrayIndex
     | ExprNumeric
     | ExprString
+    | ExprCase
     | ExprBinary
     | ExprUnary
     | ExprCast
@@ -179,7 +180,7 @@ export interface ExprRef {
 export interface ExprMember {
     type: 'member';
     operand: Expr;
-    op: '->' | '->>'; // <== todo
+    op: '->' | '->>';
     member: string | number;
 }
 
@@ -222,4 +223,16 @@ export interface ExprString {
 export interface ExprBool {
     type: 'boolean';
     value: boolean;
+}
+
+export interface ExprCase {
+    type: 'case';
+    value?: Expr;
+    whens: ExprWhen[];
+    else?: Expr;
+}
+
+export interface ExprWhen {
+    when: Expr;
+    value: Expr;
 }

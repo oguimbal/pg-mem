@@ -86,6 +86,7 @@ expr_final
 
 expr_basic
     -> expr_call
+    | expr_case
     | (word | star) {% ([value]) => ({ type: 'ref', name: unwrap(value) }) %}
 
 expr_call -> word lparen expr_list_raw rparen {% x => ({
@@ -120,3 +121,17 @@ expr_list_many -> expr_list_raw_many {% x => ({
     type: 'list',
     expressions: x[0],
 }) %}
+
+expr_case -> %kw_case expr:? expr_case_whens:* expr_case_else:? %kw_end {% x => ({
+    type: 'case',
+    value: x[1],
+    whens: x[2],
+    else: x[3],
+}) %}
+
+expr_case_whens -> %kw_when expr %kw_then expr {% x => ({
+    when: x[1],
+    value: x[3],
+}) %}
+
+expr_case_else -> %kw_else expr {% last %}

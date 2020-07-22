@@ -4,15 +4,28 @@ import moment from 'moment';
 import hash from 'object-hash';
 import { deepEqual, deepCompare } from './utils';
 import { Evaluator, Value } from './valuetypes';
-import { Query } from './query';
 import { DataTypeDef } from './parser/syntax/ast';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
     abstract primary: DataType;
     abstract regTypeName: string;
-    doConvert?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any>;
-    doCanConvert?(to: _IType<TRaw>): boolean;
+    /** Can be casted to */
+    doCanCast?(to: _IType<TRaw>): boolean;
+
+    /**
+     * @see this.prefer() doc
+      */
+    doPrefer?(type: _IType<TRaw>): _IType | null;
+
+    /**
+     * @see this.canConvertImplicit() doc
+     */
+    doCanConvertImplicit?(to: _IType<TRaw>): boolean;
+
+    /** Perform conversion */
+    doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any>;
+
     doEquals(a: any, b: any): boolean {
         return a === b;
     }
@@ -48,23 +61,49 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
         return this.doLt(a, b);
     }
 
+    /**
+     * When performing 'a+b', will be given 'b' type,
+     * this returns the prefered resulting type, or null if they are not compatible
+      */
+    prefer(type: DataType | _IType<TRaw>): _IType | null | undefined {
+        const to = makeType(type);
+        if (to === this) {
+            return this;
+        }
+        return this.doPrefer && this.doPrefer(to);
+    }
+
+    /**
+     * Can constant literals be converted implicitely
+     * (without a cast... i.e. you can use both values as different values of a case expression, for instance)
+     **/
+    canConvertImplicit(_to: DataType | _IType<TRaw>): boolean {
+        const to = makeType(_to);
+        if (to === this) {
+            return true;
+        }
+        return this.doCanConvertImplicit && this.doCanConvertImplicit(to);
+    }
+
+    /** Can be explicitely casted to */
     canConvert(_to: DataType | _IType<TRaw>): boolean {
         const to = makeType(_to);
         if (to === this) {
             return true;
         }
-        return this.doCanConvert && this.doCanConvert(to);
+        return this.doCanCast && this.doCanCast(to);
     }
 
+    /** Perform conversion */
     convert(a: IValue<TRaw>, _to: DataType | _IType<any>): IValue<any> {
         const to = makeType(_to);
         if (to === this) {
             return a;
         }
-        if (!this.canConvert(to) || !this.doConvert || !(a instanceof Evaluator)) {
+        if (!this.canConvert(to) || !this.doCast || !(a instanceof Evaluator)) {
             throw new CastError(this.primary, to.primary);
         }
-        const converted = this.doConvert(a, to);
+        const converted = this.doCast(a, to);
         if (!converted) {
             throw new CastError(this.primary, to.primary);
         }
@@ -91,7 +130,7 @@ class RegType extends TypeBase<_IType> {
         return DataType.regtype;
     }
 
-    doCanConvert(_to: _IType): boolean {
+    doCanCast(_to: _IType): boolean {
         switch (_to.primary) {
             case DataType.text:
             case DataType.int:
@@ -99,7 +138,7 @@ class RegType extends TypeBase<_IType> {
         }
     }
 
-    doConvert(a: Evaluator, to: _IType): Evaluator {
+    doCast(a: Evaluator, to: _IType): Evaluator {
         switch (to.primary) {
             case DataType.text:
                 return a
@@ -145,7 +184,7 @@ class JSONBType extends TypeBase<any> {
         super();
     }
 
-    doCanConvert(_to: _IType): boolean {
+    doCanCast(_to: _IType): boolean {
         switch (_to.primary) {
             case DataType.text:
             case DataType.json:
@@ -154,7 +193,7 @@ class JSONBType extends TypeBase<any> {
         }
     }
 
-    doConvert(a: Evaluator, to: _IType): Evaluator {
+    doCast(a: Evaluator, to: _IType): Evaluator {
         if (to.primary === DataType.json) {
             return a
                 .setType(Types.text())
@@ -191,7 +230,7 @@ class TimestampType extends TypeBase<Date> {
         super();
     }
 
-    doCanConvert(to: _IType) {
+    doCanCast(to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
             case DataType.date:
@@ -199,7 +238,7 @@ class TimestampType extends TypeBase<Date> {
         }
     }
 
-    doConvert(value: Evaluator, to: _IType) {
+    doCast(value: Evaluator, to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
                 return value;
@@ -232,11 +271,11 @@ class NullType extends TypeBase<null> {
         return DataType.null;
     }
 
-    doConvert(value: Evaluator<any>, to: _IType): Evaluator<any> {
+    doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
         return new Evaluator(to, null, 'null', 'null', null, null);
     }
 
-    doCanConvert(to: _IType): boolean {
+    doCanCast(to: _IType): boolean {
         return true;
     }
 
@@ -250,6 +289,10 @@ class NullType extends TypeBase<null> {
 
     doLt(a: any, b: any): boolean {
         return false;
+    }
+
+    doPrefer(type) {
+        return type; // always prefer notnull types
     }
 }
 
@@ -266,11 +309,44 @@ export function isInteger(t: IType) {
 class NumberType extends TypeBase<number> {
 
     get regTypeName(): string {
-        return this.primary === DataType.int ? 'integer' : 'double precision';
+        switch (this.primary) {
+            case DataType.int:
+            case DataType.long:
+                return 'integer';
+            case DataType.float:
+            case DataType.decimal:
+                return 'double precision';
+            default:
+                throw new NotSupported('Retype name of ' + this.primary);
+        }
     }
 
     constructor(readonly primary: DataType) {
         super();
+    }
+
+    doCanConvertImplicit(to: _IType) {
+        switch (to.primary) {
+            case DataType.int:
+            case DataType.long:
+            case DataType.float:
+            case DataType.decimal:
+            case DataType.regtype:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    doPrefer(type: _IType): _IType | undefined {
+        switch (type.primary) {
+            case DataType.int:
+            case DataType.long:
+                return this;
+            case DataType.float:
+            case DataType.decimal:
+                return type;
+        }
     }
 
     canConvert(to: _IType) {
@@ -285,7 +361,7 @@ class NumberType extends TypeBase<number> {
                 return false;
         }
     }
-    doConvert(value: Evaluator<any>, to: _IType): Evaluator<any> {
+    doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
         if (!integers.has(value.type.primary) && integers.has(to.primary)) {
             return new Evaluator(to
                 , value.id
@@ -337,7 +413,20 @@ class TextType extends TypeBase<string> {
         super();
     }
 
-    doCanConvert(to: _IType): boolean {
+
+    doCanConvertImplicit(to: _IType): boolean {
+        // text is implicitely convertible to dates
+        switch (to.primary) {
+            case DataType.timestamp:
+            case DataType.date:
+            case DataType.jsonb:
+            case DataType.text:
+            case DataType.json:
+                return true;
+        }
+    }
+
+    doCanCast(to: _IType): boolean {
         switch (to.primary) {
             case DataType.timestamp:
             case DataType.date:
@@ -355,7 +444,7 @@ class TextType extends TypeBase<string> {
         }
     }
 
-    doConvert(value: Evaluator<string>, to: _IType) {
+    doCast(value: Evaluator<string>, to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
                 return value
@@ -458,12 +547,12 @@ export class ArrayType extends TypeBase<any[]> {
         super();
     }
 
-    doCanConvert(to: _IType) {
+    doCanCast(to: _IType) {
         return to instanceof ArrayType
             && to.canConvert(this.of);
     }
 
-    doConvert(value: IValue, _to: _IType) {
+    doCast(value: IValue, _to: _IType) {
         const to = _to as ArrayType;
         const valueType = value.type as ArrayType;
         return new Evaluator(to
@@ -616,4 +705,35 @@ export function fromNative(native: DataTypeDef): _IType {
         default:
             throw new NotSupported('Type ' + JSON.stringify(native.type));
     }
+}
+
+
+/** Finds a common type by implicit conversion */
+export function reconciliateTypes(values: IValue[]): _IType {
+    let typeConstraints = values
+        .filter(x => !x.isConstantLiteral);
+
+    // if there are non constant literals, constant literals must match them.
+    if (!typeConstraints.length) {
+        typeConstraints = values;
+    }
+
+    // find the matching type among non constants
+    const foundType = typeConstraints
+        .reduce((final, c) => {
+            const pref = final.prefer(c.type);
+            if (!pref) {
+                throw new CastError(c.type.primary, final.primary);
+            }
+            return pref;
+        }, Types.null);
+
+    // check that all constant literals are matching this.
+    for (const x of values) {
+        if (x.isConstantLiteral && !x.type.canConvertImplicit(foundType)) {
+            throw new CastError(x.type.primary, foundType.primary);
+        }
+    }
+
+    return foundType;
 }

@@ -619,4 +619,30 @@ describe('PG syntax: Expressions', () => {
             args: [{ type: 'ref', name: 'c' }],
         })
     });
+
+
+
+
+    // ====================================
+    // ================ CASE ==============
+    // ====================================
+
+    describe('Case expression', () => {
+        checkTreeExpr(['case a when b then 1 end'], {
+            type: 'case',
+            value: { type: 'ref', name: 'a' },
+            whens: [{ when: { type: 'ref', name: 'b' }, value: { type: 'integer', value: 1 } }],
+        });
+
+        checkTreeExpr(['case when b then 1 end'], {
+            type: 'case',
+            whens: [{ when: { type: 'ref', name: 'b' }, value: { type: 'integer', value: 1 } }],
+        });
+
+        checkTreeExpr(['case when b then 1 else 2 end'], {
+            type: 'case',
+            whens: [{ when: { type: 'ref', name: 'b' }, value: { type: 'integer', value: 1 } }],
+            else: { type: 'integer', value: 2 },
+        });
+    });
 });

@@ -6,10 +6,13 @@ import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
 import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
+import { MemoryTable } from './table';
 
 
 
 export class Query implements IQuery {
+    private dualTable = new MemoryTable(this.db, { fields: [], name: null })
+        .insert({});
 
     constructor(private db: _IDb) {
     }
@@ -23,12 +26,7 @@ export class Query implements IQuery {
     }
 
     private _query(query: string): any[] {
-
-
-
-        // see #todo.md
-
-        // query = query.replace(/current_schema\(\)/g, 'current_schema');
+        console.log(query);
 
         let parsed = parse(query);
         if (!Array.isArray(parsed)) {
@@ -140,7 +138,7 @@ export class Query implements IQuery {
         }
         let t: _ISelection;
         const aliases = new Set<string>();
-        for (const from of p.from) {
+        for (const from of p.from ?? []) {
             const alias = from.type === 'table'
                 ? from.alias ?? from.table
                 : from.alias;
@@ -180,6 +178,7 @@ export class Query implements IQuery {
                     throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
             }
         }
+        t = t ?? this.dualTable.selection;
         t = t.filter(p.where)
             .select(p.columns);
         return t;

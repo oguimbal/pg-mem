@@ -85,6 +85,7 @@ export interface _IType<TRaw = any> extends IType {
     equals(a: TRaw, b: TRaw): boolean;
     gt(a: TRaw, b: TRaw): boolean;
     lt(a: TRaw, b: TRaw): boolean;
+    canConvertImplicit(to: DataType | _IType<TRaw>): boolean;
     canConvert(to: DataType | _IType<TRaw>): boolean;
     convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;
 }
@@ -93,6 +94,7 @@ export interface IValue<TRaw = any> {
     readonly type: _IType<TRaw>;
 
     readonly isConstant: boolean;
+    readonly isConstantLiteral: boolean;
 
     /** Will be set if there is an index on this value */
     readonly index: _IIndex;

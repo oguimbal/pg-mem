@@ -6,6 +6,7 @@ import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
+import { checkInvalid } from 'src/parser/syntax/spec-utils';
 
 describe('Simple queries', () => {
 
@@ -235,13 +236,134 @@ describe('Simple queries', () => {
                 , { column_name: 'otherStr' }]);
     });
 
-    it('can process typeorm columns schema selection', () => {
+
+    it('selects case whithout condition', () => {
         simpleDb();
-        expect(many(`SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`).length)
-            .to.equal(3);
-        expect(many(`SELECT ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`))
-            .to.deep.equal([{ regtype: 'text' }
-                , { regtype: 'text' }
-                , { regtype: 'text' }]);
+        expect(many(`insert into data(id, str) values ('id1', 'SOME STRING'), ('id2', 'other string'), ('id3', 'Some String');
+            select case when id='id1' then 'one ' || str else 'something else' end as x from data`))
+            .to.deep.equal([{ x: 'one SOME STRING' }, { x: 'something else' }, { x: 'something else' }]);
     })
+
+    it('selects case with disparate types results', () => {
+        simpleDb();
+        expect(many(`select case when 2 > 1 then 1.5 when 2 < 1 then 1 end as x`))
+            .to.deep.equal([{ x: 1.5 }]);
+    })
+
+    it('implicitely casts in case', () => {
+        expect(many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') else '2017-01-03' end as x;`))
+            .to.deep.equal([{ x: new Date('2017-01-03') }]);
+        expect(many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') case 2 > 3 then '2017-01-03' end as x;`))
+            .to.deep.equal([{ x: new Date('2017-01-03') }]);
+        expect(many(`select  case when 2 > 1 then '2017-01-03' else to_date('20170103','YYYYMMDD') end as x;`))
+            .to.deep.equal([{ x: new Date('2017-01-03') }]);
+    });
+
+    it('implicitely casts in +', () => {
+        expect(many(`select  1.5 + 1 as x;`))
+            .to.deep.equal([{ x: 2.5 }]);
+        expect(many(`select  1 + 1.5 as x;`))
+            .to.deep.equal([{ x: 2.5 }]);
+    });
+
+    it('implicitely casts in + from int table', () => {
+        none('create table test(num int); insert into test values (1)')
+        expect(many(`select  1.5 + num as x from test`))
+            .to.deep.equal([{ x: 2.5 }]);
+        expect(many(`select  num + 1.5 as x from test`))
+            .to.deep.equal([{ x: 2.5 }]);
+    });
+
+    it('implicitely casts in + from float table', () => {
+        none('create table test(num float); insert into test values (1.5)')
+        expect(many(`select  1 + num as x from test`))
+            .to.deep.equal([{ x: 2.5 }]);
+        expect(many(`select  num + 1 as x from test`))
+            .to.deep.equal([{ x: 2.5 }]);
+    });
+
+    it('does not support select * on dual', () => {
+        assert.throw(() => many(`select *`));
+    });
+
+    it('supports concat operator', () => {
+        expect(many(`select 'a' || 'b' as x`))
+            .to.deep.equal([{ x: 'ab' }]);
+    });
+
+    it('does not implicitely casts on operations even constant', () => {
+        assert.throw(() => many(`select  case when 2 > 1 then to_date('20170103','YYYYMMDD') else ('2017-' || '01-03') end as x;`));
+    })
+
+
+    it('executes member get text ->>', () => {
+        none(`create table test(val jsonb);
+            insert into test values ('{"prop": "str"}'), ('{"prop": 42}'), ('{"prop": [42, "val"]}')`);
+        expect(many(`select val->>'prop' as x from test`))
+            .to.deep.equal([
+                { x: 'str' }
+                , { x: '42' }
+                , { x: `[42,"val"]` }
+            ])
+    });
+
+
+    it('executes member get text ->', () => {
+        none(`create table test(val jsonb);
+            insert into test values ('{"prop": "str"}'), ('{"prop": 42}'), ('{"prop": [42]}')`);
+        expect(many(`select val->'prop' as x from test`))
+            .to.deep.equal([
+                { x: 'str' }
+                , { x: 42 }
+                , { x: [42] }
+            ])
+    });
+
+
+    it('executes array index', () => {
+        expect(many(`create table test(val integer[]);
+                    insert into test values ('{1, 2, 3}');
+                    select val[2] as x from test;`))
+            .to.deep.equal([{ x: 2 }]) // <== 1-based !
+    });
+
+    it('executes array multiple index', () => {
+        expect(many(`create table test(val integer[][]);
+                insert into test values ('{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}');
+                select val[2][2] as x from test;`))
+            .to.deep.equal([{ x: 5 }])
+    });
+
+    it('executes array multiple index incomplete indexing', () => {
+        expect(many(`create table test(val integer[][]);
+                insert into test values ('{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}');
+                select val[2] as x from test;`))
+            .to.deep.equal([{ x: null }])
+    });
+
+    it('can select between', () => {
+        expect(many(`select 42 between 1 and 100 as x`))
+            .to.deep.equal([{ x: true }])
+        expect(many(`select 101 between 1 and 100 as x`))
+            .to.deep.equal([{ x: false }])
+        expect(many(`select 0 between 1 and 100 as x`))
+            .to.deep.equal([{ x: false }])
+        expect(many(`select 1 between 1 and 100 as x`))
+            .to.deep.equal([{ x: true }])
+        expect(many(`select 100 between 1 and 100 as x`))
+            .to.deep.equal([{ x: true }])
+        expect(many(`select '99' between '1' and 100 as x`))
+            .to.deep.equal([{ x: true }]);
+        expect(many(`select 42 between null and 2 as x`))
+            .to.deep.equal([{ x: false }])
+        expect(many(`select 2 between null and 42 as x`))
+            .to.deep.equal([{ x: null }])
+        expect(many(`select 42 between 5 and null as x`))
+            .to.deep.equal([{ x: null }])
+        expect(many(`select 42 between 100 and null as x`))
+            .to.deep.equal([{ x: false }])
+
+        assert.throws(() => many(`select 'yo' between '1' and 100 as x`));
+        assert.throws(() => many(`select 10 between '1' and 'yo' as x`));
+    });
 });

@@ -9,6 +9,9 @@ import { SelectedColumn } from '../parser/syntax/ast';
 export function buildSelection(on: _ISelection, select: SelectedColumn[]) {
     const [first] = select;
     if (select.length === 1 && first.expr.type === 'ref' && first.expr.name === '*' && !first.expr.table) {
+        if (!on.columns.length) {
+            throw new QueryError('SELECT * with no tables specified is not valid');
+        }
         return on;
     }
     return new Selection(on, {

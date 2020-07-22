@@ -8,6 +8,8 @@ import { buildCall } from './functions';
 
 export class Evaluator<T = any> implements IValue<T> {
 
+    readonly isConstantLiteral: boolean;
+
     constructor(
         readonly type: _IType<T>
         , readonly id: string
@@ -15,6 +17,7 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly hash: string
         , readonly origin: _ISelection
         , public val: T | ((raw: any) => T)) {
+        this.isConstantLiteral = typeof val !== 'function';
     }
 
     setType(type: _IType) {

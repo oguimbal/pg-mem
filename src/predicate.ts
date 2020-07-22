@@ -3,9 +3,9 @@ import { trimNullish, queryJson } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
-import { Types, isNumeric, isInteger, singleSelection, fromNative } from './datatypes';
+import { Types, isNumeric, isInteger, singleSelection, fromNative, reconciliateTypes, ArrayType } from './datatypes';
 import { Query } from './query';
-import { Expr, ExprBinary, UnaryOperator } from './parser/syntax/ast';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary } from './parser/syntax/ast';
 
 
 export function buildValue(data: _ISelection, val: Expr): IValue {
@@ -42,8 +42,18 @@ function _buildValue(data: _ISelection, val: Expr): IValue {
         case 'cast':
             return _buildValue(data, val.operand)
                 .convert(fromNative(val.to))
+        case 'case':
+            return buildCase(data, val);
+        case 'member':
+            return buildMember(data, val);
+        case 'arrayIndex':
+            return buildArrayIndex(data, val);
+        case 'boolean':
+            return Value.bool(val.value);
+        case 'ternary':
+            return buildTernary(data, val);
         default:
-            throw new NotSupported(val.type);
+            throw NotSupported.never(val);
     }
 }
 
@@ -90,16 +100,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
     const { left, right, op } = val;
     let leftValue = _buildValue(data, left);
     let rightValue = _buildValue(data, right);
-    let type: _IType;
-    if (rightValue.canConvert(leftValue.type)) {
-        rightValue = rightValue.convert(leftValue.type);
-        type = leftValue.type;
-    } else if (leftValue.canConvert(rightValue.type)) {
-        leftValue = leftValue.convert(rightValue.type);
-        type = rightValue.type;
-    } else {
-        throw new CastError(leftValue.type.primary, rightValue.type.primary);
-    }
+    const type: _IType = reconciliateTypes([leftValue, rightValue]);
 
     let getter: (a: any, b: any) => any;
     let returnType: _IType = Types.bool;
@@ -190,4 +191,166 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             const rightRaw = rightValue.get(raw);
             return getter(leftRaw, rightRaw);
         });
+}
+
+
+function buildCase(data: _ISelection, op: ExprCase): IValue {
+    const whens = !op.value
+        ? op.whens
+        : op.whens.map<ExprWhen>(v => ({
+            when: {
+                type: 'binary',
+                op: '=',
+                left: op.value,
+                right: v.value,
+            },
+            value: v.value,
+        }));
+    if (op.else) {
+        whens.push({
+            when: { type: 'boolean', value: true },
+            value: op.else,
+        });
+    }
+
+    const whenExprs = whens.map(x => ({
+        when: buildValue(data, x.when).convert(DataType.bool),
+        then: buildValue(data, x.value)
+    }));
+
+    const valueType = reconciliateTypes(whenExprs.map(x => x.then));
+    for (const v of whenExprs) {
+        v.then = v.then.convert(valueType);
+    }
+
+    return new Evaluator(
+        valueType
+        , null
+        , ['CASE'
+            , whenExprs.map(x => `WHEN ${x.when.sql} THEN ${x.then.sql}`).join(' ')
+            , ' END'].join(' ')
+        , hash({ when: whenExprs.map(x => ({ when: x.when.hash, then: x.then.hash })) })
+        , data
+        , raw => {
+            for (const w of whenExprs) {
+                const cond = w.when.get(raw);
+                if (cond) {
+                    return w.then.get(raw);
+                }
+            }
+            return null;
+        });
+}
+
+function buildMember(data: _ISelection, op: ExprMember): IValue {
+    const oop = op.op;
+    if (oop !== '->>' && oop !== '->') {
+        throw NotSupported.never(oop);
+    }
+    const onExpr = buildValue(data, op.operand);
+    if (onExpr.type !== Types.json && onExpr.type !== Types.jsonb) {
+        throw new QueryError(`Cannot use member expression ${op.op} on type ${onExpr.type.primary}`);
+    }
+
+    const conv = op.op === '->'
+        ? ((x: any) => x)
+        : ((x: any) => {
+            if (x === null || x === undefined) {
+                return null;
+            }
+            if (typeof x === 'string') {
+                return x;
+            }
+            return JSON.stringify(x));
+        });
+
+    return new Evaluator(
+        op.op === '->' ? onExpr.type : Types.text()
+        , null
+        , `(${onExpr.sql})${op.op}${JSON.stringify(op.member)}`
+        , hash([onExpr.hash, op.op, op.member])
+        , data
+        , typeof op.member === 'string'
+            ? raw => {
+                const value = onExpr.get(raw);
+                if (!value || typeof value !== 'object') {
+                    return null;
+                }
+                return conv(value[op.member]);
+            }
+            : raw => {
+                const value = onExpr.get(raw);
+                if (!Array.isArray(value)) {
+                    return null;
+                }
+                return conv(value[op.member]);
+            });
+}
+
+
+function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
+    const onExpr = _buildValue(data, op.array);
+    if (onExpr.type.primary !== DataType.array) {
+        throw new QueryError(`Cannot use [] expression on type ${onExpr.type.primary}`);
+    }
+    const index = _buildValue(data, op.index).convert(DataType.int);
+    return new Evaluator(
+        (onExpr.type as ArrayType).of
+        , null
+        , `(${onExpr.sql})[${index.sql}]`
+        , hash({ array: onExpr.hash, index: index.hash })
+        , data
+        , raw => {
+            const value = onExpr.get(raw);
+            if (!Array.isArray(value)) {
+                return null;
+            }
+            const i = index.get(raw);
+            if (typeof i !== 'number' || i <= 0 || i > value.length) {
+                return null;
+            }
+            return value[i - 1]; // 1-base !
+        });
+}
+
+
+function buildTernary(data: _ISelection, op: ExprTernary): IValue {
+    const oop = op.op;
+    if (oop !== 'NOT BETWEEN' && oop !== 'BETWEEN') {
+        throw NotSupported.never(oop);
+    }
+    let value = _buildValue(data, op.value);
+    let hi = _buildValue(data, op.hi);
+    let lo = _buildValue(data, op.lo);
+    const type = reconciliateTypes([value, hi, lo]);
+    value = value.convert(type);
+    hi = hi.convert(type);
+    lo = lo.convert(type);
+
+    return new Evaluator(
+        Types.bool
+        , null
+        , `${value.sql} BETWEEN ${lo.sql} AND ${hi.sql}`
+        , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
+        , data
+        , raw => {
+            const v = value.get(raw);
+            if (v === null || v === undefined) {
+                return null;
+            }
+            const lov = lo.get(raw);
+            if (lov !== null && lov !== undefined && type.lt(v, lov)) {
+                return false;
+            }
+            const hiv = hi.get(raw);
+            if (hiv !== null && hiv !== undefined && type.gt(v, hiv)) {
+                return false;
+            }
+            const nl = (lov ?? hiv);
+            if (nl === null || nl === undefined) {
+                return null;
+            }
+            return true;
+        }
+    )
 }
