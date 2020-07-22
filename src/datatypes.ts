@@ -72,7 +72,10 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
             return this;
         }
         if (this.doPrefer) {
-            return this.doPrefer(to);
+            const ret = this.doPrefer(to);
+            if (ret) {
+                return ret;
+            }
         }
         return to.doPrefer && to.doPrefer(this);
     }
@@ -113,7 +116,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
         }
         if (a.isConstant) {
             if (typeof converted.val === 'function') {
-                converted.val = converted.val(null);
+                converted.val = converted.val(null, true);
             }
             if (converted.val === null) {
                 return Value.null();

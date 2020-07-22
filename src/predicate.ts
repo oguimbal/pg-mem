@@ -302,7 +302,7 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
         , `(${onExpr.sql})[${index.sql}]`
         , hash({ array: onExpr.hash, index: index.hash })
         , data
-        , raw => {
+        , (raw, isResult) => {
             const value = onExpr.get(raw);
             if (!Array.isArray(value)) {
                 return null;
@@ -311,7 +311,11 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
             if (typeof i !== 'number' || i <= 0 || i > value.length) {
                 return null;
             }
-            return value[i - 1]; // 1-base !
+            const ret = value[i - 1]; // 1-base !
+            if (isResult && Array.isArray(ret)) {
+                return null;
+            }
+            return ret;
         });
 }
 
@@ -328,6 +332,9 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
     value = value.convert(type);
     hi = hi.convert(type);
     lo = lo.convert(type);
+    const conv = oop === 'NOT BETWEEN'
+        ? (x: boolean) => !x
+        : (x: boolean) => x;
 
     return new Evaluator(
         Types.bool
@@ -342,17 +349,16 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
             }
             const lov = lo.get(raw);
             if (lov !== null && lov !== undefined && type.lt(v, lov)) {
-                return false;
+                return conv(false);
             }
             const hiv = hi.get(raw);
             if (hiv !== null && hiv !== undefined && type.gt(v, hiv)) {
-                return false;
+                return conv(false);
             }
-            const nl = (lov ?? hiv);
-            if (nl === null || nl === undefined) {
+            if ((lov ?? null) === null || (hiv ?? null) === null) {
                 return null;
             }
-            return true;
+            return conv(true);
         }
     )
 }

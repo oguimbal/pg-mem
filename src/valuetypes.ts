@@ -6,6 +6,8 @@ import { Query } from './query';
 import { buildCall } from './functions';
 
 
+let convDepth = 0;
+
 export class Evaluator<T = any> implements IValue<T> {
 
     readonly isConstantLiteral: boolean;
@@ -16,7 +18,7 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly sql: string
         , readonly hash: string
         , readonly origin: _ISelection
-        , public val: T | ((raw: any) => T)) {
+        , public val: Object | number | string | Date | ((raw: any, isResult: boolean) => any)) {
         this.isConstantLiteral = typeof val !== 'function';
     }
 
@@ -36,7 +38,7 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
 
-    setConversion(converter: (val: any) => any
+    setConversion(converter: (val: any, isResult: boolean) => any
         , sqlConv: (sql: string) => string
         , hashConv: (hash: string) => any) {
         return new Evaluator<T>(
@@ -50,7 +52,7 @@ export class Evaluator<T = any> implements IValue<T> {
                 if (got === null || got === undefined) {
                     return null;
                 }
-                return converter(got);
+                return converter(got, convDepth == 1);
             }
         ).asConstant(this.isConstant);
     }
@@ -96,9 +98,15 @@ export class Evaluator<T = any> implements IValue<T> {
 
     get(raw: any): T {
         if (typeof this.val !== 'function') {
-            return this.val;
+            return this.val as any;
         }
-        return (this.val as ((raw: any) => T))(raw);
+
+        try {
+            convDepth++;
+            return this.val(raw, convDepth === 1);
+        } finally {
+            convDepth--;
+        }
     }
 
     asConstant(perform = true) {

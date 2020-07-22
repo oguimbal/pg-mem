@@ -336,6 +336,19 @@ describe('Simple queries', () => {
             ])
     });
 
+    it('implicitely casts int & string', () => {
+        expect(many(`select 1 = '1' as x;`))
+            .to.deep.equal([{ x: true }]);
+    })
+
+    it('implicitely casts float & string', () => {
+        expect(many(`select 1.1 = '1.10' as x;`))
+            .to.deep.equal([{ x: true }]);
+    });
+
+    it ('does not implicitely cast float & string int', () => {
+        assert.throws(() => many(`select 1 = '1.10' as x;`));
+    });
 
     it('executes array index', () => {
         expect(many(`create table test(val integer[]);
@@ -358,28 +371,42 @@ describe('Simple queries', () => {
             .to.deep.equal([{ x: null }])
     });
 
-    it('can select between', () => {
-        expect(many(`select 42 between 1 and 100 as x`))
-            .to.deep.equal([{ x: true }])
-        expect(many(`select 101 between 1 and 100 as x`))
-            .to.deep.equal([{ x: false }])
-        expect(many(`select 0 between 1 and 100 as x`))
-            .to.deep.equal([{ x: false }])
-        expect(many(`select 1 between 1 and 100 as x`))
-            .to.deep.equal([{ x: true }])
-        expect(many(`select 100 between 1 and 100 as x`))
-            .to.deep.equal([{ x: true }])
-        expect(many(`select '99' between '1' and 100 as x`))
-            .to.deep.equal([{ x: true }]);
-        expect(many(`select 42 between null and 2 as x`))
-            .to.deep.equal([{ x: false }])
-        expect(many(`select 2 between null and 42 as x`))
-            .to.deep.equal([{ x: null }])
-        expect(many(`select 42 between 5 and null as x`))
-            .to.deep.equal([{ x: null }])
-        expect(many(`select 42 between 100 and null as x`))
-            .to.deep.equal([{ x: false }])
+    for (const x of [
+        { query: `select 42 between 1 and 100 as x`, result: { x: true } }
+        , { query: `select 101 between 1 and 100 as x`, result: { x: false } }
+        , { query: `select 0 between 1 and 100 as x`, result: { x: false } }
+        , { query: `select 1 between 1 and 100 as x`, result: { x: true } }
+        , { query: `select 100 between 1 and 100 as x`, result: { x: true } }
+        , { query: `select '99' between '1' and 100 as x`, result: { x: true } }
+        , { query: `select 42 between null and 2 as x`, result: { x: false } }
+        , { query: `select 2 between null and 42 as x`, result: { x: null } }
+        , { query: `select 42 between 5 and null as x`, result: { x: null } }
+        , { query: `select 42 between 100 and null as x`, result: { x: false } }]) {
+        it('can select between: ' + x.query, () => {
+            expect(many(x.query))
+                .to.deep.equal([x.result])
+        });
+    }
 
+
+    for (const x of [
+        { query: `select 42 not between 1 and 100 as x`, result: { x: false } }
+        , { query: `select 101 not between 1 and 100 as x`, result: { x: true } }
+        , { query: `select 0 not between 1 and 100 as x`, result: { x: true } }
+        , { query: `select 1 not between 1 and 100 as x`, result: { x: false } }
+        , { query: `select 100 not between 1 and 100 as x`, result: { x: false } }
+        , { query: `select '99' not between '1' and 100 as x`, result: { x: false } }
+        , { query: `select 42 not between null and 2 as x`, result: { x: true } }
+        , { query: `select 2 not between null and 42 as x`, result: { x: null } }
+        , { query: `select 42 not between 5 and null as x`, result: { x: null } }
+        , { query: `select 42 not between 100 and null as x`, result: { x: true } }]) {
+        it('can select not between: ' + x.query, () => {
+            expect(many(x.query))
+                .to.deep.equal([x.result])
+        });
+    }
+
+    it('cannot select those betweens', () => {
         assert.throws(() => many(`select 'yo' between '1' and 100 as x`));
         assert.throws(() => many(`select 10 between '1' and 'yo' as x`));
     });
