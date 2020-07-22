@@ -1,7 +1,7 @@
 import 'mocha';
 import 'chai';
 import { checkSelect, checkInvalid } from './spec-utils';
-import { SelectedColumn, Expr } from './ast';
+import { SelectedColumn, Expr, ExprBinary, JoinType, SelectStatement } from './ast';
 
 describe('PG syntax: Select statements', () => {
 
@@ -118,4 +118,58 @@ describe('PG syntax: Select statements', () => {
             alias: 'd'
         }]
     })
+
+
+
+    function buildJoin(t: JoinType): SelectStatement {
+        return {
+            type: 'select',
+            columns: noAlias([{ type: 'ref', name: '*' }]),
+            from: [{
+                type: 'table',
+                table: 'ta'
+            }, {
+                type: 'table',
+                table: 'tb',
+                join: {
+                    type: t,
+                    on: {
+                        type: 'binary',
+                        op: '=',
+                        left: {
+                            type: 'ref',
+                            table: 'ta',
+                            name: 'id',
+                        },
+                        right: {
+                            type: 'ref',
+                            table: 'tb',
+                            name: 'id',
+                        },
+                    }
+                }
+            }]
+        }
+    }
+
+    checkInvalid('select * from ta full inner join tb on ta.id=tb.id');
+    checkInvalid('select * from ta left inner join tb on ta.id=tb.id');
+    checkInvalid('select * from ta right inner join tb on ta.id=tb.id');
+
+    checkSelect(['select * from ta join tb on ta.id=tb.id'
+        , 'select * from ta inner join tb on ta.id=tb.id']
+        , buildJoin('INNER JOIN'));
+
+    checkSelect(['select * from ta left join tb on ta.id=tb.id'
+        , 'select * from ta left outer join tb on ta.id=tb.id']
+        , buildJoin('LEFT JOIN'));
+
+    checkSelect(['select * from ta right join tb on ta.id=tb.id'
+        , 'select * from ta right outer join tb on ta.id=tb.id']
+        , buildJoin('RIGHT JOIN'));
+
+
+    checkSelect(['select * from ta full join tb on ta.id=tb.id'
+        , 'select * from ta full outer join tb on ta.id=tb.id']
+        , buildJoin('FULL JOIN'));
 });

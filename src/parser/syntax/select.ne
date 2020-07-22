@@ -8,7 +8,7 @@ select_statement
         from = unwrap(from);
         return {
             columns,
-            ...from ? { from: [from] } : {},
+            ...from ? { from: Array.isArray(from) ? from : [from] } : {},
             where,
             type: 'select',
         }
@@ -21,8 +21,36 @@ select_from -> %kw_from _ select_subject {% last %}
 
 # Table name or another select statement wrapped in parens
 select_subject
+    -> select_table_base (_ select_table_join {% last %}):* {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}
+
+# [tableName] or [select x, y from z]
+select_table_base
     -> table_ref_aliased {% x => ({ type: 'table', ...x[0]}) %}
     | select_subject_select_statement
+
+# [, othertable] or [join expression]
+# select_table_joined
+#     -> _ comma _ select_table_base {% last %}
+#     | select_table_join
+
+
+select_table_join
+    -> select_join_op %kw_join _ select_table_base (_ %kw_on _ expr {% last %}):? {% x => ({
+        ...unwrap(x[2]),
+        join: {
+            type: flattenStr(x[0]).join(' '),
+            on: unwrap(x[3]),
+        }
+    }) %}
+
+# Join expression keywords (ex: INNER JOIN)
+select_join_op
+    -> ((%kw_inner __):? {% () => 'INNER JOIN' %})
+    | (%kw_left __ (%kw_outer __):? {% () => 'LEFT JOIN' %})
+    | (%kw_right __ (%kw_outer __):? {% () => 'RIGHT JOIN' %})
+    | (%kw_full __ (%kw_outer __):? {% () => 'FULL JOIN' %})
 
 # Selects on subselects MUST have an alias
 select_subject_select_statement -> select_statement_paren _ ident_aliased {% x => ({

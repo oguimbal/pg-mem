@@ -39,6 +39,24 @@ describe('Joins', () => {
         ]);
     });
 
+    it('simple join on index with comma syntax', () => {
+        const result = many(`create table ta(aid text primary key, bid text);
+                            create table tb(bid text primary key, val text);
+                            insert into ta values ('aid1', 'bid1');
+                            insert into ta values ('aid2', 'bid2');
+
+                            insert into tb values ('bid1', 'val1');
+                            insert into tb values ('bid2', 'val2');
+
+                            select val, aid, ta.bid as abid, tb.bid as bbid from ta, tb
+                                where ta.bid = tb.bid`);
+        preventSeqScan(db);
+        expect(result).to.deep.equal([
+            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
+            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
+        ]);
+    });
+
 
 
     it('join with left null values', () => {

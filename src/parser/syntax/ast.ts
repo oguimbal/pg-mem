@@ -79,7 +79,7 @@ export interface SelectedColumn {
 }
 
 export type From = FromTable | FromStatement;
-export type JoinedFrom = From & { join: JoinClause };
+export type JoinedFrom = From & { join?: JoinClause };
 
 export interface TableRef {
     table: string;
@@ -102,9 +102,14 @@ export interface FromStatement {
 }
 
 export interface JoinClause {
-    type: 'LEFT JOIN' | 'RIGHT JOIN' | 'INNER JOIN';
-    on: Expr;
+    type: JoinType;
+    on?: Expr;
 }
+
+export type JoinType = 'INNER JOIN'
+| 'LEFT JOIN'
+| 'RIGHT JOIN'
+| 'FULL JOIN';
 
 export type Expr = ExprRef
     | ExprList
