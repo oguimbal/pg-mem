@@ -69,7 +69,7 @@ type ColumnConstraint = {
 export interface SelectStatement {
     type: 'select',
     columns?: SelectedColumn[];
-    from?: [From, ...JoinedFrom[]];
+    from?: From[];
     where?: Expr;
 }
 
@@ -79,7 +79,6 @@ export interface SelectedColumn {
 }
 
 export type From = FromTable | FromStatement;
-export type JoinedFrom = From & { join?: JoinClause };
 
 export interface TableRef {
     table: string;
@@ -92,6 +91,7 @@ export interface TableRefAliased extends TableRef {
 
 export interface FromTable extends TableRefAliased {
     type: 'table',
+    join?: JoinClause;
 }
 
 export interface FromStatement {
@@ -99,6 +99,7 @@ export interface FromStatement {
     statement: SelectStatement;
     alias: string;
     db?: null;
+    join?: JoinClause;
 }
 
 export interface JoinClause {
