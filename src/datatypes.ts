@@ -66,11 +66,14 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
      * this returns the prefered resulting type, or null if they are not compatible
       */
     prefer(type: DataType | _IType<TRaw>): _IType | null | undefined {
-        const to = makeType(type);
+        const to = makeType(type) as TypeBase;
         if (to === this) {
             return this;
         }
-        return this.doPrefer && this.doPrefer(to);
+        if (this.doPrefer) {
+            return this.doPrefer(to);
+        }
+        return to.doPrefer && to.doPrefer(this);
     }
 
     /**
@@ -413,6 +416,12 @@ class TextType extends TypeBase<string> {
         super();
     }
 
+    doPrefer(to: _IType) {
+        if (this.canConvertImplicit(to)) {
+            return to;
+        }
+        return null;
+    }
 
     doCanConvertImplicit(to: _IType): boolean {
         // text is implicitely convertible to dates
@@ -710,16 +719,16 @@ export function fromNative(native: DataTypeDef): _IType {
 
 /** Finds a common type by implicit conversion */
 export function reconciliateTypes(values: IValue[]): _IType {
-    let typeConstraints = values
-        .filter(x => !x.isConstantLiteral);
+    // let typeConstraints = values
+    //     .filter(x => !x.isConstantLiteral);
 
-    // if there are non constant literals, constant literals must match them.
-    if (!typeConstraints.length) {
-        typeConstraints = values;
-    }
+    // // if there are non constant literals, constant literals must match them.
+    // if (!typeConstraints.length) {
+    //     typeConstraints = values;
+    // }
 
     // find the matching type among non constants
-    const foundType = typeConstraints
+    const foundType = values
         .reduce((final, c) => {
             const pref = final.prefer(c.type);
             if (!pref) {

@@ -101,6 +101,8 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
     let leftValue = _buildValue(data, left);
     let rightValue = _buildValue(data, right);
     const type: _IType = reconciliateTypes([leftValue, rightValue]);
+    leftValue = leftValue.convert(type);
+    rightValue = rightValue.convert(type);
 
     let getter: (a: any, b: any) => any;
     let returnType: _IType = Types.bool;
@@ -261,7 +263,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
             if (typeof x === 'string') {
                 return x;
             }
-            return JSON.stringify(x));
+            return JSON.stringify(x);
         });
 
     return new Evaluator(
