@@ -32,11 +32,7 @@
             ],
             "skipFiles": [
               "<node_internals>/**/*",
-                "**/loader.js", // webpack hmr reloader
-                "node_modules/core-js/**",
-                "output/**",
-              "${workspaceFolder}\\output/**",
-              "${workspaceFolder}\\webpack\\bootstrap"
+                "**/loader.js"
             ]
           }
     ]

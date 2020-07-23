@@ -85,8 +85,8 @@ export function buildCall(name: string, args: IValue[]) {
         , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })
         , singleSelection(args)
-        , raw => {
-            const argRaw = args.map(x => x.get(raw));
+        , (raw, t) => {
+            const argRaw = args.map(x => x.get(raw, t));
             return get(...argRaw);
         });
 }
@@ -106,8 +106,8 @@ function buildAnyCall(args: IValue[]) {
             , `ANY(${array.sql})`
             , hash({ any: array.hash })
             , singleSelection(args)
-            , raw => {
-                return array.get(raw);
+            , (raw, t) => {
+                return array.get(raw, t);
             }
             , true // <== isAny !
         );
@@ -119,7 +119,7 @@ function buildAnyCall(args: IValue[]) {
         throw new QueryError('ANY() expects either a selection, or an array literal');
     }
     // parse ANY() array literal
-    const arrayValue = parseArrayLiteral(array.get(null));
+    const arrayValue = parseArrayLiteral(array.get());
     return new Evaluator(
         Types.text()
         , null

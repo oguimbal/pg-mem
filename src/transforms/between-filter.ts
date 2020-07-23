@@ -1,15 +1,15 @@
-import { _ISelection, IValue, _IIndex, _ITable } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
 export class BetweenFilter<T = any> extends FilterBase<T> {
 
-    get entropy() {
-        return this.onValue.index.entropy;
+    entropy(t: _Transaction) {
+        return this.onValue.index.entropy(t);
     }
 
-    hasItem(item: T) {
-        return !this.onValue.index.hasItem(item);
+    hasItem(item: T, t: _Transaction) {
+        return !this.onValue.index.hasItem(item, t);
     }
 
     constructor(private onValue: IValue<T>
@@ -21,9 +21,9 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(): Iterable<T> {
-        for (const item of this.onValue.index.ge([this.lo])) {
-            const tv = this.onValue.get(item);
+    *enumerate(t: _Transaction): Iterable<T> {
+        for (const item of this.onValue.index.ge([this.lo], t)) {
+            const tv = this.onValue.get(item, t);
             if (nullIsh(tv) || this.onValue.type.gt(tv, this.hi)) {
                 break;
             }
@@ -35,12 +35,12 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
 
 export class NotBetweenFilter<T = any> extends FilterBase<T> {
 
-    get entropy() {
-        return this.onValue.index.entropy;
+    entropy(t: _Transaction) {
+        return this.onValue.index.entropy(t);
     }
 
-    hasItem(item: T) {
-        return !this.onValue.index.hasItem(item);
+    hasItem(item: T, t: _Transaction) {
+        return !this.onValue.index.hasItem(item, t);
     }
 
     constructor(private onValue: IValue<T>
@@ -52,16 +52,16 @@ export class NotBetweenFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(): Iterable<T> {
-        for (const item of this.onValue.index.lt([this.lo])) {
-            const tv = this.onValue.get(item);
+    *enumerate(t: _Transaction): Iterable<T> {
+        for (const item of this.onValue.index.lt([this.lo], t)) {
+            const tv = this.onValue.get(item, t);
             if (nullIsh(tv)) {
                 continue;
             }
             yield item;
         }
-        for (const item of this.onValue.index.gt([this.hi])) {
-            const tv = this.onValue.get(item);
+        for (const item of this.onValue.index.gt([this.hi], t)) {
+            const tv = this.onValue.get(item, t);
             if (nullIsh(tv)) {
                 break;
             }

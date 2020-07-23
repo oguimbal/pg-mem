@@ -7,7 +7,7 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    get entropy() {
+    entropy() {
         return this.elts.length;
     }
 

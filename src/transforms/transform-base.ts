@@ -1,6 +1,6 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb, _Transaction } from '../interfaces-private';
 import type { buildSelection, buildAlias } from './selection';
 import type { buildFilter } from './build-filter';
 import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
@@ -17,14 +17,14 @@ export function initialize(init: Fns) {
 }
 
 export abstract class DataSourceBase<T> implements _ISelection<T> {
-    abstract enumerate(): Iterable<T>;
-    abstract readonly entropy: number;
+    abstract enumerate(t: _Transaction): Iterable<T>;
+    abstract entropy(t: _Transaction): number;
     abstract readonly columns: IValue<any>[]
     abstract getColumn(column: string, nullIfNotFound?: boolean): IValue<any>;
-    abstract hasItem(value: T): boolean;
+    abstract hasItem(value: T, t: _Transaction): boolean;
     abstract getIndex(forValue: IValue): _IIndex<any>;
 
-    constructor(readonly db: _IDb) {
+    constructor(readonly schema: _IQuery) {
     }
 
     select(select: SelectedColumn[]): _ISelection<any> {
@@ -47,7 +47,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
     subquery(data: _ISelection<any>, op: SelectStatement): _ISelection {
         // todo: handle refs to 'data' in op statement.
-        return this.db.query.buildSelect(op);
+        return this.schema.buildSelect(op);
     }
 }
 
@@ -55,15 +55,15 @@ export abstract class TransformBase<T, TSel extends _ISelectionSource = _ISelect
 
 
     constructor(protected base: TSel) {
-        super(base.db);
+        super(base.schema);
     }
 
-    get entropy(): number {
-        return this.base.entropy;
+    entropy(t: _Transaction): number {
+        return this.base.entropy(t);
     }
 
-    hasItem(value: T): boolean {
-        return this.base.hasItem(value);
+    hasItem(value: T, t: _Transaction): boolean {
+        return this.base.hasItem(value, t);
     }
 
     getIndex(forValue: IValue): _IIndex<any> {

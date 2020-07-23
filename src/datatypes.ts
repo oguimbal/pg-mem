@@ -124,7 +124,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
         }
         if (a.isConstant) {
             if (typeof converted.val === 'function') {
-                converted.val = converted.val(null, true);
+                converted.val = converted.val(null, null, true);
             }
             if (converted.val === null) {
                 return Value.null();
@@ -383,8 +383,8 @@ class NumberType extends TypeBase<number> {
                 , value.sql
                 , value.hash
                 , value.origin
-                , raw => {
-                    const got = value.get(raw);
+                , (raw, t) => {
+                    const got = value.get(raw, t);
                     return typeof got === 'number'
                         ? Math.round(got)
                         : got;
@@ -609,9 +609,9 @@ export class ArrayType extends TypeBase<any[]> {
             , value.sql
             , value.hash
             , value.origin
-            , raw => {
-                const arr = value.get(raw) as any[];
-                return arr.map(x => Value.constant(x, valueType.of).convert(to.of).get(raw));
+            , (raw, t) => {
+                const arr = value.get(raw, t) as any[];
+                return arr.map(x => Value.constant(x, valueType.of).convert(to.of).get(raw, t));
             });
     }
 
@@ -665,7 +665,7 @@ export class ArrayType extends TypeBase<any[]> {
                 }
                 elts[i] = Value.text(elts[i])
                     .convert(this.of)
-                    .get(null);
+                    .get();
             }
         }
         return elts;

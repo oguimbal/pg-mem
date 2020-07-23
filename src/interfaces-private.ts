@@ -1,5 +1,6 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, IQuery } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement } from './parser/syntax/ast';
+import type { Map as ImMap } from 'immutable';
 
 export * from './interfaces';
 
@@ -18,28 +19,49 @@ export function getId(item: any): string {
 
 export function setId<T = any>(item: T, id: string): T {
     const got = item[ID];
+    if (got === id) {
+        return item;
+    }
     if (got) {
-        throw new Error('Unexpected: Cannto update an ID');
+        throw new Error('Unexpected: Cannot update an ID');
     }
     item[ID] = id;
     return item;
 }
 
 export interface _IQuery extends IQuery {
+    readonly name: string;
+    readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
+    getTable(table: string, nullIfNotFound?: boolean): _ITable;
+    tablesCount(t: _Transaction): number;
+    listTables(t: _Transaction): Iterable<_ITable>;
 }
 
 export interface _ISelectionSource<T = any> {
-    readonly db: _IDb;
+    readonly schema: _IQuery;
     /** Statistical measure of how many items will be returned by this selection */
-    readonly entropy: number;
-    enumerate(): Iterable<T>;
+    entropy(t: _Transaction): number;
+    enumerate(t: _Transaction): Iterable<T>;
 
     /** Returns true if the given value is present in this */
-    hasItem(value: T): boolean;
+    hasItem(value: T, t: _Transaction): boolean;
 
     /** Gets the index associated with this value (or returns null) */
     getIndex(forValue: IValue): _IIndex<any>;
+}
+
+export interface _Transaction {
+    readonly isChild: boolean;
+    /** Create a new transaction within this transaction */
+    fork(): _Transaction;
+    /** Commit this transaction (returns the parent transaction) */
+    commit(): _Transaction;
+    /** Commits this transaction and all underlying transactions */
+    fullCommit(): _Transaction;
+    set<T>(identity: symbol, data: T): T;
+    get<T>(identity: symbol): T;
+    getMap<T extends ImMap<any, any>>(identity: symbol): T;
 }
 
 export interface _ISelection<T = any> extends _ISelectionSource {
@@ -53,19 +75,20 @@ export interface _ISelection<T = any> extends _ISelectionSource {
 
 export interface _IDb extends IMemoryDb {
     readonly query: _IQuery;
-    readonly tablesCount: number;
-    getSchema(db: string): _IDb;
-    listTables(): Iterable<_ITable>;
+    readonly data: _Transaction;
+    getSchema(db: string): _IQuery;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent): void;
+    listSchemas(): _IQuery[];
 }
 
 export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
     readonly hidden: boolean;
     readonly name: string;
     readonly selection: _ISelection<T>;
-    insert(toInsert: T): T;
-    createIndex(expressions: string[] | CreateIndexDef): this;
+    insert(t: _Transaction, toInsert: T): T;
+    update?(t: _Transaction, toUpdate: T): T;
+    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
     setReadonly(): this;
 }
 
@@ -106,7 +129,7 @@ export interface IValue<TRaw = any> {
     readonly type: _IType<TRaw>;
 
     /** is 'any()' call ? */
-    readonly  isAny: boolean;
+    readonly isAny: boolean;
 
     /** Is a constant (2+2) */
     readonly isConstant: boolean;
@@ -130,7 +153,11 @@ export interface IValue<TRaw = any> {
     /** Clean debug reconsitutition of SQL used to parse this value */
     readonly sql: string;
 
-    get(raw: TRaw): any;
+    /** Get value if is a constant */
+    get(): any;
+    /** Get value if is NOT a constant */
+    get(raw: TRaw, t: _Transaction): any;
+
     setId(newId: string): IValue;
     canConvert(to: DataType | _IType): boolean;
     convert<T = any>(to: DataType | _IType<T>): IValue<T>;
@@ -140,33 +167,37 @@ export interface IValue<TRaw = any> {
 
 export type IndexKey = any[];
 export interface _IIndex<T = any> {
-    /** How many items in this index */
-    readonly size: number;
     readonly indexName: string;
-    /** Returns a measure of how many items there are per index key */
-    readonly entropy: number;
     readonly expressions: IValue[];
     readonly onTable: _ITable<T>;
+
+
+    /** How many items in this index */
+    size(t: _Transaction): number;
+
+    /** Returns a measure of how many items there are per index key */
+    entropy(t: _Transaction): number;
+
     /** Check if THIS record exists in this index */
-    hasItem(raw: T): boolean;
+    hasItem(raw: T, t: _Transaction): boolean;
     /** Check if this key is present in this index */
-    hasKey(key: IndexKey[]): boolean;
+    hasKey(key: IndexKey[], t: _Transaction): boolean;
     /** Add an element to this index */
-    add(raw: T): void;
+    add(raw: T, t: _Transaction): void;
 
     /** Get values equating the given key */
-    eqFirst(rawKey: IndexKey): T;
-    eq(rawKey: IndexKey): Iterable<T>;
+    eqFirst(rawKey: IndexKey, t: _Transaction): T;
+    eq(rawKey: IndexKey, t: _Transaction): Iterable<T>;
     /** Get all values that are NOT  equating any of the given keys */
-    nin(rawKey: IndexKey[]): Iterable<T>;
+    nin(rawKey: IndexKey[], t: _Transaction): Iterable<T>;
     /** Get values NOT equating the given key */
-    neq(rawKey: IndexKey): Iterable<T>;
+    neq(rawKey: IndexKey, t: _Transaction): Iterable<T>;
     /** Get greater the given key */
-    gt(rawKey: IndexKey): Iterable<T>;
+    gt(rawKey: IndexKey, t: _Transaction): Iterable<T>;
     /** Get lower the given key */
-    lt(rawKey: IndexKey): Iterable<T>;
+    lt(rawKey: IndexKey, t: _Transaction): Iterable<T>;
     /** Get greater or equal the given key */
-    ge(rawKey: IndexKey): Iterable<T>;
+    ge(rawKey: IndexKey, t: _Transaction): Iterable<T>;
     /** Get lower or equal the given key */
-    le(rawKey: IndexKey): Iterable<T>;
+    le(rawKey: IndexKey, t: _Transaction): Iterable<T>;
 }

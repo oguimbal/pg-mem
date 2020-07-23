@@ -13,3 +13,5 @@
 - Handle "insert into tbl select * from otherTbl"
 
 - Review & refactor all .hasItem() & unit test them.
+
+- "auto-create" tables mode (which guess/adapt their schema on insert)

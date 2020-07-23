@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
@@ -8,12 +8,12 @@ export class InFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    get entropy() {
-        return this.onValue.index.entropy;
+    entropy(t: _Transaction) {
+        return this.onValue.index.entropy(t);
     }
 
-    hasItem(item: T) {
-        return this.onValue.index.hasItem(item);
+    hasItem(item: T, t: _Transaction) {
+        return this.onValue.index.hasItem(item, t);
     }
 
     constructor(private onValue: IValue<T>
@@ -27,10 +27,10 @@ export class InFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<T> {
         const index = this.onValue.index;
         for (const a of this.elts) {
-            for (const item of index.eq([a])) {
+            for (const item of index.eq([a], t)) {
                 const id = getId(item)
                 yield item;
             }

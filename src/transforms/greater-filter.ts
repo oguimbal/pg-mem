@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
@@ -8,12 +8,12 @@ export class GreaterFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    get entropy() {
-        return this.onValue.index.entropy;
+    entropy(t: _Transaction) {
+        return this.onValue.index.entropy(t);
     }
 
-    hasItem(item: T) {
-        const val = this.onValue.get(item);
+    hasItem(item: T, t: _Transaction) {
+        const val = this.onValue.get(item, t);
         if (nullIsh(val)) {
             return false;
         }
@@ -29,10 +29,10 @@ export class GreaterFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<T> {
         const index = this.onValue.index;
-        for (const item of index[this.op]([this.than])) {
-            const got = this.onValue.get(item);
+        for (const item of index[this.op]([this.than], t)) {
+            const got = this.onValue.get(item, t);
             if (nullIsh(got) || !this.onValue.type[this.op](got, this.than)) {
                 break;
             }

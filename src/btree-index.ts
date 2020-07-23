@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
 import { QueryError } from './interfaces';
 
@@ -45,37 +45,38 @@ interface BIterator<T> {
     readonly hasPrev: boolean;
 }
 
-
+type RawTree<T> = BTree<Map<string, T>>;;
 export class BIndex<T = any> implements _IIndex<T> {
 
 
-    private asBinary: BTree<Map<string, T>>;
+    // private asBinary: RawTree;
     private byId = new Set<string>();
     expressions: IValue[];
+    private id = Symbol();
 
-    get size() {
+    size(t: _Transaction) {
         return this.byId.size;
     }
 
-    get entropy() {
-        if (!this.asBinary.length) {
+    entropy(t: _Transaction) {
+        const asBinary = t.get<RawTree<T>>(this.id);
+        if (!asBinary.length) {
             return 0;
         }
-        return this.size / this.asBinary.length;
+        return this.size(t) / asBinary.length;
     }
 
 
-    constructor(private cols: CreateIndexColDef[]
+    constructor(t: _Transaction
+        , private cols: CreateIndexColDef[]
         , readonly onTable: _ITable<T>
         , public indexName: string
         , private unique: boolean
         , private notNull: boolean) {
-        this.asBinary = createTree((a: any, b: any) => {
+        const asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });
-        this.asBinary = createTree((a: any, b: any) => {
-            return this.compare(a, b);
-        });
+        t.set(this.id, asBinary);
         this.expressions = cols.map(x => x.value);
     }
 
@@ -102,8 +103,8 @@ export class BIndex<T = any> implements _IIndex<T> {
         return 0;
     }
 
-    private buildKey(raw: any) {
-        return this.expressions.map(k => k.get(raw));
+    private buildKey(raw: any, t: _Transaction) {
+        return this.expressions.map(k => k.get(raw, t));
     }
 
     hasItem(raw: any) {
@@ -111,26 +112,34 @@ export class BIndex<T = any> implements _IIndex<T> {
         return this.byId.has(key);
     }
 
-    hasKey(key: IndexKey[]): boolean {
-        const it = this.asBinary.find(key);
+    private bin(t: _Transaction) {
+        return t.get<RawTree<T>>(this.id);
+    }
+    private setBin(t: _Transaction, val: RawTree<T>) {
+        return t.set(this.id, val);
+    }
+
+    hasKey(key: IndexKey[], t: _Transaction): boolean {
+        const it = this.bin(t).find(key);
         return it.valid;
     }
 
-    add(raw: T) {
+    add(raw: T, t: _Transaction) {
         const id = getId(raw);
         if (this.byId.has(id)) {
             return;
         }
-        const key = this.buildKey(raw);
+        const key = this.buildKey(raw, t);
         if (this.notNull && key.some(x => x === null || x === undefined)) {
             throw new QueryError('Cannot add a null record in index ' + this.indexName);
         }
-        if (this.unique && this.hasKey(key)) {
+        if (this.unique && this.hasKey(key, t)) {
             throw new QueryError('Unique constraint violated while adding a record to index ' + this.indexName);
         }
-        let got = this.asBinary.get(key);
+        let bin = this.bin(t);
+        let got = bin.get(key);
         if (!got) {
-            this.asBinary = this.asBinary.insert(key, got = new Map());
+            bin = this.setBin(t, bin.insert(key, got = new Map()));
         }
         if (got.has(id)) {
             return;
@@ -139,9 +148,10 @@ export class BIndex<T = any> implements _IIndex<T> {
         this.byId.add(id);
     }
 
-    delete(raw: any) {
-        const key = this.buildKey(raw);
-        let got = this.asBinary.get(key);
+    delete(raw: any, t: _Transaction) {
+        const key = this.buildKey(raw, t);
+        let bin = this.bin(t);
+        let got = bin.get(key);
         if (!got) {
             return;
         }
@@ -152,30 +162,31 @@ export class BIndex<T = any> implements _IIndex<T> {
         this.byId.delete(id);
         got.delete(id);
         if (!got.size) {
-            this.asBinary = this.asBinary.remove(key);
+            bin = this.setBin(t, bin.remove(key));
         }
     }
 
-    eqFirst(rawKey: IndexKey): T {
-        for (const r of this.eq(rawKey)) {
+    eqFirst(rawKey: IndexKey, t: _Transaction): T {
+        for (const r of this.eq(rawKey, t)) {
             return r;
         }
     }
 
 
-    *eq(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.find(key);
+    *eq(key: IndexKey, t: _Transaction): Iterable<T> {
+        const it = this.bin(t).find(key);
         while (it.valid && this.compare(it.key, key) === 0) {
             yield* it.value.values();
             it.next();
         }
     }
 
-    *nin(rawKey: IndexKey[]): Iterable<T> {
+    *nin(rawKey: IndexKey[], t: _Transaction): Iterable<T> {
         rawKey.sort((a, b) => this.compare(a, b));
         const kit = rawKey[Symbol.iterator]();
         let cur = kit.next();
-        let it = this.asBinary.begin;
+        const bin = this.bin(t);
+        let it = bin.begin;
         while (!cur.done) {
             // yield previous
             while (it.valid && this.compare(it.key, cur.value) < 0) {
@@ -184,7 +195,7 @@ export class BIndex<T = any> implements _IIndex<T> {
             }
             // skip equals
             if (this.compare(it.key, cur.value) === 0) {
-                it = this.asBinary.gt(cur.value);
+                it = bin.gt(cur.value);
             }
             cur = kit.next();
         }
@@ -197,40 +208,42 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
 
-    *neq(key: IndexKey): Iterable<T> {
+    *neq(key: IndexKey, t: _Transaction): Iterable<T> {
         // yield before
-        let it = this.asBinary.begin;
+        const bin = this.bin(t);
+        let it = bin.begin;
         while (it.valid && this.compare(it.key, key) < 0) {
             yield* it.value.values();
             it.next();
         }
         // yield after
-        it = this.asBinary.gt(key);
+        it = bin.gt(key);
         while (it.valid) {
             yield* it.value.values();
             it.next();
         }
     }
 
-    *gt(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.gt(key);
+    *gt(key: IndexKey, t: _Transaction): Iterable<T> {
+        const it = this.bin(t).gt(key);
         while (it.valid) {
             yield* it.value.values();
             it.next();
         }
     }
 
-    *ge(key: IndexKey): Iterable<T> {
-        const it = this.asBinary.ge(key);
+    *ge(key: IndexKey, t: _Transaction): Iterable<T> {
+        const it = this.bin(t).ge(key);
         while (it.valid) {
             yield* it.value.values();
             it.next();
         }
     }
 
-    *lt(key: IndexKey): Iterable<T> {
-        const limit = this.asBinary.lt(key);
-        const it = this.asBinary.begin;
+    *lt(key: IndexKey, t: _Transaction): Iterable<T> {
+        const bin = this.bin(t);
+        const limit = bin.lt(key);
+        const it = bin.begin;
         if (!limit.valid) {
             // yield all
             while (it.valid) {
@@ -250,9 +263,10 @@ export class BIndex<T = any> implements _IIndex<T> {
         // }
     }
 
-    *le(key: IndexKey): Iterable<T> {
-        const limit = this.asBinary.le(key);
-        const it = this.asBinary.begin;
+    *le(key: IndexKey, t: _Transaction): Iterable<T> {
+        const bin = this.bin(t);
+        const limit = bin.le(key);
+        const it = bin.begin;
         if (!limit.valid) {
             // yield all
             while (it.valid) {

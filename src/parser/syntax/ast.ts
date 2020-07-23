@@ -3,6 +3,7 @@ export type Statement = SelectStatement
     | CreateIndexStatement
     | CommitStatement
     | InsertStatement
+    | UpdateStatement
     | RollbackStatement
     | StartTransactionStatement;
 
@@ -16,6 +17,7 @@ export interface CommitStatement {
 export interface RollbackStatement {
     type: 'rollback';
 }
+
 
 export interface InsertStatement {
     type: 'insert';
@@ -91,6 +93,20 @@ export interface SelectStatement {
     columns?: SelectedColumn[];
     from?: From[];
     where?: Expr;
+}
+
+
+export interface UpdateStatement {
+    type: 'update';
+    table: TableRefAliased;
+    sets: SetStatement[];
+    where?: Expr;
+    returning?: SelectedColumn[];
+}
+
+export interface SetStatement {
+    column: string;
+    value: Expr | 'default';
 }
 
 export interface SelectedColumn {

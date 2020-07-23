@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
@@ -8,12 +8,12 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    get entropy() {
-        return this.onValue.index.entropy;
+    entropy(t: _Transaction) {
+        return this.onValue.index.entropy(t);
     }
 
-    hasItem(item: T) {
-        return this.onValue.index.hasItem(item);
+    hasItem(item: T, t: _Transaction) {
+        return this.onValue.index.hasItem(item, t);
     }
 
     constructor(private onValue: IValue<T>
@@ -24,10 +24,10 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<T> {
         const index = this.onValue.index;
-        for (const item of index.ge([this.startWith])) {
-            const got: string = this.onValue.get(item);
+        for (const item of index.ge([this.startWith], t)) {
+            const got: string = this.onValue.get(item, t);
             if (got === null || !got.startsWith(this.startWith)) {
                 break;
             }

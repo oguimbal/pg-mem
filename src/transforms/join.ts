@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _IQuery } from '../interfaces-private';
 import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
@@ -33,11 +33,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return this.right.columns
     }
 
-    get entropy(): number {
-        return this.left.entropy;
+    entropy(t: _Transaction): number {
+        return this.left.entropy(t);
     }
 
-    constructor(db: _IDb
+    constructor(db: _IQuery
         , private left: _ISelection<TLeft>
         , private right: _ISelection<TRight>
         , on: any
@@ -86,22 +86,22 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }
 
 
-    *enumerate(): Iterable<any> {
+    *enumerate(t: _Transaction): Iterable<any> {
         // todo: filter & indexes
-        for (const l of this.left.enumerate()) {
+        for (const l of this.left.enumerate(t)) {
             let r: TRight;
 
             // find the right value using index
             if (this.indexedRight) {
-                const joinValue = this.leftExpression.get(this.buildItem(l, null));
+                const joinValue = this.leftExpression.get(this.buildItem(l, null), t);
                 // get corresponding right value
-                r = this.indexedRight.eqFirst([joinValue]);
+                r = this.indexedRight.eqFirst([joinValue], t);
             } else {
                 // perform a seq scan
-                this.db.raiseGlobal('catastrophic-join-optimization');
-                for (const cr of this.right.enumerate()) {
+                this.schema.db.raiseGlobal('catastrophic-join-optimization');
+                for (const cr of this.right.enumerate(t)) {
                     const combined = this.buildItem(l, cr);
-                    const result = this.seqScanExpression.get(combined);
+                    const result = this.seqScanExpression.get(combined, t);
                     if (result) {
                         r = cr;
                         break;

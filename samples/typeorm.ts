@@ -21,17 +21,17 @@ export class User extends BaseEntity {
 
 
 (async () => {
-    // Create a Typeorm connection
+    //==== create a Typeorm connection
     const got: Connection = await newDb().adapters.createTypeormConnection({
         type: 'postgres',
         entities: [User]
     });
 
-    // create tables
+    //==== create tables
     await got.synchronize();
     const users = got.getRepository(User);
 
-    // create entities
+    //==== create entities
     await users.create({
         firstName: 'john',
         lastName: 'doe',
@@ -42,19 +42,24 @@ export class User extends BaseEntity {
         lastName: 'lennon',
         age: 99,
     }).save();
-    await users.create({
+    const duck = await users.create({
         firstName: 'donald',
         lastName: 'duck',
         age: 12,
     }).save();
 
-    // query entities
+    //==== query entities
     const youngJohns = await users.find({
         firstName: 'john',
         age: LessThan(30)
     });
 
     console.log(youngJohns.map(x => x.lastName)); // outputs 'doe' !
+
+
+    //==== modify entities
+    duck.firstName = 'daisy';
+    await duck.save();
 
 })();
 

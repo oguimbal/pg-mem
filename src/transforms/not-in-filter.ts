@@ -1,11 +1,11 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
 export class NotInFilter<T = any> extends FilterBase<T> {
 
-    get entropy() {
-        return this.onValue.index.entropy;
+    entropy(t: _Transaction) {
+        return this.onValue.index.entropy(t);
     }
 
     hasItem(item: T): boolean {
@@ -24,12 +24,12 @@ export class NotInFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<T> {
         const index = this.onValue.index;
         if (!Array.isArray(this.elts)) {
             throw new QueryError('Cannot iterate element list');
         }
-        for (const item of index.nin(this.elts.map(x => [x]))) {
+        for (const item of index.nin(this.elts.map(x => [x]), t)) {
             yield item;
         }
     }

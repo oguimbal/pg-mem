@@ -1,49 +1,49 @@
-import { _IIndex, IValue, _ITable, _IDb } from '../interfaces-private';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction } from '../interfaces-private';
 import { ReadOnlyError } from '../interfaces';
 
 export class TableIndex implements _IIndex {
     readonly expressions: IValue<any>[];
 
-    constructor(readonly onTable: _ITable & { itemsByTable(table: string): Iterable<any>; db: _IDb, ownSymbol: any }, private col: IValue) {
+    constructor(readonly onTable: _ITable & { itemsByTable(table: string, t: _Transaction): Iterable<any>; ownSymbol: any }, private col: IValue) {
         this.expressions = [col];
     }
 
-    get size(): number {
-        return this.onTable.db.tablesCount;
+    size(t: _Transaction): number {
+        return this.onTable.schema.tablesCount(t);
     }
     get indexName(): string {
         return 'index_table_name_name';
     }
-    get entropy(): number {
-        return this.size;
+    entropy(t: _Transaction): number {
+        return this.size(t);
     }
 
     hasItem(raw: any): boolean {
         return raw?.[this.onTable.ownSymbol];
     }
 
-    hasKey([key]: any[]): boolean {
-        return !!this.onTable.db.getTable(key, true);
+    hasKey([key]: any[], t: _Transaction): boolean {
+        return !!this.onTable.schema.getTable(key, true);
     }
 
     add(raw: any): void {
         throw new ReadOnlyError('tables');
     }
 
-    eqFirst([key]: any) {
-        for (const its of this.onTable.itemsByTable(key)) {
+    eqFirst([key]: any, t: _Transaction) {
+        for (const its of this.onTable.itemsByTable(key, t)) {
             return its;
         }
     }
-    *eq([rawKey]: any): Iterable<any> {
-        for (const its of this.onTable.itemsByTable(rawKey)) {
+    *eq([rawKey]: any, t: _Transaction): Iterable<any> {
+        for (const its of this.onTable.itemsByTable(rawKey, t)) {
             yield its;
         }
     }
 
-    *nin(keys: any[][]) {
+    *nin(keys: any[][], t: _Transaction) {
         const raws = keys.map(x => x[0]) as any[];
-        for (const i of this.onTable.enumerate()) {
+        for (const i of this.onTable.enumerate(t)) {
             if (raws.includes(i.table_name)) {
                 continue;
             }
@@ -51,36 +51,36 @@ export class TableIndex implements _IIndex {
         }
     }
 
-    *neq([rawKey]: any) {
-        for (const i of this.onTable.enumerate()) {
+    *neq([rawKey]: any, t: _Transaction) {
+        for (const i of this.onTable.enumerate(t)) {
             if (i.table_name !== rawKey) {
                 yield i;
             }
         }
     }
-    *gt(rawKey: any): Iterable<any> {
-        for (const i of this.onTable.enumerate()) {
+    *gt(rawKey: any, t: _Transaction): Iterable<any> {
+        for (const i of this.onTable.enumerate(t)) {
             if (i.table_name > rawKey) {
                 yield i;
             }
         }
     }
-    *lt(rawKey: any): Iterable<any> {
-        for (const i of this.onTable.enumerate()) {
+    *lt(rawKey: any, t: _Transaction): Iterable<any> {
+        for (const i of this.onTable.enumerate(t)) {
             if (i.table_name < rawKey) {
                 yield i;
             }
         }
     }
-    *ge(rawKey: any): Iterable<any> {
-        for (const i of this.onTable.enumerate()) {
+    *ge(rawKey: any, t: _Transaction): Iterable<any> {
+        for (const i of this.onTable.enumerate(t)) {
             if (i.table_name >= rawKey) {
                 yield i;
             }
         }
     }
-    *le(rawKey: any): Iterable<any> {
-        for (const i of this.onTable.enumerate()) {
+    *le(rawKey: any, t: _Transaction): Iterable<any> {
+        for (const i of this.onTable.enumerate(t)) {
             if (i.table_name <= rawKey) {
                 yield i;
             }

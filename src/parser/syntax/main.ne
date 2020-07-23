@@ -7,6 +7,7 @@
 @include "create-index.ne"
 @include "simple-statements.ne"
 @include "insert.ne"
+@include "update.ne"
 
 
 # list of statements, separated by ";"
@@ -29,3 +30,4 @@ statement
     | createindex_statement
     | simplestatements_all
     | insert_statement
+    | update_statement

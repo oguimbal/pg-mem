@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
@@ -39,7 +39,7 @@ export class PgIndexTable implements _ITable {
         }
     });
 
-    constructor(readonly db: _IDb) {
+    constructor(readonly schema: _IQuery) {
     }
 
     insert(toInsert: any): void {
@@ -53,7 +53,7 @@ export class PgIndexTable implements _ITable {
         throw new ReadOnlyError('information schema');
     }
 
-    get entropy(): number {
+    entropy(): number {
         return 0;
     }
 

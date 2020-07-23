@@ -7,11 +7,11 @@ export class FalseFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    get entropy() {
+    entropy() {
         return 0;
     }
 
-    hasItem(item: T) {
+    hasItem() {
         return false;
     }
 

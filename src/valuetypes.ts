@@ -1,10 +1,11 @@
-import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
+import { IValue, _IIndex, _ISelection, _IType, _Transaction } from './interfaces-private';
 import { DataType, QueryError, CastError } from './interfaces';
 import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType, isNumeric, singleSelection } from './datatypes';
 import { Query } from './query';
 import { buildCall } from './functions';
 import { parseArrayLiteral } from './parser/parser';
+import { nullIsh } from './utils';
 
 
 let convDepth = 0;
@@ -19,7 +20,7 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly sql: string
         , readonly hash: string
         , readonly origin: _ISelection
-        , public val: Object | number | string | Date | ((raw: any, isResult: boolean) => any)
+        , public val: Object | number | string | Date | ((raw: any, transaction: _Transaction, isResult: boolean) => any)
         , public isAny: boolean = false) {
         this.isConstantLiteral = typeof val !== 'function';
     }
@@ -50,8 +51,8 @@ export class Evaluator<T = any> implements IValue<T> {
             , sqlConv(this.sql)
             , hash(hashConv(this.hash))
             , this.origin
-            , raw => {
-                let got = this.get(raw);
+            , (raw, t) => {
+                let got = this.get(raw, t);
                 if (got === null || got === undefined) {
                     return null;
                 }
@@ -77,12 +78,12 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.sql
             , this.hash
             , this.origin
-            , raw => {
+            , (raw, t) => {
                 const got = wrap(raw)
                 if (got === null || got === undefined) {
                     return null;
                 }
-                return this.get(got);
+                return this.get(got, t);
             }
             , this.isAny
         ).asConstant(this.isConstant);
@@ -111,14 +112,23 @@ export class Evaluator<T = any> implements IValue<T> {
         return typeof this.val !== 'function';
     }
 
-    get(raw: any): T {
+    get(): T;
+    get(raw: any, t: _Transaction): T;
+    get(raw?: any, t?: _Transaction): T {
+        if ((nullIsh(raw) || !t) && !this.isConstant) {
+            throw new Error('Cannot be evaluated as constant');
+        }
+        return this._get(raw, t);
+    }
+
+    private _get(raw?: any, t?: _Transaction): T {
         if (typeof this.val !== 'function') {
             return this.val as any;
         }
 
         try {
             convDepth++;
-            return this.val(raw, convDepth === 1);
+            return this.val(raw, t, convDepth === 1);
         } finally {
             convDepth--;
         }
@@ -133,7 +143,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.sql
             , this.hash
             , this.origin
-            , this.get(null)
+            , this._get()
             , this.isAny);
     }
 
@@ -272,9 +282,9 @@ export const Value = {
             , value.sql + ' IN ' + array.sql
             , hash({ val: value.hash, in: array.hash })
             , value.origin
-            , raw => {
-                const rawValue = value.get(raw);
-                const rawArray = array.get(raw);
+            , (raw, t) => {
+                const rawValue = value.get(raw, t);
+                const rawArray = array.get(raw, t);
                 if (!Array.isArray(rawArray)) {
                     return false;
                 }
@@ -290,11 +300,11 @@ export const Value = {
             , `${leftValue.sql} IS${expectNull ? '' : ' NOT'} NULL`
             , hash({ isNull: leftValue.hash, expectNull })
             , leftValue.origin
-            , expectNull ? (raw => {
-                const left = leftValue.get(raw);
+            , expectNull ? ((raw, t) => {
+                const left = leftValue.get(raw, t);
                 return left === null;
-            }) : (raw => {
-                const left = leftValue.get(raw);
+            }) : ((raw, t) => {
+                const left = leftValue.get(raw, t);
                 return left !== null && left !== undefined;
             })).asConstant(leftValue.isConstant);
     },
@@ -306,11 +316,11 @@ export const Value = {
             , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} TRUE`
             , hash({ isTrue: leftValue.hash, expectTrue })
             , leftValue.origin
-            , expectTrue ? (raw => {
-                const left = leftValue.get(raw);
+            , expectTrue ? ((raw, t) => {
+                const left = leftValue.get(raw, t);
                 return left === true; // never returns null
-            }) : (raw => {
-                const left = leftValue.get(raw);
+            }) : ((raw, t) => {
+                const left = leftValue.get(raw, t);
                 return !(left === true); //  never returns null
             })).asConstant(leftValue.isConstant);
     },
@@ -322,11 +332,11 @@ export const Value = {
             , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} FALSE`
             , hash({ isFalse: leftValue.hash, expectFalse })
             , leftValue.origin
-            , expectFalse ? (raw => {
-                const left = leftValue.get(raw);
+            , expectFalse ? ((raw, t) => {
+                const left = leftValue.get(raw, t);
                 return left === false; // never returns null
-            }) : (raw => {
-                const left = leftValue.get(raw);
+            }) : ((raw, t) => {
+                const left = leftValue.get(raw, t);
                 return !(left === false); //  never returns null
             })).asConstant(leftValue.isConstant);
     },
@@ -357,8 +367,8 @@ export const Value = {
             , '(' + converted.map(x => x.sql).join(', ') + ')'
             , hash(converted.map(x => x.hash))
             , singleSelection(converted)
-            , raw => {
-                const arr = values.map(x => x.get(raw));
+            , (raw, t) => {
+                const arr = values.map(x => x.get(raw, t));
                 return arr;
             }).asConstant(!values.some(x => !x.isConstant))
     }

@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 import { Types } from '../datatypes';
@@ -37,7 +37,7 @@ export class TablesSchema implements _ITable {
         }
     });
 
-    constructor(readonly db: _IDb) {
+    constructor(readonly schema: _IQuery) {
     }
 
     insert(toInsert: any): void {
@@ -51,13 +51,16 @@ export class TablesSchema implements _ITable {
         throw new ReadOnlyError('information schema');
     }
 
-    get entropy(): number {
-        return this.db.tablesCount;
+    entropy(t: _Transaction): number {
+        return this.schema.db.listSchemas()
+            .reduce((tot, s) => tot + s.tablesCount(t), 0);
     }
 
-    *enumerate() {
-        for (const t of this.db.listTables()) {
-            yield this.make(t);
+    *enumerate(t: _Transaction) {
+        for (const s of this.schema.db.listSchemas()) {
+            for (const it of s.listTables(t)) {
+                yield this.make(it);
+            }
         }
     }
 
@@ -99,10 +102,12 @@ export class TablesSchema implements _ITable {
         throw new NotSupported('subscribing information schema');
     }
 
-    *itemsByTable(table: string) {
-        const got = this.db.getTable(table, true)
-        if (got) {
-            yield this.make(got);
+    *itemsByTable(table: string, t: _Transaction) {
+        for (const s of this.schema.db.listSchemas()) {
+            const got = s.getTable(table, true)
+            if (got) {
+                yield this.make(got);
+            }
         }
     }
 

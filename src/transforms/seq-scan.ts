@@ -1,4 +1,4 @@
-import { IValue, _ISelection } from '../interfaces-private';
+import { IValue, _ISelection, _Transaction } from '../interfaces-private';
 import { DataType } from '../interfaces';
 import { FilterBase } from './transform-base';
 
@@ -8,13 +8,13 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    get entropy() {
+    entropy(t: _Transaction) {
         // boost source entropy (in case an index has the same items count)
-        return this.selection.entropy * 1.5;
+        return this.selection.entropy(t) * 1.5;
     }
 
-    hasItem(raw: T): boolean {
-        return !!this.getter.get(raw);
+    hasItem(raw: T, t: _Transaction): boolean {
+        return !!this.getter.get(raw, t);
     }
 
     constructor(private selection: _ISelection<T>, private getter: IValue<T>) {
@@ -22,9 +22,9 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
         this.getter = getter.convert(DataType.bool);
     }
 
-    *enumerate(): Iterable<T> {
-        for (const raw of this.selection.enumerate()) {
-            const cond = this.getter.get(raw);
+    *enumerate(t: _Transaction): Iterable<T> {
+        for (const raw of this.selection.enumerate(t)) {
+            const cond = this.getter.get(raw, t);
             if (cond) {
                 yield raw;
             }

@@ -79,6 +79,8 @@ kw_transaction -> %word {% notReservedKw('transaction')  %}
 kw_rollback -> %word {% notReservedKw('rollback')  %}
 kw_insert -> %word {% notReservedKw('insert')  %}
 kw_values -> %word {% notReservedKw('values')  %}
+kw_update -> %word {% notReservedKw('update')  %}
+kw_set -> %word {% notReservedKw('set')  %}
 
 
 # === Composite keywords

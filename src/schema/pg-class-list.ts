@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
@@ -69,8 +69,8 @@ export class PgClassListTable implements _ITable {
                 return this.size
             },
             column: this.selection.getColumn('oid'),
-            byColumnValue: (oid: string) => {
-                return [this.byOid(oid)]
+            byColumnValue: (oid: string, t: _Transaction) => {
+                return [this.byOid(oid, t)]
             }
         }),
         'relname': new CustomIndex(this, {
@@ -78,21 +78,21 @@ export class PgClassListTable implements _ITable {
                 return this.size
             },
             column: this.selection.getColumn('relname'),
-            byColumnValue: (oid: string) => {
-                return [this.byRelName(oid)];
+            byColumnValue: (oid: string, t: _Transaction) => {
+                return [this.byRelName(oid, t)];
             }
         }),
     }
 
 
-    constructor(readonly db: _IDb) {
+    constructor(readonly schema: _IQuery) {
     }
 
-    private byOid(oid: string) {
+    private byOid(oid: string, t: _Transaction) {
         const { type, id } = parseOid(oid);
         switch (type) {
             case 'table':
-                return this.makeTable(this.db.getTable(id, true));
+                return this.makeTable(this.schema.getTable(id, true));
             case 'index':
                 return null;
             // return this.makeTable(this.db.getIndex(id, true));
@@ -101,8 +101,8 @@ export class PgClassListTable implements _ITable {
         }
     }
 
-    private byRelName(name: string) {
-        return this.db.getTable(name, true);
+    private byRelName(name: string, t: _Transaction) {
+        return this.schema.getTable(name, true);
         // ?? this.db.getIndex(name, true);
     }
 
@@ -117,8 +117,8 @@ export class PgClassListTable implements _ITable {
         throw new ReadOnlyError('information schema');
     }
 
-    get entropy(): number {
-        return this.db.tablesCount;
+    entropy(t: _Transaction): number {
+        return this.schema.tablesCount(t);
     }
 
     *enumerate() {

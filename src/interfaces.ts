@@ -41,10 +41,10 @@ export enum DataType {
 }
 
 export interface IMemoryDb {
-    adapters: LibAdapters;
-    /** Declares the existence of a table */
-    declareTable(table: Schema): IMemoryTable;
-    query: IQuery;
+    readonly adapters: LibAdapters;
+    readonly query: IQuery;
+    getSchema(name: string): IQuery;
+    createSchema(name: string): IQuery;
     getTable(table: string): IMemoryTable;
     on(event: GlobalEvent, handler: () => any);
     on(event: TableEvent, handler: (table: string) => any);
@@ -62,6 +62,7 @@ export interface LibAdapters {
 export interface IQuery {
     many(query: string): any[];
     none(query: string): void;
+    declareTable(table: Schema): IMemoryTable;
 }
 
 
@@ -69,7 +70,7 @@ export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'catastrophic-join-optimization';
 
 export interface IMemoryTable {
-    createIndex(expressions: string[]): this;
+    // createIndex(expressions: string[]): this;
     on(event: TableEvent, handler: () => any): void;
 }
 

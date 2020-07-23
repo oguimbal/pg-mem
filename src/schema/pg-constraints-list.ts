@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
@@ -17,7 +17,7 @@ export class PgConstraintTable implements _ITable {
         return 'pg_constraint';
     }
 
-    schema: Schema = {
+    _schema: Schema = {
         name: 'columns',
         fields: [
             { id: 'oid', type: Types.int } // hidden oid column
@@ -49,10 +49,10 @@ export class PgConstraintTable implements _ITable {
         ]
     };
     selection: _ISelection<any> = new Selection(this, {
-        schema: this.schema
+        schema: this._schema
     });
 
-    constructor(readonly db: _IDb) {
+    constructor(readonly schema: _IQuery) {
     }
 
     insert(toInsert: any): void {
@@ -66,13 +66,13 @@ export class PgConstraintTable implements _ITable {
         throw new ReadOnlyError('information schema');
     }
 
-    get entropy(): number {
-        return this.db.tablesCount * 10 * 3;
+    entropy(t: _Transaction): number {
+        return this.schema.tablesCount(t) * 10 * 3;
     }
 
-    *enumerate() {
-        for (const t of this.db.listTables()) {
-            yield* this.itemsByTable(t);
+    *enumerate(t: _Transaction) {
+        for (const it of this.schema.listTables(t)) {
+            yield* this.itemsByTable(it, t);
         }
     }
 
@@ -81,7 +81,7 @@ export class PgConstraintTable implements _ITable {
             return null;
         }
         let ret = {};
-        for (const { id } of this.schema.fields) {
+        for (const { id } of this._schema.fields) {
             ret[id] = null;
         }
 
@@ -110,9 +110,9 @@ export class PgConstraintTable implements _ITable {
         throw new NotSupported('subscribing information schema');
     }
 
-    *itemsByTable(table: string | _ITable) {
+    *itemsByTable(table: string | _ITable, t: _Transaction) {
         const got = typeof table === 'string'
-            ? this.db.getTable(table, true)
+            ? this.schema.getTable(table, true)
             : table;
         if (got) {
             let i = 0;

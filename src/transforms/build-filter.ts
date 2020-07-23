@@ -4,7 +4,7 @@ import { Types, makeArray } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../valuetypes';
 import { FalseFilter } from './false-filter';
-import { buildAndFilter } from './and-filter';
+import { AndFilter } from './and-filter';
 import { OrFilter } from './or-filter';
 import { NeqFilter } from './neq-filter';
 import { SeqScanFilter } from './seq-scan';
@@ -38,7 +38,7 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelect
     // then return directly
     if (built.isConstant) {
         const val = built.convert(DataType.bool)
-            .get(null);
+            .get();
         if (val) {
             return on;
         }
@@ -85,7 +85,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             const leftFilter = buildFilter(on, left);
             const rightFilter = buildFilter(on, right);
             return op === 'AND'
-                ? buildAndFilter(leftFilter, rightFilter)
+                ? new AndFilter([leftFilter, rightFilter])
                 : new OrFilter(leftFilter, rightFilter);
         }
         case 'IN':
@@ -99,7 +99,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             const array = arrayValue.convert(makeArray(value.type));
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
-                const arrCst = array.get(null);
+                const arrCst = array.get();
                 if (nullIsh(arrCst)) {
                     return new FalseFilter(on);
                 }
@@ -116,7 +116,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             if (value.index && value.index.expressions[0] === value) {
                 const valueToCompare = buildValue(on, right);
                 if (valueToCompare.isConstant) {
-                    const str = valueToCompare.get(null);
+                    const str = valueToCompare.get();
                     if (str === null) {
                         return new FalseFilter(on);
                     }
@@ -154,7 +154,7 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
 
     if (leftValue.isConstant && rightValue.isConstant) {
         const global = buildValue(on, filter);
-        const got = global.get(null);
+        const got = global.get();
         if (got) {
             return on;
         }
@@ -184,14 +184,14 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
                     : op === '>=' ? 'ge'
                     : op === '<' ? 'lt'
                     : 'le';
-                return new GreaterFilter(leftValue, fop, rightValue.get(null));
+                return new GreaterFilter(leftValue, fop, rightValue.get());
             }
             if (rightValue.index && rightValue.index.expressions[0] === rightValue && leftValue.isConstant) {
                 const fop = op === '>' ? 'le'
                     : op === '>=' ? 'lt'
                     : op === '<' ? 'ge'
                     : 'gt';
-                return new GreaterFilter(rightValue, fop, leftValue.get(null));
+                return new GreaterFilter(rightValue, fop, leftValue.get());
             }
     }
 }
@@ -204,8 +204,8 @@ function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTerna
             const lo = buildValue(on, filter.lo);
             const hi = buildValue(on, filter.hi);
             if (value.index &&  value.index.expressions[0] === value && lo.isConstant && hi.isConstant) {
-                const lov = lo.get(null);
-                const hiv = hi.get(null);
+                const lov = lo.get();
+                const hiv = hi.get();
                 if (hasNullish(lov, hiv)) {
                     return new FalseFilter(on);
                 }

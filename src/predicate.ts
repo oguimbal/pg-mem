@@ -199,7 +199,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             const caseSenit = op === 'LIKE' || op === 'NOT LIKE';
             const not = op === 'NOT ILIKE' || op === 'NOT LIKE';
             if (rightValue.isConstant) {
-                const pattern = rightValue.get(null);
+                const pattern = rightValue.get();
                 if (pattern === null) {
                     return Value.null(Types.bool);
                 }
@@ -241,11 +241,11 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
         , sql
         , hashed
         , singleSelection([leftValue, rightValue])
-        , raw => {
-            const leftRaw = leftValue.get(raw);
-            const rightRaw = rightValue.get(raw);
+        , (raw, t) => {
+            const leftRaw = leftValue.get(raw, t);
+            const rightRaw = rightValue.get(raw, t);
             return getter(leftRaw, rightRaw);
-        });
+        }).asConstant(allConstants(leftValue, rightValue));
 
 }
 
@@ -263,8 +263,8 @@ function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValu
         , hashed
         , singleSelection([leftValue, rightValue])
         , leftValue.isAny
-            ? raw => {
-                const leftRaw = leftValue.get(raw);
+            ? (raw, t) => {
+                const leftRaw = leftValue.get(raw, t);
                 if (nullIsh(leftRaw)) {
                     return null;
                 }
@@ -272,15 +272,15 @@ function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValu
                     throw new QueryError('Invalid ANY() usage: was expacting an array');
                 }
                 for (const lr of leftRaw) {
-                    const rightRaw = rightValue.get(raw);
+                    const rightRaw = rightValue.get(raw, t);
                     if (getter(lr, rightRaw)) {
                         return true;
                     }
                 }
                 return false;
             }
-            : raw => {
-                const rightRaw = rightValue.get(raw);
+            : (raw, t) => {
+                const rightRaw = rightValue.get(raw, t);
                 if (nullIsh(rightRaw)) {
                     return null;
                 }
@@ -288,13 +288,13 @@ function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValu
                     throw new QueryError('Invalid ANY() usage: was expacting an array');
                 }
                 for (const rr of rightRaw) {
-                    const leftRaw = leftValue.get(raw);
+                    const leftRaw = leftValue.get(raw, t);
                     if (getter(leftRaw, rr)) {
                         return true;
                     }
                 }
                 return false;
-            });
+            }).asConstant(allConstants(leftValue, rightValue))
 }
 
 
@@ -335,15 +335,15 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
             , ' END'].join(' ')
         , hash({ when: whenExprs.map(x => ({ when: x.when.hash, then: x.then.hash })) })
         , data
-        , raw => {
+        , (raw, t) => {
             for (const w of whenExprs) {
-                const cond = w.when.get(raw);
+                const cond = w.when.get(raw, t);
                 if (cond) {
-                    return w.then.get(raw);
+                    return w.then.get(raw, t);
                 }
             }
             return null;
-        });
+        }).asConstant(!whenExprs.some(x => !x.then?.isConstant || !x.when?.isConstant));
 }
 
 function buildMember(data: _ISelection, op: ExprMember): IValue {
@@ -375,20 +375,20 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
         , hash([onExpr.hash, op.op, op.member])
         , data
         , typeof op.member === 'string'
-            ? raw => {
-                const value = onExpr.get(raw);
+            ? (raw, t) => {
+                const value = onExpr.get(raw, t);
                 if (!value || typeof value !== 'object') {
                     return null;
                 }
                 return conv(value[op.member]);
             }
-            : raw => {
-                const value = onExpr.get(raw);
+            : (raw, t) => {
+                const value = onExpr.get(raw, t);
                 if (!Array.isArray(value)) {
                     return null;
                 }
                 return conv(value[op.member]);
-            });
+            }).asConstant(onExpr.isConstant);
 }
 
 
@@ -404,12 +404,12 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
         , `(${onExpr.sql})[${index.sql}]`
         , hash({ array: onExpr.hash, index: index.hash })
         , data
-        , (raw, isResult) => {
-            const value = onExpr.get(raw);
+        , (raw, t, isResult) => {
+            const value = onExpr.get(raw, t);
             if (!Array.isArray(value)) {
                 return null;
             }
-            const i = index.get(raw);
+            const i = index.get(raw, t);
             if (typeof i !== 'number' || i <= 0 || i > value.length) {
                 return null;
             }
@@ -418,7 +418,7 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
                 return null;
             }
             return ret;
-        });
+        }).asConstant(allConstants(onExpr, index));
 }
 
 
@@ -444,16 +444,16 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         , `${value.sql} BETWEEN ${lo.sql} AND ${hi.sql}`
         , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
         , data
-        , raw => {
-            const v = value.get(raw);
+        , (raw, t) => {
+            const v = value.get(raw, t);
             if (v === null || v === undefined) {
                 return null;
             }
-            const lov = lo.get(raw);
+            const lov = lo.get(raw, t);
             if (lov !== null && lov !== undefined && type.lt(v, lov)) {
                 return conv(false);
             }
-            const hiv = hi.get(raw);
+            const hiv = hi.get(raw, t);
             if (hiv !== null && hiv !== undefined && type.gt(v, hiv)) {
                 return conv(false);
             }
@@ -462,7 +462,11 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
             }
             return conv(true);
         }
-    )
+    ).asConstant(allConstants(value, hi, lo))
+}
+
+function allConstants(...exprs: IValue[]) {
+    return !exprs.some(x => !x.isConstant);
 }
 
 
@@ -477,10 +481,10 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
         , '<subselection>'
         , Math.random().toString() // must not be indexable => always different hash
         , null
-        , raw => {
+        , (raw, t) => {
             const ret = [];
-            for (const v of onData.enumerate()) {
-                ret.push(onData.columns[0].get(v));
+            for (const v of onData.enumerate(t)) {
+                ret.push(onData.columns[0].get(v, t));
             }
             return ret;
         });

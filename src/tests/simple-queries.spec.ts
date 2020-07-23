@@ -22,7 +22,7 @@ describe('Simple queries', () => {
     });
 
     function simpleDb() {
-        db.declareTable({
+        db.query.declareTable({
             name: 'data',
             fields: [{
                 id: 'id',
@@ -98,8 +98,7 @@ describe('Simple queries', () => {
 
     function setupNulls() {
         const db = simpleDb()
-        db.getTable('data')
-            .createIndex(['str']);
+        none('create index on data(str)');
         none(`insert into data(id, str) values ('id1', null)`);
         none(`insert into data(id, str) values ('id2', 'notnull2')`);
         none(`insert into data(id, str) values ('id3', null)`);
@@ -133,7 +132,7 @@ describe('Simple queries', () => {
 
         it('"IN" clause with constants index', () => {
             simpleDb();
-            db.getTable('data').createIndex(['str']);
+            db.query.none('create index on data(str)');
             preventSeqScan(db);
             none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3')`);
             const got = many(`select * from data where str in ('str1', 'str3')`);
@@ -163,7 +162,7 @@ describe('Simple queries', () => {
 
         it('"NOT IN" clause with constants index', () => {
             simpleDb();
-            db.getTable('data').createIndex(['str']);
+            db.query.none('create index on data(str)');
             preventSeqScan(db);
             none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3'), ('id4', 'str4')`);
             const got = many(`select * from data where str not in ('str1', 'str3')`);
@@ -215,6 +214,11 @@ describe('Simple queries', () => {
         none(`insert into data(id) values ('SOME STRING')`);
         const result = many(`select lower(id) from data`);
         expect(result).to.deep.equal([{ column0: 'some string' }]);
+    });
+
+    it('aliases are case insensitive', () => {
+        simpleDb();
+        none(`select xx.ID from data as XX`);
     });
 
     it('call lower in condition', () => {

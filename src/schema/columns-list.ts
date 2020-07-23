@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _Transaction, _IQuery } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
@@ -17,7 +17,7 @@ export class ColumnsListSchema implements _ITable {
         return 'columns';
     }
 
-    schema: Schema = {
+    _schema: Schema = {
         name: 'columns',
         fields: [
             { id: 'table_catalog', type: Types.text() }
@@ -68,10 +68,10 @@ export class ColumnsListSchema implements _ITable {
         ]
     };
     selection: _ISelection<any> = new Selection(this, {
-        schema: this.schema
+        schema: this._schema
     });
 
-    constructor(readonly db: _IDb) {
+    constructor(readonly schema: _IQuery) {
     }
 
     insert(toInsert: any): void {
@@ -85,22 +85,25 @@ export class ColumnsListSchema implements _ITable {
         throw new ReadOnlyError('information schema');
     }
 
-    get entropy(): number {
-        return this.db.tablesCount * 10;
+    entropy(t: _Transaction): number {
+        return this.schema.db.listSchemas()
+            .reduce((tot, s) => tot + s.tablesCount(t) * 10, 0);
     }
 
-    *enumerate() {
-        for (const t of this.db.listTables()) {
-            yield* this.itemsByTable(t);
+    *enumerate(t: _Transaction) {
+        for (const s of this.schema.db.listSchemas()) {
+            for (const it of s.listTables(t)) {
+                yield* this.itemsByTable(it, t);
+            }
         }
     }
 
-    make(table: string, i: number, t: IValue<any>): any {
+    make(table: _ITable, i: number, t: IValue<any>): any {
         if (!t) {
             return null;
         }
         let ret = {};
-        for (const { id } of this.schema.fields) {
+        for (const { id } of this._schema.fields) {
             ret[id] = null;
         }
 
@@ -108,7 +111,7 @@ export class ColumnsListSchema implements _ITable {
             ...ret,
             table_catalog: 'pgmem',
             table_schema: 'public',
-            table_name: table,
+            table_name: table.name,
             column_name: t.id,
             ordinal_position: i,
             is_nullable: 'NO',
@@ -133,7 +136,7 @@ export class ColumnsListSchema implements _ITable {
 
             [IS_SCHEMA]: true,
         };
-        setId(ret, '/schema/table/' + table + '/' + i);
+        setId(ret, `/schema/${table.schema.name}/table/${table.name}/${i}`);
         return ret;
     }
 
@@ -152,14 +155,18 @@ export class ColumnsListSchema implements _ITable {
         throw new NotSupported('subscribing information schema');
     }
 
-    *itemsByTable(table: string | _ITable) {
-        const got = typeof table === 'string'
-            ? this.db.getTable(table, true)
-            : table;
-        if (got) {
+    *itemsByTable(table: string | _ITable, t: _Transaction) {
+        if (typeof table === 'string') {
+            for (const s of this.schema.db.listSchemas()) {
+                const got = s.getTable(table, true);
+                if (got) {
+                    yield* this.itemsByTable(got, t);
+                }
+            }
+        } else {
             let i = 0;
-            for (const f of got.selection.columns) {
-                yield this.make(got.name, ++i, f);
+            for (const f of table.selection.columns) {
+                yield this.make(table, ++i, f);
             }
         }
     }

@@ -1,22 +1,54 @@
-import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _IQuery } from './interfaces-private';
+import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported, TableNotFound, Schema } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _IQuery, _ISelectionSource, _Transaction, _ITable } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
+import { Transaction } from './transaction';
+import { Map as ImMap } from 'immutable';
+import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 
-
-
+type Tables = ImMap<string, _ITable>;
 export class Query implements _IQuery, IQuery {
-    private dualTable = new MemoryTable(this.db, { fields: [], name: null });
 
-    constructor(private db: _IDb) {
-        this.dualTable.insert({});
+    private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: null });
+    private tables = new Map<string, _ITable>();
+
+
+    constructor(readonly name: string, readonly db: _IDb) {
+        this.dualTable.insert(this.db.data, {});
+    }
+
+    pgSchema() {
+
+        this.tables.set('pg_constraint', new PgConstraintTable(this))
+        this.tables.set('pg_class', new PgClassListTable(this))
+        this.tables.set('pg_namespace', new PgNamespaceTable(this))
+        this.tables.set('pg_attribute', new PgAttributeTable(this))
+        this.tables.set('pg_index', new PgIndexTable(this))
+        this.tables.set('pg_type', new PgTypeTable(this));
+
+
+        const tbl = this.declareTable({
+            name: 'current_schema',
+            fields: [
+                { id: 'current_schema', type: Types.text() },
+            ]
+        });
+        tbl.insert(this.db.data, { current_schema: this.name });
+        tbl.setHidden().setReadonly();
+        return this;
+    }
+
+    informationSchma() {
+        // SELECT * FROM "information_schema"."tables" WHERE ("table_schema" = 'public' AND "table_name" = 'user')
+        this.tables.set('tables', new TablesSchema(this));
+        this.tables.set('columns', new ColumnsListSchema(this));
     }
 
     none(query: string): void {
@@ -29,14 +61,15 @@ export class Query implements _IQuery, IQuery {
 
     private _query(query: string): any[] {
         query = query + ';';
-        // console.log(query);
-        // console.log('\n');
+        console.log(query);
+        console.log('\n');
 
         let parsed = parse(query);
         if (!Array.isArray(parsed)) {
             parsed = [parsed];
         }
         let last;
+        let t = this.db.data.fork();
         for (const _p of parsed) {
             if (!_p) {
                 continue;
@@ -44,37 +77,48 @@ export class Query implements _IQuery, IQuery {
             const p = watchUse(_p);
             switch (p.type) {
                 case 'start transaction':
+                    t = t.fork();
+                    continue;
                 case 'commit':
-                    // ignore those
+                    t = t.commit();
+                    if (!t.isChild) {
+                        t = t.fork(); // recreate an implicit transaction
+                    }
                     continue;
                 case 'rollback':
                     // throw new QueryError('Transaction rollback not supported !');
                     continue;
                 case 'insert':
-                    last = this.executeInsert(p);
+                    last = this.executeInsert(t, p);
                     break;
-                // case 'update':
-                //     last = this.executeUpdate(p);
-                //     break;
+                case 'update':
+                    last = this.executeUpdate(t, p);
+                    break;
                 case 'select':
-                    last = this.executeSelect(p);
+                    last = this.executeSelect(t, p);
                     break;
                 case 'create table':
-                    last = this.executeCreateTable(p);
+                    t = t.fullCommit();
+                    last = this.executeCreateTable(t, p);
+                    t = t.fork();
                     break;
                 case 'create index':
-                    last = this.executeCreateIndex(p);
+                    t = t.fullCommit();
+                    last = this.executeCreateIndex(t, p);
+                    t = t.fork();
                     break;
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
             p.check?.();
         }
+        // implicit final commit
+        t.fullCommit();
         return last;
     }
-    executeCreateIndex(p: CreateIndexStatement): any {
+    executeCreateIndex(t: _Transaction, p: CreateIndexStatement): any {
         const indexName = p.indexName;
-        const onTable = this.db.getTable(p.table);
+        const onTable = this.getTable(p.table);
         const columns = p.expressions
             .map<CreateIndexColDef>(x => {
                 return {
@@ -84,21 +128,21 @@ export class Query implements _IQuery, IQuery {
                 }
             });
         onTable
-            .createIndex({
+            .createIndex(t, {
                 columns,
                 indexName,
             });
     }
 
-    executeCreateTable(p: CreateTableStatement): any {
+    executeCreateTable(t: _Transaction, p: CreateTableStatement): any {
         // get creation parameters
         const table = p.name;
-        if (this.db.getTable(table, true)) {
+        if (this.getTable(table, true)) {
             throw new QueryError('Table exists: ' + table);
         }
 
         // perform creation
-        this.db.declareTable({
+        this.declareTable({
             name: table,
             constraints: p.constraints,
             fields: p.columns
@@ -137,16 +181,16 @@ export class Query implements _IQuery, IQuery {
         return null;
     }
 
-    executeSelect(p: SelectStatement): any[] {
-        const t = this.buildSelect(p);
-        return [...t.enumerate()];
+    executeSelect(t: _Transaction, p: SelectStatement): any[] {
+        const subj = this.buildSelect(p);
+        return [...subj.enumerate(t)];
     }
 
     buildSelect(p: SelectStatement): _ISelection {
         if (p.type !== 'select') {
             throw new NotSupported(p.type);
         }
-        let t: _ISelection;
+        let sel: _ISelection;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
             const alias = from.type === 'table'
@@ -161,58 +205,101 @@ export class Query implements _IQuery, IQuery {
             // find what to select
             let newT = from.type === 'statement'
                 ? this.buildSelect(from.statement)
-                : this.db.getSchema(from.db).getTable(from.table)
+                : this.db.getSchema(from.db)
+                        .getTable(from.table)
                     .selection;
 
             // set its alias
             newT = newT.setAlias(alias);
 
-            if (!t) {
+            if (!sel) {
                 // first table to be selected
-                t = newT;
+                sel = newT;
                 continue;
             }
 
 
             switch (from.join?.type) {
                 case 'RIGHT JOIN':
-                    t = new JoinSelection(this.db, newT, t, from.join.on, false);
+                    sel = new JoinSelection(this, newT, sel, from.join.on, false);
                     break;
                 case 'INNER JOIN':
-                    t = new JoinSelection(this.db, t, newT, from.join.on, true);
+                    sel = new JoinSelection(this, sel, newT, from.join.on, true);
                     break;
                 case 'LEFT JOIN':
-                    t = new JoinSelection(this.db, t, newT, from.join.on, false);
+                    sel = new JoinSelection(this, sel, newT, from.join.on, false);
                     break;
                 default:
                     throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
             }
         }
-        t = t ?? this.dualTable.selection;
-        t = t.filter(p.where)
+        sel = sel ?? this.dualTable.selection;
+        sel = sel.filter(p.where)
             .select(p.columns);
-        return t;
+        return sel;
     }
 
-    executeUpdate(p: any): any[] {
-        throw new Error('Method not implemented.');
+    executeUpdate(t: _Transaction, p: UpdateStatement): any[] {
+        const into = this.db
+            .getSchema(p.table.db)
+            .getTable(p.table.table);
+
+        const items = into
+            .selection
+            .filter(p.where);
+
+        const sets = p.sets.map(x => ({
+            ...x,
+            getter: x.value !== 'default' && buildValue(items, x.value),
+        }));
+        const ret = [];
+        const returning = p.returning && buildSelection(new ArrayFilter(items, ret), p.returning);
+        for (const i of items.enumerate(t)) {
+            for (const s of sets) {
+                if (s.value === 'default') {
+                    i[s.column] = null;
+                } else {
+                    i[s.column] = s.getter.get(i, t);
+                }
+            }
+            ret.push(into.update(t, i));
+        }
+
+        if (returning) {
+            return [...returning.enumerate(t)];
+        }
     }
 
-    executeInsert(p: InsertStatement): any[] {
+
+    executeDelete(t: _Transaction, p: any) {
+        // const into = this.db
+        //     .getSchema(p.table.db)
+        //     .getTable(p.table.table);
+
+        // const items = into
+        //     .selection
+        //     .filter(p.where);
+
+        // for (const i of items.enumerate(t)) {
+        //     into.delete(t, i);
+        // }
+    }
+
+    executeInsert(t: _Transaction, p: InsertStatement): any[] {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }
 
         // get table to insert into
-        const t = this.db
+        const table = this.db
             .getSchema(p.into.db)
             .getTable(p.into.table);
 
         // get columns to insert into
-        const columns: string[] = p.columns ?? t.selection.columns.map(x => x.id);
+        const columns: string[] = p.columns ?? table.selection.columns.map(x => x.id);
 
         const ret = [];
-        const returning = p.returning && buildSelection(new ArrayFilter(t.selection, ret), p.returning);
+        const returning = p.returning && buildSelection(new ArrayFilter(table.selection, ret), p.returning);
 
         // get values to insert
         if (p.values) {
@@ -224,24 +311,59 @@ export class Query implements _IQuery, IQuery {
                 const toInsert = {};
                 for (let i = 0; i < val.length; i++) {
                     const notConv = buildValue(null, val[i]);
-                    const col = t.selection.getColumn(columns[i]);
+                    const col = table.selection.getColumn(columns[i]);
                     const converted = notConv.convert(col.type);
                     if (!converted.isConstant) {
                         throw new QueryError('Cannot insert non constant expression');
                     }
-                    toInsert[columns[i]] = converted.get(null);
+                    toInsert[columns[i]] = converted.get();
                 }
-                ret.push(t.insert(toInsert));
+                ret.push(table.insert(t, toInsert));
             }
         } else if (p.select) {
-            const selection = this.executeSelect(p.select);
+            const selection = this.executeSelect(t, p.select);
             throw new Error('todo: array-mode iteration');
         } else {
             throw new QueryError('Nothing to insert');
         }
 
         if (returning) {
-            return [...returning.enumerate()];
+            return [...returning.enumerate(t)];
+        }
+    }
+
+    getTable(name: string, nullIfNotExists?: boolean): _ITable {
+        name = name.toLowerCase();
+        const got = this.tables.get(name);
+        if (!got && !nullIfNotExists) {
+            throw new TableNotFound(name);
+        }
+        return got;
+    }
+
+
+    declareTable(table: Schema) {
+        const nm = table.name.toLowerCase();
+        if (this.tables.has(nm)) {
+            throw new Error('Table exists: ' + nm);
+        }
+        const trans = this.db.data.fork();
+        const ret = new MemoryTable(this, trans, table);
+        trans.commit();
+        this.tables.set(nm, ret);
+        return ret;
+    }
+
+    tablesCount(t: _Transaction): number {
+        return this.tables.size;
+    }
+
+
+    *listTables(t: _Transaction): Iterable<_ITable> {
+        for (const t of this.tables.values()) {
+            if (!t.hidden) {
+                yield t;
+            }
         }
     }
 }
