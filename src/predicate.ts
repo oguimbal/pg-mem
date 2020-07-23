@@ -306,7 +306,7 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
                 type: 'binary',
                 op: '=',
                 left: op.value,
-                right: v.value,
+                right: v.when,
             },
             value: v.value,
         }));

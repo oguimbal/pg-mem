@@ -25,6 +25,6 @@
         // ... this will not check that the full query is used anymore
         //  but it is easyier to debug
         //  ( ⚠ set it back to 'false' once you're done)
-        "NOCHECKFULLQUERYUSAGE": "true",
+        "NOCHECKFULLQUERYUSAGE": "false",
     }
 }

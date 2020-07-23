@@ -133,7 +133,7 @@ export class ColumnsListSchema implements _ITable {
 
             [IS_SCHEMA]: true,
         };
-        setId(ret, '/schema/table/' + table + '/' + table);
+        setId(ret, '/schema/table/' + table + '/' + i);
         return ret;
     }
 

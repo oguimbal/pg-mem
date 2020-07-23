@@ -7,14 +7,16 @@ import { JoinSelection } from './transforms/join';
 import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 import { MemoryTable } from './table';
+import { buildSelection } from './transforms/selection';
+import { ArrayFilter } from './transforms/array-filter';
 
 
 
 export class Query implements _IQuery, IQuery {
-    private dualTable = new MemoryTable(this.db, { fields: [], name: null })
-        .insert({});
+    private dualTable = new MemoryTable(this.db, { fields: [], name: null });
 
     constructor(private db: _IDb) {
+        this.dualTable.insert({});
     }
 
     none(query: string): void {
@@ -27,7 +29,8 @@ export class Query implements _IQuery, IQuery {
 
     private _query(query: string): any[] {
         query = query + ';';
-        console.log(query);
+        // console.log(query);
+        // console.log('\n');
 
         let parsed = parse(query);
         if (!Array.isArray(parsed)) {
@@ -45,7 +48,8 @@ export class Query implements _IQuery, IQuery {
                     // ignore those
                     continue;
                 case 'rollback':
-                    throw new QueryError('Transaction rollback not supported !');
+                    // throw new QueryError('Transaction rollback not supported !');
+                    continue;
                 case 'insert':
                     last = this.executeInsert(p);
                     break;
@@ -96,6 +100,7 @@ export class Query implements _IQuery, IQuery {
         // perform creation
         this.db.declareTable({
             name: table,
+            constraints: p.constraints,
             fields: p.columns
                 .map<SchemaField>(f => {
                     let primary = false;
@@ -108,6 +113,9 @@ export class Query implements _IQuery, IQuery {
                         case 'unique':
                             unique = true;
                             notNull = f.constraint.notNull;
+                            break;
+                        case 'not null':
+                            notNull = true;
                             break;
                         case null:
                         case undefined:
@@ -122,6 +130,7 @@ export class Query implements _IQuery, IQuery {
                         primary,
                         unique,
                         notNull,
+                        autoIncrement: f.dataType.type === 'serial',
                     }
                 })
         });
@@ -189,7 +198,7 @@ export class Query implements _IQuery, IQuery {
         throw new Error('Method not implemented.');
     }
 
-    executeInsert(p: InsertStatement): void {
+    executeInsert(p: InsertStatement): any[] {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }
@@ -202,10 +211,12 @@ export class Query implements _IQuery, IQuery {
         // get columns to insert into
         const columns: string[] = p.columns ?? t.selection.columns.map(x => x.id);
 
+        const ret = [];
+        const returning = p.returning && buildSelection(new ArrayFilter(t.selection, ret), p.returning);
+
         // get values to insert
         if (p.values) {
             const values = p.values;
-
             for (const val of values) {
                 if (val.length !== columns.length) {
                     throw new QueryError('Insert columns / values count mismatch');
@@ -220,13 +231,17 @@ export class Query implements _IQuery, IQuery {
                     }
                     toInsert[columns[i]] = converted.get(null);
                 }
-                t.insert(toInsert);
+                ret.push(t.insert(toInsert));
             }
         } else if (p.select) {
             const selection = this.executeSelect(p.select);
             throw new Error('todo: array-mode iteration');
         } else {
             throw new QueryError('Nothing to insert');
+        }
+
+        if (returning) {
+            return [...returning.enumerate()];
         }
     }
 }

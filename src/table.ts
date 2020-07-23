@@ -1,9 +1,10 @@
-import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError } from './interfaces';
+import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection } from './transforms/selection';
 import { parse } from './parser/parser';
+import { nullIsh } from './utils';
 
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
@@ -17,7 +18,9 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     private it = 0;
     private hasPrimary: boolean;
     private readonly: boolean;
+    private serials = new Map<string, number>();
     hidden: boolean;
+    private notNulls: Set<string>;
 
     get entropy() {
         return this.all.size;
@@ -42,6 +45,29 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         }
         for (const u of schema.fields.filter(x => x.unique)) {
             this.createIndex([u.id], 'unique');
+        }
+        for (const s of schema.fields.filter(x => x.autoIncrement)) {
+            this.serials.set(s.id, 0);
+        }
+
+        this.notNulls = new Set(schema.fields
+            .filter(x => x.notNull)
+            .map(x => x.id));
+
+        for (const c of schema.constraints ?? []) {
+            switch (c.type) {
+                case 'primary key':
+                    if (primaries.length) {
+                        throw new QueryError('Dupplicate primary key declaration');
+                    }
+                    this.createIndex(c.columns, 'primary', c.constraintName);
+                    break;
+                case 'unique':
+                    this.createIndex(c.columns, 'unique', c.constraintName);
+                    break;
+                default:
+                    throw NotSupported.never(c, 'constraint type');
+            }
         }
     }
 
@@ -76,15 +102,28 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         return this.all.values();
     }
 
-    insert(toInsert: T): this {
+    insert(toInsert: T): T {
         if (this.readonly) {
             throw new ReadOnlyError(this._schema.name);
         }
         const newId = this._schema.name + '_' + (this.it++);
         setId(toInsert, newId);
+        // serial (auto increments) columns
+        for (const [k, v] of this.serials.entries()) {
+            if (!nullIsh(toInsert[k])) {
+                continue;
+            }
+            toInsert[k] = v + 1;
+            this.serials.set(k, v + 1);
+        }
         this.indexElt(toInsert);
+        for (const c of this.notNulls) {
+            if (nullIsh(toInsert[c])) {
+                throw new QueryError(`null value in column "${c}" violates not-null constraint`);
+            }
+        }
         this.all.set(newId, toInsert);
-        return this;
+        return toInsert;
     }
 
     private indexElt(toInsert: T) {
@@ -114,7 +153,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         return got ?? null;
     }
 
-    createIndex(expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique'): this {
+    createIndex(expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique', indexName?: string): this {
         if (this.readonly) {
             throw new ReadOnlyError(this._schema.name);
         }
@@ -149,7 +188,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
 
         const ihash = expressions.columns.map(x => x.value.hash).sort().join('|');
-        const index = new BIndex(expressions.columns, this, expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
+        const index = new BIndex(expressions.columns, this, indexName ?? expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
         if (this.indicesByHash.has(ihash) || this.indicesByName.has(index.indexName)) {
             throw new QueryError('Index already exists');
         }

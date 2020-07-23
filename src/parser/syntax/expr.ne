@@ -88,6 +88,7 @@ expr_final
 expr_basic
     -> expr_call
     | expr_case
+    | current_schema {% () => ({ type: 'call', function: 'current_schema', args: [] }) %}
     | (word | star) {% ([value]) => ({ type: 'ref', name: unwrap(value) }) %}
 
 expr_call -> expr_fn_name lparen expr_list_raw rparen {% x => ({

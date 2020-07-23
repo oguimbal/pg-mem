@@ -70,6 +70,9 @@ export class Adapters implements LibAdapters {
                         text: query,
                         values,
                     };
+                } else {
+                    // clean copy to avoid mutating things outside our scope
+                    query = {...query};
                 }
                 if (!values?.length) {
                     return query;
@@ -79,12 +82,15 @@ export class Adapters implements LibAdapters {
                     throw new NotSupported('getTypeParser is not supported');
                 }
 
+                // console.log(query);
+                // console.log('\n');
+
                 query.text = query.text.replace(/\$(\d+)/g, (str, istr) => {
                     const i = Number.parseInt(istr);
-                    if (i >= values.length) {
-                        throw new Error('Unkonwn parameter ' + str);
+                    if (i > values.length) {
+                        throw new Error('Unmatched parameter in query ' + str);
                     }
-                    const val = values[i];
+                    const val = values[i - 1];
                     switch (typeof val) {
                         case 'string':
                             return pgEscape('%L', val);

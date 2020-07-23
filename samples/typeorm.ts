@@ -1,9 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, Connection } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, Connection, BaseEntity, LessThan } from "typeorm";
 import { newDb } from '../src/db';
 
 // Declare an entity
 @Entity()
-export class User {
+export class User extends BaseEntity {
 
     @PrimaryGeneratedColumn({ type: 'int' })
     id: number;
@@ -29,6 +29,32 @@ export class User {
 
     // create tables
     await got.synchronize();
+    const users = got.getRepository(User);
+
+    // create entities
+    await users.create({
+        firstName: 'john',
+        lastName: 'doe',
+        age: 18,
+    }).save();
+    await users.create({
+        firstName: 'john',
+        lastName: 'lennon',
+        age: 99,
+    }).save();
+    await users.create({
+        firstName: 'donald',
+        lastName: 'duck',
+        age: 12,
+    }).save();
+
+    // query entities
+    const youngJohns = await users.find({
+        firstName: 'john',
+        age: LessThan(30)
+    });
+
+    console.log(youngJohns.map(x => x.lastName)); // outputs 'doe' !
 
 })();
 

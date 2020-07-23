@@ -16,12 +16,13 @@ export function getId(item: any): string {
     return got;
 }
 
-export function setId(item: any, id: string) {
+export function setId<T = any>(item: T, id: string): T {
     const got = item[ID];
     if (got) {
         throw new Error('Unexpected: Cannto update an ID');
     }
     item[ID] = id;
+    return item;
 }
 
 export interface _IQuery extends IQuery {
@@ -63,7 +64,7 @@ export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
     readonly hidden: boolean;
     readonly name: string;
     readonly selection: _ISelection<T>;
-    insert(toInsert: T): void;
+    insert(toInsert: T): T;
     createIndex(expressions: string[] | CreateIndexDef): this;
     setReadonly(): this;
 }

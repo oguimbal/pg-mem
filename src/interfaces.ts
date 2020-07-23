@@ -1,8 +1,10 @@
+import { TableConstraint } from './parser/syntax/ast';
 
 
 export interface Schema {
     name: string;
     fields: SchemaField[];
+    constraints?: TableConstraint[];
 }
 
 export interface SchemaField {
@@ -11,6 +13,7 @@ export interface SchemaField {
     primary?: boolean;
     unique?: boolean;
     notNull?: boolean;
+    autoIncrement?: boolean;
 }
 
 export interface IType {
@@ -75,8 +78,8 @@ export interface IndexDef {
 }
 
 export class CastError extends Error {
-    constructor(from: DataType, to: DataType) {
-        super(`failed to cast ${from} to ${to}`);
+    constructor(from: DataType, to: DataType, inWhat?:string) {
+        super(`failed to cast ${from} to ${to}`+ (inWhat ? ' in ' + inWhat : ''));
     }
 }
 export class ColumnNotFound extends Error {

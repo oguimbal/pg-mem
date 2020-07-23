@@ -9,6 +9,12 @@ import { Adapters } from './adapters';
 import { Types } from './datatypes';
 import { TablesSchema } from './schema/table-list';
 import { ColumnsListSchema } from './schema/columns-list';
+import { PgConstraintTable } from './schema/pg-constraints-list';
+import { PgClassListTable } from './schema/pg-class-list';
+import { PgNamespaceTable } from './schema/pg-namespace-list';
+import { PgAttributeTable } from './schema/pg-attribute-list';
+import { PgIndexTable } from './schema/pg-index-list';
+import { PgTypeTable } from './schema/pg-type-list';
 
 export function newDb(): IMemoryDb {
     initialize({
@@ -29,21 +35,30 @@ class MemoryDb implements _IDb {
     private otherSchemas = new Map<string, _IDb>();
 
     constructor(private defaultSchema?: _IDb, private name?: string) {
-        this.declareTable({
+        const tbl = this.declareTable({
             name: 'current_schema',
             fields: [
                 { id: 'current_schema', type: Types.text() },
             ]
-        })
-            .insert({ current_schema: 'public' })
+        });
+        tbl.insert({ current_schema: 'public' });
+        tbl
             .setHidden()
             .setReadonly();
+
+        this.tables.set('pg_constraint', new PgConstraintTable(this));
+        this.tables.set('pg_class', new PgClassListTable(this));
+        this.tables.set('pg_namespace', new PgNamespaceTable(this));
+        this.tables.set('pg_attribute', new PgAttributeTable(this));
+        this.tables.set('pg_index', new PgIndexTable(this));
+        this.tables.set('pg_type', new PgTypeTable(this));
 
         if (!name) {
             const schema = this.declareSchema('information_schema');
             // SELECT * FROM "information_schema"."tables" WHERE ("table_schema" = 'public' AND "table_name" = 'user')
             schema.tables.set('tables', new TablesSchema(this))
             schema.tables.set('columns', new ColumnsListSchema(this))
+            schema.tables.set('columns', new ColumnsListSchema(this));
         }
     }
 

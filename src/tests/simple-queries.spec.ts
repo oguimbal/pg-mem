@@ -203,6 +203,13 @@ describe('Simple queries', () => {
     });
 
 
+    it('insert returning', () => {
+        expect(many(`create table test(id serial primary key, val text, nl text);
+                                insert into test(val) values ('a'), ('b') returning id, val;`))
+            .to.deep.equal([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
+    });
+
+
     it('call lower in select', () => {
         simpleDb();
         none(`insert into data(id) values ('SOME STRING')`);
@@ -336,6 +343,26 @@ describe('Simple queries', () => {
                 .to.deep.equal([{ x: 2.5 }]);
             expect(many(`select  1 + 1.5 as x;`))
                 .to.deep.equal([{ x: 2.5 }]);
+        });
+
+        describe('implicitely casts t and f to booleans', () => {
+            for (const t of ['t', 'tr', 'true', 'T', 'TR', 'TRu', 'TruE']) {
+                it('casts "' + t + '" to true', () => {
+                    expect(many(`select  '${t}'=true as x;`))
+                        .to.deep.equal([{ x: true }]);
+                })
+            }
+            for (const f of ['f', 'fa', 'false', 'F', 'Fa', 'Fal', 'FALSE']) {
+                it('casts "' + f + '" to false', () => {
+                    expect(many(`select  '${f}'=false as x;`))
+                        .to.deep.equal([{ x: true }]);
+                })
+            }
+
+            it('casts "t" to true in case', () => {
+                expect(many(`select case true when 't' then 'yes' else 'no' end as x`))
+                    .to.deep.equal([{ x: 'yes' }]);
+            })
         });
 
         it('implicitely casts in + from int table', () => {
@@ -551,6 +578,17 @@ describe('Simple queries', () => {
             .to.deep.equal([{ x: null }])
     });
 
+    it('auto increments values', () => {
+        expect(many(`create table test(id serial, txt text);
+                    insert into test(txt) values ('a'), ('b');
+                    select * from test;`))
+            .to.deep.equal([{ id: 1, txt: 'a' }, { id: 2, txt: 'b' }])
+    });
+
+    it('not null does not accept null values', () => {
+        assert.throws(() => none(`create table test(txt text not null);
+                    insert into test(txt) values (null);`));
+    });
 
     describe('Between operator', () => {
 

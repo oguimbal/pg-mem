@@ -1,10 +1,10 @@
 import 'mocha';
 import 'chai';
-import { checkStatement } from './spec-utils';
+import { checkInsert } from './spec-utils';
 
 describe('PG syntax: Insert', () => {
 
-    checkStatement([`insert into test(a, b) values (1, 'x')`, `INSERT INTO"test"(a,"b")VALUES(1,'x')`], {
+    checkInsert([`insert into test(a, b) values (1, 'x')`, `INSERT INTO"test"(a,"b")VALUES(1,'x')`], {
         type: 'insert',
         into: { table: 'test' },
         columns: ['a', 'b'],
@@ -17,7 +17,7 @@ describe('PG syntax: Insert', () => {
         }]],
     });
 
-    checkStatement([`insert into test(a) values (1)`], {
+    checkInsert([`insert into test(a) values (1)`], {
         type: 'insert',
         into: { table: 'test' },
         columns: ['a'],
@@ -27,7 +27,36 @@ describe('PG syntax: Insert', () => {
         },]],
     });
 
-    checkStatement([`insert into db . test(a, b) values (1, 'x')`, `INSERT INTO"db"."test"(a,"b")VALUES(1,'x')`], {
+    checkInsert([`insert into test values (1) returning "id";`], {
+        type: 'insert',
+        into: { table: 'test' },
+        returning: [{ expr: { type: 'ref', name: 'id' } }],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        },]],
+    });
+
+    checkInsert([`insert into test values (1) returning "id" as x;`], {
+        type: 'insert',
+        into: { table: 'test' },
+        returning: [{ expr: { type: 'ref', name: 'id' }, alias: 'x' }],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        },]],
+    });
+    checkInsert([`insert into test values (1) returning "id", val;`], {
+        type: 'insert',
+        into: { table: 'test' },
+        returning: [{ expr: { type: 'ref', name: 'id' } }, { expr: { type: 'ref', name: 'val' } }],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        },]],
+    });
+
+    checkInsert([`insert into db . test(a, b) values (1, 'x')`, `INSERT INTO"db"."test"(a,"b")VALUES(1,'x')`], {
         type: 'insert',
         into: { table: 'test', db: 'db' },
         columns: ['a', 'b'],
@@ -42,7 +71,7 @@ describe('PG syntax: Insert', () => {
 
 
 
-    checkStatement([`insert into db . test(a, b) select a,b FROM x . test`], {
+    checkInsert([`insert into db . test(a, b) select a,b FROM x . test`], {
         type: 'insert',
         into: { table: 'test', db: 'db' },
         columns: ['a', 'b'],
@@ -67,7 +96,7 @@ describe('PG syntax: Insert', () => {
         }
     });
 
-    checkStatement([`insert into "test" select * FROM test`, `insert into test(select * FROM test)`], {
+    checkInsert([`insert into "test" select * FROM test`, `insert into test(select * FROM test)`], {
         type: 'insert',
         into: { table: 'test' },
         select: {

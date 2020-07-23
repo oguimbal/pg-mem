@@ -90,4 +90,32 @@ describe('PG syntax: Create table', () => {
         }],
     });
 
+    checkCreateTable(['create table"test"(id serial not null)'], {
+        type: 'create table',
+        name: 'test',
+        columns: [{
+            name: 'id',
+            dataType: { type: 'serial' },
+            constraint: { type: 'not null' },
+        }],
+    });
+
+
+
+    checkCreateTable(['create table"test"(a text, constraint pkey primary key(a), b text)'], {
+        type: 'create table',
+        name: 'test',
+        columns: [{
+            name: 'a',
+            dataType: { type: 'text' },
+        }, {
+            name: 'b',
+            dataType: { type: 'text' },
+        }],
+        constraints: [{
+            type: 'primary key',
+            constraintName: 'pkey',
+            columns: ['a'],
+        }]
+    });
 });

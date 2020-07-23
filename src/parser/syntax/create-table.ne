@@ -3,26 +3,61 @@
 
 
 # https://www.postgresql.org/docs/12/sql-createtable.html
-createtable_statement -> %kw_create %kw_table kw_ifnotexists:? word lparen createtable_columnList rparen {% x => ({
-    type: 'create table',
-    ... !!x[2] ? { ifNotExists: true } : {},
-    name: x[3],
-    columns: x[5],
-}) %}
+createtable_statement -> %kw_create %kw_table kw_ifnotexists:? word lparen createtable_declarationlist rparen {% x => {
+
+    const cols = x[5].filter(v => 'dataType' in v);
+    const constraints = x[5].filter(v => !('dataType' in v));
+
+    return {
+        type: 'create table',
+        ... !!x[2] ? { ifNotExists: true } : {},
+        name: x[3],
+        columns: cols,
+        ...constraints.length ? { constraints } : {},
+    }
+} %}
 
 
 
-createtable_columnList -> createtable_column (comma createtable_column {% last %}):* {% ([head, tail]) => {
+createtable_declarationlist -> createtable_declaration (comma createtable_declaration {% last %}):* {% ([head, tail]) => {
     return [head, ...(tail || [])];
 } %}
+
+createtable_declaration -> (createtable_constraint | createtable_column) {% unwrap %}
+
+# see "table_constraint" section of doc
+createtable_constraint -> %kw_constraint word createtable_constraint_def {% x => {
+    const name = unwrap(x[1]);
+    if (!name) {
+        return unwrap(x[2]);
+    }
+    return {
+        constraintName: name,
+        ...unwrap(x[2]),
+    }
+} %}
+
+createtable_constraint_def
+    -> kw_not_null {% ()=> ({ type: 'not null' }) %}
+    | (%kw_unique | kw_primary_key) lparen createtable_collist rparen {% x => ({
+        type: flattenStr(x[0]).join(' ').toLowerCase(),
+        columns: x[2],
+    }) %}
+
+
+createtable_collist -> ident (comma ident {% last %}):* {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}
+
 
 createtable_column -> word data_type createtable_column_constraint:? {% x => ({
     name: x[0],
     dataType: x[1],
-    constraint: x[2],
+    ...x[2] ? { constraint: x[2] }: {},
 }) %}
 
 # todo handle advanced constraints (see doc)
 createtable_column_constraint
     -> %kw_unique kw_not_null:? {% ([_, nn]) => ({ type: 'unique', ...!!nn ? {notNull: !!nn} : {}}) %}
-    | %kw_primary kw_key {% () => ({ type: 'primary key' }) %}
+    | kw_primary_key {% () => ({ type: 'primary key' }) %}
+    | kw_not_null {% () => ({ type: 'not null' }) %}

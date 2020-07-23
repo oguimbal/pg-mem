@@ -84,6 +84,7 @@ kw_values -> %word {% notReservedKw('values')  %}
 # === Composite keywords
 kw_ifnotexists -> kw_if %kw_not kw_exists
 kw_not_null -> %kw_not %kw_null
+kw_primary_key -> %kw_primary kw_key
 
 
 # === Datatype
@@ -92,7 +93,7 @@ data_type -> word (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% 
     const type = unwrap(x[0]).toLowerCase();
     let ret = {
         type,
-        ... (x[1] >= 0 ) ? { length: x[1] } : {},
+        ... (typeof x[1] === 'number' && x[1] >= 0 ) ? { length: x[1] } : {},
     };
     for (const b of brack) {
         ret = {
@@ -110,14 +111,12 @@ data_type -> word (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% 
 ident_aliased -> (%kw_as ident {% last %}) | ident {% unwrap %}
 
 table_ref
-    -> (ident dot {% id %}):? ident {% x => ({
+    -> (ident dot {% id %}):? (ident | current_schema) {% x => ({
         table: unwrap(x[1]),
         ...x[0] ? { db: unwrap(x[0]) } : {},
     })%}
-    # Handle select * from current_schema()
-    | %kw_current_schema (lparen rparen):? {% x => ({
-        table: 'current_schema'
-    })%}
+
+current_schema -> %kw_current_schema (lparen rparen):? {% () => 'current_schema' %}
 
 # Select on tables MAY have an alias
 table_ref_aliased -> table_ref ident_aliased:? {% x => {

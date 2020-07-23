@@ -6,7 +6,7 @@ var isCoverage = process.env.NODE_ENV === 'coverage';
 
 module.exports = {
     entry: {
-        'postgres': ['webpack/hot/poll?100', './samples/typeorm.ts']
+        'postgres': ['./samples/typeorm.ts']
         , 'tests': isCoverage
             ? ['./tests-index.js']
             : ['webpack/hot/poll?100', './tests-index.js']

@@ -28,7 +28,7 @@ select_subject
 # [tableName] or [select x, y from z]
 select_table_base
     -> table_ref_aliased {% x => ({ type: 'table', ...x[0]}) %}
-    | select_subject_select_statement
+    | select_subject_select_statement {% unwrap %}
 
 # [, othertable] or [join expression]
 # select_table_joined

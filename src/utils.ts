@@ -1,5 +1,5 @@
 import moment from 'moment';
-import { Stack } from 'immutable';
+import { List } from 'immutable';
 import { IValue, NotSupported } from './interfaces-private';
 
 export interface Ctor<T> extends Function {
@@ -32,58 +32,53 @@ export function trimNullish<T>(value: T, depth = 5): T {
 }
 
 
-export function watchUse<T>(value: T, stack: Stack<string> = Stack()): T & { check?(); } {
-    if (!value || globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
-        return value;
+export function watchUse<T>(rootValue: T): T & { check?(); } {
+    if (!rootValue || globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
+        return rootValue;
     }
-    if (typeof value !== 'object') {
+    if (typeof rootValue !== 'object') {
         throw new NotSupported();
     }
-    const ret = {};
+    if (Array.isArray(rootValue)) {
+        throw new NotSupported();
+    }
     const toUse = new Map<string, any>();
-    const watchables: { check(); }[] = [];
-    for (const [k, _v] of Object.entries(value)) {
-        let v = _v;
-        if (Array.isArray(v)) {
-            const trans = [];
-            for (const x of v) {
-                if (typeof x === 'object' && x) {
-                    const w = watchUse(x, stack.push(`[${trans.length}]`));
-                    watchables.push(w);
-                    trans.push(w);
-                } else {
-                    trans.push(x);
-                }
-            }
-            v = trans;
-        } else if (typeof v === 'object' && v) {
-            v = watchUse(v, stack.push('.' + k));
-            watchables.push(v);
+    function recurse(value: any, stack: List<string> = List()) {
+        if (!value || typeof value !== 'object') {
+            return value;
         }
-        if (v === null || v === undefined) {
-            continue;
+        if (Array.isArray(value)) {
+            return value
+                .map((x, i) => recurse(x, stack.push(`[${i}]`)));
         }
-        toUse.set(k, v);
-        Object.defineProperty(ret, k, {
-            get() {
-                toUse.delete(k);
-                return v;
-            },
-            enumerable: true,
-        });
+        // watch object
+        const ret = {};
+        for (const [k, _v] of Object.entries(value)) {
+            const nstack = stack.push('.' + k);
+            let v = recurse(_v, nstack);
+            const nstackKey = nstack.join('');
+            toUse.set(nstackKey, _v);
+            Object.defineProperty(ret, k, {
+                get() {
+                    toUse.delete(nstackKey);
+                    return v;
+                },
+                enumerable: true,
+            });
+        }
+        return ret;
     }
-    ret['check'] = function () {
+
+    const final = recurse(rootValue);
+
+    final['check'] = function () {
         if (toUse.size) {
-            const st = stack.join('');
-            throw new NotSupported('query parts ' + [...toUse.entries()]
-                .map(([k, v]) => st + '.' + k + ' (' + JSON.stringify(v) + ')')
-                .join(', '));
-        }
-        for (const w of watchables) {
-            w?.check();
+            throw new NotSupported('AST query parts have not been read by the query planner.\nPlease file an issue stating the incriminated request, and:\n- ' + [...toUse.entries()]
+                .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
+                .join('\n- '));
         }
     }
-    return ret as any;
+    return final;
 }
 
 

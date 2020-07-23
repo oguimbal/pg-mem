@@ -49,6 +49,33 @@ export function buildCall(name: string, args: IValue[]) {
             break;
         case 'any':
             return buildAnyCall(args);
+        case 'current_schema':
+            type = Types.text();
+            get = () => 'public';
+            break;
+
+        // a set of functions that are calledby Tyopeorm, but we dont needto support them yet
+        // since there is not result (function never actually called)
+        case 'pg_get_constraintdef':
+        case 'pg_get_expr':
+            type = Types.text();
+            get = () => {
+                throw new NotSupported(name + ' is not supported');
+            };
+            break;
+        case 'unnest':
+            if (args.length !== 1) {
+                throw new QueryError('unnest expects 1 arguments, given ' + args.length);
+            }
+            const utype = args[0].type;
+            if (!(utype instanceof ArrayType)) {
+                throw new QueryError('unnest expects enumerable argument ' + utype.primary);
+            }
+            type = utype.of;
+            get = () => {
+                throw new NotSupported(name + ' is not supported');
+            };
+            break;
         default:
             throw new NotSupported('Unsupported function: ' + name);
     }

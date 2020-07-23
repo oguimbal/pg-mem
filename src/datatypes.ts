@@ -2,7 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
-import { deepEqual, deepCompare } from './utils';
+import { deepEqual, deepCompare, nullIsh } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { DataTypeDef } from './parser/syntax/ast';
 import { parseArrayLiteral } from './parser/parser';
@@ -439,6 +439,7 @@ class TextType extends TypeBase<string> {
         // text is implicitely convertible to dates
         switch (to.primary) {
             case DataType.text:
+            case DataType.bool:
                 return true;
         }
     }
@@ -454,6 +455,8 @@ class TextType extends TypeBase<string> {
             case DataType.json:
                 return true;
             case DataType.regtype:
+                return true;
+            case DataType.bool:
                 return true;
             case DataType.array:
                 return this.canConvert((to as ArrayType).of);
@@ -486,6 +489,22 @@ class TextType extends TypeBase<string> {
                         return conv.startOf('day').toDate();
                     }
                         , sql => `(${sql})::date`
+                        , toDate => ({ toDate }));
+            case DataType.bool:
+                return value
+                    .setConversion(rawStr => {
+                        if(nullIsh(rawStr)) {
+                            return null;
+                        }
+                        const str = (rawStr as string).toLowerCase();
+                        if ('true'.startsWith(str)) {
+                            return true;
+                        } else if ('false'.startsWith(str)) {
+                            return false;
+                        }
+                        throw new CastError(DataType.text, DataType.bool, 'string ' + rawStr);
+                    }
+                        , sql => `(${sql})::boolean`
                         , toDate => ({ toDate }));
             case DataType.json:
             case DataType.jsonb:
@@ -741,6 +760,7 @@ export function fromNative(native: DataTypeDef): _IType {
             return Types.text(native.length);
         case 'int':
         case 'integer':
+        case 'serial':
             return Types.int;
         case 'decimal':
         case 'float':
@@ -756,7 +776,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'regtype':
             return Types.regtype;
         case 'array':
-            return makeArray(fromNative(native.arrayOf))
+            return makeArray(fromNative(native.arrayOf));
         default:
             throw new NotSupported('Type ' + JSON.stringify(native.type));
     }
@@ -778,7 +798,7 @@ export function reconciliateTypes(values: IValue[]): _IType {
         .reduce((final, c) => {
             const pref = final.prefer(c.type);
             if (!pref) {
-                throw new CastError(c.type.primary, final.primary);
+                throw new CastError(c.type.primary, final.primary, c.sql);
             }
             return pref;
         }, Types.null);

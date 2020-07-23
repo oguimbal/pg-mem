@@ -1,19 +1,26 @@
 @lexer lexer
 @include "base.ne"
 @include "expr.ne"
+@include "select.ne"
 
 insert_statement -> (kw_insert %kw_into)
                         table_ref_aliased
                     (lparen insert_collist rparen {% get(1) %}):?
                     (kw_values insert_values {% last %}):?
                     (select_statement | select_statement_paren):?
+                    (%kw_returning select_expr_list_aliased {% last %}):?
                     {% x => {
+                        const columns = x[2];
+                        const values = x[3];
+                        const select = unwrap(x[4]);
+                        const returning = x[5];
                         return {
                             type: 'insert',
                             into: unwrap(x[1]),
-                            columns: x[2],
-                            values: x[3],
-                            select: unwrap(x[4]),
+                            ...columns ? { columns } : {},
+                            ...values ? { values } : {},
+                            ...select ? { select } : {},
+                            ...returning ? { returning } : {},
                         }
                     } %}
 

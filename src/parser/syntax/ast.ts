@@ -20,8 +20,11 @@ export interface RollbackStatement {
 export interface InsertStatement {
     type: 'insert';
     into: TableRefAliased;
+    returning?: SelectedColumn[];
     columns?: string[];
+    /** Insert values */
     values?: Expr[][];
+    /** Insert into select */
     select?: SelectStatement;
 }
 
@@ -45,6 +48,8 @@ export interface CreateTableStatement {
     name: string;
     ifNotExists?: true;
     columns: CreateColumnDef[];
+    /** Constraints not defined inline */
+    constraints?: TableConstraint[];
 }
 
 export interface CreateColumnDef {
@@ -60,12 +65,26 @@ export interface DataTypeDef {
     arrayOf?: DataTypeDef;
 }
 
-type ColumnConstraint = {
-    type: 'unique';
-    notNull?: boolean;
-} | {
+export type ColumnConstraint = UniqueConstraint | PrimaryConstraint | NotNullConstraint;
+
+export interface NotNullConstraint {
+    type: 'not null';
+}
+
+export interface PrimaryConstraint {
     type: 'primary key';
 }
+
+export interface UniqueConstraint {
+    type: 'unique';
+    notNull?: boolean;
+}
+
+export type TableConstraint = (PrimaryConstraint | UniqueConstraint) & {
+    constraintName?: string;
+    columns: string[];
+}
+
 
 export interface SelectStatement {
     type: 'select',
@@ -109,9 +128,9 @@ export interface JoinClause {
 }
 
 export type JoinType = 'INNER JOIN'
-| 'LEFT JOIN'
-| 'RIGHT JOIN'
-| 'FULL JOIN';
+    | 'LEFT JOIN'
+    | 'RIGHT JOIN'
+    | 'FULL JOIN';
 
 export type Expr = ExprRef
     | ExprList
