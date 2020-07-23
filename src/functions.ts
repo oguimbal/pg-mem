@@ -1,9 +1,10 @@
 import { IValue, _IType, _ISelection } from './interfaces-private';
-import { Types, singleSelection } from './datatypes';
+import { Types, singleSelection, ArrayType } from './datatypes';
 import { QueryError, DataType, NotSupported } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 import moment from 'moment';
+import { parseArrayLiteral } from './parser/parser';
 
 export function buildCall(name: string, args: IValue[]) {
     let type: _IType;
@@ -46,6 +47,8 @@ export function buildCall(name: string, args: IValue[]) {
             };
             type = Types.date;
             break;
+        case 'any':
+            return buildAnyCall(args);
         default:
             throw new NotSupported('Unsupported function: ' + name);
     }
@@ -59,4 +62,44 @@ export function buildCall(name: string, args: IValue[]) {
             const argRaw = args.map(x => x.get(raw));
             return get(...argRaw);
         });
+}
+
+
+function buildAnyCall(args: IValue[]) {
+    if (args.length !== 1) {
+        throw new QueryError('ANY() expects 1 argument, given ' + args.length);
+    }
+    const array = args[0];
+
+    // == if ANY(select something) ... get the element type
+    if (array.type instanceof ArrayType) {
+        return new Evaluator(
+            array.type.of
+            , null
+            , `ANY(${array.sql})`
+            , hash({ any: array.hash })
+            , singleSelection(args)
+            , raw => {
+                return array.get(raw);
+            }
+            , true // <== isAny !
+        );
+    }
+
+    // == if ANY('{elements}') ... will be an array of text => keep text
+
+    if (array.type !== Types.text() || !array.isConstantLiteral) {
+        throw new QueryError('ANY() expects either a selection, or an array literal');
+    }
+    // parse ANY() array literal
+    const arrayValue = parseArrayLiteral(array.get(null));
+    return new Evaluator(
+        Types.text()
+        , null
+        , `ANY(${array.sql})`
+        , hash({ any: array.hash })
+        , singleSelection(args)
+        , arrayValue
+        , true // <== isAny !
+    );
 }

@@ -27,7 +27,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         return this._schema.name;
     }
 
-    constructor(private owner: _IDb, schema: Schema) {
+    constructor(readonly db: _IDb, schema: Schema) {
         this._schema = schema;
         // this.primary = raw => primaries.map(x => raw[x.id]).join('|');
         this.selection = new Selection(this, {
@@ -58,7 +58,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         for (const h of got ?? []) {
             h();
         }
-        this.owner.raiseTable(this._schema.name, event);
+        this.db.raiseTable(this._schema.name, event);
     }
 
     setReadonly() {

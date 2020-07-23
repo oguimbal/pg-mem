@@ -3,9 +3,10 @@ import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from '.
 import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
-import { Types, isNumeric, isInteger, singleSelection, fromNative, reconciliateTypes, ArrayType } from './datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary } from './parser/syntax/ast';
+import { Types, isNumeric, isInteger, singleSelection, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from './parser/syntax/ast';
 import lru from 'lru-cache';
+import { buildFilter } from './transforms/build-filter';
 
 
 const builtLru = new lru<Expr, IValue>({
@@ -65,6 +66,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return Value.bool(val.value);
         case 'ternary':
             return buildTernary(data, val);
+        case 'select':
+            return buildSelectAsArray(data, val);
         default:
             throw NotSupported.never(val);
     }
@@ -200,7 +203,17 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
                 if (pattern === null) {
                     return Value.null(Types.bool);
                 }
-                const matcher = buildLikeMatcher(pattern, caseSenit);
+                let matcher: (str: string) => boolean;
+                if (rightValue.isAny) {
+                    // handle LIKE ANY()
+                    if (!Array.isArray(pattern)) {
+                        throw new QueryError('Unsupported use of ANY()');
+                    }
+                    const patterns = pattern.map(x => buildLikeMatcher(x, caseSenit));
+                    matcher = v => patterns.some(x => x(v));
+                } else {
+                    matcher = buildLikeMatcher(pattern, caseSenit);
+                }
                 getter = not
                     ? a => nullIsh(a) ? true : !matcher(a)
                     : a => nullIsh(a) ? null : matcher(a);
@@ -216,6 +229,12 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
     const sql = `${leftValue.id} ${op} ${rightValue.id}`;
     const hashed = hash({ left: leftValue.hash, op, right: rightValue.hash });
+
+    // handle cases like:  blah = ANY(stuff)
+    if (leftValue.isAny || rightValue.isAny) {
+        return buildBinaryAny(leftValue, op, rightValue, returnType, getter, sql, hashed);
+    }
+
     return new Evaluator(
         returnType
         , null
@@ -227,6 +246,55 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             const rightRaw = rightValue.get(raw);
             return getter(leftRaw, rightRaw);
         });
+
+}
+
+function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, sql: string, hashed: string) {
+    if (leftValue.isAny && rightValue.isAny) {
+        throw new QueryError('ANY() cannot be compared to ANY()');
+    }
+    if (returnType !== Types.bool) {
+        throw new QueryError('Invalid ANY() usage');
+    }
+    return new Evaluator(
+        returnType
+        , null
+        , sql
+        , hashed
+        , singleSelection([leftValue, rightValue])
+        , leftValue.isAny
+            ? raw => {
+                const leftRaw = leftValue.get(raw);
+                if (nullIsh(leftRaw)) {
+                    return null;
+                }
+                if (!Array.isArray(leftRaw)) {
+                    throw new QueryError('Invalid ANY() usage: was expacting an array');
+                }
+                for (const lr of leftRaw) {
+                    const rightRaw = rightValue.get(raw);
+                    if (getter(lr, rightRaw)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            : raw => {
+                const rightRaw = rightValue.get(raw);
+                if (nullIsh(rightRaw)) {
+                    return null;
+                }
+                if (!Array.isArray(rightRaw)) {
+                    throw new QueryError('Invalid ANY() usage: was expacting an array');
+                }
+                for (const rr of rightRaw) {
+                    const leftRaw = leftValue.get(raw);
+                    if (getter(leftRaw, rr)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
 }
 
 
@@ -395,4 +463,25 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
             return conv(true);
         }
     )
+}
+
+
+function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
+    const onData = data.subquery(data, op);
+    if (onData.columns.length !== 1) {
+        throw new QueryError('subquery has too many columns');
+    }
+    return new Evaluator(
+        makeArray(onData.columns[0].type)
+        , null
+        , '<subselection>'
+        , Math.random().toString() // must not be indexable => always different hash
+        , null
+        , raw => {
+            const ret = [];
+            for (const v of onData.enumerate()) {
+                ret.push(onData.columns[0].get(v));
+            }
+            return ret;
+        });
 }

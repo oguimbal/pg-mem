@@ -1,9 +1,10 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISelectionSource } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb } from '../interfaces-private';
 import type { buildSelection, buildAlias } from './selection';
 import type { buildFilter } from './build-filter';
-import { Expr, SelectedColumn } from '../parser/syntax/ast';
+import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
+import { IQuery } from 'src/interfaces';
 
 interface Fns {
     buildSelection: typeof buildSelection;
@@ -23,6 +24,8 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract hasItem(value: T): boolean;
     abstract getIndex(forValue: IValue): _IIndex<any>;
 
+    constructor(readonly db: _IDb) {
+    }
 
     select(select: SelectedColumn[]): _ISelection<any> {
         return fns.buildSelection(this, select);
@@ -41,13 +44,18 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return fns.buildAlias(this, alias);
     }
 
+
+    subquery(data: _ISelection<any>, op: SelectStatement): _ISelection {
+        // todo: handle refs to 'data' in op statement.
+        return this.db.query.buildSelect(op);
+    }
 }
 
 export abstract class TransformBase<T, TSel extends _ISelectionSource = _ISelectionSource> extends DataSourceBase<T> {
 
 
     constructor(protected base: TSel) {
-        super();
+        super(base.db);
     }
 
     get entropy(): number {

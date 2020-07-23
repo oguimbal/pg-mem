@@ -665,4 +665,40 @@ describe('PG syntax: Expressions', () => {
             else: { type: 'integer', value: 2 },
         });
     });
+
+
+
+
+    // ====================================
+    // ============= SUBSELCT =============
+    // ====================================
+    describe('Selection expressions', () => {
+
+        checkTreeExpr(['a = any(select * from tbl)'], {
+            type: 'binary',
+            op: '=',
+            left: { type: 'ref', name: 'a' },
+            right: {
+                type: 'call',
+                function: 'any',
+                args: [{
+                    type: 'select',
+                    columns: [{ expr: { type: 'ref', name: '*' } }],
+                    from: [{ type: 'table', table: 'tbl' }],
+                }]
+            }
+        });
+
+
+        checkTreeExpr(['a in (select * from tb)'], {
+            type: 'binary',
+            op: 'IN',
+            left: { type: 'ref', name: 'a' },
+            right: {
+                type: 'select',
+                columns: [{ expr: { type: 'ref', name: '*' } }],
+                from: [{ type: 'table', table: 'tb' }],
+            }
+        });
+    })
 });

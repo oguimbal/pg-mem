@@ -16,7 +16,7 @@ export function parse(sql: string, entry?: string): any {
     return _parse(sql, sqlCompiled, entry);
 }
 
-export function parseArrayLiteral(sql: string): any {
+export function parseArrayLiteral(sql: string): string[] {
     if (!arrayCompiled) {
         arrayCompiled = Grammar.fromCompiled(arrayGrammar);
     }

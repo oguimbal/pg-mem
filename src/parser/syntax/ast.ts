@@ -127,6 +127,7 @@ export type Expr = ExprRef
     | ExprCast
     | ExprBool
     | ExprCall
+    | SelectStatement
     | ExprTernary;
 
 

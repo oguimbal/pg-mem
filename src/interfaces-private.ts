@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent } from './interfaces';
-import { Expr, SelectedColumn } from './parser/syntax/ast';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, IQuery } from './interfaces';
+import { Expr, SelectedColumn, SelectStatement } from './parser/syntax/ast';
 
 export * from './interfaces';
 
@@ -24,7 +24,12 @@ export function setId(item: any, id: string) {
     item[ID] = id;
 }
 
+export interface _IQuery extends IQuery {
+    buildSelect(p: SelectStatement): _ISelection;
+}
+
 export interface _ISelectionSource<T = any> {
+    readonly db: _IDb;
     /** Statistical measure of how many items will be returned by this selection */
     readonly entropy: number;
     enumerate(): Iterable<T>;
@@ -42,9 +47,11 @@ export interface _ISelection<T = any> extends _ISelectionSource {
     select(select: SelectedColumn[]): _ISelection;
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
     setAlias(alias?: string): _ISelection;
+    subquery(data: _ISelection<any>, op: SelectStatement): _ISelection;
 }
 
 export interface _IDb extends IMemoryDb {
+    readonly query: _IQuery;
     readonly tablesCount: number;
     getSchema(db: string): _IDb;
     listTables(): Iterable<_ITable>;
@@ -97,7 +104,13 @@ export interface _IType<TRaw = any> extends IType {
 export interface IValue<TRaw = any> {
     readonly type: _IType<TRaw>;
 
+    /** is 'any()' call ? */
+    readonly  isAny: boolean;
+
+    /** Is a constant (2+2) */
     readonly isConstant: boolean;
+
+    /** Is a literal constant ? (constant not defined as an operation) */
     readonly isConstantLiteral: boolean;
 
     /** Will be set if there is an index on this value */

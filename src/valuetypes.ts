@@ -4,6 +4,7 @@ import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType, isNumeric, singleSelection } from './datatypes';
 import { Query } from './query';
 import { buildCall } from './functions';
+import { parseArrayLiteral } from './parser/parser';
 
 
 let convDepth = 0;
@@ -18,7 +19,8 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly sql: string
         , readonly hash: string
         , readonly origin: _ISelection
-        , public val: Object | number | string | Date | ((raw: any, isResult: boolean) => any)) {
+        , public val: Object | number | string | Date | ((raw: any, isResult: boolean) => any)
+        , public isAny: boolean = false) {
         this.isConstantLiteral = typeof val !== 'function';
     }
 
@@ -33,6 +35,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.hash
             , this.origin
             , this.val
+            , this.isAny
         );
     }
 
@@ -48,16 +51,26 @@ export class Evaluator<T = any> implements IValue<T> {
             , hash(hashConv(this.hash))
             , this.origin
             , raw => {
-                const got = this.get(raw);
+                let got = this.get(raw);
                 if (got === null || got === undefined) {
                     return null;
                 }
-                return converter(got, convDepth == 1);
+                if (!this.isAny) {
+                    return converter(got, convDepth == 1);
+                }
+                if (!Array.isArray(got)) {
+                    throw new QueryError('Unexpected use of ANY()');
+                }
+                return got.map(x => converter(x, convDepth === 1));
             }
+            , this.isAny
         ).asConstant(this.isConstant);
     }
 
     setWrapper(wrap: (val: any) => any) {
+        if (this.isAny) {
+            throw new QueryError('Unexpected use of ANY()');
+        }
         return new Evaluator<T>(
             this.type
             , this.id
@@ -71,6 +84,7 @@ export class Evaluator<T = any> implements IValue<T> {
                 }
                 return this.get(got);
             }
+            , this.isAny
         ).asConstant(this.isConstant);
     }
 
@@ -85,6 +99,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.hash
             , this.origin
             , this.val
+            , this.isAny
         );
     }
 
@@ -118,7 +133,8 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.sql
             , this.hash
             , this.origin
-            , this.get(null));
+            , this.get(null)
+            , this.isAny);
     }
 
     canConvert(to: DataType | _IType<T>): boolean {

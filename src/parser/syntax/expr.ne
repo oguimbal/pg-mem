@@ -1,5 +1,6 @@
 @lexer lexer
 @include "base.ne"
+@include "select.ne"
 
 # === MACROS
 opt_paren[X]
@@ -38,7 +39,7 @@ expr_left_unary[KW, This, Next]
 # ======== Operator precedence
 #  -> https://www.postgresql.org/docs/12/sql-syntax-lexical.html#SQL-PRECEDENCE
 expr -> expr_paren {% unwrap %} | expr_or {% unwrap %}
-expr_paren -> lparen (expr | expr_list_many) rparen {% get(1) %}
+expr_paren -> lparen (expr_or_select | expr_list_many) rparen {% get(1) %}
 expr_or -> expr_binary[%kw_or, expr_or, expr_and]
 expr_and -> expr_binary[%kw_and, expr_and, expr_not]
 expr_not -> expr_left_unary[%kw_not, expr_not, expr_eq]
@@ -119,12 +120,13 @@ ops_between -> %kw_not:? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].va
 ops_member -> (%op_member | %op_membertext) {% x => unwrap(x).value %}
 
 # x,y,z
-expr_list_raw -> expr (comma expr {% last %}):* {% ([head, tail]) => {
+expr_list_raw -> expr_or_select (comma expr_or_select {% last %}):* {% ([head, tail]) => {
     return [head, ...(tail || [])];
 } %}
-expr_list_raw_many -> expr (comma expr {% last %}):+ {% ([head, tail]) => {
-    return [head, ...(tail || [])];
+expr_list_raw_many -> expr_or_select (comma expr_or_select {% last %}):+ {% ([head, tail]) => {
+    return [unwrap(head), ...(tail || []).map(unwrap)];
 } %}
+expr_or_select -> (expr | select_statement) {% unwrap %}
 
 expr_list_many -> expr_list_raw_many {% x => ({
     type: 'list',

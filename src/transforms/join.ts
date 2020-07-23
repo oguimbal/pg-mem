@@ -37,12 +37,12 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return this.left.entropy;
     }
 
-    constructor(private db: _IDb
+    constructor(db: _IDb
         , private left: _ISelection<TLeft>
         , private right: _ISelection<TRight>
         , on: any
         , private innerJoin: boolean) {
-        super();
+        super(db);
 
         this.joinId = jCnt++;
         this._columns = [

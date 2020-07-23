@@ -314,7 +314,7 @@ describe('Simple queries', () => {
     })
 
 
-    it ('checks this is an invalid syntax', () => {
+    it('checks this is an invalid syntax', () => {
         assert.throws(() => none(`create table test(val integer);
                 create index on test(val);
                 insert into test values (1), (2), (3), (4)
@@ -614,16 +614,30 @@ describe('Simple queries', () => {
         });
     })
 
-    for (const x of [
-        { query: `select '2' = any('{1,2}') x;`, result: { x: true } }
-        , { query: `select 2.0 = any('{1,2}') x;`, result: { x: true } } // <== with implicit cast
-        , { query: `select 2.1 = any('{1,2}') x;`, result: { x: true } }
-        , { query: `select 'foo' like any('{%OO%}') x;`, result: { x: true } }
-        , { query: `select 'bar' like any('{%OO%}') x;`, result: { x: false } }
-    ]) {
-        it('can execute ANY(): ' + x.query, () => {
-            expect(many(x.query))
-                .to.deep.equal([x.result]);
+
+    describe('ANY() and operators', () => {
+        for (const x of [
+            { query: `select '2' = any('{1,2}') x;`, result: { x: true } }
+            , { query: `select 2.0 = any('{1,2}') x;`, result: { x: true } } // <== with implicit cast
+            , { query: `select 2.1 = any('{1,2}') x;`, result: { x: false } }
+            , { query: `select 'foo' like any('{%OO%}') x;`, result: { x: false } }
+            , { query: `select 'foo' like any('{%oo%}') x;`, result: { x: true } }
+            , { query: `select 'bar' like any('{%OO%}') x;`, result: { x: false } }
+        ]) {
+            it('can execute ANY(): ' + x.query, () => {
+                expect(many(x.query))
+                    .to.deep.equal([x.result]);
+            })
+        }
+
+        it('can execute any on a selection', () => {
+            expect(many(`create table vals(val int);
+                            insert into vals values (0), (1), (50), (100), (101);
+                            select 50 = any(select * from vals) as x`))
+                .to.deep.eq([{ x: true }])
+            expect(many(`select 42 = any(select * from vals) as x`))
+                .to.deep.eq([{ x: false }])
+
         })
-    }
+    })
 });

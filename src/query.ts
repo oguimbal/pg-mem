@@ -1,5 +1,5 @@
 import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _IQuery } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
@@ -10,7 +10,7 @@ import { MemoryTable } from './table';
 
 
 
-export class Query implements IQuery {
+export class Query implements _IQuery, IQuery {
     private dualTable = new MemoryTable(this.db, { fields: [], name: null })
         .insert({});
 
