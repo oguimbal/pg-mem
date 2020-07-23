@@ -26,7 +26,8 @@ export class OrFilter<T = any> extends FilterBase<T> {
             yielded.add(getId(item));
         }
         for (const item of this.right.enumerate(t)) {
-            if (!yielded.has(getId(item))) {
+            const id = getId(item);
+            if (!yielded.has(id)) {
                 yield item;
             }
         }

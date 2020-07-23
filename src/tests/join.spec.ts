@@ -172,8 +172,8 @@ describe('Joins', () => {
                             where ta.num < 10 OR tb.num < 10`);
         preventSeqScan(db);
         expect(result).to.deep.equal([
-            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2', anum: 100, bnum: 1 },
             { val: 'val1', aid: 'aid3', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 100 },
+            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2', anum: 100, bnum: 1 },
         ]);
     });
 
