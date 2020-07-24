@@ -42,6 +42,7 @@ export class Evaluator<T = any> implements IValue<T> {
         , private opts?: {
             isAny?: boolean;
             isColumnOf?: _ISelection;
+            unpure?: boolean;
         }) {
         this.isConstantLiteral = typeof val !== 'function';
 
@@ -77,6 +78,7 @@ export class Evaluator<T = any> implements IValue<T> {
 
         if (!this.usedColumns.size // no used columns
             && !this.origin
+            && !this.opts?.unpure
              && !depArray?.some(x => !x.isConstantReal)  // all real constant dependencies
              ) {
             // no dependency => this is a real constant => evaluate it.

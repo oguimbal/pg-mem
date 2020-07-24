@@ -638,6 +638,13 @@ describe('PG syntax: Expressions', () => {
             function: 'any',
             args: [{ type: 'ref', name: 'c' }],
         });
+
+
+        checkTreeExpr([`now()`], {
+            type: 'call',
+            function: 'now',
+            args: [],
+        });
     });
 
 

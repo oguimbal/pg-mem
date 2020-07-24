@@ -11,6 +11,7 @@ export function buildCall(name: string, args: IValue[]) {
     let get: (...args: any[]) => any;
 
     name = name.toLowerCase();
+    let unpure: boolean;
     switch (name) {
         case 'lower':
         case 'upper':
@@ -82,6 +83,7 @@ export function buildCall(name: string, args: IValue[]) {
             }
             type = Types.timestamp;
             get = () => new Date();
+            unpure = true;
             break;
         default:
             throw new NotSupported('Unsupported function: ' + name);
@@ -95,7 +97,7 @@ export function buildCall(name: string, args: IValue[]) {
         , (raw, t) => {
             const argRaw = args.map(x => x.get(raw, t));
             return get(...argRaw);
-        });
+        }, unpure ? { unpure } : undefined);
 }
 
 

@@ -91,10 +91,10 @@ expr_basic
     | current_schema {% () => ({ type: 'call', function: 'current_schema', args: [] }) %}
     | (word | star) {% ([value]) => ({ type: 'ref', name: unwrap(value) }) %}
 
-expr_call -> expr_fn_name lparen expr_list_raw rparen {% x => ({
+expr_call -> expr_fn_name lparen expr_list_raw:? rparen {% x => ({
         type: 'call',
         function: flattenStr(x[0]).join('').toLowerCase(),
-        args: x[2],
+        args: x[2] || [],
     }) %}
 
 expr_primary
