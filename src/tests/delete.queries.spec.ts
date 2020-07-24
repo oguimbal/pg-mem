@@ -1,0 +1,57 @@
+import 'mocha';
+import 'chai';
+import { newDb } from '../db';
+import { expect, assert } from 'chai';
+import { trimNullish } from '../utils';
+import { Types } from '../datatypes';
+import { preventSeqScan } from './test-utils';
+import { IMemoryDb } from '../interfaces';
+
+describe('[Queries] Deletes', () => {
+
+    let db: IMemoryDb;
+    let many: (str: string) => any[];
+    let none: (str: string) => void;
+    beforeEach(() => {
+        db = newDb();
+        many = db.public.many.bind(db.public);
+        none = db.public.none.bind(db.public);
+    });
+
+    it('can delete with conditions', () => {
+        expect(many(`create table test(a text);
+            insert into test values ('a'), ('b'), ('c');
+            delete from test where a <= 'b';
+            select * from test;`))
+            .to.deep.equal([{ a: 'c' }])
+    });
+
+    it('can delete with conditions within transaction', () => {
+        expect(many(`create table test(a text);
+            start transaction;
+            insert into test values ('a'), ('b'), ('c');
+            delete from test where a <= 'b';
+            commit;
+            select * from test;`))
+            .to.deep.equal([{ a: 'c' }])
+    });
+
+
+    it('does not delete if rollback transaction', () => {
+        expect(many(`create table test(a text);
+            start transaction;
+            insert into test values ('a'), ('b'), ('c');
+            delete from test where a <= 'b';
+            rollback;
+            select * from test;`))
+            .to.deep.equal([{ a: 'a' }, { a: 'b' }, { a: 'c' }])
+    });
+
+    it('can truncate table', () => {
+        expect(many(`create table test(a text);
+        insert into test values ('a'), ('b'), ('c');
+        truncate test;
+        select * from test;`))
+            .to.deep.equal([])
+    });
+});
