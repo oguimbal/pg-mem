@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType, _Transaction } from './interfaces-private';
 import { DataType, QueryError, CastError } from './interfaces';
 import hash from 'object-hash';
-import { Types, makeArray, makeType, ArrayType, isNumeric, singleSelection } from './datatypes';
+import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
 import { Query } from './query';
 import { buildCall } from './functions';
 import { parseArrayLiteral } from './parser/parser';
@@ -13,16 +13,77 @@ let convDepth = 0;
 export class Evaluator<T = any> implements IValue<T> {
 
     readonly isConstantLiteral: boolean;
+    readonly usedColumns = new Set<IValue>();
+
+    get index() {
+        return this.origin?.getIndex(this);
+    }
+
+    get isConstant(): boolean {
+        return !this.usedColumns.size;
+    }
+
+    get isConstantReal(): boolean {
+        return typeof this.val !== 'function';
+    }
+
+    readonly origin: _ISelection;
+    get isAny(): boolean {
+        return this.opts?.isAny;
+    }
 
     constructor(
         readonly type: _IType<T>
         , readonly id: string
         , readonly sql: string
         , readonly hash: string
-        , readonly origin: _ISelection
+        , dependencies: IValue | IValue[]
         , public val: Object | number | string | Date | ((raw: any, transaction: _Transaction, isResult: boolean) => any)
-        , public isAny: boolean = false) {
+        , private opts?: {
+            isAny?: boolean;
+            isColumnOf?: _ISelection;
+        }) {
         this.isConstantLiteral = typeof val !== 'function';
+
+        // fetch columns to depend on
+        let depArray: IValue[];
+        if (dependencies) {
+            if (!Array.isArray(dependencies)) {
+                depArray = [dependencies];
+                this.usedColumns = dependencies.usedColumns as Set<IValue>;
+                this.origin = dependencies.origin;
+            } else {
+                this.usedColumns = new Set();
+                const origs = new Set();
+                for (const d of dependencies) {
+                    if (d.origin) {
+                        origs.add(d.origin);
+                    }
+                    for (const u of d.usedColumns) {
+                        this.usedColumns.add(u);
+                    }
+                }
+                if (origs.size === 1) {
+                    this.origin = origs.values().next().value;
+                }
+            }
+        }
+
+        if (opts?.isColumnOf) {
+            this.usedColumns.add(this);
+            this.origin = opts.isColumnOf;
+            delete opts.isColumnOf;
+        }
+
+        if (!this.usedColumns.size // no used columns
+            && !this.origin
+             && !depArray?.some(x => !x.isConstantReal)  // all real constant dependencies
+             ) {
+            // no dependency => this is a real constant => evaluate it.
+            if (typeof this.val === 'function') {
+                this.val = this.val(null, null, true);
+            }
+        }
     }
 
     setType(type: _IType) {
@@ -34,9 +95,9 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.id
             , this.sql
             , this.hash
-            , this.origin
+            , this
             , this.val
-            , this.isAny
+            , this.opts
         );
     }
 
@@ -50,7 +111,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.id
             , sqlConv(this.sql)
             , hash(hashConv(this.hash))
-            , this.origin
+            , this
             , (raw, t) => {
                 let got = this.get(raw, t);
                 if (got === null || got === undefined) {
@@ -64,8 +125,8 @@ export class Evaluator<T = any> implements IValue<T> {
                 }
                 return got.map(x => converter(x, convDepth === 1));
             }
-            , this.isAny
-        ).asConstant(this.isConstant);
+            , this.opts
+        );
     }
 
     setWrapper(wrap: (val: any) => any) {
@@ -77,7 +138,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.id
             , this.sql
             , this.hash
-            , this.origin
+            , this
             , (raw, t) => {
                 const got = wrap(raw)
                 if (got === null || got === undefined) {
@@ -85,8 +146,8 @@ export class Evaluator<T = any> implements IValue<T> {
                 }
                 return this.get(got, t);
             }
-            , this.isAny
-        ).asConstant(this.isConstant);
+            , this.opts
+        );
     }
 
     setId(newId: string): IValue {
@@ -98,18 +159,10 @@ export class Evaluator<T = any> implements IValue<T> {
             , newId
             , this.sql
             , this.hash
-            , this.origin
+            , this
             , this.val
-            , this.isAny
+            , this.opts
         );
-    }
-
-    get index() {
-        return this.origin?.getIndex(this);
-    }
-
-    get isConstant(): boolean {
-        return typeof this.val !== 'function';
     }
 
     get(): T;
@@ -132,19 +185,6 @@ export class Evaluator<T = any> implements IValue<T> {
         } finally {
             convDepth--;
         }
-    }
-
-    asConstant(perform = true) {
-        if (!perform || typeof this.val !== 'function') {
-            return this;
-        }
-        return new Evaluator(this.type
-            , this.id
-            , this.sql
-            , this.hash
-            , this.origin
-            , this._get()
-            , this.isAny);
     }
 
     canConvert(to: DataType | _IType<T>): boolean {
@@ -225,7 +265,7 @@ export class Evaluator<T = any> implements IValue<T> {
 
 export const Value = {
     null(ofType?: _IType): IValue {
-        return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null);
+        return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null, null);
     },
     text(value: string, length: number = null) {
         return new Evaluator(
@@ -281,7 +321,7 @@ export const Value = {
             , null
             , value.sql + ' IN ' + array.sql
             , hash({ val: value.hash, in: array.hash })
-            , value.origin
+            , [value, array]
             , (raw, t) => {
                 const rawValue = value.get(raw, t);
                 const rawArray = array.get(raw, t);
@@ -290,8 +330,7 @@ export const Value = {
                 }
                 const has = rawArray.some(x => of.equals(rawValue, x));
                 return inclusive ? has : !has;
-            })
-            .asConstant(value.isConstant && array.isConstant);
+            });
     },
     isNull(leftValue: IValue, expectNull: boolean) {
         return new Evaluator(
@@ -299,14 +338,14 @@ export const Value = {
             , null
             , `${leftValue.sql} IS${expectNull ? '' : ' NOT'} NULL`
             , hash({ isNull: leftValue.hash, expectNull })
-            , leftValue.origin
+            , leftValue
             , expectNull ? ((raw, t) => {
                 const left = leftValue.get(raw, t);
                 return left === null;
             }) : ((raw, t) => {
                 const left = leftValue.get(raw, t);
                 return left !== null && left !== undefined;
-            })).asConstant(leftValue.isConstant);
+            }))
     },
     isTrue(leftValue: IValue, expectTrue: boolean) {
         leftValue = leftValue.convert(Types.bool);
@@ -315,14 +354,14 @@ export const Value = {
             , null
             , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} TRUE`
             , hash({ isTrue: leftValue.hash, expectTrue })
-            , leftValue.origin
+            , leftValue
             , expectTrue ? ((raw, t) => {
                 const left = leftValue.get(raw, t);
                 return left === true; // never returns null
             }) : ((raw, t) => {
                 const left = leftValue.get(raw, t);
                 return !(left === true); //  never returns null
-            })).asConstant(leftValue.isConstant);
+            }));
     },
     isFalse(leftValue: IValue, expectFalse: boolean) {
         leftValue = leftValue.convert(Types.bool);
@@ -331,14 +370,14 @@ export const Value = {
             , null
             , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} FALSE`
             , hash({ isFalse: leftValue.hash, expectFalse })
-            , leftValue.origin
+            , leftValue
             , expectFalse ? ((raw, t) => {
                 const left = leftValue.get(raw, t);
                 return left === false; // never returns null
             }) : ((raw, t) => {
                 const left = leftValue.get(raw, t);
                 return !(left === false); //  never returns null
-            })).asConstant(leftValue.isConstant);
+            }));
     },
     negate(value: IValue) {
         if (!isNumeric(value.type)) {
@@ -366,10 +405,10 @@ export const Value = {
             , null
             , '(' + converted.map(x => x.sql).join(', ') + ')'
             , hash(converted.map(x => x.hash))
-            , singleSelection(converted)
+            , converted
             , (raw, t) => {
                 const arr = values.map(x => x.get(raw, t));
                 return arr;
-            }).asConstant(!values.some(x => !x.isConstant))
+            });
     }
 } as const;

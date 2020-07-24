@@ -111,7 +111,7 @@ export interface _Column {
     readonly expression: IValue;
     alter(alter: AlterColumn, t: _Transaction): this;
     rename(to: string, t: _Transaction): this;
-    drop(): void;
+    drop(t: _Transaction): void;
 
 }
 
@@ -149,13 +149,19 @@ export interface _IType<TRaw = any> extends IType {
 }
 
 export interface IValue<TRaw = any> {
+    /** Columns used in this expression (if any) */
+    readonly usedColumns: ReadonlySet<IValue>;
+
     readonly type: _IType<TRaw>;
 
     /** is 'any()' call ? */
     readonly isAny: boolean;
 
-    /** Is a constant (2+2) */
+    /** Is a constant... i.e. not dependent on columns. ex: (2+2) or NOW() */
     readonly isConstant: boolean;
+
+    /** Is REAL constant (i.e. 2+2, not varying expressions like NOW()) */
+    readonly isConstantReal: boolean;
 
     /** Is a literal constant ? (constant not defined as an operation) */
     readonly isConstantLiteral: boolean;

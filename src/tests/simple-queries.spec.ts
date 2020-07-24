@@ -621,6 +621,19 @@ describe('Simple queries', () => {
             .to.deep.equal([{ id: 'id', val: 'def' }]);
     });
 
+
+    it('can create columns moving constant defaults', async () => {
+        const orig = many(`create table test(id text, time timestamp default now());
+                    insert into test(id) values ('id1') returning time;`)
+                    .map(x => x.time)[0];
+        assert.instanceOf(orig, Date);
+        await new Promise(done => setTimeout(done, 5)); // wait 5 ms
+        const newtime = many(`insert into test(id) values ('id2') returning time;`)
+                    .map(x => x.time)[0];
+        assert.instanceOf(newtime, Date);
+        expect(orig).not.to.equal(newtime);
+    });
+
     describe('Between operator', () => {
 
         for (const x of [

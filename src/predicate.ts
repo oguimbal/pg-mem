@@ -3,7 +3,7 @@ import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from '.
 import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
-import { Types, isNumeric, isInteger, singleSelection, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
+import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from './parser/syntax/ast';
 import lru from 'lru-cache';
 import { buildFilter } from './transforms/build-filter';
@@ -240,12 +240,12 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
         , null
         , sql
         , hashed
-        , singleSelection([leftValue, rightValue])
+        , [leftValue, rightValue]
         , (raw, t) => {
             const leftRaw = leftValue.get(raw, t);
             const rightRaw = rightValue.get(raw, t);
             return getter(leftRaw, rightRaw);
-        }).asConstant(allConstants(leftValue, rightValue));
+        });
 
 }
 
@@ -261,7 +261,7 @@ function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValu
         , null
         , sql
         , hashed
-        , singleSelection([leftValue, rightValue])
+        , [leftValue, rightValue]
         , leftValue.isAny
             ? (raw, t) => {
                 const leftRaw = leftValue.get(raw, t);
@@ -294,7 +294,7 @@ function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValu
                     }
                 }
                 return false;
-            }).asConstant(allConstants(leftValue, rightValue))
+            });
 }
 
 
@@ -334,7 +334,10 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
             , whenExprs.map(x => `WHEN ${x.when.sql} THEN ${x.then.sql}`).join(' ')
             , ' END'].join(' ')
         , hash({ when: whenExprs.map(x => ({ when: x.when.hash, then: x.then.hash })) })
-        , data
+        , [
+            ...whenExprs.map(x => x.when),
+            ...whenExprs.map(x => x.then)
+        ]
         , (raw, t) => {
             for (const w of whenExprs) {
                 const cond = w.when.get(raw, t);
@@ -343,7 +346,7 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
                 }
             }
             return null;
-        }).asConstant(!whenExprs.some(x => !x.then?.isConstant || !x.when?.isConstant));
+        });
 }
 
 function buildMember(data: _ISelection, op: ExprMember): IValue {
@@ -373,7 +376,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
         , null
         , `(${onExpr.sql})${op.op}${JSON.stringify(op.member)}`
         , hash([onExpr.hash, op.op, op.member])
-        , data
+        , onExpr
         , typeof op.member === 'string'
             ? (raw, t) => {
                 const value = onExpr.get(raw, t);
@@ -388,7 +391,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
                     return null;
                 }
                 return conv(value[op.member]);
-            }).asConstant(onExpr.isConstant);
+            });
 }
 
 
@@ -403,7 +406,7 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
         , null
         , `(${onExpr.sql})[${index.sql}]`
         , hash({ array: onExpr.hash, index: index.hash })
-        , data
+        , [onExpr, index]
         , (raw, t, isResult) => {
             const value = onExpr.get(raw, t);
             if (!Array.isArray(value)) {
@@ -418,7 +421,7 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
                 return null;
             }
             return ret;
-        }).asConstant(allConstants(onExpr, index));
+        });
 }
 
 
@@ -443,7 +446,7 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         , null
         , `${value.sql} BETWEEN ${lo.sql} AND ${hi.sql}`
         , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
-        , data
+        , [value, hi, lo]
         , (raw, t) => {
             const v = value.get(raw, t);
             if (v === null || v === undefined) {
@@ -462,11 +465,7 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
             }
             return conv(true);
         }
-    ).asConstant(allConstants(value, hi, lo))
-}
-
-function allConstants(...exprs: IValue[]) {
-    return !exprs.some(x => !x.isConstant);
+    );
 }
 
 
@@ -480,7 +479,7 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
         , null
         , '<subselection>'
         , Math.random().toString() // must not be indexable => always different hash
-        , null
+        , onData.columns[0]
         , (raw, t) => {
             const ret = [];
             for (const v of onData.enumerate(t)) {

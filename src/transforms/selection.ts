@@ -112,13 +112,17 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     }
 
     createEvaluator(id: string, type: _IType) {
-        return new Evaluator(
+        const ret = new Evaluator(
             type
             , id
             , id
             , id
-            , this
-            , raw => raw[id])
+            , null
+            , raw => raw[id]
+            , {
+                isColumnOf: this
+            });
+        return ret;
     }
 
     addColumn(col: IValue) {

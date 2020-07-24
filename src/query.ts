@@ -159,7 +159,7 @@ export class Query implements _Schema, ISchema {
                 if (!col) {
                     return ignore();
                 }
-                col.drop();
+                col.drop(t);
                 return nop;
             case 'rename column':
                 table.getColumnRef(p.change.column)

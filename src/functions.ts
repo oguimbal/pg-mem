@@ -1,5 +1,5 @@
 import { IValue, _IType, _ISelection } from './interfaces-private';
-import { Types, singleSelection, ArrayType } from './datatypes';
+import { Types, ArrayType } from './datatypes';
 import { QueryError, DataType, NotSupported } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
@@ -76,6 +76,13 @@ export function buildCall(name: string, args: IValue[]) {
                 throw new NotSupported(name + ' is not supported');
             };
             break;
+        case 'now':
+            if (args.length) {
+                throw new QueryError('now expects no arguments, given ' + args.length);
+            }
+            type = Types.timestamp;
+            get = () => new Date();
+            break;
         default:
             throw new NotSupported('Unsupported function: ' + name);
     }
@@ -84,7 +91,7 @@ export function buildCall(name: string, args: IValue[]) {
         , null
         , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })
-        , singleSelection(args)
+        , args
         , (raw, t) => {
             const argRaw = args.map(x => x.get(raw, t));
             return get(...argRaw);
@@ -105,11 +112,11 @@ function buildAnyCall(args: IValue[]) {
             , null
             , `ANY(${array.sql})`
             , hash({ any: array.hash })
-            , singleSelection(args)
+            , args
             , (raw, t) => {
                 return array.get(raw, t);
             }
-            , true // <== isAny !
+            , { isAny: true } // <== isAny !
         );
     }
 
@@ -125,8 +132,8 @@ function buildAnyCall(args: IValue[]) {
         , null
         , `ANY(${array.sql})`
         , hash({ any: array.hash })
-        , singleSelection(args)
+        , args
         , arrayValue
-        , true // <== isAny !
+        , { isAny: true } // <== isAny !
     );
 }

@@ -122,14 +122,6 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
         if (!converted) {
             throw new CastError(this.primary, to.primary);
         }
-        if (a.isConstant) {
-            if (typeof converted.val === 'function') {
-                converted.val = converted.val(null, null, true);
-            }
-            if (converted.val === null) {
-                return Value.null();
-            }
-        }
         return converted.setType(to);
     }
 }
@@ -382,7 +374,7 @@ class NumberType extends TypeBase<number> {
                 , value.id
                 , value.sql
                 , value.hash
-                , value.origin
+                , value
                 , (raw, t) => {
                     const got = value.get(raw, t);
                     return typeof got === 'number'
@@ -408,7 +400,7 @@ class NumberType extends TypeBase<number> {
             , value.id
             , value.sql
             , value.hash
-            , value.origin
+            , value
             , value.val
         );
     }
@@ -505,7 +497,7 @@ class TextType extends TypeBase<string> {
                         throw new CastError(DataType.text, DataType.bool, 'string ' + rawStr);
                     }
                         , sql => `(${sql})::boolean`
-                        , toDate => ({ toDate }));
+                        , toBool => ({ toBool }));
             case DataType.json:
             case DataType.jsonb:
                 return value
@@ -608,7 +600,7 @@ export class ArrayType extends TypeBase<any[]> {
             , value.id
             , value.sql
             , value.hash
-            , value.origin
+            , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
                 return arr.map(x => Value.constant(x, valueType.of).convert(to.of).get(raw, t));
@@ -685,19 +677,6 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
     return to;
 }
 
-export function singleSelection(args: IValue[]) {
-    let sel: _ISelection;
-    for (const a of args) {
-        if (!a.origin) {
-            continue;
-        }
-        if (sel && a.origin !== sel) {
-            return null;
-        }
-        sel = a.origin;
-    }
-    return sel;
-}
 
 // type Ctors = {
 //     [key in DataType]?: _IType;
