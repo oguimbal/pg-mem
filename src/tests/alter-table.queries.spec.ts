@@ -7,7 +7,7 @@ import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
-describe('Queries: Alter table', () => {
+describe('[Queries] Alter table', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];

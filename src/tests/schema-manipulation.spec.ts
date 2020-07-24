@@ -6,7 +6,7 @@ import { watchUse } from '../utils';
 import { preventSeqScan } from './test-utils';
 import moment from 'moment';
 
-describe('Schema manipulation', () => {
+describe('[Queries] Schema manipulation', () => {
 
     it('table with primary', () => {
         const db = newDb();

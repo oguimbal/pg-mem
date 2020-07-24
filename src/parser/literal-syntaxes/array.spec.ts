@@ -4,7 +4,7 @@ import { lexer } from './array-lexer';
 import { expect, assert } from 'chai';
 import { parseArrayLiteral } from '../parser';
 
-describe('PG syntax: Array literals', () => {
+describe('[PG syntax] Array literals', () => {
 
     const hasContent = [
         /^value$/,

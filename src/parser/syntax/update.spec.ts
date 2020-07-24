@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { checkUpdate } from './spec-utils';
 
-describe('PG syntax: Update', () => {
+describe('[PG syntax] Update', () => {
 
     checkUpdate([`update test set a=1`, `UPDATE"test"SET"a"=1`], {
         type: 'update',

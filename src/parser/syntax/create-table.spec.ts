@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { checkCreateTable } from './spec-utils';
 
-describe('PG syntax: Create table', () => {
+describe('[PG syntax] Create table', () => {
 
     checkCreateTable(['create table test(value text)'], {
         type: 'create table',

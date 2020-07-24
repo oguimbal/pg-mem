@@ -7,7 +7,7 @@ import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
-describe('Joins', () => {
+describe('[Queries] Joins', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];

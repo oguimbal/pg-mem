@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { checkInsert } from './spec-utils';
 
-describe('PG syntax: Insert', () => {
+describe('[PG syntax] Insert', () => {
 
     checkInsert([`insert into test(a, b) values (1, 'x')`, `INSERT INTO"test"(a,"b")VALUES(1,'x')`], {
         type: 'insert',

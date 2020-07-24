@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { checkCreateIndex, checkInvalid } from './spec-utils';
 
-describe('PG syntax: Create index', () => {
+describe('[PG syntax] Create index', () => {
 
     checkCreateIndex(['create index blah on test(col)'], {
         type: 'create index',

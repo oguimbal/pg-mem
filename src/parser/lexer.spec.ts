@@ -3,7 +3,7 @@ import 'chai';
 import { lexer } from './lexer';
 import { expect, assert } from 'chai';
 
-describe('PG syntax: Lexer', () => {
+describe('[PG syntax] Lexer', () => {
 
     const hasContent = [
         /^word$/,

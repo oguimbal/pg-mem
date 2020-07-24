@@ -4,8 +4,9 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 import { preventSeqScan } from './test-utils';
+import { Types } from '../datatypes';
 
-describe('Queries: Indices', () => {
+describe('[Queries] Indices', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];
@@ -17,6 +18,50 @@ describe('Queries: Indices', () => {
         db = newDb();
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
+    });
+
+
+    function simpleDb() {
+        db.public.declareTable({
+            name: 'data',
+            fields: [{
+                id: 'id',
+                type: Types.text(),
+                primary: true,
+            }, {
+                id: 'str',
+                type: Types.text(),
+            }, {
+                id: 'otherStr',
+                type: Types.text(),
+            }],
+        });
+        return db;
+    }
+
+    function setupNulls() {
+        const db = simpleDb()
+        none('create index on data(str)');
+        none(`insert into data(id, str) values ('id1', null)`);
+        none(`insert into data(id, str) values ('id2', 'notnull2')`);
+        none(`insert into data(id, str) values ('id3', null)`);
+        none(`insert into data(id, str) values ('id4', 'notnull4')`);
+        return db;
+    }
+
+    it('uses indexes for null values', () => {
+        const db = setupNulls();
+        preventSeqScan(db);
+        const got = many('select * from data where str is null');
+        expect(got).to.deep.equal([{ id: 'id1', str: null }, { id: 'id3', str: null }]);
+    });
+
+
+    it('uses indexes for not null values', () => {
+        const db = setupNulls();
+        preventSeqScan(db);
+        const got = many('select * from data where str is not null');
+        expect(got).to.deep.equal([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
     });
 
     it('primary index does not allow duplicates', () => {
@@ -154,4 +199,65 @@ describe('Queries: Indices', () => {
         preventSeqScan(db); // <== should use index even if index is on expression
         expect(many(`select id from test where a+b=42`).map(x => x.id)).to.deep.equal(['id1', 'id3']);
     });
+
+
+    describe('Indexes on comparisons', () => {
+
+        it('uses asc index on > comparison', () => {
+            preventSeqScan(db);
+            const result = many(`create table test(val integer);
+                                create index on test(val);
+                                insert into test values (1), (2), (3), (4);
+                                select * from test where val > 2`);
+            expect(result).to.deep.equal([{ val: 3 }, { val: 4 }]);
+        });
+
+        it('uses desc index on > comparison', () => {
+            preventSeqScan(db);
+            const result = many(`create table test(val integer);
+                                create index on test(val desc);
+                                insert into test values (1), (2), (3), (4);
+                                select * from test where val > 2`);
+            expect(result).to.deep.equal([{ val: 3 }, { val: 4 }]);
+        });
+
+
+        it('uses asc index on < comparison', () => {
+            preventSeqScan(db);
+            const result = many(`create table test(val integer);
+                                create index on test(val);
+                                insert into test values (1), (2), (3), (4);
+                                select * from test where val < 3`);
+            expect(result).to.deep.equal([{ val: 1 }, { val: 2 }]);
+        });
+
+        it('uses desc index on < comparison', () => {
+            preventSeqScan(db);
+            const result = many(`create table test(val integer);
+                                create index on test(val desc);
+                                insert into test values (1), (2), (3), (4);
+                                select * from test where val < 3`);
+            expect(result).to.deep.equal([{ val: 1 }, { val: 2 }]);
+        });
+
+        it('uses index on <= comparison', () => {
+            preventSeqScan(db);
+            const result = many(`create table test(val integer);
+                                create index on test(val);
+                                insert into test values (1), (2), (3), (4);
+                                select * from test where val <= 2`);
+            expect(result).to.deep.equal([{ val: 1 }, { val: 2 }]);
+        });
+
+
+        it('uses index on >= comparison', () => {
+            preventSeqScan(db);
+            const result = many(`create table test(val integer);
+                                create index on test(val);
+                                insert into test values (1), (2), (3), (4);
+                                select * from test where val >= 2`);
+            expect(result).to.deep.equal([{ val: 2 }, { val: 3 }, { val: 4 }]);
+        });
+
+    })
 });

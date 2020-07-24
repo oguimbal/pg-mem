@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { checkTreeExpr, checkInvalid } from './spec-utils';
 
-describe('PG syntax: Expressions', () => {
+describe('[PG syntax] Expressions', () => {
 
     // ====================================
     // =============== VALUES =============

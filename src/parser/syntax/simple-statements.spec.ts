@@ -3,7 +3,7 @@ import 'chai';
 import { checkStatement } from './spec-utils';
 import { StartTransactionStatement, CommitStatement, Statement } from './ast';
 
-describe('PG syntax: Simple statements', () => {
+describe('[PG syntax] Simple statements', () => {
 
     checkStatement(['start transaction'], {
         type: 'start transaction',

@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { checkAlterTable } from './spec-utils';
 
-describe('PG syntax: Alter table', () => {
+describe('[PG syntax] Alter table', () => {
 
     checkAlterTable(['alter table test rename to newname'], {
         type: 'alter table',
