@@ -1,26 +1,19 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery } from '../interfaces-private';
-import { Selection } from '../transforms/selection';
-import { ReadOnlyError, NotSupported } from '../interfaces';
+import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
 import { ReadOnlyTable } from './readonly-table';
 
 export class PgNamespaceTable extends ReadOnlyTable implements _ITable {
 
-    get name() {
-        return 'pg_namespace';
-    }
-
-    selection: _ISelection<any> = new Selection(this, {
-        schema: {
-            name: 'pg_namespace',
-            fields: [
-                { id: 'oid', type: Types.int } // hidden oid column
-                , { id: 'nspname', type: Types.text() }
-                , { id: 'nspowner', type: Types.int } // oid
-                , { id: 'nspacl', type: Types.jsonb } // aclitem[]
-            ]
-        }
-    });
+    _schema: Schema = {
+        name: 'pg_namespace',
+        fields: [
+            { id: 'oid', type: Types.int } // hidden oid column
+            , { id: 'nspname', type: Types.text() }
+            , { id: 'nspowner', type: Types.int } // oid
+            , { id: 'nspacl', type: Types.jsonb } // aclitem[]
+        ]
+    };
 
 
     entropy(): number {

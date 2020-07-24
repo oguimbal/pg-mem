@@ -60,7 +60,7 @@ export class CustomIndex<T> implements _IIndex<T> {
 
     * nin(keys: any[][], t: _Transaction) {
         const raws = keys.map(x => x[0]) as any[];
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (raws.includes(val)) {
                 continue;
@@ -70,7 +70,7 @@ export class CustomIndex<T> implements _IIndex<T> {
     }
 
     * neq([rawKey]: any, t: _Transaction) {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val !== rawKey) {
                 yield i;
@@ -78,7 +78,7 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
     * gt(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val > rawKey) {
                 yield i;
@@ -86,7 +86,7 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
     * lt(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val < rawKey) {
                 yield i;
@@ -94,7 +94,7 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
     * ge(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val >= rawKey) {
                 yield i;
@@ -102,7 +102,7 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
     * le(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val <= rawKey) {
                 yield i;

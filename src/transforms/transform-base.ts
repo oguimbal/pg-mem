@@ -1,7 +1,8 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb, _Transaction, _SelectExplanation, _Explainer } from '../interfaces-private';
-import type { buildSelection, buildAlias } from './selection';
+import type { _ISelection, IValue, _IIndex, _IQuery, _IDb, _Transaction, _SelectExplanation, _Explainer } from '../interfaces-private';
+import type { buildSelection } from './selection';
+import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
 import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
 
@@ -18,7 +19,7 @@ export function initialize(init: Fns) {
 export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract enumerate(t: _Transaction): Iterable<T>;
     abstract entropy(t: _Transaction): number;
-    abstract readonly columns: IValue<any>[]
+    abstract readonly columns: ReadonlyArray<IValue<any>>;
     abstract getColumn(column: string, nullIfNotFound?: boolean): IValue<any>;
     abstract hasItem(value: T, t: _Transaction): boolean;
     abstract getIndex(forValue: IValue): _IIndex<any>;
@@ -51,10 +52,10 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     }
 }
 
-export abstract class TransformBase<T, TSel extends _ISelectionSource = _ISelectionSource> extends DataSourceBase<T> {
+export abstract class TransformBase<T> extends DataSourceBase<T> {
 
 
-    constructor(protected base: TSel) {
+    constructor(protected base: _ISelection) {
         super(base.schema);
     }
 
@@ -74,14 +75,14 @@ export abstract class TransformBase<T, TSel extends _ISelectionSource = _ISelect
     }
 }
 
-export abstract class FilterBase<T> extends TransformBase<T, _ISelection<T>> {
+export abstract class FilterBase<T> extends TransformBase<T> {
 
 
     constructor(_base: _ISelection<T>) {
         super(_base);
     }
 
-    get columns(): IValue<any>[] {
+    get columns(): ReadonlyArray<IValue<any>> {
         return this.base.columns;
     }
 

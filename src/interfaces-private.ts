@@ -41,18 +41,6 @@ export interface _IQuery extends ISchema {
     _doRenTab(db: string, to: string);
 }
 
-export interface _ISelectionSource<T = any> {
-    readonly schema: _IQuery;
-    /** Statistical measure of how many items will be returned by this selection */
-    entropy(t: _Transaction): number;
-    enumerate(t: _Transaction): Iterable<T>;
-
-    /** Returns true if the given value is present in this */
-    hasItem(value: T, t: _Transaction): boolean;
-
-    /** Gets the index associated with this value (or returns null) */
-    getIndex(forValue: IValue): _IIndex<any>;
-}
 
 export interface _Transaction {
     readonly isChild: boolean;
@@ -68,8 +56,18 @@ export interface _Transaction {
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
 }
 
-export interface _ISelection<T = any> extends _ISelectionSource {
-    readonly columns: IValue[];
+export interface _ISelection<T = any> {
+    readonly schema: _IQuery;
+    /** Statistical measure of how many items will be returned by this selection */
+    entropy(t: _Transaction): number;
+    enumerate(t: _Transaction): Iterable<T>;
+
+    /** Returns true if the given value is present in this */
+    hasItem(value: T, t: _Transaction): boolean;
+
+    /** Gets the index associated with this value (or returns null) */
+    getIndex(forValue: IValue): _IIndex<any>;
+    readonly columns: ReadonlyArray<IValue>;
     filter(where: Expr): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
@@ -99,10 +97,9 @@ export type _SelectExplanation = {
         matches: _ExprExplanation;
     }
 } | {
-    /** A selection or alias transformation */
+    /** A selection transformation */
     id: number;
     type:'map';
-    alias: string;
     select?: {
         what: _ExprExplanation;
         as: string;
@@ -175,12 +172,13 @@ export interface _IDb extends IMemoryDb {
     listSchemas(): _IQuery[];
 }
 
-export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
+export interface _ITable<T = any> extends IMemoryTable {
 
     readonly hidden: boolean;
+    readonly schema: _IQuery;
     readonly name: string;
     readonly selection: _ISelection<T>;
-    readonly columns: _Column[];
+    readonly columnDefs: _Column[];
     insert(t: _Transaction, toInsert: T): T;
     update(t: _Transaction, toUpdate: T): T;
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
@@ -284,7 +282,10 @@ export interface IValue<TRaw = any> {
     canConvert(to: DataType | _IType): boolean;
     convert<T = any>(to: DataType | _IType<T>): IValue<T>;
 
-    setWrapper(wrap: (val: any) => any): IValue<TRaw>;
+    /**
+     * Creates a copy of this column that can
+     **/
+    setWrapper<TNewRaw>(newOrigin: _ISelection, unwrap: (val: TNewRaw) => TRaw): IValue<TRaw>;
 
     explain(e: _Explainer): _ExprExplanation;
 }

@@ -5,6 +5,7 @@ import { ColumnConstraint, AlterColumn } from './parser/syntax/ast';
 import { nullIsh } from './utils';
 import { buildValue } from './predicate';
 import { fromNative } from './datatypes';
+import { columnEvaluator } from './transforms/selection';
 
 
 export class ColRef implements _Column {
@@ -116,29 +117,17 @@ export class ColRef implements _Column {
     private replaceExpression(newId: string, newType: _IType) {
         const on = this.expression.id.toLowerCase();
         const nn = newId.toLowerCase();
-        const i = this.table.selection.columns.indexOf(this.expression);
-        if (i < 0) {
-            throw new Error('Corrupted table');
-        }
-        const nexp = this.expression = this.table.selection.createEvaluator(newId, newType);
-
-        // replace in selection
-        this.table.selection.columns[i] = nexp;
-        this.table.selection.columnsById[nn] = [nexp];
+        this.expression = columnEvaluator(this.table, newId, newType);
 
         // replace in table
         this.table.columnsByName.delete(on);
-        delete this.table.selection.columnsById[on];
         this.table.columnsByName.set(nn, this);
-        this.table.selection.columnsById[nn] = [this.expression];
-        this.table.selection.rebuildColumnIds();
     }
 
     drop(t: _Transaction): void {
         const on = this.expression.id.toLowerCase();
-        const i = this.table.selection.columns.indexOf(this.expression);
-        const ii = this.table.columns.indexOf(this);
-        if (i < 0 || ii !== i) {
+        const i = this.table.columnDefs.indexOf(this);
+        if (i < 0) {
             throw new Error('Corrupted table');
         }
 
@@ -151,11 +140,8 @@ export class ColRef implements _Column {
         this.table.remapData(t, x => delete x[this.expression.id]);
 
         // nasty business to remove columns
-        this.table.selection.columns.splice(i, 1);
-        delete this.table.selection.columnsById[on];
-        this.table.selection.rebuildColumnIds();
         this.table.columnsByName.delete(on);
-        this.table.columns.splice(i, 1);
+        this.table.columnDefs.splice(i, 1);
     }
 
     checkConstraints(toInsert: any, t: _Transaction) {

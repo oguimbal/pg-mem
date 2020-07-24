@@ -1,5 +1,5 @@
 import { ISchema, QueryError, SchemaField, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _IQuery as _Schema, _ISelectionSource, _Transaction, _ITable, _SelectExplanation, _Explainer } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _IQuery, _Transaction, _ITable, _SelectExplanation, _Explainer } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
@@ -12,7 +12,7 @@ import { ArrayFilter } from './transforms/array-filter';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 
 type QR = QueryResult & { ignored?: boolean };
-export class Query implements _Schema, ISchema {
+export class Query implements _IQuery, ISchema {
 
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
@@ -149,7 +149,7 @@ export class Query implements _Schema, ISchema {
                     if (change.ifNotExists) {
                         return ignore();
                     } else {
-                        throw new QueryError('Column already exists: ' + col.id);
+                        throw new QueryError('Column already exists: ' + col.sql);
                     }
                 }
                 table.addColumn(change.column, t);

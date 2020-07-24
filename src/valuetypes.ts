@@ -130,7 +130,7 @@ export class Evaluator<T = any> implements IValue<T> {
         );
     }
 
-    setWrapper(wrap: (val: any) => any) {
+    setWrapper(newOrigin: _ISelection, unwrap: (val: any) => any) {
         if (this.isAny) {
             throw new QueryError('Unexpected use of ANY()');
         }
@@ -141,7 +141,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.hash
             , this
             , (raw, t) => {
-                const got = wrap(raw)
+                const got = unwrap(raw)
                 if (got === null || got === undefined) {
                     return null;
                 }
@@ -149,6 +149,7 @@ export class Evaluator<T = any> implements IValue<T> {
             }
             , this.opts
         );
+        ret.origin = newOrigin;
         return ret;
     }
 

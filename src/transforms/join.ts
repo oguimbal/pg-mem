@@ -45,8 +45,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
         this.joinId = jCnt++;
         this._columns = [
-            ...this.leftColumns.map(c => c.setWrapper(x => x['>left']))
-            , ...this.rightColumns.map(c => c.setWrapper(x => x['>right']))
+            ...this.leftColumns.map(c => c.setWrapper(this, x => x['>left']))
+            , ...this.rightColumns.map(c => c.setWrapper(this, x => x['>right']))
         ];
 
         // only support indexed joins on binary expressions
@@ -71,8 +71,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }
 
     getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
-        const onLeft = this.left.getColumn(column, true)?.setWrapper(x => x['>left']);
-        const onRight = this.right.getColumn(column, true)?.setWrapper(x => x['>right']);
+        const onLeft = this.left.getColumn(column, true)?.setWrapper(this, x => x['>left']);
+        const onRight = this.right.getColumn(column, true)?.setWrapper(this, x => x['>right']);
         if (!onLeft && !onRight) {
             if (nullIfNotFound) {
                 return null;

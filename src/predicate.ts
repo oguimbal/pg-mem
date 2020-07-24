@@ -227,7 +227,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             throw NotSupported.never(op, 'operator');
     }
 
-    const sql = `${leftValue.id} ${op} ${rightValue.id}`;
+    const sql = `${leftValue.sql} ${op} ${rightValue.sql}`;
     const hashed = hash({ left: leftValue.hash, op, right: rightValue.hash });
 
     // handle cases like:  blah = ANY(stuff)

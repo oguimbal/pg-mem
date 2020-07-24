@@ -1,8 +1,8 @@
-import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _IQuery, _Column, _IType, CreateColumnDefTyped, _IIndex } from './interfaces-private';
+import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound } from './interfaces';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _IQuery, _Column, _IType, CreateColumnDefTyped, _IIndex, _Explainer, _SelectExplanation } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
-import { Selection } from './transforms/selection';
+import { Selection, columnEvaluator } from './transforms/selection';
 import { parse } from './parser/parser';
 import { nullIsh } from './utils';
 import { Map as ImMap } from 'immutable';
@@ -11,15 +11,16 @@ import { fromNative } from './datatypes';
 import { Evaluator } from './valuetypes';
 import { ColRef } from './column';
 import { Query } from './query';
+import { buildAlias } from './transforms/alias';
+import { FilterBase, DataSourceBase } from './transforms/transform-base';
 
 
 type Raw<T> = ImMap<string, T>;
-export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
-
+export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
     private handlers = new Map<TableEvent, Set<() => void>>();
 
-    readonly selection: Selection<T>;
+    selection: _ISelection<T>;
     private it = 0;
     hasPrimary: boolean;
     private readonly: boolean;
@@ -28,8 +29,10 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     private dataId = Symbol();
     private indexByHash = new Map<string, BIndex<T>>();
     private indexByName = new Map<string, BIndex<T>>();
-    columns: ColRef[] = [];
+    columnDefs: ColRef[] = [];
     columnsByName = new Map<string, ColRef>();
+
+    readonly columns: IValue[] = [];
 
     entropy(t: _Transaction) {
         return this.bin(t).size;
@@ -44,14 +47,14 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         }
         this.name = name;
         this.schema._doRenTab(on, name);
+        this.selection = buildAlias(this, this.name);
         return this;
     }
 
     constructor(readonly schema: _IQuery, t: _Transaction, _schema: Schema) {
+        super(schema);
         this.name = _schema.name;
-        this.selection = new Selection<T>(this, {
-            owner: this,
-        });
+        this.selection = buildAlias(this, this.name);
 
         // fields
         for (const s of _schema.fields) {
@@ -85,7 +88,23 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
                     throw NotSupported.never(c, 'constraint type');
             }
         }
-        this.selection.rebuildColumnIds();
+    }
+
+
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+        const got = this.columnsByName.get(column.toLowerCase());
+        if (!got && !nullIfNotFound) {
+            throw new ColumnNotFound(column);
+        }
+        return got?.expression;
+    }
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            type: 'table',
+            id: e.idFor(this),
+            table: this.name,
+        };
     }
 
     addColumn(column: CreateColumnDefTyped | CreateColumnDef, t: _Transaction): _Column {
@@ -102,7 +121,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         if (this.columnsByName.has(low)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
-        const cref = new ColRef(this, this.selection.createEvaluator(column.name, column.type));
+        const cref = new ColRef(this, columnEvaluator(this, column.name, column.type));
 
         if (column.default) {
             cref.alter({
@@ -112,7 +131,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
             }, t)
         }
 
-        this.columns.push(cref);
+        this.columnDefs.push(cref);
         this.columnsByName.set(low, cref);
 
         try {
@@ -120,14 +139,13 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
                 cref.addConstraint(column.constraint, t);
             }
         } catch (e) {
-            this.columns.pop();
+            this.columnDefs.pop();
             this.columnsByName.delete(low);
             throw e;
         }
 
         // once constraints created, reference them. (constraint creation might have thrown)m
-        this.selection.addColumn(cref.expression);
-        this.selection.rebuildColumnIds();
+        this.columns.push(cref.expression);
     }
 
 
@@ -176,9 +194,11 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     }
 
 
-    enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<T> {
         this.raise('seq-scan');
-        return this.bin(t).values();
+        for (const v of this.bin(t).values()) {
+            yield { ...v }; // copy the original data to prevent it from being mutated.
+        }
     }
 
     remapData(t: _Transaction, modify: (newCopy: T) => any) {
@@ -223,12 +243,12 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
         this.indexElt(t, toInsert);
 
         // set default values
-        for (const c of this.columns) {
+        for (const c of this.columnDefs) {
             c.setDefaults(toInsert, t);
         }
 
         // check constraints
-        for (const c of this.columns) {
+        for (const c of this.columnDefs) {
             c.checkConstraints(toInsert, t);
         }
 
@@ -361,7 +381,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
     }
 
     addConstraint(cst: ConstraintDef, t: _Transaction) {
-        switch(cst.type) {
+        switch (cst.type) {
             case 'foreign key':
                 const ftable = this.schema.getTable(cst.foreignTable);
                 const cols = cst.localColumns.map(x => this.getColumnRef(x));

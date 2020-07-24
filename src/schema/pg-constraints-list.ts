@@ -1,6 +1,5 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction } from '../interfaces-private';
-import { Selection } from '../transforms/selection';
-import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
+import {  Schema } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
 import { TableIndex } from './table-index';
 import { ReadOnlyTable } from './readonly-table';
@@ -10,10 +9,6 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
 
     get ownSymbol() {
         return IS_SCHEMA;
-    }
-
-    get name() {
-        return 'pg_constraint';
     }
 
     _schema: Schema = {
@@ -47,10 +42,6 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
             , { id: 'consrc', type: Types.text() }
         ]
     };
-    selection: _ISelection<any> = new Selection(this, {
-        schema: this._schema
-    });
-
 
 
     entropy(t: _Transaction): number {

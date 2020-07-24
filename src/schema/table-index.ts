@@ -51,7 +51,7 @@ export class TableIndex implements _IIndex {
 
     *nin(keys: any[][], t: _Transaction) {
         const raws = keys.map(x => x[0]) as any[];
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             if (raws.includes(i.table_name)) {
                 continue;
             }
@@ -60,35 +60,35 @@ export class TableIndex implements _IIndex {
     }
 
     *neq([rawKey]: any, t: _Transaction) {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             if (i.table_name !== rawKey) {
                 yield i;
             }
         }
     }
     *gt(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             if (i.table_name > rawKey) {
                 yield i;
             }
         }
     }
     *lt(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             if (i.table_name < rawKey) {
                 yield i;
             }
         }
     }
     *ge(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             if (i.table_name >= rawKey) {
                 yield i;
             }
         }
     }
     *le(rawKey: any, t: _Transaction): Iterable<any> {
-        for (const i of this.onTable.enumerate(t)) {
+        for (const i of this.onTable.selection.enumerate(t)) {
             if (i.table_name <= rawKey) {
                 yield i;
             }

@@ -1,6 +1,5 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction } from '../interfaces-private';
-import { Selection } from '../transforms/selection';
-import { ReadOnlyError, NotSupported } from '../interfaces';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction, _Explainer } from '../interfaces-private';
+import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
 import { TableIndex } from './table-index';
 import { ReadOnlyTable } from './readonly-table';
@@ -12,30 +11,23 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         return IS_SCHEMA;
     }
 
-    get name() {
-        return 'tables';
-    }
-
-    selection: _ISelection<any> = new Selection(this, {
-        schema: {
-            name: 'tables',
-            fields: [
-                { id: 'table_catalog', type: Types.text() }
-                , { id: 'table_schema', type: Types.text() }
-                , { id: 'table_name', type: Types.text() }
-                , { id: 'table_type', type: Types.text() }
-                , { id: 'self_referencing_column_name', type: Types.text() }
-                , { id: 'reference_generation', type: Types.text() }
-                , { id: 'user_defined_type_catalog', type: Types.text() }
-                , { id: 'user_defined_type_schema', type: Types.text() }
-                , { id: 'user_defined_type_name', type: Types.text() }
-                , { id: 'is_insertable_into', type: Types.text(3) }
-                , { id: 'is_typed', type: Types.text(3) }
-                , { id: 'commit_action', type: Types.text() }
-            ]
-        }
-    });
-
+    _schema: Schema = {
+        name: 'tables',
+        fields: [
+            { id: 'table_catalog', type: Types.text() }
+            , { id: 'table_schema', type: Types.text() }
+            , { id: 'table_name', type: Types.text() }
+            , { id: 'table_type', type: Types.text() }
+            , { id: 'self_referencing_column_name', type: Types.text() }
+            , { id: 'reference_generation', type: Types.text() }
+            , { id: 'user_defined_type_catalog', type: Types.text() }
+            , { id: 'user_defined_type_schema', type: Types.text() }
+            , { id: 'user_defined_type_name', type: Types.text() }
+            , { id: 'is_insertable_into', type: Types.text(3) }
+            , { id: 'is_typed', type: Types.text(3) }
+            , { id: 'commit_action', type: Types.text() }
+        ]
+    };
 
     entropy(t: _Transaction): number {
         return this.schema.db.listSchemas()

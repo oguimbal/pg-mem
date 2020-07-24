@@ -12,10 +12,6 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
         return IS_SCHEMA;
     }
 
-    get name() {
-        return 'columns';
-    }
-
     _schema: Schema = {
         name: 'columns',
         fields: [
@@ -66,9 +62,6 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
             , { id: 'is_updatable', type: Types.text(3) } // <==
         ]
     };
-    selection: _ISelection<any> = new Selection(this, {
-        schema: this._schema
-    });
 
 
     entropy(t: _Transaction): number {

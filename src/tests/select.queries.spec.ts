@@ -54,7 +54,7 @@ describe('[Queries] Selections', () => {
 
     it('executes the right plan on transformations', () => {
         stuff();
-        const plan = (db as _IDb).public.explainSelect(`select * from (select val as xx from test where txt = 'A') x where x.xx >= 1`);
+        const plan = (db as _IDb).public.explainSelect(`select * from (select val as valAlias from test where txt = 'A') x where x.valAlias >= 1`);
         // assert.deepEqual(plan, {} as any);
         assert.deepEqual(plan, {
             id: 1,
@@ -62,13 +62,12 @@ describe('[Queries] Selections', () => {
             filter: {
                 id: 2,
                 type: 'map',
-                alias: 'x',
                 select: [{
                     what: {
                         col: 'val',
                         on: 3,
                     },
-                    as: 'xx',
+                    as: 'valAlias',
                 }],
                 of: {
                     id: 3,
