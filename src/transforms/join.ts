@@ -3,6 +3,7 @@ import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
 import { buildColumnIds } from '../utils';
+import { Expr } from 'src/parser/syntax/ast';
 
 let jCnt = 0;
 
@@ -17,7 +18,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private leftExpression: IValue<any>;
     private indexedRight: _IIndex<any>;
     private seqScanExpression: IValue<any>;
-    private columnIds: string[];
     private joinId: number;
 
 
@@ -40,7 +40,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     constructor(db: _IQuery
         , private left: _ISelection<TLeft>
         , private right: _ISelection<TRight>
-        , on: any
+        , on: Expr
         , private innerJoin: boolean) {
         super(db);
 
@@ -49,14 +49,15 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             ...this.leftColumns.map(c => c.setWrapper(x => x['>left']))
             , ...this.rightColumns.map(c => c.setWrapper(x => x['>right']))
         ];
-        this.columnIds = buildColumnIds(this.columns);
 
         // only support indexed joins on binary expressions
         // todo: multiple columns indexes join
-        if (on.type === 'binary_expr') {
+        if (on.type === 'binary') {
             const a = buildValue(this, on.left);
             const b = buildValue(this, on.right);
-            if (b.index && b.origin === right && a.origin === left) {
+
+            // const aIndex = a.wrappedOrigin?.getIndex()
+            if (b.index && b && a.origin === left && b.origin === right) {
                 // right part of binary expression is an index on the joined table
                 this.leftExpression = a;
                 this.indexedRight = b.index;
@@ -87,33 +88,41 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
 
     *enumerate(t: _Transaction): Iterable<any> {
-        // todo: filter & indexes
-        for (const l of this.left.enumerate(t)) {
-            let r: TRight;
 
+        if (this.indexedRight) {
             // find the right value using index
-            if (this.indexedRight) {
+            for (const l of this.left.enumerate(t)) {
                 const joinValue = this.leftExpression.get(this.buildItem(l, null), t);
                 // get corresponding right value
-                r = this.indexedRight.eqFirst([joinValue], t);
-            } else {
-                // perform a seq scan
-                this.schema.db.raiseGlobal('catastrophic-join-optimization');
-                for (const cr of this.right.enumerate(t)) {
+                let yielded = false;
+                for (const r of this.indexedRight.eq([joinValue], t)) {
+                    yielded = true;
+                    yield this.buildItem(l, r);
+                }
+
+                if (!this.innerJoin && !yielded) {
+                    yield this.buildItem(l, null);
+                }
+            }
+        } else {
+            // perform a seq scan
+            this.schema.db.raiseGlobal('catastrophic-join-optimization');
+            const allRight = [...this.right.enumerate(t)];
+            for (const l of this.left.enumerate(t)) {
+                let yielded = false;
+                for (const cr of allRight) {
                     const combined = this.buildItem(l, cr);
                     const result = this.seqScanExpression.get(combined, t);
                     if (result) {
-                        r = cr;
+                        yielded = true;
+                        yield combined;
                         break;
                     }
                 }
+                if (!this.innerJoin && !yielded) {
+                    yield this.buildItem(l, null);
+                }
             }
-
-            if (!r && this.innerJoin) {
-                continue; // skip
-            }
-
-            yield this.buildItem(l, r);
         }
     }
 
@@ -121,23 +130,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         const ret = { '>right': r, '>left': l }
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
         return ret;
-
-        // const ret = {};
-        // let i = 0;
-
-        // // build left part result
-        // for (; i < this.leftColumns.length; i++) {
-        //     const col = this.leftColumns[i];
-        //     ret[this.columnIds[i]] = col.get(l) ?? null;
-        // }
-
-        // // build right part result
-        // const rnul = r === null || r === undefined;
-        // for (; i < this.columns.length; i++) {
-        //     const col = this.columns[i];
-        //     ret[this.columnIds[i]] = rnul ? null : (col.get(r) ?? null);
-        // }
-        // return ret;
     }
 
 

@@ -27,7 +27,7 @@ export class Evaluator<T = any> implements IValue<T> {
         return typeof this.val !== 'function';
     }
 
-    readonly origin: _ISelection;
+    origin: _ISelection;
     get isAny(): boolean {
         return this.opts?.isAny;
     }
@@ -79,8 +79,8 @@ export class Evaluator<T = any> implements IValue<T> {
         if (!this.usedColumns.size // no used columns
             && !this.origin
             && !this.opts?.unpure
-             && !depArray?.some(x => !x.isConstantReal)  // all real constant dependencies
-             ) {
+            && !depArray?.some(x => !x.isConstantReal)  // all real constant dependencies
+        ) {
             // no dependency => this is a real constant => evaluate it.
             if (typeof this.val === 'function') {
                 this.val = this.val(null, null, true);
@@ -135,7 +135,7 @@ export class Evaluator<T = any> implements IValue<T> {
         if (this.isAny) {
             throw new QueryError('Unexpected use of ANY()');
         }
-        return new Evaluator<T>(
+        const ret = new Evaluator<T>(
             this.type
             , this.id
             , this.sql
@@ -150,6 +150,7 @@ export class Evaluator<T = any> implements IValue<T> {
             }
             , this.opts
         );
+        return ret;
     }
 
     setId(newId: string): IValue {
