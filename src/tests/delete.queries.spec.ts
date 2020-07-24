@@ -54,4 +54,18 @@ describe('[Queries] Deletes', () => {
         select * from test;`))
             .to.deep.equal([])
     });
+
+
+    it ('cannot delete line if foreign key exists', () => {
+        none(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
+        CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
+        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        INSERT INTO "user"("id,"name") VALUES (1, 'me');
+        INSERT INTO "photo"("id, "url", "userId") VALUES (1, 'me-1.jpg', 1);`);
+
+        assert.throws(() => none('delete from photo where id = 1'));
+
+        // check works if user is deleted
+        many('dlte from user where id=1; delete from photo where id = 1;')
+    })
 });
