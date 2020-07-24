@@ -1,6 +1,7 @@
 import { TableConstraint, DataTypeDef, Expr } from './parser/syntax/ast';
 
 
+
 export interface Schema {
     name: string;
     fields: SchemaField[];
@@ -87,10 +88,12 @@ export type GlobalEvent = 'catastrophic-join-optimization';
 export interface IMemoryTable {
     // createIndex(expressions: string[]): this;
     on(event: TableEvent, handler: () => any): void;
+    listIndexes(): IndexDef[];
 }
 
 export interface IndexDef {
-
+    name: string;
+    expressions: string[];
 }
 
 export class CastError extends Error {

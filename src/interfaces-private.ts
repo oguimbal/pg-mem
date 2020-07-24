@@ -109,6 +109,7 @@ export interface CreateColumnDefTyped extends Omit<CreateColumnDef, 'dataType'> 
 export interface _Column {
     readonly default: IValue;
     readonly expression: IValue;
+    readonly usedInIndexes: ReadonlySet<_IIndex>;
     alter(alter: AlterColumn, t: _Transaction): this;
     rename(to: string, t: _Transaction): this;
     drop(t: _Transaction): void;
@@ -196,6 +197,7 @@ export interface IValue<TRaw = any> {
 
 export type IndexKey = any[];
 export interface _IIndex<T = any> {
+    readonly hash: string;
     readonly indexName: string;
     readonly expressions: IValue[];
     readonly onTable: _ITable<T>;

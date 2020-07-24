@@ -1,5 +1,5 @@
-import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _IQuery, _Column, _IType, CreateColumnDefTyped } from './interfaces-private';
+import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef } from './interfaces';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _IQuery, _Column, _IType, CreateColumnDefTyped, _IIndex } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection } from './transforms/selection';
@@ -13,6 +13,7 @@ import { Evaluator } from './valuetypes';
 
 type Raw<T> = ImMap<string, T>;
 export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
+
 
     private handlers = new Map<TableEvent, Set<() => void>>();
 
@@ -109,19 +110,26 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
             }, t)
         }
 
-        if (column.constraint) {
-            cref.addConstraint(column.constraint, t);
+        this.columns.push(cref);
+        this.columnsByName.set(low, cref);
+
+        try {
+            if (column.constraint) {
+                cref.addConstraint(column.constraint, t);
+            }
+        } catch (e) {
+            this.columns.pop();
+            this.columnsByName.delete(low);
+            throw e;
         }
 
         // once constraints created, reference them. (constraint creation might have thrown)m
         this.selection.addColumn(cref.expression);
-        this.columns.push(cref);
-        this.columnsByName.set(low, cref);
         this.selection.rebuildColumnIds();
     }
 
 
-    getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
+    getColumnRef(column: string, nullIfNotFound?: boolean): ColRef {
         const got = this.columnsByName.get(column.toLowerCase());
         if (!got) {
             if (nullIfNotFound) {
@@ -306,7 +314,7 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
 
         const ihash = expressions.columns.map(x => x.value.hash).sort().join('|');
-        const index = new BIndex(t, expressions.columns, this, indexName ?? expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
+        const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
 
         if (this.indexByHash.has(ihash) || this.indexByName.has(index.indexName)) {
             throw new QueryError('Index already exists');
@@ -320,12 +328,34 @@ export class MemoryTable<T = any> implements IMemoryTable, _ITable<T> {
 
         // =========== reference index ============
         // ⚠⚠ This must be done LAST, to avoid throwing an execption if index population failed
+        for (const col of index.expressions) {
+            for (const used of col.usedColumns) {
+                this.getColumnRef(used.id).usedInIndexes.add(index);
+            }
+        }
         this.indexByHash.set(ihash, index);
         this.indexByHash.set(index.indexName, index);
+        this.indexByName.set(index.indexName, index)
         if (expressions.primary) {
             this.hasPrimary = true;
         }
         return this;
+    }
+
+    dropIndex(u: _IIndex<any>) {
+        if (!this.indexByHash.has(u.hash)) {
+            throw new QueryError('Cannot drop index that does not belong to this table: ' + u.hash);
+        }
+        this.indexByHash.delete(u.hash);
+        this.indexByName.delete(u.indexName);
+    }
+
+    listIndexes(): IndexDef[] {
+        return [...this.indexByHash.values()]
+            .map<IndexDef>(x => ({
+                name: x.indexName,
+                expressions: x.expressions.map(x => x.sql),
+            }));
     }
 }
 
@@ -334,6 +364,7 @@ export class ColRef implements _Column {
 
     default: IValue;
     notNull: boolean;
+    usedInIndexes = new Set<_IIndex>();
 
     constructor(private table: MemoryTable
         , public expression: Evaluator) {
@@ -465,6 +496,9 @@ export class ColRef implements _Column {
         }
 
         // remove indices
+        for (const u of this.usedInIndexes) {
+            this.table.dropIndex(u);
+        }
 
         // remove associated data
         this.table.remapData(t, x => delete x[this.expression.id]);

@@ -128,4 +128,21 @@ describe('Queries: Alter table', () => {
         select * from test`))
             .to.deep.equal([{ a: 'a' }, { a: null }])
     });
+
+
+    it('can drop column part of a multiple index', () => {
+        none(`create table test(a text, b text);
+                create index on test(a, b);
+                alter table test drop a;`);
+        expect(db.getTable('test').listIndexes())
+            .to.deep.equal([]);
+    });
+
+    it('can drop column part of its own index', () => {
+        none(`create table test(a text, b text);
+                create index on test(a);
+                alter table test drop a;`);
+        expect(db.getTable('test').listIndexes())
+            .to.deep.equal([]);
+    });
 });
