@@ -5,7 +5,7 @@
 
 insert_statement -> (kw_insert %kw_into)
                         table_ref_aliased
-                    (lparen insert_collist rparen {% get(1) %}):?
+                    collist_paren:?
                     (kw_values insert_values {% last %}):?
                     (select_statement | select_statement_paren):?
                     (%kw_returning select_expr_list_aliased {% last %}):?
@@ -24,13 +24,15 @@ insert_statement -> (kw_insert %kw_into)
                         }
                     } %}
 
-insert_collist -> ident (comma ident {% last %}):* {% ([head, tail]) => {
-    return [head, ...(tail || [])];
-} %}
-
 
 insert_values -> insert_value (comma insert_value {% last %}):* {% ([head, tail]) => {
     return [head, ...(tail || [])];
 } %}
 
-insert_value -> lparen expr_list_raw rparen {% get(1) %}
+insert_value -> lparen insert_expr_list_raw rparen {% get(1) %}
+
+
+insert_single_value -> (expr_or_select | %kw_default {% () => 'default' %}) {% unwrap %}
+insert_expr_list_raw -> insert_single_value (comma insert_single_value {% last %}):* {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}

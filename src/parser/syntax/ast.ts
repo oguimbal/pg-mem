@@ -26,7 +26,7 @@ export interface InsertStatement {
     returning?: SelectedColumn[];
     columns?: string[];
     /** Insert values */
-    values?: Expr[][];
+    values?: (Expr | 'default')[][];
     /** Insert into select */
     select?: SelectStatement;
 }
@@ -61,6 +61,10 @@ export type TableAlteration = {
     type: 'alter column',
     column: string;
     alter: AlterColumn
+} | {
+    type: 'add constraint',
+    constraintName?: string;
+    constraint: ConstraintDef;
 }
 
 export type AlterColumn = {
@@ -73,6 +77,39 @@ export type AlterColumn = {
 } | {
     type: 'drop default' | 'set not null' | 'drop not null';
 };
+
+
+export type ConstraintDef = {
+    type: 'foreign key';
+    localColumns: string[];
+    foreignTable: string;
+    foreignColumns: string[];
+    onDelete: ConstraintAction
+    onUpdate: ConstraintAction
+} | {
+    type: never;
+}
+
+/**
+ * FROM https://www.postgresql.org/docs/12/ddl-constraints.html
+ *
+ * Restricting and cascading deletes are the two most common options.
+ * RESTRICT prevents deletion of a referenced row.
+ * NO ACTION means that if any referencing rows still exist when the constraint is checked,
+ * an error is raised; this is the default behavior if you do not specify anything.
+ * (The essential difference between these two choices is that NO ACTION allows the check to be deferred until later in the transaction, whereas RESTRICT does not.)
+ * CASCADE specifies that when a referenced row is deleted,
+ * row(s) referencing it should be automatically deleted as well.
+ * There are two other options: SET NULL and SET DEFAULT.
+ * These cause the referencing column(s) in the referencing row(s) to be set to nulls or their default values, respectively, when the referenced row is deleted.
+ * Note that these do not excuse you from observing any constraints.
+ * For example, if an action specifies SET DEFAULT but the default value would not satisfy the foreign key constraint, the operation will fail.
+ */
+export type ConstraintAction = 'cascade'
+    | 'no action'
+    | 'restrict'
+    | 'set null'
+    | 'set default';
 
 export interface CreateIndexStatement {
     type: 'create index';

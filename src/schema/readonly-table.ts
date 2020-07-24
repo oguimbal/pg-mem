@@ -1,5 +1,5 @@
-import { _ITable, _ISelection, _IQuery, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, CreateColumnDefTyped } from '../interfaces-private';
-import { CreateColumnDef } from 'src/parser/syntax/ast';
+import { _ITable, _ISelection, _IQuery, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, CreateColumnDefTyped, IndexDef } from '../interfaces-private';
+import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast';
 
 export abstract class ReadOnlyTable<T = any> implements _ITable {
 
@@ -12,6 +12,11 @@ export abstract class ReadOnlyTable<T = any> implements _ITable {
     hidden = true;
 
     constructor(readonly schema: _IQuery) {
+    }
+
+
+    listIndexes(): IndexDef[] {
+        return [];
     }
 
     get columns(): _Column[] {
@@ -28,6 +33,9 @@ export abstract class ReadOnlyTable<T = any> implements _ITable {
         throw new ReadOnlyError('information schema');
     }
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
+        throw new ReadOnlyError('information schema');
+    }
+    addConstraint(constraint: ConstraintDef, t: _Transaction) {
         throw new ReadOnlyError('information schema');
     }
     insert(toInsert: any): void {

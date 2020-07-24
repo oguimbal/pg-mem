@@ -59,6 +59,10 @@ word -> %word  {% x => {
     return val[0] === '"' ? val.substr(1, val.length - 2) : val;
 } %}
 
+collist_paren -> lparen collist rparen {% get(1) %}
+collist -> ident (comma ident {% last %}):* {% ([head, tail]) => {
+    return [head, ...(tail || [])];
+} %}
 
 # === Non reserved keywords
 # ... which are not in keywords.ts (thus parsed as words)
@@ -87,6 +91,11 @@ kw_add -> %word {% notReservedKw('add')  %}
 kw_drop -> %word {% notReservedKw('drop')  %}
 kw_data -> %word {% notReservedKw('data')  %}
 kw_type -> %word {% notReservedKw('type')  %}
+kw_delete -> %word {% notReservedKw('delete')  %}
+kw_cascade -> %word {% notReservedKw('cascade')  %}
+kw_no -> %word {% notReservedKw('no')  %}
+kw_action -> %word {% notReservedKw('action')  %}
+kw_restrict -> %word {% notReservedKw('restrict')  %}
 
 
 # === Composite keywords

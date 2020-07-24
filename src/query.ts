@@ -138,41 +138,45 @@ export class Query implements _Schema, ISchema {
         if (!table) {
             return nop;
         }
-        switch (p.change.type) {
+        const change = p.change;
+        switch (change.type) {
             case 'rename':
-                table.rename(p.change.to);
+                table.rename(change.to);
                 return nop;
             case 'add column': {
-                const col = table.selection.getColumn(p.change.column.name, true);
+                const col = table.selection.getColumn(change.column.name, true);
                 if (col) {
-                    if (p.change.ifNotExists) {
+                    if (change.ifNotExists) {
                         return ignore();
                     } else {
                         throw new QueryError('Column already exists: ' + col.id);
                     }
                 }
-                table.addColumn(p.change.column, t);
+                table.addColumn(change.column, t);
                 return nop;
             }
             case 'drop column':
-                const col = table.getColumnRef(p.change.column, p.change.ifExists);
+                const col = table.getColumnRef(change.column, change.ifExists);
                 if (!col) {
                     return ignore();
                 }
                 col.drop(t);
                 return nop;
             case 'rename column':
-                table.getColumnRef(p.change.column)
-                    .rename(p.change.to, t);
+                table.getColumnRef(change.column)
+                    .rename(change.to, t);
                 return nop;
             case 'alter column':
-                table.getColumnRef(p.change.column)
-                    .alter(p.change.alter, t);
+                table.getColumnRef(change.column)
+                    .alter(change.alter, t);
                 return nop;
             case 'rename constraint':
                 throw new NotSupported('rename constraint');
+            case 'add constraint':
+                table.addConstraint(change.constraint, t);
+                return ignore(); // todo
             default:
-                throw NotSupported.never(p.change, 'alter request');
+                throw NotSupported.never(change, 'alter request');
 
         }
     }
@@ -299,14 +303,14 @@ export class Query implements _Schema, ISchema {
 
 
             switch (from.join?.type) {
-                case 'RIGHT JOIN':
-                    sel = new JoinSelection(this, newT, sel, from.join.on, false);
-                    break;
                 case 'INNER JOIN':
                     sel = new JoinSelection(this, sel, newT, from.join.on, true);
                     break;
                 case 'LEFT JOIN':
                     sel = new JoinSelection(this, sel, newT, from.join.on, false);
+                    break;
+                case 'RIGHT JOIN':
+                    sel = new JoinSelection(this, newT, sel, from.join.on, false);
                     break;
                 default:
                     throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
@@ -400,8 +404,12 @@ export class Query implements _Schema, ISchema {
                 }
                 const toInsert = {};
                 for (let i = 0; i < val.length; i++) {
-                    const notConv = buildValue(null, val[i]);
+                    const v = val[i];
                     const col = table.selection.getColumn(columns[i]);
+                    if (v === 'default') {
+                        continue;
+                    }
+                    const notConv = buildValue(null, v);
                     const converted = notConv.convert(col.type);
                     if (!converted.isConstant) {
                         throw new QueryError('Cannot insert non constant expression');

@@ -125,4 +125,25 @@ describe('PG syntax: Alter table', () => {
             }
         }
     });
+
+
+    checkAlterTable(`ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87"
+                 FOREIGN KEY ("userId")
+                REFERENCES "user"("id")
+                ON DELETE NO ACTION ON UPDATE NO ACTION;`, {
+        type: 'alter table',
+        table: { table: 'photo' },
+        change: {
+            type: 'add constraint',
+            constraintName: 'FK_4494006ff358f754d07df5ccc87',
+            constraint: {
+                type: 'foreign key',
+                localColumns: ['userId'],
+                foreignTable: 'user',
+                foreignColumns: ['id'],
+                onUpdate: 'no action',
+                onDelete: 'no action',
+            }
+        }
+    })
 });

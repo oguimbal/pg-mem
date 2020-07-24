@@ -99,6 +99,7 @@ export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
     /** Get a column to modify it */
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column;
     rename(to: string): this;
+    addConstraint(constraint: ConstraintDef, t: _Transaction);
 }
 
 export interface CreateColumnDefTyped extends Omit<CreateColumnDef, 'dataType'> {

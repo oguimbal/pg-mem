@@ -157,6 +157,28 @@ describe('Typeorm', () => {
     });
 
 
+    it ('can perform full join queries', () => {
+        const got = many(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
+        CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
+        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        INSERT INTO "photo"("url", "userId") VALUES ('photo-of-me-1.jpg', DEFAULT) RETURNING "id";
+        INSERT INTO "photo"("url", "userId") VALUES ('photo-of-me-2.jpg', DEFAULT) RETURNING "id";
+        INSERT INTO "user"("name") VALUES ('me') RETURNING "id";
+        UPDATE "photo" SET "userId" = 1 WHERE "id" = 1;
+        UPDATE "photo" SET "userId" = 1 WHERE "id" = 2;
+        INSERT INTO "photo"("url", "userId") VALUES ('photo-of-you-1.jpg', DEFAULT) RETURNING "id";
+        INSERT INTO "photo"("url", "userId") VALUES ('photo-of-you-2.jpg', DEFAULT) RETURNING "id";
+        INSERT INTO "user"("name") VALUES ('you') RETURNING "id";
+        UPDATE "photo" SET "userId" = 2 WHERE "id" = 3;
+        UPDATE "photo" SET "userId" = 2 WHERE "id" = 4;
+        SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId" FROM "user" "user" LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id" WHERE "user"."name" = 'me';`);
+
+        expect(got).to.deep.equal([
+            {user_id: 1, user_name: 'me', photo_id: 1, photo_url: 'photo-of-me-1.jpg', photo_userId: 1 },
+            {user_id: 1, user_name: 'me', photo_id: 2, photo_url: 'photo-of-me-2.jpg', photo_userId: 1 },
+        ])
+    })
+
 
     it('can perform simple sample', async () => {
         await typeormSimpleSample();

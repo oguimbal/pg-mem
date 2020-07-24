@@ -113,4 +113,16 @@ describe('PG syntax: Insert', () => {
             }],
         }
     });
+
+
+    checkInsert([`insert into test(a, b) values (1, default)`], {
+        type: 'insert',
+        into: { table: 'test' },
+        columns: ['a', 'b'],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        }
+        , 'default']]
+    });
 });

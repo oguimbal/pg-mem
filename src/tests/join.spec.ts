@@ -199,4 +199,87 @@ describe('Joins', () => {
     });
 
 
+
+    function photos() {
+        none(`CREATE TABLE "user" ("id" text primary key, "name" text NOT NULL);
+        CREATE TABLE "photo" ("id" text primary key, "url" text NOT NULL, "userId" text);
+        create index on photo(userId);
+        INSERT INTO "photo" VALUES ('p1', 'me-1.jpg', 'u1');
+        INSERT INTO "photo" VALUES ('p2', 'me-2.jpg', 'u1');
+        INSERT INTO "photo" VALUES ('p3', 'you-1.jpg', 'u2');
+        INSERT INTO "photo" VALUES ('p0', 'noone.jpg', null);
+        INSERT INTO "photo" VALUES ('p4', 'you-2.jpg', 'u2');
+        INSERT INTO "photo" VALUES ('p5', 'somebody.jpg', 'x');
+        INSERT INTO "user" VALUES ('u1', 'me');
+        INSERT INTO "user" VALUES ('u2', 'you');
+        INSERT INTO "user" VALUES ('u3', 'no camera');
+        `)
+    }
+
+
+    it ('can inner join', () => {
+        photos();
+        preventSeqScan(db, 'photo');
+        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+                            FROM "user" "user"
+                            JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
+        expect(result)
+            .to.deep.equal([
+                {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+                {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+                {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+            ]);
+    });
+
+    it ('can left join', () => {
+        photos();
+        preventSeqScan(db, 'photo');
+        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+                            FROM "user" "user"
+                            LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
+        expect(result)
+            .to.deep.equal([
+                {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+                {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+                {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+                {user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
+            ]);
+    });
+
+
+    it ('can right join', () => {
+        photos();
+        preventSeqScan(db, 'user');
+        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+                            FROM "user" "user"
+                            RIGHT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
+        expect(result)
+            .to.deep.equal([
+                {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+                {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+                {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                {user_id: null, user_name: null, photo_id: 'p0', photo_url: 'noone.jpg', photo_userId: null },
+                {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+                {user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
+            ]);
+    });
+
+    // it ('can full join', () => {
+    //     photos();
+    //     const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+    //                         FROM "user" "user"
+    //                         FULL JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
+    //     expect(result)
+    //         .to.deep.equal([
+    //             {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+    //             {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+    //             {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+    //             {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+    //             {user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
+    //             {user_id: null, user_name: null, photo_id: 'p6', photo_url: 'noone.jpg', photo_userId: null },
+    //             {user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
+    //         ]);
+    // });
 });

@@ -21,6 +21,7 @@ altertable_action
     | altertable_add_column
     | altertable_drop_column
     | altertable_alter_column
+    | altertable_add_constraint
 
 
 altertable_rename_table -> kw_rename %kw_to word {% x => ({
@@ -66,3 +67,34 @@ altercol
     | kw_set %kw_default expr {% x => ({type: 'set default', default: unwrap(last(x)) }) %}
     | kw_drop %kw_default {% x => ({type: 'drop default' }) %}
     | (kw_set | kw_drop) kw_not_null {% x => ({type: flattenStr(x).join(' ').toLowerCase() }) %}
+
+altertable_add_constraint
+    -> kw_add %kw_constraint ident:? altertable_add_constraint_kind {% x => ({
+        type: 'add constraint',
+        ...x[2] ? { constraintName: unwrap(x[2]) } : {},
+        constraint: unwrap(last(x)),
+    }) %}
+
+altertable_add_constraint_kind
+    -> altertable_add_constraint_foreignkey
+
+altertable_add_constraint_foreignkey
+    -> %kw_foreign kw_key collist_paren
+            %kw_references ident collist_paren
+            (%kw_on kw_delete altertable_on_action {% last %}):?
+            (%kw_on kw_update altertable_on_action {% last %}):?
+        {% x => ({
+            type: 'foreign key',
+            localColumns: x[2],
+            foreignTable: unwrap(x[4]),
+            foreignColumns: x[5],
+            onDelete: x[6] || 'no action',
+            onUpdate: x[7] || 'no action',
+        }) %}
+
+altertable_on_action
+    -> (kw_cascade
+    | (kw_no kw_action)
+    | kw_restrict
+    | kw_set (%kw_null | %kw_default))
+    {% x => flattenStr(x).join(' ').toLowerCase() %}

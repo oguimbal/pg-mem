@@ -48,15 +48,15 @@ export async function typeormJoinsSample() {
         await users.create({
             name: 'me',
             photos: [
-                photos.create({ url: 'photo-of-me-1.jpg' }),
-                photos.create({ url: 'photo-of-me-2.jpg' }),
+                await photos.create({ url: 'photo-of-me-1.jpg' }).save(),
+                await photos.create({ url: 'photo-of-me-2.jpg' }).save(),
             ]
         }).save();
         await users.create({
             name: 'you',
             photos: [
-                photos.create({ url: 'photo-of-you-1.jpg' }),
-                photos.create({ url: 'photo-of-you-2.jpg' }),
+                await photos.create({ url: 'photo-of-you-1.jpg' }).save(),
+                await photos.create({ url: 'photo-of-you-2.jpg' }).save(),
             ]
         }).save();
 
