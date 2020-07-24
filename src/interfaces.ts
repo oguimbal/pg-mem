@@ -1,4 +1,4 @@
-import { TableConstraint } from './parser/syntax/ast';
+import { TableConstraint, DataTypeDef, Expr } from './parser/syntax/ast';
 
 
 export interface Schema {
@@ -14,6 +14,7 @@ export interface SchemaField {
     unique?: boolean;
     notNull?: boolean;
     autoIncrement?: boolean;
+    default?: Expr;
 }
 
 export interface IType {
@@ -42,9 +43,9 @@ export enum DataType {
 
 export interface IMemoryDb {
     readonly adapters: LibAdapters;
-    readonly query: IQuery;
-    getSchema(name: string): IQuery;
-    createSchema(name: string): IQuery;
+    readonly public: ISchema;
+    getSchema(name: string): ISchema;
+    createSchema(name: string): ISchema;
     getTable(table: string): IMemoryTable;
     on(event: GlobalEvent, handler: () => any);
     on(event: TableEvent, handler: (table: string) => any);
@@ -59,11 +60,25 @@ export interface LibAdapters {
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number);
 }
 
-export interface IQuery {
+export interface ISchema {
     many(query: string): any[];
     none(query: string): void;
     declareTable(table: Schema): IMemoryTable;
+    query(text: string): QueryResult;
 }
+
+export interface QueryResult {
+    /** Last command that has been executed */
+    command: 'UPDATE' | 'INSERT' | 'CREATE' | 'SELECT' | 'ALTER';
+    rowCount: number;
+    fields: Array<FieldInfo>;
+    rows: any[];
+}
+
+export interface FieldInfo {
+    name: string;
+}
+
 
 
 export type TableEvent = 'seq-scan';

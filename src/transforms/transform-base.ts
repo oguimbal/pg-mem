@@ -4,7 +4,7 @@ import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb, _T
 import type { buildSelection, buildAlias } from './selection';
 import type { buildFilter } from './build-filter';
 import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
-import { IQuery } from 'src/interfaces';
+import { ISchema } from 'src/interfaces';
 
 interface Fns {
     buildSelection: typeof buildSelection;

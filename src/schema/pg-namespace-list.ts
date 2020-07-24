@@ -2,10 +2,9 @@ import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery }
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 import { Types } from '../datatypes';
+import { ReadOnlyTable } from './readonly-table';
 
-export class PgNamespaceTable implements _ITable {
-
-    hidden = true;
+export class PgNamespaceTable extends ReadOnlyTable implements _ITable {
 
     get name() {
         return 'pg_namespace';
@@ -23,19 +22,6 @@ export class PgNamespaceTable implements _ITable {
         }
     });
 
-    constructor(readonly schema: _IQuery) {
-    }
-
-    insert(toInsert: any): void {
-        throw new ReadOnlyError('information schema');
-    }
-    createIndex(): this {
-        throw new ReadOnlyError('information schema');
-    }
-
-    setReadonly(): this {
-        throw new ReadOnlyError('information schema');
-    }
 
     entropy(): number {
         return 0;
@@ -62,13 +48,4 @@ export class PgNamespaceTable implements _ITable {
     hasItem(value: any): boolean {
         return false;
     }
-
-    getIndex(forValue: IValue<any>): _IIndex<any> {
-        return null;
-    }
-
-    on(): void {
-        throw new NotSupported('subscribing information schema');
-    }
-
 }

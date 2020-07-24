@@ -55,4 +55,8 @@ export class Transaction implements _Transaction {
             ? ret.fullCommit()
             : ret;
     }
+
+    rollback () {
+        return this.parent ?? this;
+    }
 }

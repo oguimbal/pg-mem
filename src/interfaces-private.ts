@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, IQuery } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement } from './parser/syntax/ast';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema } from './interfaces';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef } from './parser/syntax/ast';
 import type { Map as ImMap } from 'immutable';
 
 export * from './interfaces';
@@ -29,13 +29,14 @@ export function setId<T = any>(item: T, id: string): T {
     return item;
 }
 
-export interface _IQuery extends IQuery {
+export interface _IQuery extends ISchema {
     readonly name: string;
     readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
     getTable(table: string, nullIfNotFound?: boolean): _ITable;
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
+    _doRenTab(db: string, to: string);
 }
 
 export interface _ISelectionSource<T = any> {
@@ -59,6 +60,7 @@ export interface _Transaction {
     commit(): _Transaction;
     /** Commits this transaction and all underlying transactions */
     fullCommit(): _Transaction;
+    rollback(): _Transaction;
     set<T>(identity: symbol, data: T): T;
     get<T>(identity: symbol): T;
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
@@ -74,7 +76,7 @@ export interface _ISelection<T = any> extends _ISelectionSource {
 }
 
 export interface _IDb extends IMemoryDb {
-    readonly query: _IQuery;
+    readonly public: _IQuery;
     readonly data: _Transaction;
     getSchema(db: string): _IQuery;
     raiseTable(table: string, event: TableEvent): void;
@@ -83,13 +85,34 @@ export interface _IDb extends IMemoryDb {
 }
 
 export interface _ITable<T = any> extends _ISelectionSource, IMemoryTable {
+
     readonly hidden: boolean;
     readonly name: string;
     readonly selection: _ISelection<T>;
+    readonly columns: _Column[];
     insert(t: _Transaction, toInsert: T): T;
-    update?(t: _Transaction, toUpdate: T): T;
+    update(t: _Transaction, toUpdate: T): T;
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
     setReadonly(): this;
+    /** Create a column */
+    addColumn(column: CreateColumnDefTyped | CreateColumnDef, t: _Transaction): _Column;
+    /** Get a column to modify it */
+    getColumnRef(column: string, nullIfNotFound?: boolean): _Column;
+    rename(to: string): this;
+}
+
+export interface CreateColumnDefTyped extends Omit<CreateColumnDef, 'dataType'> {
+    type: _IType;
+    serial?: boolean;
+}
+
+export interface _Column {
+    readonly default: IValue;
+    readonly expression: IValue;
+    alter(alter: AlterColumn, t: _Transaction): this;
+    rename(to: string, t: _Transaction): this;
+    drop(): void;
+
 }
 
 export interface CreateIndexDef {

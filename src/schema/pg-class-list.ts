@@ -5,13 +5,12 @@ import { Types, makeArray } from '../datatypes';
 import { MAIN_NAMESPACE, SCHEMA_NAMESPACE, parseOid } from './consts';
 import { MemoryTable } from '../table';
 import { CustomIndex } from './custom-index';
+import { ReadOnlyTable } from './readonly-table';
 
 // https://www.postgresql.org/docs/12/catalog-pg-class.html
 
 const IS_SCHEMA = Symbol('_is_pg_classlist');
-export class PgClassListTable implements _ITable {
-
-    hidden = true;
+export class PgClassListTable extends ReadOnlyTable implements _ITable {
 
     get ownSymbol() {
         return IS_SCHEMA;
@@ -85,8 +84,6 @@ export class PgClassListTable implements _ITable {
     }
 
 
-    constructor(readonly schema: _IQuery) {
-    }
 
     private byOid(oid: string, t: _Transaction) {
         const { type, id } = parseOid(oid);
@@ -104,17 +101,6 @@ export class PgClassListTable implements _ITable {
     private byRelName(name: string, t: _Transaction) {
         return this.schema.getTable(name, true);
         // ?? this.db.getIndex(name, true);
-    }
-
-    insert(toInsert: any): void {
-        throw new ReadOnlyError('information schema');
-    }
-    createIndex(): this {
-        throw new ReadOnlyError('information schema');
-    }
-
-    setReadonly(): this {
-        throw new ReadOnlyError('information schema');
     }
 
     entropy(t: _Transaction): number {
@@ -153,20 +139,6 @@ export class PgClassListTable implements _ITable {
 
     hasItem(value: any): boolean {
         return !!value?.[IS_SCHEMA];
-    }
-
-    getIndex(forValue: IValue<any>): _IIndex<any> {
-        switch (forValue.id) {
-            case 'oid':
-        }
-        // if (forValue.id === 'relname') {
-        //     return new TableIndex(this, forValue);
-        // }
-        return null;
-    }
-
-    on(): void {
-        throw new NotSupported('subscribing information schema');
     }
 
 }

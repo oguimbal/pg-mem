@@ -8,6 +8,7 @@
 @include "simple-statements.ne"
 @include "insert.ne"
 @include "update.ne"
+@include "alter-table.ne"
 
 
 # list of statements, separated by ";"
@@ -31,3 +32,4 @@ statement
     | simplestatements_all
     | insert_statement
     | update_statement
+    | altertable_statement

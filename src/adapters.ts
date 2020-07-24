@@ -1,4 +1,4 @@
-import { LibAdapters, IMemoryDb, NotSupported } from './interfaces';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces';
 import pgEscape from 'pg-escape';
 import moment from 'moment';
 declare var __non_webpack_require__;
@@ -42,7 +42,7 @@ export class Adapters implements LibAdapters {
 
                 return new Promise((done, err) => setTimeout(() => {
                     try {
-                        const result = this.adaptResults(query, that.db.query.many(pgquery.text));
+                        const result = this.adaptResults(query, that.db.public.query(pgquery.text));
                         callback?.(null, result)
                         done(result);
                     } catch (e) {
@@ -52,12 +52,12 @@ export class Adapters implements LibAdapters {
                 }, queryLatency));
             }
 
-            private adaptResults(query: PgQuery, rows: any[]) {
+            private adaptResults(query: PgQuery, rows: QueryResult) {
                 if (query.rowMode) {
                     throw new NotSupported('pg rowMode')
                 }
                 return {
-                    rows: rows,
+                    ...rows,
                     get fields() {
                         throw new NotSupported('get pg fields');
                     }

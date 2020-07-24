@@ -81,10 +81,17 @@ kw_insert -> %word {% notReservedKw('insert')  %}
 kw_values -> %word {% notReservedKw('values')  %}
 kw_update -> %word {% notReservedKw('update')  %}
 kw_set -> %word {% notReservedKw('set')  %}
+kw_alter -> %word {% notReservedKw('alter')  %}
+kw_rename -> %word {% notReservedKw('rename')  %}
+kw_add -> %word {% notReservedKw('add')  %}
+kw_drop -> %word {% notReservedKw('drop')  %}
+kw_data -> %word {% notReservedKw('data')  %}
+kw_type -> %word {% notReservedKw('type')  %}
 
 
 # === Composite keywords
 kw_ifnotexists -> kw_if %kw_not kw_exists
+kw_ifexists -> kw_if kw_exists
 kw_not_null -> %kw_not %kw_null
 kw_primary_key -> %kw_primary kw_key
 

@@ -17,12 +17,12 @@ describe('Simple queries', () => {
     }
     beforeEach(() => {
         db = newDb();
-        many = db.query.many.bind(db.query);
-        none = db.query.none.bind(db.query);
+        many = db.public.many.bind(db.public);
+        none = db.public.none.bind(db.public);
     });
 
     function simpleDb() {
-        db.query.declareTable({
+        db.public.declareTable({
             name: 'data',
             fields: [{
                 id: 'id',
@@ -132,7 +132,7 @@ describe('Simple queries', () => {
 
         it('"IN" clause with constants index', () => {
             simpleDb();
-            db.query.none('create index on data(str)');
+            db.public.none('create index on data(str)');
             preventSeqScan(db);
             none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3')`);
             const got = many(`select * from data where str in ('str1', 'str3')`);
@@ -162,7 +162,7 @@ describe('Simple queries', () => {
 
         it('"NOT IN" clause with constants index', () => {
             simpleDb();
-            db.query.none('create index on data(str)');
+            db.public.none('create index on data(str)');
             preventSeqScan(db);
             none(`insert into data(id, str) values ('id1', 'str1'), ('id2', 'str2'), ('id3', 'str3'), ('id4', 'str4')`);
             const got = many(`select * from data where str not in ('str1', 'str3')`);
@@ -180,6 +180,25 @@ describe('Simple queries', () => {
         got = many(`select * from data where id='some id' and str='some str'`);
         expect(got).to.deep.equal([{ id: 'some id', str: 'some str' }]);
     });
+
+
+    it('can rollback an update', () => {
+        simpleDb();
+        none(`insert into data(id, str) values ('some id', 'some str')`);
+        expect(many(`update data set str='to rollback';
+                     rollback;
+                     select str from data;`))
+            .to.deep.equal([{ str: 'some str' }]);
+    });
+
+
+    it('can update', () => {
+        simpleDb();
+        none(`insert into data(id, str) values ('some id', 'some str')`);
+        expect(many(`update data set str='something new';
+                     select str from data;`))
+            .to.deep.equal([{ str: 'something new' }]);
+    })
 
 
     it('OR query', () => {
@@ -592,6 +611,14 @@ describe('Simple queries', () => {
     it('not null does not accept null values', () => {
         assert.throws(() => none(`create table test(txt text not null);
                     insert into test(txt) values (null);`));
+    });
+
+
+    it('can create columns not null with default', () => {
+        expect(many(`create table test(id text, val text not null default 'def');
+                    insert into test(id) values ('id');
+                    select * from test`))
+            .to.deep.equal([{ id: 'id', val: 'def' }]);
     });
 
     describe('Between operator', () => {

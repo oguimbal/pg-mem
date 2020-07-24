@@ -1,22 +1,20 @@
-import { IQuery, QueryError, SchemaField, DataType, IType, NotSupported, TableNotFound, Schema } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _IQuery, _ISelectionSource, _Transaction, _ITable } from './interfaces-private';
+import { ISchema, QueryError, SchemaField, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _IQuery as _Schema, _ISelectionSource, _Transaction, _ITable } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
-import { Transaction } from './transaction';
-import { Map as ImMap } from 'immutable';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 
-type Tables = ImMap<string, _ITable>;
-export class Query implements _IQuery, IQuery {
+type QR = QueryResult & { ignored?: boolean };
+export class Query implements _Schema, ISchema {
 
-    private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: null });
+    private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
 
 
@@ -52,14 +50,14 @@ export class Query implements _IQuery, IQuery {
     }
 
     none(query: string): void {
-        this._query(query);
+        this.query(query);
     }
 
     many(query: string): any[] {
-        return this._query(query);
+        return this.query(query).rows;
     }
 
-    private _query(query: string): any[] {
+    query(query: string): QueryResult {
         query = query + ';';
         console.log(query);
         console.log('\n');
@@ -68,7 +66,7 @@ export class Query implements _IQuery, IQuery {
         if (!Array.isArray(parsed)) {
             parsed = [parsed];
         }
-        let last;
+        let last: QR
         let t = this.db.data.fork();
         for (const _p of parsed) {
             if (!_p) {
@@ -86,7 +84,7 @@ export class Query implements _IQuery, IQuery {
                     }
                     continue;
                 case 'rollback':
-                    // throw new QueryError('Transaction rollback not supported !');
+                    t = t.rollback();
                     continue;
                 case 'insert':
                     last = this.executeInsert(t, p);
@@ -107,16 +105,79 @@ export class Query implements _IQuery, IQuery {
                     last = this.executeCreateIndex(t, p);
                     t = t.fork();
                     break;
+                case 'alter table':
+                    t = t.fullCommit();
+                    last = this.executeAlterRequest(t, p);
+                    t = t.fork();
+                    break;
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
-            p.check?.();
+            if (!last.ignored) {
+                p.check?.();
+            }
         }
         // implicit final commit
         t.fullCommit();
         return last;
     }
-    executeCreateIndex(t: _Transaction, p: CreateIndexStatement): any {
+
+    executeAlterRequest(t: _Transaction, p: AlterTableStatement): QR {
+        const table = this.db.getSchema(p.table.db)
+            .getTable(p.table.table, p.ifExists);
+        const nop: QR = {
+            command: 'ALTER',
+            fields: [],
+            rowCount: 0,
+            rows: [],
+        };
+        function ignore() {
+            nop.ignored = true;
+            return nop;
+        }
+        if (!table) {
+            return nop;
+        }
+        switch (p.change.type) {
+            case 'rename':
+                table.rename(p.change.to);
+                return nop;
+            case 'add column': {
+                const col = table.selection.getColumn(p.change.column.name, true);
+                if (col) {
+                    if (p.change.ifNotExists) {
+                        return ignore();
+                    } else {
+                        throw new QueryError('Column already exists: ' + col.id);
+                    }
+                }
+                table.addColumn(p.change.column, t);
+                return nop;
+            }
+            case 'drop column':
+                const col = table.getColumnRef(p.change.column, p.change.ifExists);
+                if (!col) {
+                    return ignore();
+                }
+                col.drop();
+                return nop;
+            case 'rename column':
+                table.getColumnRef(p.change.column)
+                    .rename(p.change.to, t);
+                return nop;
+            case 'alter column':
+                table.getColumnRef(p.change.column)
+                    .alter(p.change.alter, t);
+                return nop;
+            case 'rename constraint':
+                throw new NotSupported('rename constraint');
+            default:
+                throw NotSupported.never(p.change, 'alter request');
+
+        }
+    }
+
+    executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
         const indexName = p.indexName;
         const onTable = this.getTable(p.table);
         const columns = p.expressions
@@ -132,9 +193,15 @@ export class Query implements _IQuery, IQuery {
                 columns,
                 indexName,
             });
+        return {
+            command: 'CREATE',
+            fields: [],
+            rowCount: 0,
+            rows: [],
+        };
     }
 
-    executeCreateTable(t: _Transaction, p: CreateTableStatement): any {
+    executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
         // get creation parameters
         const table = p.name;
         if (this.getTable(table, true)) {
@@ -175,15 +242,27 @@ export class Query implements _IQuery, IQuery {
                         unique,
                         notNull,
                         autoIncrement: f.dataType.type === 'serial',
+                        default: f.default,
                     }
                 })
         });
-        return null;
+        return {
+            command: 'CREATE',
+            fields: [],
+            rowCount: 0,
+            rows: [],
+        };
     }
 
-    executeSelect(t: _Transaction, p: SelectStatement): any[] {
+    executeSelect(t: _Transaction, p: SelectStatement): QueryResult {
         const subj = this.buildSelect(p);
-        return [...subj.enumerate(t)];
+        const rows = [...subj.enumerate(t)];
+        return {
+            rows,
+            rowCount: rows.length,
+            command: 'SELECT',
+            fields: [],
+        };
     }
 
     buildSelect(p: SelectStatement): _ISelection {
@@ -206,7 +285,7 @@ export class Query implements _IQuery, IQuery {
             let newT = from.type === 'statement'
                 ? this.buildSelect(from.statement)
                 : this.db.getSchema(from.db)
-                        .getTable(from.table)
+                    .getTable(from.table)
                     .selection;
 
             // set its alias
@@ -239,7 +318,7 @@ export class Query implements _IQuery, IQuery {
         return sel;
     }
 
-    executeUpdate(t: _Transaction, p: UpdateStatement): any[] {
+    executeUpdate(t: _Transaction, p: UpdateStatement): QueryResult {
         const into = this.db
             .getSchema(p.table.db)
             .getTable(p.table.table);
@@ -253,8 +332,10 @@ export class Query implements _IQuery, IQuery {
             getter: x.value !== 'default' && buildValue(items, x.value),
         }));
         const ret = [];
+        let rowCount = 0;
         const returning = p.returning && buildSelection(new ArrayFilter(items, ret), p.returning);
         for (const i of items.enumerate(t)) {
+            rowCount++;
             for (const s of sets) {
                 if (s.value === 'default') {
                     i[s.column] = null;
@@ -265,8 +346,15 @@ export class Query implements _IQuery, IQuery {
             ret.push(into.update(t, i));
         }
 
-        if (returning) {
-            return [...returning.enumerate(t)];
+        const rows = returning
+            ? [...returning.enumerate(t)]
+            : [];
+
+        return {
+            rowCount,
+            rows,
+            command: 'UPDATE',
+            fields: [],
         }
     }
 
@@ -285,7 +373,7 @@ export class Query implements _IQuery, IQuery {
         // }
     }
 
-    executeInsert(t: _Transaction, p: InsertStatement): any[] {
+    executeInsert(t: _Transaction, p: InsertStatement): QueryResult {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }
@@ -302,9 +390,11 @@ export class Query implements _IQuery, IQuery {
         const returning = p.returning && buildSelection(new ArrayFilter(table.selection, ret), p.returning);
 
         // get values to insert
+        let rowCount = 0;
         if (p.values) {
             const values = p.values;
             for (const val of values) {
+                rowCount++;
                 if (val.length !== columns.length) {
                     throw new QueryError('Insert columns / values count mismatch');
                 }
@@ -327,8 +417,15 @@ export class Query implements _IQuery, IQuery {
             throw new QueryError('Nothing to insert');
         }
 
-        if (returning) {
-            return [...returning.enumerate(t)];
+        const rows = returning
+            ? [...returning.enumerate(t)]
+            : [];
+
+        return {
+            rowCount,
+            rows,
+            command: 'INSERT',
+            fields: [],
         }
     }
 
@@ -352,6 +449,17 @@ export class Query implements _IQuery, IQuery {
         trans.commit();
         this.tables.set(nm, ret);
         return ret;
+    }
+
+    _doRenTab(table: string, to: string) {
+        const t = this.getTable(table);
+        const nm = to.toLowerCase();
+        if (this.tables.has(nm)) {
+            throw new Error('Table exists: ' + nm);
+        }
+        const onm = table.toLowerCase();
+        this.tables.delete(onm);
+        this.tables.set(nm, t);
     }
 
     tablesCount(t: _Transaction): number {

@@ -4,6 +4,7 @@
     // When using HMR, it is recommanded to configure a different debug port here.
     // otherwise, you wont be able to use mocha tests in multiple instances of vscode.
     "mochaExplorer.debuggerPort": 9239,
+    "mochaExplorer.timeout": 30000,
     "mochaExplorer.require": "source-map-support/register",
     "mochaExplorer.skipFrames": [
         "src/parser/syntax/spec-utils.ts"

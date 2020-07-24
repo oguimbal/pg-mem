@@ -1,4 +1,4 @@
-import { Schema, IMemoryDb, IQuery, TableEvent, GlobalEvent, TableNotFound, QueryError } from './interfaces';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError } from './interfaces';
 import { MemoryTable } from './table';
 import { _IDb, _ISelection, _ITable, _Transaction, _IQuery } from './interfaces-private';
 import { Query } from './query';
@@ -24,7 +24,7 @@ class MemoryDb implements _IDb {
     private schemas = new Map<string, _IQuery>();
 
     readonly adapters = new Adapters(this);
-    get query() {
+    get public() {
         return this.getSchema(null)
     }
 
@@ -49,7 +49,7 @@ class MemoryDb implements _IDb {
     }
 
     getTable(name: string, nullIfNotExists?: boolean): _ITable {
-        return this.query.getTable(name, nullIfNotExists);
+        return this.public.getTable(name, nullIfNotExists);
     }
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any) {

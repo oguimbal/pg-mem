@@ -2,10 +2,9 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { trimNullish } from '../utils';
-import { Types } from '../datatypes';
-import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
+import { typeormSimpleSample } from '../../samples/typeorm/simple';
+import { typeormJoinsSample } from '../../samples/typeorm/joins';
 
 describe('Typeorm', () => {
 
@@ -17,12 +16,12 @@ describe('Typeorm', () => {
     }
     beforeEach(() => {
         db = newDb();
-        many = db.query.many.bind(db.query);
-        none = db.query.none.bind(db.query);
+        many = db.public.many.bind(db.public);
+        none = db.public.none.bind(db.public);
     });
 
     function simpleDb() {
-        db.query.none('create table data(id text primary key, data jsonb, num integer, var varchar(10))');
+        db.public.none('create table data(id text primary key, data jsonb, num integer, var varchar(10))');
     }
 
 
@@ -37,7 +36,7 @@ describe('Typeorm', () => {
                 , { regtype: 'text' }]);
     });
 
-    it ('can select table schema 1', () => {
+    it('can select table schema 1', () => {
         simpleDb();
         const result = many(`SELECT "ns"."nspname" AS "table_schema",
                 "t"."relname" AS "table_name",
@@ -57,10 +56,10 @@ describe('Typeorm', () => {
                                                 AND "a"."attnum" = ANY ("cnst"."conkey")
             WHERE "t"."relkind" = 'r'
                     AND (("ns"."nspname" = 'public' AND "t"."relname" = 'data'))`);
-            expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([])
     });
 
-    it ('can select table schema 2', () => {
+    it('can select table schema 2', () => {
         simpleDb();
         const result = many(`SELECT "ns"."nspname" AS "table_schema",
                                          "t"."relname" AS "table_name",
@@ -82,11 +81,11 @@ describe('Typeorm', () => {
                                     WHERE "t"."relkind" = 'r'
                                         AND "cnst"."contype" IS NULL
                                         AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user'));`);
-            expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([])
     });
 
 
-    it ('can select table schema 3', () => {
+    it('can select table schema 3', () => {
         simpleDb();
         const result = many(`SELECT
                                     "con"."conname" AS "constraint_name",
@@ -138,16 +137,16 @@ describe('Typeorm', () => {
                                 INNER JOIN "pg_class" "cl" ON "cl"."oid" = "con"."confrelid"
                                 INNER JOIN "pg_namespace" "ns" ON "cl"."relnamespace" = "ns"."oid"
                                 INNER JOIN "pg_attribute" "att2" ON "att2"."attrelid" = "con"."conrelid" AND "att2"."attnum" = "con"."parent";`);
-            expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([])
     });
 
-    it ('can select table schema 4', () => {
+    it('can select table schema 4', () => {
         const result = many(`SELECT * FROM "information_schema"."tables" WHERE "table_schema" = current_schema`);
-            expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([])
     });
 
 
-    it ('can create table', () => {
+    it('can create table', () => {
         none(`CREATE TABLE "user" ("id" SERIAL NOT NULL,
                                     "firstName" text NOT NULL,
                                     "lastName" text NOT NULL,
@@ -155,5 +154,15 @@ describe('Typeorm', () => {
                                     CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id")
                                 );`);
         assert.exists(db.getTable('user'), 'Table should have been created');
+    });
+
+
+
+    it('can perform simple sample', async () => {
+        await typeormSimpleSample();
     })
+
+    it('can perform join sample', async () => {
+        await typeormJoinsSample();
+    });
 });

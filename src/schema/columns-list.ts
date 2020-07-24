@@ -3,11 +3,10 @@ import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
 import { TableIndex } from './table-index';
+import { ReadOnlyTable } from './readonly-table';
 
 const IS_SCHEMA = Symbol('_is_colmun');
-export class ColumnsListSchema implements _ITable {
-
-    hidden = true;
+export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
 
     get ownSymbol() {
         return IS_SCHEMA;
@@ -71,19 +70,6 @@ export class ColumnsListSchema implements _ITable {
         schema: this._schema
     });
 
-    constructor(readonly schema: _IQuery) {
-    }
-
-    insert(toInsert: any): void {
-        throw new ReadOnlyError('information schema');
-    }
-    createIndex(): this {
-        throw new ReadOnlyError('information schema');
-    }
-
-    setReadonly(): this {
-        throw new ReadOnlyError('information schema');
-    }
 
     entropy(t: _Transaction): number {
         return this.schema.db.listSchemas()
@@ -149,10 +135,6 @@ export class ColumnsListSchema implements _ITable {
             return new TableIndex(this, forValue);
         }
         return null;
-    }
-
-    on(): void {
-        throw new NotSupported('subscribing information schema');
     }
 
     *itemsByTable(table: string | _ITable, t: _Transaction) {

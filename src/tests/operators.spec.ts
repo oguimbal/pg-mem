@@ -17,8 +17,8 @@ describe('Operators', () => {
     }
     beforeEach(() => {
         db = newDb();
-        many = db.query.many.bind(db.query);
-        none = db.query.none.bind(db.query);
+        many = db.public.many.bind(db.public);
+        none = db.public.none.bind(db.public);
     });
 
     it('+ on ints', () => {

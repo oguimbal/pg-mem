@@ -50,10 +50,11 @@ createtable_collist -> ident (comma ident {% last %}):* {% ([head, tail]) => {
 } %}
 
 
-createtable_column -> word data_type createtable_column_constraint:? {% x => ({
+createtable_column -> word data_type createtable_column_constraint:? (%kw_default expr {% last %}):? {% x => ({
     name: x[0],
     dataType: x[1],
     ...x[2] ? { constraint: x[2] }: {},
+    ...x[3] ? { default: unwrap(x[3]) } : {}
 }) %}
 
 # todo handle advanced constraints (see doc)

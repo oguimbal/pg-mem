@@ -5,6 +5,7 @@ export type Statement = SelectStatement
     | InsertStatement
     | UpdateStatement
     | RollbackStatement
+    | AlterTableStatement
     | StartTransactionStatement;
 
 
@@ -29,6 +30,49 @@ export interface InsertStatement {
     /** Insert into select */
     select?: SelectStatement;
 }
+
+export interface AlterTableStatement {
+    type: 'alter table';
+    table: TableRefAliased;
+    ifExists?: boolean;
+    change: TableAlteration;
+}
+
+export type TableAlteration = {
+    type: 'rename';
+    to: string;
+} | {
+    type: 'rename column';
+    column: string;
+    to: string;
+} | {
+    type: 'rename constraint';
+    constraint: string;
+    to: string;
+} | {
+    type: 'add column';
+    ifNotExists?: boolean;
+    column: CreateColumnDef;
+} | {
+    type: 'drop column';
+    ifExists?: boolean;
+    column: string;
+} | {
+    type: 'alter column',
+    column: string;
+    alter: AlterColumn
+}
+
+export type AlterColumn = {
+    type: 'set type';
+    dataType: DataTypeDef;
+} | {
+    type: 'set default';
+    default: Expr;
+    updateExisting?: boolean;
+} | {
+    type: 'drop default' | 'set not null' | 'drop not null';
+};
 
 export interface CreateIndexStatement {
     type: 'create index';
@@ -59,6 +103,7 @@ export interface CreateColumnDef {
     dataType: DataTypeDef;
     // collate?: string; (todo)
     constraint?: ColumnConstraint;
+    default?: Expr;
 }
 
 export interface DataTypeDef {
