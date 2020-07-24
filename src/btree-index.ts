@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
 import { QueryError } from './interfaces';
 
@@ -285,5 +285,12 @@ export class BIndex<T = any> implements _IIndex<T> {
         //     yield* it.value.values();
         //     it.prev();
         // }
+    }
+
+    explain(e: _Explainer): _IndexExplanation {
+        return {
+            onTable: this.onTable.name,
+            btree: this.expressions.map(x => x.sql),
+        }
     }
 }

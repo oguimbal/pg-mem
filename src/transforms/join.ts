@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _IQuery } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _IQuery, _SelectExplanation, _Explainer } from '../interfaces-private';
 import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
@@ -19,7 +19,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private indexedRight: _IIndex<any>;
     private seqScanExpression: IValue<any>;
     private joinId: number;
-
 
     get columns(): IValue<any>[] {
         return this._columns;
@@ -57,11 +56,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             const b = buildValue(this, on.right);
 
             // const aIndex = a.wrappedOrigin?.getIndex()
-            if (b.index && b && a.origin === left && b.origin === right) {
+            if (b.index && b.index.expressions.length === 1 && b && a.origin === left && b.origin === right) {
                 // right part of binary expression is an index on the joined table
                 this.leftExpression = a;
                 this.indexedRight = b.index;
-            } else if (a.index && a.origin === right && b.origin === left) {
+            } else if (a.index && a.index.expressions.length === 1 && a.origin === right && b.origin === left) {
                 // left part of binary expression is an index on the joined table
                 this.leftExpression = b;
                 this.indexedRight = a.index;
@@ -142,4 +141,19 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return null;
     }
 
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'join',
+            join: this.left.explain(e),
+            with: this.right.explain(e),
+            inner: this.innerJoin,
+            on: this.indexedRight ? {
+                index: this.indexedRight.explain(e),
+                matches: this.leftExpression.explain(e),
+            } : {
+                seqScan: this.seqScanExpression.explain(e),
+            },
+        };
+    }
 }

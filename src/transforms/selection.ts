@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType, _Transaction, _Column, _ITable } from '../interfaces-private';
+import { _ISelection, _IIndex, IValue, _ISelectionSource, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField } from '../interfaces';
 import { buildValue } from '../predicate';
 import { buildColumnIds } from '../utils';
@@ -23,6 +23,16 @@ export function buildAlias(on: _ISelectionSource, alias?: string): _ISelection<a
     if (!alias) {
         return on as any;
     }
+    if (on instanceof Selection) {
+        if (on.alias === alias) {
+            return on;
+        }
+        if (on.autoAlias) {
+            on.alias = alias;
+            on.autoAlias = false;
+            return on;
+        }
+    }
     return new Selection(on, {
         alias,
     });
@@ -31,7 +41,9 @@ export function buildAlias(on: _ISelectionSource, alias?: string): _ISelection<a
 let selCnt = 0;
 
 export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
-    private alias: string;
+
+    alias: string;
+    autoAlias: boolean;
     // readonly index: _IIndex<T>; // <== ??
 
     private _columns: IValue[] = [];
@@ -78,7 +90,8 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                 this._columns.push(col);
                 this.refColumn(col);
             }
-            this.alias = 'selection:' + (selCnt++);
+            this.alias = 's:' + (selCnt++);
+            this.autoAlias = true;
         } else if (opts.schema) {
             // ============= initial selection from manual schema
             this.alias = opts.schema.name?.toLowerCase();
@@ -177,5 +190,36 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             throw new AmbiguousColumn(column);
         }
         return ret[0];
+    }
+
+    explain(e: _Explainer): _SelectExplanation {
+        const base = this.base as _ISelection;
+        if (!base.columns || !base.explain) {
+            return {
+                id: e.idFor(this),
+                type: 'table',
+                table: this.alias,
+            }
+        }
+
+        if (this.columns === base.columns) {
+            return {
+                id: e.idFor(this),
+                type: 'map',
+                alias: this.alias,
+                of: base.explain(e),
+            }
+        }
+
+        return {
+            id: e.idFor(this),
+            type: 'map',
+            alias: this.alias,
+            of: base.explain(e),
+            select: this.columnIds.map((x, i) => ({
+                what: this.columns[i].explain(e),
+                as: x
+            })),
+        };
     }
 }

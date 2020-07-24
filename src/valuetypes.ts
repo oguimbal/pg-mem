@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ISelection, _IType, _Transaction } from './interfaces-private';
+import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation } from './interfaces-private';
 import { DataType, QueryError, CastError } from './interfaces';
 import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
@@ -55,17 +55,16 @@ export class Evaluator<T = any> implements IValue<T> {
                 this.origin = dependencies.origin;
             } else {
                 this.usedColumns = new Set();
-                const origs = new Set();
                 for (const d of dependencies) {
                     if (d.origin) {
-                        origs.add(d.origin);
+                        if (this.origin && this.origin !== d.origin) {
+                            throw new Error('You cannot evaluate an expression which coming from multiple origins');
+                        }
+                        this.origin = d.origin;
                     }
                     for (const u of d.usedColumns) {
                         this.usedColumns.add(u);
                     }
-                }
-                if (origs.size === 1) {
-                    this.origin = origs.values().next().value;
                 }
             }
         }
@@ -200,6 +199,18 @@ export class Evaluator<T = any> implements IValue<T> {
 
     toString() {
         return this.sql;
+    }
+
+    explain(e: _Explainer): _ExprExplanation {
+        if (!this.origin) {
+            return {
+                constant: true,
+            }
+        }
+        return {
+            on: e.idFor(this.origin),
+            col: this.id ?? this.sql,
+        };
     }
 }
 

@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
@@ -33,5 +33,13 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
             }
             yield item;
         }
+    }
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'ineq',
+            on: this.onValue.index.explain(e),
+        };
     }
 }

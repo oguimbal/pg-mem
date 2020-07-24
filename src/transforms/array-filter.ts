@@ -1,5 +1,5 @@
 import { FilterBase } from './transform-base';
-import { _ISelection } from '../interfaces-private';
+import { _ISelection, _Explainer, _SelectExplanation } from '../interfaces-private';
 
 export class ArrayFilter<T = any> extends FilterBase<T> {
 
@@ -25,5 +25,14 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
 
     enumerate(): Iterable<T> {
         return this.elts;
+    }
+
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'constantSet',
+            rawArrayLen: this.elts.length,
+        }
     }
 }

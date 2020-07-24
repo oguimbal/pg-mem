@@ -1,8 +1,16 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction } from '../interfaces-private';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation } from '../interfaces-private';
 import { ReadOnlyError } from '../interfaces';
 
 export class TableIndex implements _IIndex {
     readonly expressions: IValue<any>[];
+
+    get hash(): string {
+        throw new Error('not implemented');
+    }
+    explain(e: _Explainer): _IndexExplanation {
+        throw new Error('not implemented');
+    }
+
 
     constructor(readonly onTable: _ITable & { itemsByTable(table: string, t: _Transaction): Iterable<any>; ownSymbol: any }, private col: IValue) {
         this.expressions = [col];
@@ -86,5 +94,4 @@ export class TableIndex implements _IIndex {
             }
         }
     }
-
 }

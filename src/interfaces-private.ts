@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef } from './parser/syntax/ast';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef } from './parser/syntax/ast';
 import type { Map as ImMap } from 'immutable';
 
 export * from './interfaces';
@@ -30,9 +30,11 @@ export function setId<T = any>(item: T, id: string): T {
 }
 
 export interface _IQuery extends ISchema {
+
     readonly name: string;
     readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
+    explainSelect(sql: string): _SelectExplanation;
     getTable(table: string, nullIfNotFound?: boolean): _ITable;
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
@@ -73,6 +75,95 @@ export interface _ISelection<T = any> extends _ISelectionSource {
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
     setAlias(alias?: string): _ISelection;
     subquery(data: _ISelection<any>, op: SelectStatement): _ISelection;
+    explain(e: _Explainer): _SelectExplanation;
+}
+export interface _Explainer {
+    readonly transaction: _Transaction;
+    idFor(sel: _ISelection): number;
+}
+
+export type _SelectExplanation = {
+    /** A jointure */
+    id: number;
+    type: 'join';
+    join: _SelectExplanation;
+    with: _SelectExplanation;
+    inner: boolean;
+    on: {
+        /** 'with' will have to be scanned with this expression */
+        seqScan: _ExprExplanation;
+    } | {
+        /** the 'with' table has this index that can be used */
+        index: _IndexExplanation;
+        /** It will be matched with this expression (computable from the 'join' table) */
+        matches: _ExprExplanation;
+    }
+} | {
+    /** A selection or alias transformation */
+    id: number;
+    type:'map';
+    alias: string;
+    select?: {
+        what: _ExprExplanation;
+        as: string;
+    }[];
+    of: _SelectExplanation;
+} | {
+    /** A table */
+    id: number;
+    type: 'table';
+    table: string;
+} | {
+    /** An AND filter */
+    id: number;
+    type: 'and',
+    enumerate: _SelectExplanation;
+    andCheck: _SelectExplanation[];
+} | {
+    /** A raw array definition */
+    id: number;
+    type: 'constantSet';
+    rawArrayLen: number;
+} | {
+    /** One of the following operators on an index:
+     * - (NOT) IN
+     * - (NOT) LIKE
+     * - (NOT) BETWEEN
+     * - < > <= >= = !=
+     *
+     * (against constants) */
+    id: number;
+    type: 'eq' | 'ineq' | 'neq' | 'inside' | 'outside';
+    /** The index that will be used to check equality */
+    on: _IndexExplanation;
+} | {
+    /** An empty set */
+    id: number;
+    type: 'empty';
+} | {
+    /** An union set */
+    id: number;
+    type: 'union',
+    union: _SelectExplanation[];
+} | {
+    /** A seq-scan filter of another set */
+    id: number;
+    type: 'seqFilter';
+    filter: _SelectExplanation;
+}
+
+export type _IndexExplanation = {
+    /** BTree index on expression */
+    onTable: string;
+    btree: string[];
+};
+
+export type _ExprExplanation = {
+    constant: true;
+} | {
+    /** ID of the origin of this selection */
+    on: number;
+    col: string;
 }
 
 export interface _IDb extends IMemoryDb {
@@ -194,6 +285,8 @@ export interface IValue<TRaw = any> {
     convert<T = any>(to: DataType | _IType<T>): IValue<T>;
 
     setWrapper(wrap: (val: any) => any): IValue<TRaw>;
+
+    explain(e: _Explainer): _ExprExplanation;
 }
 
 export type IndexKey = any[];
@@ -232,4 +325,6 @@ export interface _IIndex<T = any> {
     ge(rawKey: IndexKey, t: _Transaction): Iterable<T>;
     /** Get lower or equal the given key */
     le(rawKey: IndexKey, t: _Transaction): Iterable<T>;
+
+    explain(e: _Explainer): _IndexExplanation;
 }

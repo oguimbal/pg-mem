@@ -1,4 +1,4 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction } from '../interfaces-private';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation } from '../interfaces-private';
 import { ReadOnlyError } from '../interfaces';
 import { nullIsh } from '../utils';
 
@@ -10,6 +10,13 @@ interface IndexSubject<T> {
 
 export class CustomIndex<T> implements _IIndex<T> {
     readonly expressions: IValue<any>[];
+
+    get hash(): string {
+        throw new Error('not implemented');
+    }
+    explain(e: _Explainer): _IndexExplanation {
+        throw new Error('not implemented');
+    }
 
     constructor(readonly onTable: _ITable<T>, private subject: IndexSubject<T>) {
         this.expressions = [this.subject.column];
@@ -45,13 +52,13 @@ export class CustomIndex<T> implements _IIndex<T> {
             return its;
         }
     }
-    *eq([rawKey]: any, t: _Transaction): Iterable<any> {
+    * eq([rawKey]: any, t: _Transaction): Iterable<any> {
         for (const its of this.subject.byColumnValue(rawKey, t)) {
             yield its;
         }
     }
 
-    *nin(keys: any[][], t: _Transaction) {
+    * nin(keys: any[][], t: _Transaction) {
         const raws = keys.map(x => x[0]) as any[];
         for (const i of this.onTable.enumerate(t)) {
             const val = this.subject.column.get(i, t);
@@ -62,7 +69,7 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
 
-    *neq([rawKey]: any, t: _Transaction) {
+    * neq([rawKey]: any, t: _Transaction) {
         for (const i of this.onTable.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val !== rawKey) {
@@ -70,7 +77,7 @@ export class CustomIndex<T> implements _IIndex<T> {
             }
         }
     }
-    *gt(rawKey: any, t: _Transaction): Iterable<any> {
+    * gt(rawKey: any, t: _Transaction): Iterable<any> {
         for (const i of this.onTable.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val > rawKey) {
@@ -78,7 +85,7 @@ export class CustomIndex<T> implements _IIndex<T> {
             }
         }
     }
-    *lt(rawKey: any, t: _Transaction): Iterable<any> {
+    * lt(rawKey: any, t: _Transaction): Iterable<any> {
         for (const i of this.onTable.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val < rawKey) {
@@ -86,7 +93,7 @@ export class CustomIndex<T> implements _IIndex<T> {
             }
         }
     }
-    *ge(rawKey: any, t: _Transaction): Iterable<any> {
+    * ge(rawKey: any, t: _Transaction): Iterable<any> {
         for (const i of this.onTable.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val >= rawKey) {
@@ -94,7 +101,7 @@ export class CustomIndex<T> implements _IIndex<T> {
             }
         }
     }
-    *le(rawKey: any, t: _Transaction): Iterable<any> {
+    * le(rawKey: any, t: _Transaction): Iterable<any> {
         for (const i of this.onTable.enumerate(t)) {
             const val = this.subject.column.get(i, t);
             if (val <= rawKey) {

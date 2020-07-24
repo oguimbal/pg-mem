@@ -1,10 +1,9 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb, _Transaction } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISelectionSource, _IQuery, _IDb, _Transaction, _SelectExplanation, _Explainer } from '../interfaces-private';
 import type { buildSelection, buildAlias } from './selection';
 import type { buildFilter } from './build-filter';
 import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
-import { ISchema } from 'src/interfaces';
 
 interface Fns {
     buildSelection: typeof buildSelection;
@@ -23,6 +22,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract getColumn(column: string, nullIfNotFound?: boolean): IValue<any>;
     abstract hasItem(value: T, t: _Transaction): boolean;
     abstract getIndex(forValue: IValue): _IIndex<any>;
+    abstract explain(e: _Explainer): _SelectExplanation;
 
     constructor(readonly schema: _IQuery) {
     }

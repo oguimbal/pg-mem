@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, _ITable, _Transaction } from '../interfaces-private';
+import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { SeqScanFilter } from './seq-scan';
 
@@ -54,4 +54,15 @@ export class AndFilter<T = any> extends FilterBase<T> {
             yield item;
         }
     }
+
+    explain(e: _Explainer): _SelectExplanation {
+        const { best, sorted } = this.plan(e.transaction);
+        return {
+            id: e.idFor(this),
+            type: 'and',
+            enumerate: best.explain(e),
+            andCheck: sorted.map(x => x.explain(e)),
+        };
+    }
+
 }

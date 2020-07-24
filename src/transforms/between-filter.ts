@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
@@ -29,6 +29,14 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
             }
             yield item;
         }
+    }
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'inside',
+            on: this.onValue.index.explain(e),
+        };
     }
 }
 
@@ -67,5 +75,13 @@ export class NotBetweenFilter<T = any> extends FilterBase<T> {
             }
             yield item;
         }
+    }
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'outside',
+            on: this.onValue.index.explain(e),
+        };
     }
 }

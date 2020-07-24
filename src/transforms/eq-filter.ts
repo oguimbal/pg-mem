@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 
 export class EqFilter<T = any> extends FilterBase<T> {
@@ -37,5 +37,13 @@ export class EqFilter<T = any> extends FilterBase<T> {
         for (const item of index.eq(map, t)) {
             yield item;
         }
+    }
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'eq',
+            on: this.onValue.index.explain(e),
+        };
     }
 }

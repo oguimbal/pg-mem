@@ -5,6 +5,7 @@ import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 import { preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
+import { _IDb } from 'src/interfaces-private';
 
 describe('[Queries] Selections', () => {
 
@@ -35,28 +36,57 @@ describe('[Queries] Selections', () => {
         return db;
     }
 
+    function stuff() {
+        none(`create table test(txt text, val integer);
+        insert into test values ('A', 999);
+        insert into test values ('A', 0);
+        insert into test values ('A', 1);
+        insert into test values ('B', 2);
+        insert into test values ('C', 3);`)
+    }
+
+
     it('can use transformations', () => {
-        // preventSeqScan(db);
-        expect(many(`create table test(txt text, val integer);
-                insert into test values ('A', 999);
-                insert into test values ('A', 0);
-                insert into test values ('A', 1);
-                insert into test values ('B', 2);
-                insert into test values ('C', 3);
-                select * from (select val as xx from test where txt = 'A') x where x.xx >= 1`))
+        stuff();
+        expect(many(`select * from (select val as xx from test where txt = 'A') x where x.xx >= 1`))
             .to.deep.equal([{ xx: 999 }, { xx: 1 }]);
     });
+
+    it('executes the right plan on transformations', () => {
+        stuff();
+        const plan = (db as _IDb).public.explainSelect(`select * from (select val as xx from test where txt = 'A') x where x.xx >= 1`);
+        // assert.deepEqual(plan, {} as any);
+        assert.deepEqual(plan, {
+            id: 1,
+            type: 'seqFilter',
+            filter: {
+                id: 2,
+                type: 'map',
+                alias: 'x',
+                select: [{
+                    what: {
+                        col: 'val',
+                        on: 3,
+                    },
+                    as: 'xx',
+                }],
+                of: {
+                    id: 3,
+                    type: 'seqFilter',
+                    filter: {
+                        id: 4,
+                        type: 'table',
+                        table: 'test',
+                    }
+                }
+            }
+        });
+    })
 
 
     it('can use an expression on a transformed selection', () => {
         // preventSeqScan(db);
-        expect(many(`create table test(txt text, val integer);
-                insert into test values ('A', 999);
-                insert into test values ('A', 0);
-                insert into test values ('A', 1);
-                insert into test values ('B', 2);
-                insert into test values ('C', 3);
-                select *, lower(txtx) as v from (select val as valx, txt as txtx from test where val >= 1) x where lower(x.txtx) = 'a'`))
+        expect(many(`select *, lower(txtx) as v from (select val as valx, txt as txtx from test where val >= 1) x where lower(x.txtx) = 'a'`))
             .to.deep.equal([{ txtx: 'A', valx: 999, v: 'a' }, { txtx: 'A', valx: 1, v: 'a' }]);
     });
 

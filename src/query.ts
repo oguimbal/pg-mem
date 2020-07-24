@@ -1,5 +1,5 @@
 import { ISchema, QueryError, SchemaField, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _IQuery as _Schema, _ISelectionSource, _Transaction, _ITable } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _IQuery as _Schema, _ISelectionSource, _Transaction, _ITable, _SelectExplanation, _Explainer } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
@@ -258,6 +258,18 @@ export class Query implements _Schema, ISchema {
         };
     }
 
+    explainSelect(sql: string): _SelectExplanation {
+        let parsed = parse(sql);
+        if (Array.isArray(parsed)) {
+            throw new Error('Expecting a single statement');
+        }
+        if (parsed.type !== 'select') {
+            throw new Error('Expecting a select statement');
+        }
+        return this.buildSelect(parsed)
+            .explain(new Explainer(this.db.data))
+    }
+
     executeSelect(t: _Transaction, p: SelectStatement): QueryResult {
         const subj = this.buildSelect(p);
         const rows = [...subj.enumerate(t)];
@@ -482,4 +494,20 @@ export class Query implements _Schema, ISchema {
             }
         }
     }
+}
+
+class Explainer implements _Explainer {
+    private sels = new Map<_ISelection, number>();
+    constructor(readonly transaction: _Transaction) {
+    }
+
+    idFor(sel: _ISelection<any>): number {
+        if (this.sels.has(sel)) {
+            return this.sels.get(sel);
+        }
+        const id = this.sels.size + 1;
+        this.sels.set(sel, id);
+        return id;
+    }
+
 }

@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
@@ -32,5 +32,14 @@ export class NotInFilter<T = any> extends FilterBase<T> {
         for (const item of index.nin(this.elts.map(x => [x]), t)) {
             yield item;
         }
+    }
+
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'neq',
+            on: this.onValue.index.explain(e),
+        };
     }
 }

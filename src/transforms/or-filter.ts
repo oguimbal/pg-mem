@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, _ITable, getId, _Transaction } from '../interfaces-private';
+import { _ISelection, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 
 
@@ -31,5 +31,18 @@ export class OrFilter<T = any> extends FilterBase<T> {
                 yield item;
             }
         }
+    }
+
+
+
+    explain(e: _Explainer): _SelectExplanation {
+        return {
+            id: e.idFor(this),
+            type: 'union',
+            union: [
+                this.left.explain(e),
+                this.right.explain(e),
+            ],
+        };
     }
 }
