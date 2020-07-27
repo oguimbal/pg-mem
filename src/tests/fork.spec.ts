@@ -7,7 +7,7 @@ import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
-describe('DB forking', () => {
+describe('DB restore points', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];
@@ -35,16 +35,6 @@ describe('DB forking', () => {
         });
         return db;
     }
-
-    it('can fork db', () => {
-        simpleDb();
-        none(`insert into data(id) values ('value')`);
-        const ndb = db.fork();
-        db.public.none(`insert into data(id) values ('db1')`);
-        ndb.public.none(`insert into data(id) values ('db2')`);
-        expect(db.public.many(`select * from data`)).to.deep.equal([{ id: 'value' }, { id: 'db1' }]);
-        expect(ndb.public.many(`select * from data`)).to.deep.equal([{ id: 'value' }, { id: 'db2' }]);
-    });
 
 
     it('can backup & resotre db', () => {

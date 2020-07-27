@@ -63,16 +63,10 @@ export interface IMemoryDb {
     on(event: GlobalEvent, handler: () => any);
     /** Subscribe to an event on all tables */
     on(event: TableEvent, handler: (table: string) => any);
-    /**
-     * Creates a full copy of this DB.
-     * 👉 This operation is almost instantaneous (O(size of your schema)), even with millions of records.
-     * 👉 Subscriptions on this db will be lost in the new db
-     * */
-    fork(): IMemoryDb;
 
     /**
      * Creates a restore point.
-     * 👉 This operation is instantaneous, even with millions of records.
+     * 👉 This operation is O(1) (instantaneous, even with millions of records).
      * */
     backup(): IBackup;
 }
@@ -80,7 +74,7 @@ export interface IMemoryDb {
 export interface IBackup {
     /**
      * Restores data to the state when this backup has been performed.
-     * 👉 This operation is instantaneous.
+     * 👉 This operation is O(1).
      * 👉 Schema must not have been changed since then !
      **/
     restore(): void;

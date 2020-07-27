@@ -12,16 +12,6 @@ import { ColRef } from './column';
 import { buildAlias } from './transforms/alias';
 import { FilterBase, DataSourceBase } from './transforms/transform-base';
 
-function deepCopySchema(s: Schema): Schema {
-    return {
-        name: s.name,
-        fields: [...s.fields.map(x => ({
-            ...x,
-            constraint: x.constraint && { ...x.constraint },
-        }))],
-        constraints: s.constraints && [...s.constraints.map(x => ({ ...x }))],
-    };
-}
 
 type Raw<T> = ImMap<string, T>;
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
@@ -46,21 +36,15 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this.bin(t).size;
     }
 
-    clone(to: _ISchema): _ITable<any> {
-        const ret = new MemoryTable(to, to.db.data, deepCopySchema(this._schema));
-        ret.dataId = this.dataId;
-        return ret;
-    }
 
-
-    constructor(readonly schema: _ISchema, t: _Transaction, readonly _schema: Schema) {
+    constructor(readonly schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
         this.selection = buildAlias(this, this.name);
 
         // fields
         for (const s of _schema.fields) {
-            this.addColumn(s, t, true);
+            this.addColumn(s, t);
         }
 
         // auto increments
@@ -111,14 +95,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         };
     }
 
-    addColumn(column: SchemaField | CreateColumnDef, t: _Transaction, noAmendSchema?: boolean): _Column {
+    addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column {
         if ('dataType' in column) {
             const tp = {
                 ...column,
                 type: fromNative(column.dataType),
             };
             delete tp.dataType;
-            return this.addColumn(tp, t, noAmendSchema);
+            return this.addColumn(tp, t);
         }
 
         const low = column.name.toLowerCase();
@@ -132,7 +116,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 type: 'set default',
                 default: column.default,
                 updateExisting: true,
-            }, t, noAmendSchema)
+            }, t)
         }
 
         this.columnDefs.push(cref);
@@ -140,7 +124,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         try {
             if (column.constraint) {
-                cref.addConstraint(column.constraint, t, noAmendSchema);
+                cref.addConstraint(column.constraint, t);
             }
         } catch (e) {
             this.columnDefs.pop();
@@ -150,10 +134,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // once constraints created, reference them. (constraint creation might have thrown)m
         this.columns.push(cref.expression);
-        if (!noAmendSchema) {
-            this._schema.fields.push(column);
-            this.schema.db.onSchemaChange();
-        }
+        this.schema.db.onSchemaChange();
     }
 
 

@@ -472,18 +472,6 @@ export class Query implements _ISchema, ISchema {
             }
         }
     }
-
-    clone(toDb: _IDb): _ISchema {
-        const ret = new Query(this.name, toDb)
-            .pgSchema();
-        for (const t of this.listTables()) {
-            if (!(t instanceof MemoryTable) || t.hidden) {
-                continue;
-            }
-            ret.tables.set(t.name, t.clone(ret));
-        }
-        return ret;
-    }
 }
 
 class Explainer implements _Explainer {

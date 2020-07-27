@@ -48,20 +48,6 @@ class MemoryDb implements _IDb {
         return new Backup(this);
     }
 
-
-    fork(): IMemoryDb {
-        const cloned = this.data.clone();
-        const sch = new Map<string, _ISchema>();
-        const ret = new MemoryDb(cloned, sch);
-        for (const [k, v] of this.schemas.entries()) {
-            if (k === 'information_schema') {
-                continue;
-            }
-            sch.set(k, v.clone(ret));
-        }
-        return ret;
-    }
-
     declareSchema(name: string) {
         if (this.schemas.has(name)) {
             throw new Error('Schema exists: ' + name);

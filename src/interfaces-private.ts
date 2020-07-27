@@ -39,7 +39,6 @@ export interface _ISchema extends ISchema {
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
     _doRenTab(db: string, to: string);
-    clone(toDb: _IDb): _ISchema;
 }
 
 

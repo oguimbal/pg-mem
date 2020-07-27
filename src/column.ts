@@ -17,29 +17,16 @@ export class ColRef implements _Column {
 
     constructor(private table: MemoryTable
         , public expression: Evaluator
-        , private _schema: SchemaField) {
+        , _schema: SchemaField) {
     }
 
-    addConstraint(constraint: ColumnConstraint, t: _Transaction, noAmendSchema?: boolean): this {
+    addConstraint(constraint: ColumnConstraint, t: _Transaction): this {
         switch (constraint.type) {
             case 'primary key':
                 this.table.createIndex(t, {
                     columns: [{ value: this.expression }],
                     primary: true,
                 });
-                if (!noAmendSchema) {
-                    switch (this._schema.constraint?.type) {
-                        case 'primary key':
-                        case 'not null':
-                        case 'unique':
-                        case null:
-                        case undefined:
-                            this._schema.constraint = constraint;
-                            break;
-                        default:
-                            throw NotSupported.never(this._schema.constraint);
-                    }
-                }
                 break;
             case 'unique':
                 this.table.createIndex(t, {
@@ -47,51 +34,20 @@ export class ColRef implements _Column {
                     notNull: constraint.notNull,
                     unique: true,
                 });
-                if (!noAmendSchema) {
-                    switch (this._schema.constraint?.type) {
-                        case 'primary key':
-                            break; // ignore (shouldnot ?)
-                        case 'not null':
-                        case 'unique':
-                        case null:
-                        case undefined:
-                            this._schema.constraint = constraint;
-                            break;
-                        default:
-                            throw NotSupported.never(this._schema.constraint);
-                    }
-                }
                 break;
             case 'not null':
-                if (!noAmendSchema) {
-                    switch (this._schema.constraint?.type) {
-                        case 'primary key':
-                            break; // ignore (shouldnot ?)
-                        case 'unique':
-                            this._schema.constraint.notNull = true;
-                            break;
-                        case 'not null':
-                        case null:
-                        case undefined:
-                            this._schema.constraint = constraint;
-                            break;
-                        default:
-                            throw NotSupported.never(this._schema.constraint);
-                    }
-                }
-                this.addNotNullConstraint(t, noAmendSchema);
+                this.addNotNullConstraint(t);
                 break;
             default:
                 throw NotSupported.never(constraint, 'add constraint type');
         }
-        if (!noAmendSchema) {
-            this.table.schema.db.onSchemaChange();
-        }
+        this.table.schema.db.onSchemaChange();
         return this;
     }
 
 
-    private addNotNullConstraint(t: _Transaction, noAmendSchema?: boolean) {// check has no null value
+    private addNotNullConstraint(t: _Transaction) {
+        // check has no null value
         const bin = this.table.bin(t);
         for (const e of bin.values()) {
             const val = this.expression.get(e, t);
@@ -102,23 +58,7 @@ export class ColRef implements _Column {
         this.notNull = true;
 
         // just amend schema (for cloning)
-        if (!noAmendSchema) {
-            if (!this._schema.constraint) {
-                this._schema.constraint = { type: 'not null' };
-            } else {
-                switch (this._schema.constraint.type) {
-                    case 'not null':
-                    case 'primary key':
-                        break; // already not null
-                    case 'unique':
-                        this._schema.constraint.notNull = true;
-                        break;
-                    default:
-                        throw NotSupported.never(this._schema.constraint);
-                }
-            }
-            this.table.schema.db.onSchemaChange();
-        }
+        this.table.schema.db.onSchemaChange();
     }
 
     rename(to: string, t: _Transaction): this {
@@ -140,18 +80,14 @@ export class ColRef implements _Column {
 
         // === do nasty things to rename column
         this.replaceExpression(to, this.expression.type);
-        this._schema.name = to;
         this.table.schema.db.onSchemaChange();
         return this;
     }
 
-    alter(alter: AlterColumn, t: _Transaction, noAmendSchema?: boolean): this {
+    alter(alter: AlterColumn, t: _Transaction): this {
         switch (alter.type) {
             case 'drop default':
                 this.default = null;
-                if (!noAmendSchema) {
-                    this._schema.default = null;
-                }
                 break;
             case 'set default':
                 const df = buildValue(this.table.selection, alter.default);
@@ -163,28 +99,11 @@ export class ColRef implements _Column {
                     this.table.remapData(t, x => x[this.expression.id] = defVal);
                 }
                 this.default = df;
-                if (!noAmendSchema) {
-                    this._schema.default = alter.default;
-                }
                 break;
             case 'set not null':
-                this.addNotNullConstraint(t, noAmendSchema);
+                this.addNotNullConstraint(t);
                 break;
             case 'drop not null':
-                if (this._schema.constraint) {
-                    switch (this._schema.constraint.type) {
-                        case 'not null':
-                            this._schema.constraint = null;
-                            break;
-                        case 'primary key':
-                            throw new QueryError('Cannot drop not null constraint when constraint is a primary key');
-                        case 'unique':
-                            this._schema.constraint.notNull = false;
-                            break;
-                        default:
-                            throw NotSupported.never(this._schema.constraint);
-                    }
-                }
                 this.notNull = false;
                 break;
             case 'set type':
@@ -196,16 +115,11 @@ export class ColRef implements _Column {
 
                 // once converted, do nasty things to change expression
                 this.replaceExpression(eid, newType);
-                if (!noAmendSchema) {
-                    this._schema.type = newType;
-                }
                 break;
             default:
                 throw NotSupported.never(alter, 'alter column type');
         }
-        if (!noAmendSchema) {
-            this.table.schema.db.onSchemaChange();
-        }
+        this.table.schema.db.onSchemaChange();
         return this;
     }
 
@@ -222,8 +136,7 @@ export class ColRef implements _Column {
     drop(t: _Transaction): void {
         const on = this.expression.id.toLowerCase();
         const i = this.table.columnDefs.indexOf(this);
-        const ii = this.table._schema.fields.indexOf(this._schema);
-        if (i < 0 || ii !== i) {
+        if (i < 0) {
             throw new Error('Corrupted table');
         }
 
@@ -238,7 +151,6 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnsByName.delete(on);
         this.table.columnDefs.splice(i, 1);
-        this.table._schema.fields.splice(i, 1);
         this.table.schema.db.onSchemaChange();
     }
 
