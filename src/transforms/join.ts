@@ -1,9 +1,8 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation } from '../interfaces-private';
 import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
-import { buildColumnIds } from '../utils';
-import { Expr } from 'src/parser/syntax/ast';
+import { Expr } from '../parser/syntax/ast';
 
 let jCnt = 0;
 
@@ -19,6 +18,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private indexedRight: _IIndex<any>;
     private seqScanExpression: IValue<any>;
     private joinId: number;
+    private columnsMapping = new Map<IValue, IValue>();
+    private indexCache = new Map<IValue, _IIndex>();
 
     get columns(): IValue<any>[] {
         return this._columns;
@@ -37,17 +38,23 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }
 
     constructor(db: _ISchema
-        , private left: _ISelection<TLeft>
-        , private right: _ISelection<TRight>
+        , readonly left: _ISelection<TLeft>
+        , readonly right: _ISelection<TRight>
         , on: Expr
         , private innerJoin: boolean) {
         super(db);
 
         this.joinId = jCnt++;
-        this._columns = [
-            ...this.leftColumns.map(c => c.setWrapper(this, x => x['>left']))
-            , ...this.rightColumns.map(c => c.setWrapper(this, x => x['>right']))
-        ];
+        for (const c of this.leftColumns) {
+            const nc = c.setWrapper(this, x => x['>left']);
+            this._columns.push(nc);
+            this.columnsMapping.set(nc, c);
+        }
+        for (const c of this.rightColumns) {
+            const nc = c.setWrapper(this, x => x['>right']);
+            this._columns.push(nc);
+            this.columnsMapping.set(nc, c);
+        }
 
         // only support indexed joins on binary expressions
         // todo: multiple columns indexes join
@@ -94,7 +101,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 const joinValue = this.leftExpression.get(this.buildItem(l, null), t);
                 // get corresponding right value
                 let yielded = false;
-                for (const r of this.indexedRight.eq([joinValue], t)) {
+                for (const r of this.indexedRight.enumerate({
+                    type: 'eq',
+                    key: [joinValue],
+                    t,
+                })) {
                     yielded = true;
                     yield this.buildItem(l, r);
                 }
@@ -125,7 +136,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
-    private buildItem(l: TLeft, r: TRight) {
+    buildItem(l: TLeft, r: TRight) {
         const ret = { '>right': r, '>left': l }
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
         return ret;
@@ -136,15 +147,22 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         throw new NotSupported('lookups on joins');
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> { // istanbul ignore next
+    getIndex(forValue: IValue<any>): _IIndex<any> {
+        if (this.indexCache.has(forValue)) {
+            return this.indexCache.get(forValue);
+        }
         // todo: filter using indexes of tables (index propagation)'
-        return null;
+        const mapped = this.columnsMapping.get(forValue);
+        const originIndex = mapped.index;
+        const ret = new JoinIndex(this, originIndex);
+        this.indexCache.set(forValue, ret);
+        return ret;
     }
 
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
-            type: 'join',
+            _: 'join',
             join: this.left.explain(e),
             with: this.right.explain(e),
             inner: this.innerJoin,
@@ -152,8 +170,47 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 index: this.indexedRight.explain(e),
                 matches: this.leftExpression.explain(e),
             } : {
-                seqScan: this.seqScanExpression.explain(e),
-            },
+                    seqScan: this.seqScanExpression.explain(e),
+                },
         };
+    }
+}
+
+export class JoinIndex<T> implements _IIndex<T> {
+    constructor(readonly owner: JoinSelection<T>, private base: _IIndex) {
+    }
+
+    get expressions(): IndexExpression[] {
+        return this.base.expressions;
+    }
+
+
+    entropy(op: IndexOp): number {
+        // same as source
+        return this.base.entropy(op);
+    }
+
+    eqFirst(rawKey: IndexKey, t: _Transaction): T {
+        for (const i of this.enumerate({
+            type: 'eq',
+            key: rawKey,
+            t,
+        })) {
+            return i;
+        }
+    }
+
+    *enumerate(op: IndexOp): Iterable<T> {
+        for (const i of this.base.enumerate(op)) {
+            yield this.owner.buildItem(i, op.t);
+        }
+    }
+
+
+    explain(e: _Explainer): _IndexExplanation {
+        return {
+            _: 'joinIndex',
+            of: this.base.explain(e),
+        }
     }
 }

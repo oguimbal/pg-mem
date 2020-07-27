@@ -1,5 +1,5 @@
 import { _Transaction } from './interfaces-private';
-import { Map as ImMap } from 'immutable';
+import { Map as ImMap, Set as ImSet } from 'immutable';
 import { NotSupported, QueryError } from './interfaces';
 
 export class Transaction implements _Transaction {
@@ -52,6 +52,14 @@ export class Transaction implements _Transaction {
             this.data = this.data.set(identity, got = ImMap());
         }
         return got as any as T;
+    }
+
+    getSet<T>(identity: symbol): ImSet<T> {
+        let got = this.data.get(identity);
+        if (!got) {
+            this.data = this.data.set(identity, got = ImSet());
+        }
+        return got as any;
     }
 
     fullCommit() {

@@ -5,17 +5,18 @@ import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 import { preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
+import { _IDb } from '../interfaces-private';
 
 describe('[Queries] Indices', () => {
 
-    let db: IMemoryDb;
+    let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
     function all(table = 'test') {
         return many(`select * from ${table}`);
     }
     beforeEach(() => {
-        db = newDb();
+        db = newDb() as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });
@@ -53,14 +54,14 @@ describe('[Queries] Indices', () => {
         const db = setupNulls();
         preventSeqScan(db);
         const got = many('select * from data where str is null');
-        expect(got).to.deep.equal([{ id: 'id1', str: null }, { id: 'id3', str: null }]);
+        expect(got).to.deep.equal([{ id: 'id1', str: null, otherStr: null }, { id: 'id3', str: null, otherStr: null }]);
     });
 
 
     it('uses indexes for not null values', () => {
         const db = setupNulls();
         preventSeqScan(db);
-        const got = many('select * from data where str is not null');
+        const got = many('select id, str from data where str is not null');
         expect(got).to.deep.equal([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
     });
 
@@ -110,18 +111,91 @@ describe('[Queries] Indices', () => {
 
     it('can use an index on an aliased selection', () => {
         preventSeqScan(db);
-        expect(many(`create table test(txt text, val integer);
-                create index on test(txt);
-                create index on test(val);
-                insert into test values ('A', 999);
-                insert into test values ('A', 0);
-                insert into test values ('A', 1);
-                insert into test values ('B', 2);
-                insert into test values ('C', 3);
-                select * from (select val from test where txt != 'A') x where x.val > 1`))
+        const got = many(`create table test(txt text, val integer);
+        create index on test(txt);
+        create index on test(val);
+        insert into test values ('A', 999);
+        insert into test values ('A', 0);
+        insert into test values ('A', 1);
+        insert into test values ('B', 2);
+        insert into test values ('C', 3);
+        select * from (select val from test where txt != 'A') x where x.val > 1`);
+
+        const explain = db.public.explainSelect(`select * from (select val from test where txt != 'A') x where x.val > 1`);
+        // assert.deepEqual(explain, {} as any);
+        assert.deepEqual(explain, {
+            _: 'ineq',
+            entropy: 3,
+            id: 1,
+            on: {
+                _: 'indexMap',
+                of: {
+                    _: 'indexRestriction',
+                    lookup: {
+                        _: 'btree',
+                        btree: ['val'],
+                        onTable: 'test',
+                    },
+                    for: {
+                        _: 'neq',
+                        entropy: 10/3,
+                        id: 2,
+                        on: {
+                            _: 'btree',
+                            btree: ['txt'],
+                            onTable: 'test',
+                        }
+                    }
+                }
+            }
+        })
+
+        expect(got)
             .to.deep.equal([{ val: 2 }, { val: 3 }]);
     });
 
+    it('can use an index on an aliased selection & aliased var', () => {
+        // preventSeqScan(db);
+        const got = many(`create table test(txt text, val integer);
+        create index on test(txt);
+        create index on test(val);
+        insert into test values ('A', 999);
+        insert into test values ('A', 0);
+        insert into test values ('A', 1);
+        insert into test values ('B', 2);
+        insert into test values ('C', 3);
+        select * from (select val as xx from test where txt != 'A') x where x.xx > 1`);
+
+        const explain = db.public.explainSelect(`select * from (select val as xx from test where txt != 'A') x where x.xx > 1`);
+        assert.deepEqual(explain, {
+            _: 'seqFilter',
+            id: 1,
+            filtered: {
+                _: 'map',
+                id: 2,
+                select: [{
+                    what: {
+                        on: 4, // <== table (4) is hidden by the fact that there is an index at play.
+                        col: 'val'
+                    },
+                    as: 'xx',
+                }],
+                of: {
+                    _: 'neq',
+                    id: 3,
+                    entropy: 10 / 3,
+                    on: {
+                        _: 'btree',
+                        btree: ['txt'],
+                        onTable: 'test',
+                    }
+                }
+            }
+        });
+
+        expect(got)
+            .to.deep.equal([{ xx: 2 }, { xx: 3 }]);
+    });
     it('can use an index on an aliased "!=" selection', () => {
         // preventSeqScan(db);
         expect(many(`create table test(txt text, val integer);
@@ -176,7 +250,7 @@ describe('[Queries] Indices', () => {
                 insert into test values ('B', 2);
                 insert into test values ('C', 3);
                 select valx from (select val as valx, txt as txtx from test where val >= 1) x where lower(x.txtx) = 'a'`))
-            .to.deep.equal([{ valx: 999 }, { valx: 1 }]);
+            .to.deep.equal([{ valx: 1 }, { valx: 999 }]);
     });
 
 

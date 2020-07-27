@@ -9,24 +9,34 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
     }
 
     entropy(t: _Transaction) {
-        return this.onValue.index.entropy(t);
+        return this.onValue.index.entropy({
+            type: 'ge',
+            key: [this.startWith],
+            t,
+        });
     }
 
     hasItem(item: T, t: _Transaction) {
-        return this.onValue.index.hasItem(item, t);
+        const get = this.onValue.get(item, t);
+        return typeof get === 'string'
+            && get.startsWith(this.startWith);
     }
 
     constructor(private onValue: IValue<T>
         , private startWith: string) {
         super(onValue.origin);
-        if (onValue.index.expressions[0] !== this.onValue) {
+        if (onValue.index.expressions[0].hash !== this.onValue.hash) {
             throw new Error('Startwith must be the first component of the index');
         }
     }
 
     *enumerate(t: _Transaction): Iterable<T> {
         const index = this.onValue.index;
-        for (const item of index.ge([this.startWith], t)) {
+        for (const item of index.enumerate({
+            type: 'ge',
+            key: [this.startWith],
+            t,
+        })) {
             const got: string = this.onValue.get(item, t);
             if (got === null || !got.startsWith(this.startWith)) {
                 break;
@@ -38,7 +48,8 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
-            type: 'ineq',
+            _: 'ineq',
+            entropy: this.entropy(e.transaction),
             on: this.onValue.index.explain(e),
         };
     }

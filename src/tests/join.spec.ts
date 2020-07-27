@@ -6,14 +6,15 @@ import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
+import { _IDb } from '../interfaces-private';
 
 describe('[Queries] Joins', () => {
 
-    let db: IMemoryDb;
+    let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
     beforeEach(() => {
-        db = newDb();
+        db = newDb() as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });
@@ -214,22 +215,147 @@ describe('[Queries] Joins', () => {
     }
 
 
-    it ('can inner join', () => {
+    it('can inner join', () => {
         photos();
         preventSeqScan(db, 'photo');
-        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
-                            FROM "user" "user"
-                            JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
+        const query = `SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+            FROM "user" "user"
+            JOIN "photo" "photo" ON "photo"."userId"="user"."id"`;
+        const sel = db.public.explainSelect(query);
+        delete sel['select'];
+        assert.deepEqual(sel, {
+            _: 'map',
+            id: 1,
+            of: {
+                _: 'join',
+                inner: true,
+                id: 2,
+                join: {
+                    _: 'table',
+                    id: 3,
+                    table: 'user',
+                },
+                with: {
+                    _: 'table',
+                    id: 4,
+                    table: 'photo',
+                },
+                on: {
+                    index: {
+                        _: 'btree',
+                        btree: ['userId'],
+                        onTable: 'photo',
+                    },
+                    matches: {
+                        on: 3,
+                        col: 'id',
+                    }
+                }
+            }
+        })
+        const result = many(query);
         expect(result)
             .to.deep.equal([
-                {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
             ]);
     });
 
-    it ('can left join', () => {
+    it('can inner join and filter on right', () => {
+        photos();
+        preventSeqScan(db, 'photo');
+        const query = `SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+            FROM "user" "user"
+            JOIN "photo" "photo" ON "photo"."userId"="user"."id" AND "photo"."url" like 'you%'`;
+        const sel = db.public.explainSelect(query);
+        delete sel['select'];
+        assert.deepEqual(sel, {
+            _: 'map',
+            id: 1,
+            of: {
+                _: 'join',
+                inner: true,
+                id: 2,
+                join: {
+                    _: 'table',
+                    id: 3,
+                    table: 'user',
+                },
+                with: {
+                    _: 'table',
+                    id: 4,
+                    table: 'photo',
+                },
+                on: {
+                    index: {
+                        _: 'btree',
+                        btree: ['userId'],
+                        onTable: 'photo',
+                    },
+                    matches: {
+                        on: 3,
+                        col: 'id',
+                    }
+                }
+            }
+        })
+        const result = many(query);
+        expect(result)
+            .to.deep.equal([
+                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+            ]);
+    });
+
+    it('can inner join and filter on left', () => {
+        photos();
+        preventSeqScan(db, 'photo');
+        const query = `SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+            FROM "user" "user"
+            JOIN "photo" "photo" ON "photo"."userId"="user"."id" AND "user"."name" like 'yo%'`;
+        const sel = db.public.explainSelect(query);
+        delete sel['select'];
+        assert.deepEqual(sel, {
+            _: 'map',
+            id: 1,
+            of: {
+                _: 'join',
+                inner: true,
+                id: 2,
+                join: {
+                    _: 'table',
+                    id: 3,
+                    table: 'user',
+                },
+                with: {
+                    _: 'table',
+                    id: 4,
+                    table: 'photo',
+                },
+                on: {
+                    index: {
+                        _: 'btree',
+                        btree: ['userId'],
+                        onTable: 'photo',
+                    },
+                    matches: {
+                        on: 3,
+                        col: 'id',
+                    }
+                }
+            }
+        })
+        const result = many(query);
+        expect(result)
+            .to.deep.equal([
+                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+            ]);
+    });
+
+    it('can left join', () => {
         photos();
         preventSeqScan(db, 'photo');
         const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
@@ -237,16 +363,16 @@ describe('[Queries] Joins', () => {
                             LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
         expect(result)
             .to.deep.equal([
-                {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-                {user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
+                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+                { user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
             ]);
     });
 
 
-    it ('can right join', () => {
+    it('can right join', () => {
         photos();
         preventSeqScan(db, 'user');
         const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
@@ -254,12 +380,12 @@ describe('[Queries] Joins', () => {
                             RIGHT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
         expect(result)
             .to.deep.equal([
-                {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                {user_id: null, user_name: null, photo_id: 'p0', photo_url: 'noone.jpg', photo_userId: null },
-                {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-                {user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
+                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+                { user_id: null, user_name: null, photo_id: 'p0', photo_url: 'noone.jpg', photo_userId: null },
+                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+                { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
             ]);
     });
 

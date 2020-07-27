@@ -41,9 +41,9 @@ describe('DB restore points', () => {
         simpleDb();
         none(`insert into data(id) values ('value')`);
         const bck = db.backup();
-        none(`insert into data(id) values ('other')`);
+        none(`update data set id='updatd';insert into data(id) values ('other')`);
         bck.restore();
-        expect(many(`select * from data`)).to.deep.equal([{ id: 'value' }]);
+        expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
     });
 
 });

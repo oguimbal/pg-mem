@@ -35,6 +35,7 @@ export interface _ISchema extends ISchema {
     readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
     explainSelect(sql: string): _SelectExplanation;
+    explainLastSelect(): _SelectExplanation;
     getTable(table: string, nullIfNotFound?: boolean): _ITable;
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
@@ -54,6 +55,7 @@ export interface _Transaction {
     set<T>(identity: symbol, data: T): T;
     get<T>(identity: symbol): T;
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
+    getSet<T>(identity: symbol): ImSet<T>;
 }
 
 export interface _ISelection<T = any> {
@@ -66,7 +68,7 @@ export interface _ISelection<T = any> {
     hasItem(value: T, t: _Transaction): boolean;
 
     /** Gets the index associated with this value (or returns null) */
-    getIndex(forValue: IValue): _IIndex<any>;
+    getIndex(forValue: IValue): _IIndex<T>;
     readonly columns: ReadonlyArray<IValue>;
     filter(where: Expr): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
@@ -83,7 +85,7 @@ export interface _Explainer {
 export type _SelectExplanation = {
     /** A jointure */
     id: number;
-    type: 'join';
+    _: 'join';
     join: _SelectExplanation;
     with: _SelectExplanation;
     inner: boolean;
@@ -99,7 +101,7 @@ export type _SelectExplanation = {
 } | {
     /** A selection transformation */
     id: number;
-    type: 'map';
+    _: 'map';
     select?: {
         what: _ExprExplanation;
         as: string;
@@ -108,18 +110,18 @@ export type _SelectExplanation = {
 } | {
     /** A table */
     id: number;
-    type: 'table';
+    _: 'table';
     table: string;
 } | {
     /** An AND filter */
     id: number;
-    type: 'and',
+    _: 'and',
     enumerate: _SelectExplanation;
     andCheck: _SelectExplanation[];
 } | {
     /** A raw array definition */
     id: number;
-    type: 'constantSet';
+    _: 'constantSet';
     rawArrayLen: number;
 } | {
     /** One of the following operators on an index:
@@ -130,29 +132,42 @@ export type _SelectExplanation = {
      *
      * (against constants) */
     id: number;
-    type: 'eq' | 'ineq' | 'neq' | 'inside' | 'outside';
+    _: 'eq' | 'ineq' | 'neq' | 'inside' | 'outside';
+    entropy: number;
     /** The index that will be used to check equality */
     on: _IndexExplanation;
 } | {
     /** An empty set */
     id: number;
-    type: 'empty';
+    _: 'empty';
 } | {
     /** An union set */
     id: number;
-    type: 'union',
+    _: 'union',
     union: _SelectExplanation[];
 } | {
     /** A seq-scan filter of another set */
     id: number;
-    type: 'seqFilter';
-    filter: _SelectExplanation;
+    _: 'seqFilter';
+    filtered: _SelectExplanation;
 }
 
 export type _IndexExplanation = {
     /** BTree index on expression */
+    _: 'btree';
     onTable: string;
     btree: string[];
+} | {
+    _: 'indexMap';
+    of: _IndexExplanation;
+} | {
+    _: 'indexRestriction';
+    /** This index will receive a lookup for each item of "for" collection */
+    lookup: _IndexExplanation;
+    /** Enumerated collection */
+    for: _SelectExplanation;
+} | {
+    _: 'joinIndex';
 };
 
 export type _ExprExplanation = {
@@ -286,43 +301,37 @@ export interface IValue<TRaw = any> {
 }
 
 export type IndexKey = any[];
-export interface _IIndex<T = any> {
+export interface IndexExpression {
     readonly hash: string;
-    readonly indexName: string;
-    readonly expressions: IValue[];
-    readonly onTable: _ITable<T>;
+    readonly type: _IType;
+}
+export interface _IIndex<T = any> {
+    readonly expressions: IndexExpression[];
 
-
-    /** How many items in this index */
-    size(t: _Transaction): number;
-
-    /** Returns a measure of how many items there are per index key */
-    entropy(t: _Transaction): number;
-
-    /** Check if THIS record exists in this index */
-    hasItem(raw: T, t: _Transaction): boolean;
-    /** Check if this key is present in this index */
-    hasKey(key: IndexKey[], t: _Transaction): boolean;
-    /** Add an element to this index */
-    add(raw: T, t: _Transaction): void;
+    /** Returns a measure of how many items will be returned by this op */
+    entropy(t: IndexOp): number;
 
     /** Get values equating the given key */
     eqFirst(rawKey: IndexKey, t: _Transaction): T;
-    eq(rawKey: IndexKey, t: _Transaction): Iterable<T>;
-    /** Get all values that are NOT  equating any of the given keys */
-    nin(rawKey: IndexKey[], t: _Transaction): Iterable<T>;
-    /** Get values NOT equating the given key */
-    neq(rawKey: IndexKey, t: _Transaction): Iterable<T>;
-    /** Get greater the given key */
-    gt(rawKey: IndexKey, t: _Transaction): Iterable<T>;
-    /** Get lower the given key */
-    lt(rawKey: IndexKey, t: _Transaction): Iterable<T>;
-    /** Get greater or equal the given key */
-    ge(rawKey: IndexKey, t: _Transaction): Iterable<T>;
-    /** Get lower or equal the given key */
-    le(rawKey: IndexKey, t: _Transaction): Iterable<T>;
+
+    enumerate(op: IndexOp): Iterable<T>;
 
     explain(e: _Explainer): _IndexExplanation;
+}
+
+export type IndexOp = {
+    type: 'eq' | 'neq' | 'gt' | 'lt' | 'ge' | 'le';
+    key: IndexKey;
+    t: _Transaction;
+} | {
+    type: 'inside' | 'outside'
+    lo: IndexKey;
+    hi: IndexKey;
+    t: _Transaction;
+} | {
+    type: 'nin';
+    keys: IndexKey[];
+    t: _Transaction;
 }
 
 export interface TableRecordDef<T> {

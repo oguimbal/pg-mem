@@ -16,6 +16,7 @@ export class Query implements _ISchema, ISchema {
 
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
+    private lastSelect: _ISelection<any>;
 
 
     constructor(readonly name: string, readonly db: _IDb) {
@@ -221,7 +222,7 @@ export class Query implements _ISchema, ISchema {
                     return {
                         ...f,
                         type: fromNative(f.dataType),
-                        autoIncrement: f.dataType.type === 'serial',
+                        serial: f.dataType.type === 'serial',
                     }
                 })
         });
@@ -233,6 +234,9 @@ export class Query implements _ISchema, ISchema {
         };
     }
 
+    explainLastSelect(): _SelectExplanation {
+        return this.lastSelect?.explain(new Explainer(this.db.data));
+    }
     explainSelect(sql: string): _SelectExplanation {
         let parsed = parse(sql);
         if (Array.isArray(parsed)) {
@@ -247,6 +251,7 @@ export class Query implements _ISchema, ISchema {
 
     executeSelect(t: _Transaction, p: SelectStatement): QueryResult {
         const subj = this.buildSelect(p);
+        this.lastSelect = subj;
         const rows = [...subj.enumerate(t)];
         return {
             rows,

@@ -1,6 +1,5 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation } from '../interfaces-private';
-import { ReadOnlyError } from '../interfaces';
-import { nullIsh } from '../utils';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey } from '../interfaces-private';
+import { ReadOnlyError, NotSupported } from '../interfaces';
 
 interface IndexSubject<T> {
     readonly size: number;
@@ -11,9 +10,7 @@ interface IndexSubject<T> {
 export class CustomIndex<T> implements _IIndex<T> {
     readonly expressions: IValue<any>[];
 
-    get hash(): string {
-        throw new Error('not implemented');
-    }
+
     explain(e: _Explainer): _IndexExplanation {
         throw new Error('not implemented');
     }
@@ -22,26 +19,14 @@ export class CustomIndex<T> implements _IIndex<T> {
         this.expressions = [this.subject.column];
     }
 
-    size(): number {
-        return this.subject.size;
-    }
-
     get indexName(): string {
         return null;
     }
 
     entropy(): number {
-        return this.size();
+        return this.subject.size;
     }
 
-    hasItem(raw: any, t: _Transaction): boolean {
-        const got = nullIsh(raw) ? null : this.subject.column.get(raw, t);
-        return !nullIsh(got) && this.subject.byColumnValue(got, t).length > 0;
-    }
-
-    hasKey([key]: any[], t: _Transaction): boolean {
-        return this.subject.byColumnValue(key, t).length > 0;
-    }
 
     add(raw: any): void {
         throw new ReadOnlyError();
@@ -52,6 +37,33 @@ export class CustomIndex<T> implements _IIndex<T> {
             return its;
         }
     }
+
+
+    enumerate(op: IndexOp): Iterable<T> {
+        switch (op.type) {
+            case 'eq':
+                return this.eq(op.key, op.t);
+            case 'neq':
+                return this.neq(op.key, op.t);
+            case 'ge':
+                return this.ge(op.key, op.t);
+            case 'le':
+                return this.le(op.key, op.t);
+            case 'gt':
+                return this.gt(op.key, op.t);
+            case 'lt':
+                return this.lt(op.key, op.t);
+            case 'outside':
+                return this.outside(op.lo, op.hi, op.t);
+            case 'inside':
+                return this.inside(op.lo, op.hi, op.t);
+            case 'nin':
+                return this.nin(op.keys, op.t);
+            default:
+                throw NotSupported.never(op['type']);
+        }
+    }
+
     * eq([rawKey]: any, t: _Transaction): Iterable<any> {
         for (const its of this.subject.byColumnValue(rawKey, t)) {
             yield its;
@@ -110,4 +122,12 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
 
+    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+        yield* this.lt(lo, t);
+        yield* this.gt(hi, t);
+    }
+
+    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+        throw new Error('Not implemented');
+    }
 }

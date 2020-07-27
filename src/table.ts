@@ -24,7 +24,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private serials = new Map<string, number>();
     hidden: boolean;
     private dataId = Symbol();
-    private indexByHash = new Map<string, BIndex<T>>();
+    private indexByHash = new Map<string, {
+        index: BIndex<T>;
+        expressions: IValue[];
+    }>();
     private indexByName = new Map<string, BIndex<T>>();
     columnDefs: ColRef[] = [];
     columnsByName = new Map<string, ColRef>();
@@ -45,11 +48,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // fields
         for (const s of _schema.fields) {
             this.addColumn(s, t);
-        }
-
-        // auto increments
-        for (const s of _schema.fields.filter(x => x.serial)) {
-            this.serials.set(s.name, 0);
         }
 
         // other table constraints
@@ -89,7 +87,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     explain(e: _Explainer): _SelectExplanation {
         return {
-            type: 'table',
+            _: 'table',
             id: e.idFor(this),
             table: this.name,
         };
@@ -117,6 +115,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 default: column.default,
                 updateExisting: true,
             }, t)
+        } else {
+            this.remapData(t, x => x[column.name] = null);
+        }
+
+        // auto increments
+        if (column.serial) {
+            this.serials.set(column.name, 0);
         }
 
         this.columnDefs.push(cref);
@@ -263,7 +268,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // remove from indices
         for (const k of this.indexByHash.values()) {
-            k.delete(got, t);
+            k.index.delete(got, t);
         }
         this.setBin(t, bin.delete(id));
         return got;
@@ -272,7 +277,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     private indexElt(t: _Transaction, toInsert: T) {
         for (const k of this.indexByHash.values()) {
-            k.add(toInsert, t);
+            k.index.add(toInsert, t);
         }
     }
 
@@ -281,12 +286,12 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this.bin(t).has(id);
     }
 
-    getIndex(forValue: IValue) {
-        if (forValue.origin !== this.selection) {
+    getIndex(forValue: IValue): _IIndex {
+        if (!forValue || forValue.origin !== this.selection && forValue.origin !== this) {
             return null;
         }
         const got = this.indexByHash.get(forValue.hash);
-        return got ?? null;
+        return got?.index ?? null;
     }
 
 
@@ -344,8 +349,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 this.getColumnRef(used.id).usedInIndexes.add(index);
             }
         }
-        this.indexByHash.set(ihash, index);
-        this.indexByHash.set(index.indexName, index);
+        this.indexByHash.set(ihash, { index, expressions: index.expressions });
         this.indexByName.set(index.indexName, index)
         if (expressions.primary) {
             this.hasPrimary = true;
@@ -353,7 +357,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this;
     }
 
-    dropIndex(u: _IIndex<any>) {
+    dropIndex(u: BIndex<any>) {
         if (!this.indexByHash.has(u.hash)) {
             throw new QueryError('Cannot drop index that does not belong to this table: ' + u.hash);
         }
@@ -364,7 +368,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     listIndices(): IndexDef[] {
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
-                name: x.indexName,
+                name: x.index.indexName,
                 expressions: x.expressions.map(x => x.sql),
             }));
     }

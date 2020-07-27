@@ -31,7 +31,7 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
-            type: 'constantSet',
+            _: 'constantSet',
             rawArrayLen: this.elts.length,
         }
     }

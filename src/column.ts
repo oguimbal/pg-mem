@@ -6,6 +6,7 @@ import { nullIsh } from './utils';
 import { buildValue } from './predicate';
 import { fromNative } from './datatypes';
 import { columnEvaluator } from './transforms/selection';
+import { BIndex } from './btree-index';
 
 
 
@@ -13,7 +14,7 @@ export class ColRef implements _Column {
 
     default: IValue;
     notNull: boolean;
-    usedInIndexes = new Set<_IIndex>();
+    usedInIndexes = new Set<BIndex>();
 
     constructor(private table: MemoryTable
         , public expression: Evaluator
@@ -165,13 +166,14 @@ export class ColRef implements _Column {
     }
 
     setDefaults(toInsert: any, t: _Transaction) {
-        if (!this.default) {
-            return;
-        }
         const col = this.expression.get(toInsert, t);
         if (!nullIsh(col)) {
             return;
         }
-        toInsert[this.expression.id] = this.default.get();
+        if (!this.default) {
+            toInsert[this.expression.id] = null
+        } else {
+            toInsert[this.expression.id] = this.default.get();
+        }
     }
 }

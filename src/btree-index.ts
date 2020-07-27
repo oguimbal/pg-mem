@@ -1,6 +1,7 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
-import { QueryError } from './interfaces';
+import { QueryError, NotSupported } from './interfaces';
+import { Set as ImSet, Map as ImMap } from 'immutable';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -38,33 +39,21 @@ interface BIterator<T> {
     readonly valid: boolean;
     clone(): BIterator<T>;
     remove(): BTree<T>;
-    // update(value: PrimaryKey): BTree;
+    update(value: T): BTree<T>;
     next(): void;
     prev(): void;
     readonly hasNext: boolean;
     readonly hasPrev: boolean;
 }
 
-type RawTree<T> = BTree<Map<string, T>>;;
+type RawTree<T> = BTree<ImMap<string, T>>;;
 export class BIndex<T = any> implements _IIndex<T> {
 
 
     // private asBinary: RawTree;
-    private byId = new Set<string>();
-    expressions: IValue[];
-    private id = Symbol();
-
-    size(t: _Transaction) {
-        return this.byId.size;
-    }
-
-    entropy(t: _Transaction) {
-        const asBinary = t.get<RawTree<T>>(this.id);
-        if (!asBinary.length) {
-            return 0;
-        }
-        return this.size(t) / asBinary.length;
-    }
+    expressions: (IndexExpression & IValue)[];
+    private treeBinId = Symbol();
+    private treeCountId = Symbol();
 
 
     constructor(t: _Transaction
@@ -77,7 +66,7 @@ export class BIndex<T = any> implements _IIndex<T> {
         const asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });
-        t.set(this.id, asBinary);
+        this.setBin(t, asBinary);
         this.expressions = cols.map(x => x.value);
     }
 
@@ -108,16 +97,18 @@ export class BIndex<T = any> implements _IIndex<T> {
         return this.expressions.map(k => k.get(raw, t));
     }
 
-    hasItem(raw: any) {
-        const key = getId(raw);
-        return this.byId.has(key);
-    }
-
     private bin(t: _Transaction) {
-        return t.get<RawTree<T>>(this.id);
+        return t.get<RawTree<T>>(this.treeBinId);
     }
     private setBin(t: _Transaction, val: RawTree<T>) {
-        return t.set(this.id, val);
+        return t.set(this.treeBinId, val);
+    }
+
+    private setCount(t: _Transaction, val: number) {
+        return t.set(this.treeCountId, val);
+    }
+    private getCount(t: _Transaction): number {
+        return t.get<number>(this.treeCountId) ?? 0;
     }
 
     hasKey(key: IndexKey[], t: _Transaction): boolean {
@@ -126,10 +117,8 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
     add(raw: T, t: _Transaction) {
+        // build key and object id
         const id = getId(raw);
-        if (this.byId.has(id)) {
-            return;
-        }
         const key = this.buildKey(raw, t);
         if (this.notNull && key.some(x => x === null || x === undefined)) {
             throw new QueryError('Cannot add a null record in index ' + this.indexName);
@@ -137,34 +126,42 @@ export class BIndex<T = any> implements _IIndex<T> {
         if (this.unique && this.hasKey(key, t)) {
             throw new QueryError('Unique constraint violated while adding a record to index ' + this.indexName);
         }
-        let bin = this.bin(t);
-        let got = bin.get(key);
-        if (!got) {
-            bin = this.setBin(t, bin.insert(key, got = new Map()));
+        // get tree
+        let tree = this.bin(t);
+        // get key in tree
+        let keyValues = tree.find(key);
+        if (keyValues.valid) {
+            if (keyValues.value.has(id)) {
+                return; // already exists
+            }
+            tree = keyValues.update(keyValues.value.set(id, raw));
+        } else {
+            tree = tree.insert(key, ImMap<string, T>().set(id, raw));
         }
-        if (got.has(id)) {
-            return;
-        }
-        got.set(id, raw);
-        this.byId.add(id);
+        this.setBin(t, tree);
+        this.setCount(t, this.getCount(t) + 1);
+
     }
 
     delete(raw: any, t: _Transaction) {
         const key = this.buildKey(raw, t);
-        let bin = this.bin(t);
-        let got = bin.get(key);
-        if (!got) {
-            return;
+        let tree = this.bin(t);
+        let keyValues = tree.find(key);
+        if (!keyValues.valid) {
+            return; // key does not exists
         }
         const id = getId(raw);
-        if (!got.has(id)) {
-            return;
+        if (!keyValues.value.has(id)) {
+            return; // element does not exists
         }
-        this.byId.delete(id);
-        got.delete(id);
-        if (!got.size) {
-            bin = this.setBin(t, bin.remove(key));
+        const newKeyValues = keyValues.value.delete(id);
+        if (!newKeyValues.size) {
+            tree = keyValues.remove();
+        } else {
+            tree = keyValues.update(newKeyValues);
         }
+        this.setBin(t, tree);
+        this.setCount(t, this.getCount(t) - 1);
     }
 
     eqFirst(rawKey: IndexKey, t: _Transaction): T {
@@ -173,14 +170,6 @@ export class BIndex<T = any> implements _IIndex<T> {
         }
     }
 
-
-    *eq(key: IndexKey, t: _Transaction): Iterable<T> {
-        const it = this.bin(t).find(key);
-        while (it.valid && this.compare(it.key, key) === 0) {
-            yield* it.value.values();
-            it.next();
-        }
-    }
 
     *nin(rawKey: IndexKey[], t: _Transaction): Iterable<T> {
         rawKey.sort((a, b) => this.compare(a, b));
@@ -207,6 +196,144 @@ export class BIndex<T = any> implements _IIndex<T> {
             it.next();
         }
     }
+
+
+    entropy(op: IndexOp) {
+        const bin = this.bin(op.t);
+        if (!bin.length) {
+            return 0;
+        }
+        const all = op.t.get<number>(this.treeCountId) ?? 0;
+        // evaluate number of keys included in this operation
+        const e = this._keyCount(op);
+        // multiply by average values per key
+        return e * all / bin.length;
+    }
+
+    private _keyCount(op: IndexOp) {
+        const bin = this.bin(op.t);
+        switch (op.type) {
+            case 'eq': {
+                const begin = bin.find(op.key);
+                if (!begin.valid) {
+                    return 0;
+                }
+                const end = bin.gt(op.key);
+                if (!end.valid) {
+                    return bin.length - begin.index;
+                }
+                return end.index - begin.index + 1;
+            }
+            case 'neq': {
+                let cnt = 0;
+                const first = bin.find(op.key);
+                if (!first.valid) {
+                    return bin.length;
+                }
+                cnt += first.valid
+                    ? first.index
+                    : 0;
+                const end = bin.gt(op.key);
+                cnt += end.valid
+                    ? (bin.length - end.index)
+                    : 0;
+                return cnt;
+            }
+            case 'ge': {
+                const found = bin.ge(op.key);
+                return found.valid
+                    ? (bin.length - found.index)
+                    : 0;
+            }
+            case 'gt': {
+                const found = bin.gt(op.key);
+                return found.valid
+                    ? (bin.length - found.index)
+                    : 0;
+            }
+            case 'le': {
+                const found = bin.gt(op.key);
+                return found.valid
+                    ? found.index
+                    : bin.length;
+            }
+            case 'lt': {
+                const found = bin.ge(op.key);
+                return found.valid
+                    ? found.index
+                    : bin.length;
+            }
+            case 'inside': {
+                const begin = bin.ge(op.lo);
+                if (!begin.valid) {
+                    return 0;
+                }
+                const end = bin.gt(op.hi);
+                if (!end.valid) {
+                    return bin.length - begin.index;
+                }
+                return end.index - begin.index;
+            }
+            case 'outside': {
+                let cnt = 0;
+                const first = bin.lt(op.lo);
+                cnt += first.valid
+                    ? first.index + 1
+                    : 0;
+                const end = bin.gt(op.hi);
+                cnt += end.valid
+                    ? (bin.length - end.index)
+                    : 0;
+                return cnt;
+            }
+            case 'nin': {
+                let cnt = bin.length;
+                for (const e of op.keys) {
+                    const f = bin.find(e);
+                    if (f.valid) {
+                        cnt--;
+                    }
+                }
+                return cnt;
+            }
+            default:
+                throw NotSupported.never(op['type']);
+        }
+    }
+
+    enumerate(op: IndexOp): Iterable<T> {
+        switch (op.type) {
+            case 'eq':
+                return this.eq(op.key, op.t);
+            case 'neq':
+                return this.neq(op.key, op.t);
+            case 'ge':
+                return this.ge(op.key, op.t);
+            case 'le':
+                return this.le(op.key, op.t);
+            case 'gt':
+                return this.gt(op.key, op.t);
+            case 'lt':
+                return this.lt(op.key, op.t);
+            case 'outside':
+                return this.outside(op.lo, op.hi, op.t);
+            case 'inside':
+                return this.inside(op.lo, op.hi, op.t);
+            case 'nin':
+                return this.nin(op.keys, op.t);
+            default:
+                throw NotSupported.never(op['type']);
+        }
+    }
+
+    *eq(key: IndexKey, t: _Transaction): Iterable<T> {
+        const it = this.bin(t).find(key);
+        while (it.valid && this.compare(it.key, key) === 0) {
+            yield* it.value.values();
+            it.next();
+        }
+    }
+
 
 
     *neq(key: IndexKey, t: _Transaction): Iterable<T> {
@@ -287,8 +414,22 @@ export class BIndex<T = any> implements _IIndex<T> {
         // }
     }
 
+    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+        yield* this.lt(lo, t);
+        yield* this.gt(hi, t);
+    }
+
+    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+        const it = this.bin(t).ge(lo);
+        while (it.valid && this.compare(it.key, hi) <= 0) {
+            yield* it.value.values();
+            it.next();
+        }
+    }
+
     explain(e: _Explainer): _IndexExplanation {
         return {
+            _: 'btree',
             onTable: this.onTable.name,
             btree: this.expressions.map(x => x.sql),
         }

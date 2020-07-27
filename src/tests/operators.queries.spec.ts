@@ -6,17 +6,18 @@ import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
+import { _IDb } from '../interfaces-private';
 
 describe('[Queries] Operators', () => {
 
-    let db: IMemoryDb;
+    let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
     function all(table = 'data') {
         return many(`select * from ${table}`);
     }
     beforeEach(() => {
-        db = newDb();
+        db = newDb() as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });
@@ -336,12 +337,23 @@ describe('[Queries] Operators', () => {
 
         it('uses index while using between', () => {
             preventSeqScan(db);
-            expect(many(`create table test(num integer primary key);
+            const got = many(`create table test(num integer primary key);
                             insert into test values (0), (1), (50), (100), (101);
-                            select * from test where num between 1 and 100;`))
+                            select * from test where num between 1 and 100;`);
+            expect(got)
                 .to.deep.equal([{ num: 1 }
                     , { num: 50 }
-                    , { num: 100 }])
+                    , { num: 100 }]);
+            assert.deepEqual(db.public.explainLastSelect(), {
+                _: 'inside',
+                id: 1,
+                entropy: 3,
+                on: {
+                    _: 'btree',
+                    btree: ['num'],
+                    onTable: 'test',
+                }
+            });
         });
         it('uses index while using not between', () => {
             preventSeqScan(db);
@@ -350,6 +362,17 @@ describe('[Queries] Operators', () => {
                             select * from test where num not between 1 and 100;`))
                 .to.deep.equal([{ num: 0 }
                     , { num: 101 }])
+
+            assert.deepEqual(db.public.explainLastSelect(), {
+                _: 'outside',
+                id: 1,
+                entropy: 2,
+                on: {
+                    _: 'btree',
+                    btree: ['num'],
+                    onTable: 'test',
+                }
+            })
         });
     })
 });

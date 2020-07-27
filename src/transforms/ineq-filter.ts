@@ -1,15 +1,14 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
-export class GreaterFilter<T = any> extends FilterBase<T> {
+export class IneqFilter<T = any> extends FilterBase<T> {
 
-    get index() {
-        return null;
-    }
+    private index: _IIndex;
+    private opDef: IndexOp;
 
     entropy(t: _Transaction) {
-        return this.onValue.index.entropy(t);
+        return this.onValue.index.entropy({ ...this.opDef, t });
     }
 
     hasItem(item: T, t: _Transaction) {
@@ -17,23 +16,25 @@ export class GreaterFilter<T = any> extends FilterBase<T> {
         if (nullIsh(val)) {
             return false;
         }
-        return this.onValue.type[this.op](this.than, val);
+        return this.onValue.type[this.op](val, this.than);
     }
 
     constructor(private onValue: IValue<T>
         , private op: 'gt' | 'ge' | 'lt' | 'le'
         , private than: any) {
         super(onValue.origin);
-        if (onValue.index.expressions[0] !== onValue) {
-            throw new Error('Can only filter on first column of index');
+
+        this.index = this.onValue.index;
+        this.opDef = {
+            type: op,
+            key: [than],
+            t: null,
         }
     }
 
     *enumerate(t: _Transaction): Iterable<T> {
-        const index = this.onValue.index;
-        for (const item of index[this.op]([this.than], t)) {
-            const got = this.onValue.get(item, t);
-            if (nullIsh(got) || !this.onValue.type[this.op](got, this.than)) {
+        for (const item of this.index.enumerate({ ...this.opDef, t })) {
+            if (!this.hasItem(item, t)) {
                 break;
             }
             yield item;
@@ -44,7 +45,8 @@ export class GreaterFilter<T = any> extends FilterBase<T> {
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
-            type: 'ineq',
+            _: 'ineq',
+            entropy: this.entropy(e.transaction),
             on: this.onValue.index.explain(e),
         };
     }

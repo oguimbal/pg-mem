@@ -1,5 +1,5 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation } from '../interfaces-private';
-import { ReadOnlyError } from '../interfaces';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey } from '../interfaces-private';
+import { ReadOnlyError, NotSupported } from '../interfaces';
 
 export class TableIndex implements _IIndex {
     readonly expressions: IValue<any>[];
@@ -16,23 +16,14 @@ export class TableIndex implements _IIndex {
         this.expressions = [col];
     }
 
-    size(t: _Transaction): number {
-        return this.onTable.schema.tablesCount(t);
-    }
     get indexName(): string {
         return 'index_table_name_name';
     }
-    entropy(t: _Transaction): number {
-        return this.size(t);
+
+    entropy(op: IndexOp): number {
+        return this.onTable.schema.tablesCount(op.t);
     }
 
-    hasItem(raw: any): boolean {
-        return raw?.[this.onTable.ownSymbol];
-    }
-
-    hasKey([key]: any[], t: _Transaction): boolean {
-        return !!this.onTable.schema.getTable(key, true);
-    }
 
     add(raw: any): void {
         throw new ReadOnlyError('tables');
@@ -93,5 +84,40 @@ export class TableIndex implements _IIndex {
                 yield i;
             }
         }
+    }
+
+
+    enumerate(op: IndexOp): Iterable<any> {
+        switch (op.type) {
+            case 'eq':
+                return this.eq(op.key, op.t);
+            case 'neq':
+                return this.neq(op.key, op.t);
+            case 'ge':
+                return this.ge(op.key, op.t);
+            case 'le':
+                return this.le(op.key, op.t);
+            case 'gt':
+                return this.gt(op.key, op.t);
+            case 'lt':
+                return this.lt(op.key, op.t);
+            case 'outside':
+                return this.outside(op.lo, op.hi, op.t);
+            case 'inside':
+                return this.inside(op.lo, op.hi, op.t);
+            case 'nin':
+                return this.nin(op.keys, op.t);
+            default:
+                throw NotSupported.never(op['type']);
+        }
+    }
+
+    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<any> {
+        yield* this.lt(lo, t);
+        yield* this.gt(hi, t);
+    }
+
+    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<any> {
+        throw new Error('Not implemented');
     }
 }

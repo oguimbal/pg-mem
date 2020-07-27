@@ -5,6 +5,7 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     if (!alias) {
         return on as any;
     }
+    alias = alias.toLowerCase();
     if (on instanceof Alias && on.name === alias) {
         return on;
     }
@@ -12,7 +13,6 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
 }
 
 class Alias<T> extends FilterBase<T>{
-
     constructor(sel: _ISelection, readonly name: string) {
         super(sel);
     }
@@ -21,6 +21,9 @@ class Alias<T> extends FilterBase<T>{
         return this.base.enumerate(t);
     }
 
+    hasItem(value: T, t: _Transaction): boolean {
+        return this.base.hasItem(value, t);
+    }
 
     getColumn(column: string, nullIfNotFound?: boolean): IValue {
         const exec = /^([^.]+)\.(.+)$/.exec(column);

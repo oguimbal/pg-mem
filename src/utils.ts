@@ -251,17 +251,17 @@ export function queryJson(a: Json, b: Json) {
     return true;
 }
 
-export function buildColumnIds(columns: IValue[]) {
-    const exists = new Set(columns.map(x => x.id));
+export function buildColumnIds(suggestedIds: string[]) {
+    const exists = new Set(suggestedIds);
     const got = new Set();
     let cid = 0;
-    return columns
+    return suggestedIds
         .map(x => {
-            if (x.id && !got.has(x.id)) {
-                got.add(x.id);
-                return x.id;
+            if (x && !got.has(x)) {
+                got.add(x);
+                return x;
             }
-            let base = x.id ?? 'column';
+            let base = x ?? 'column';
             let nm: string;
             do {
                 nm = base + (cid++);

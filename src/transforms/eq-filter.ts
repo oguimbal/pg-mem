@@ -1,40 +1,46 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexKey, IndexOp } from '../interfaces-private';
 import { FilterBase } from './transform-base';
+import { nullIsh } from '../utils';
 
 export class EqFilter<T = any> extends FilterBase<T> {
 
-    get index() {
-        return null;
-    }
+    private index: _IIndex;
+    private opDef: IndexOp;
 
-    entropy(t: _Transaction) {
-        return this.onValue.index.entropy(t);
+    entropy(t: _Transaction): number {
+        return this.index.entropy({ ...this.opDef, t });
     }
 
     hasItem(item: T, t: _Transaction) {
-        return this.onValue.index.hasItem(item, t);
+        const val = this.onValue.get(item, t);
+        if (nullIsh(val)) {
+            return false;
+        }
+        const eq = this.onValue.type.equals(val, this.equalsCst);
+        if (nullIsh(eq)) {
+            return false;
+        }
+        return this.op === 'eq' ? eq : !eq;
     }
 
     constructor(private onValue: IValue<T>
-        , private other: IValue[]) {
+        , private equalsCst: any
+        , private op: 'eq' | 'neq') {
         super(onValue.origin);
-        if (onValue.index.expressions.length !== other.length) {
+        if (onValue.index.expressions.length !== 1) {
             throw new Error('Unexpected index equality expressions count mismatch');
         }
-        for (const o of other) {
-            if (!o.isConstant) {
-                throw new Error('Unexpected error: Index is being compared to a non constant');
-            }
+
+        this.index = this.onValue.index;
+        this.opDef = {
+            type: op,
+            key: [equalsCst],
+            t: null,
         }
     }
 
     *enumerate(t: _Transaction): Iterable<T> {
-        const index = this.onValue.index;
-        const map = index.expressions.map((v, i) => {
-            const otherConv = this.other[i].convert(v.type);
-            return otherConv.get();
-        });
-        for (const item of index.eq(map, t)) {
+        for (const item of this.index.enumerate({ ...this.opDef, t })) {
             yield item;
         }
     }
@@ -42,7 +48,8 @@ export class EqFilter<T = any> extends FilterBase<T> {
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
-            type: 'eq',
+            _: this.op,
+            entropy: this.entropy(e.transaction),
             on: this.onValue.index.explain(e),
         };
     }

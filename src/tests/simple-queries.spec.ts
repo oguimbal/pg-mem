@@ -66,9 +66,9 @@ describe('[Queries] Simple queries', () => {
         preventSeqScan(db);
         none(`insert into data(id, str) values ('some id', 'some str')`);
         let got = many(`select * from data where id='some id' AND str='other'`);
-        expect(got).to.deep.equal([]);
+        expect(trimNullish(got)).to.deep.equal([]);
         got = many(`select * from data where id='some id' and str='some str'`);
-        expect(got).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
     });
 
 
@@ -78,9 +78,9 @@ describe('[Queries] Simple queries', () => {
         let got = many(`select * from data where id='other' OR str='other'`);
         expect(got).to.deep.equal([]);
         got = many(`select * from data where id='some id' OR str='other'`);
-        expect(got).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
         got = many(`select * from data where id='some id' or str='some str'`);
-        expect(got).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
     });
 
 

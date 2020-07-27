@@ -5,6 +5,7 @@ import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
 import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
+import { RestrictiveIndex } from './restrictive-index';
 
 interface Fns {
     buildSelection: typeof buildSelection;
@@ -62,17 +63,6 @@ export abstract class TransformBase<T> extends DataSourceBase<T> {
     entropy(t: _Transaction): number {
         return this.base.entropy(t);
     }
-
-    hasItem(value: T, t: _Transaction): boolean {
-        return this.base.hasItem(value, t);
-    }
-
-    getIndex(forValue: IValue): _IIndex<any> {
-        if (!this.base) { // istanbul ignore next
-            throw new Error('Should not call .getIndex() on join');
-        }
-        return this.base.getIndex(forValue);
-    }
 }
 
 export abstract class FilterBase<T> extends TransformBase<T> {
@@ -94,5 +84,13 @@ export abstract class FilterBase<T> extends TransformBase<T> {
             throw new Error('Should not call getColumn() on table');
         }
         return this.base.getColumn(column, nullIfNotFound);
+    }
+
+    getIndex(forValue: IValue<any>): _IIndex<any> {
+        const index = this.base.getIndex(forValue);
+        if (!index) {
+            return null;
+        }
+        return new RestrictiveIndex(index, this);
     }
 }

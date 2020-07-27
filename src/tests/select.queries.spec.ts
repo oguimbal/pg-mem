@@ -3,17 +3,19 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
-import { preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
-import { _IDb } from 'src/interfaces-private';
+import { _IDb } from '../interfaces-private';
+import { parse } from '../parser/parser';
+import { SelectStatement } from '../parser/syntax/ast';
+import { buildValue } from '../predicate';
 
 describe('[Queries] Selections', () => {
 
-    let db: IMemoryDb;
+    let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
     beforeEach(() => {
-        db = newDb();
+        db = newDb() as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });
@@ -58,23 +60,23 @@ describe('[Queries] Selections', () => {
         // assert.deepEqual(plan, {} as any);
         assert.deepEqual(plan, {
             id: 1,
-            type: 'seqFilter',
-            filter: {
+            _: 'seqFilter',
+            filtered: {
                 id: 2,
-                type: 'map',
+                _: 'map',
                 select: [{
                     what: {
                         col: 'val',
-                        on: 3,
+                        on: 4,
                     },
                     as: 'valAlias',
                 }],
                 of: {
                     id: 3,
-                    type: 'seqFilter',
-                    filter: {
+                    _: 'seqFilter',
+                    filtered: {
                         id: 4,
-                        type: 'table',
+                        _: 'table',
                         table: 'test',
                     }
                 }
@@ -84,6 +86,7 @@ describe('[Queries] Selections', () => {
 
 
     it('can use an expression on a transformed selection', () => {
+        stuff();
         // preventSeqScan(db);
         expect(many(`select *, lower(txtx) as v from (select val as valx, txt as txtx from test where val >= 1) x where lower(x.txtx) = 'a'`))
             .to.deep.equal([{ txtx: 'A', valx: 999, v: 'a' }, { txtx: 'A', valx: 1, v: 'a' }]);
@@ -112,4 +115,13 @@ describe('[Queries] Selections', () => {
             .to.deep.equal([{ x: 'ab' }]);
     });
 
+    it('has an index', () => {
+        simpleDb();
+        const { where } = parse(`select * from data where id='x'`) as SelectStatement;
+        if (where.type !== 'binary') {
+            return assert.fail('Should be a binary');
+        }
+        const built = buildValue(db.getTable('data').selection, where.left);
+        assert.exists(built.index);
+    })
 });

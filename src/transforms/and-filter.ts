@@ -59,7 +59,7 @@ export class AndFilter<T = any> extends FilterBase<T> {
         const { best, sorted } = this.plan(e.transaction);
         return {
             id: e.idFor(this),
-            type: 'and',
+            _: 'and',
             enumerate: best.explain(e),
             andCheck: sorted.map(x => x.explain(e)),
         };

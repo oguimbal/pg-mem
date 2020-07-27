@@ -38,7 +38,7 @@ export class OrFilter<T = any> extends FilterBase<T> {
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
-            type: 'union',
+            _: 'union',
             union: [
                 this.left.explain(e),
                 this.right.explain(e),
