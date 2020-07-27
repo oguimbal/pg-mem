@@ -25,14 +25,14 @@ describe('[Queries] Simple queries', () => {
         db.public.declareTable({
             name: 'data',
             fields: [{
-                id: 'id',
+                name: 'id',
                 type: Types.text(),
-                primary: true,
+                constraint: { type: 'primary key' },
             }, {
-                id: 'str',
+                name: 'str',
                 type: Types.text(),
             }, {
-                id: 'otherStr',
+                name: 'otherStr',
                 type: Types.text(),
             }],
         });
@@ -198,11 +198,11 @@ describe('[Queries] Simple queries', () => {
     it('can create columns moving constant defaults', async () => {
         const orig = many(`create table test(id text, time timestamp default now());
                     insert into test(id) values ('id1') returning time;`)
-                    .map(x => x.time)[0];
+            .map(x => x.time)[0];
         assert.instanceOf(orig, Date);
         await new Promise(done => setTimeout(done, 5)); // wait 5 ms
         const newtime = many(`insert into test(id) values ('id2') returning time;`)
-                    .map(x => x.time)[0];
+            .map(x => x.time)[0];
         assert.instanceOf(newtime, Date);
         expect(orig).not.to.equal(newtime);
     });

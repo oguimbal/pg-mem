@@ -134,7 +134,7 @@ describe('[Queries] Alter table', () => {
         none(`create table test(a text, b text);
                 create index on test(a, b);
                 alter table test drop a;`);
-        expect(db.getTable('test').listIndexes())
+        expect(db.getTable('test').listIndices())
             .to.deep.equal([]);
     });
 
@@ -142,7 +142,7 @@ describe('[Queries] Alter table', () => {
         none(`create table test(a text, b text);
                 create index on test(a);
                 alter table test drop a;`);
-        expect(db.getTable('test').listIndexes())
+        expect(db.getTable('test').listIndices())
             .to.deep.equal([]);
     });
 });

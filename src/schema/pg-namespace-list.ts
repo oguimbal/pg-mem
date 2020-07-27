@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../interfaces-private';
 import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
 import { ReadOnlyTable } from './readonly-table';
@@ -8,10 +8,10 @@ export class PgNamespaceTable extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'pg_namespace',
         fields: [
-            { id: 'oid', type: Types.int } // hidden oid column
-            , { id: 'nspname', type: Types.text() }
-            , { id: 'nspowner', type: Types.int } // oid
-            , { id: 'nspacl', type: Types.jsonb } // aclitem[]
+            { name: 'oid', type: Types.int } // hidden oid column
+            , { name: 'nspname', type: Types.text() }
+            , { name: 'nspowner', type: Types.int } // oid
+            , { name: 'nspacl', type: Types.jsonb } // aclitem[]
         ]
     };
 

@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _IQuery, _SelectExplanation, _Explainer } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer } from '../interfaces-private';
 import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
@@ -36,7 +36,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return this.left.entropy(t);
     }
 
-    constructor(db: _IQuery
+    constructor(db: _ISchema
         , private left: _ISelection<TLeft>
         , private right: _ISelection<TRight>
         , on: Expr

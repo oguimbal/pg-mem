@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ISelection, _IType } from './interfaces-private';
+import { IValue, _IIndex, _ISelection, _IType, TR } from './interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
@@ -123,6 +123,18 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
             throw new CastError(this.primary, to.primary);
         }
         return converted.setType(to);
+    }
+
+    constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget) {
+        let current: TRaw;
+        const ev = new Evaluator(this, null, null, null, null, () => current, {
+            unpure: true,
+        });
+        const converted = this.convert(ev, _to);
+        return (source: TRaw) => {
+            current = source;
+            return converted.get()
+        };
     }
 }
 
@@ -485,7 +497,7 @@ class TextType extends TypeBase<string> {
             case DataType.bool:
                 return value
                     .setConversion(rawStr => {
-                        if(nullIsh(rawStr)) {
+                        if (nullIsh(rawStr)) {
                             return null;
                         }
                         const str = (rawStr as string).toLowerCase();

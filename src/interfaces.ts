@@ -1,21 +1,17 @@
-import { TableConstraint, DataTypeDef, Expr } from './parser/syntax/ast';
+import { TableConstraint, DataTypeDef, Expr, CreateColumnDef } from './parser/syntax/ast';
 
 
 
-export interface Schema {
+export type Schema = {
     name: string;
     fields: SchemaField[];
     constraints?: TableConstraint[];
 }
 
-export interface SchemaField {
-    id: string;
+
+export interface SchemaField extends Omit<CreateColumnDef, 'dataType'> {
     type: IType;
-    primary?: boolean;
-    unique?: boolean;
-    notNull?: boolean;
-    autoIncrement?: boolean;
-    default?: Expr;
+    serial?: boolean;
 }
 
 export interface IType {
@@ -43,13 +39,51 @@ export enum DataType {
 }
 
 export interface IMemoryDb {
+    /**
+     * Adapters to create wrappers of this db compatible with known libraries
+     */
     readonly adapters: LibAdapters;
+    /**
+     * The default 'public' schema
+     */
     readonly public: ISchema;
+    /**
+     * Get an existing schema
+     */
     getSchema(name: string): ISchema;
+    /**
+     * Create a schema in this database
+     */
     createSchema(name: string): ISchema;
+    /**
+     * Get a table to inspect it
+     */
     getTable(table: string): IMemoryTable;
+    /** Subscribe to a global event */
     on(event: GlobalEvent, handler: () => any);
+    /** Subscribe to an event on all tables */
     on(event: TableEvent, handler: (table: string) => any);
+    /**
+     * Creates a full copy of this DB.
+     * 👉 This operation is almost instantaneous (O(size of your schema)), even with millions of records.
+     * 👉 Subscriptions on this db will be lost in the new db
+     * */
+    fork(): IMemoryDb;
+
+    /**
+     * Creates a restore point.
+     * 👉 This operation is instantaneous, even with millions of records.
+     * */
+    backup(): IBackup;
+}
+
+export interface IBackup {
+    /**
+     * Restores data to the state when this backup has been performed.
+     * 👉 This operation is instantaneous.
+     * 👉 Schema must not have been changed since then !
+     **/
+    restore(): void;
 }
 
 export interface LibAdapters {
@@ -62,9 +96,21 @@ export interface LibAdapters {
 }
 
 export interface ISchema {
+    /**
+     * Execute a query and return many results
+     */
     many(query: string): any[];
+    /**
+     * Execute a query without results
+     */
     none(query: string): void;
+    /**
+     * Another way to create tables (equivalent to "create table" queries")
+     */
     declareTable(table: Schema): IMemoryTable;
+    /**
+     * Execute a query
+     */
     query(text: string): QueryResult;
 }
 
@@ -83,12 +129,14 @@ export interface FieldInfo {
 
 
 export type TableEvent = 'seq-scan';
-export type GlobalEvent = 'catastrophic-join-optimization';
+export type GlobalEvent = 'catastrophic-join-optimization' | 'schema-change';
 
 export interface IMemoryTable {
     // createIndex(expressions: string[]): this;
+    /** Subscribe to an event on this table */
     on(event: TableEvent, handler: () => any): void;
-    listIndexes(): IndexDef[];
+    /** List existing indices defined on this table */
+    listIndices(): IndexDef[];
 }
 
 export interface IndexDef {
@@ -97,8 +145,8 @@ export interface IndexDef {
 }
 
 export class CastError extends Error {
-    constructor(from: DataType, to: DataType, inWhat?:string) {
-        super(`failed to cast ${from} to ${to}`+ (inWhat ? ' in ' + inWhat : ''));
+    constructor(from: DataType, to: DataType, inWhat?: string) {
+        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
     }
 }
 export class ColumnNotFound extends Error {

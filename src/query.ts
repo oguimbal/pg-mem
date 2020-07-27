@@ -1,5 +1,5 @@
-import { ISchema, QueryError, SchemaField, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _IQuery, _Transaction, _ITable, _SelectExplanation, _Explainer } from './interfaces-private';
+import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
@@ -12,7 +12,7 @@ import { ArrayFilter } from './transforms/array-filter';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 
 type QR = QueryResult & { ignored?: boolean };
-export class Query implements _IQuery, ISchema {
+export class Query implements _ISchema, ISchema {
 
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
@@ -35,9 +35,9 @@ export class Query implements _IQuery, ISchema {
         const tbl = this.declareTable({
             name: 'current_schema',
             fields: [
-                { id: 'current_schema', type: Types.text() },
+                { name: 'current_schema', type: Types.text() },
             ]
-        });
+        }, true);
         tbl.insert(this.db.data, { current_schema: this.name });
         tbl.setHidden().setReadonly();
         return this;
@@ -218,35 +218,10 @@ export class Query implements _IQuery, ISchema {
             constraints: p.constraints,
             fields: p.columns
                 .map<SchemaField>(f => {
-                    let primary = false;
-                    let unique = false;
-                    let notNull = false;
-                    switch (f.constraint?.type) {
-                        case 'primary key':
-                            primary = true;
-                            break;
-                        case 'unique':
-                            unique = true;
-                            notNull = f.constraint.notNull;
-                            break;
-                        case 'not null':
-                            notNull = true;
-                            break;
-                        case null:
-                        case undefined:
-                            break;
-                        default:
-                            throw NotSupported.never(f.constraint);
-                    }
-
                     return {
-                        id: f.name,
+                        ...f,
                         type: fromNative(f.dataType),
-                        primary,
-                        unique,
-                        notNull,
                         autoIncrement: f.dataType.type === 'serial',
-                        default: f.default,
                     }
                 })
         });
@@ -459,7 +434,7 @@ export class Query implements _IQuery, ISchema {
     }
 
 
-    declareTable(table: Schema) {
+    declareTable(table: Schema, noSchemaChange?: boolean) {
         const nm = table.name.toLowerCase();
         if (this.tables.has(nm)) {
             throw new Error('Table exists: ' + nm);
@@ -468,6 +443,9 @@ export class Query implements _IQuery, ISchema {
         const ret = new MemoryTable(this, trans, table);
         trans.commit();
         this.tables.set(nm, ret);
+        if (!noSchemaChange) {
+            this.db.onSchemaChange();
+        }
         return ret;
     }
 
@@ -487,12 +465,24 @@ export class Query implements _IQuery, ISchema {
     }
 
 
-    *listTables(t: _Transaction): Iterable<_ITable> {
+    *listTables(): Iterable<_ITable> {
         for (const t of this.tables.values()) {
             if (!t.hidden) {
                 yield t;
             }
         }
+    }
+
+    clone(toDb: _IDb): _ISchema {
+        const ret = new Query(this.name, toDb)
+            .pgSchema();
+        for (const t of this.listTables()) {
+            if (!(t instanceof MemoryTable) || t.hidden) {
+                continue;
+            }
+            ret.tables.set(t.name, t.clone(ret));
+        }
+        return ret;
     }
 }
 

@@ -1,6 +1,6 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _IQuery, _IDb, _Transaction, _SelectExplanation, _Explainer } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer } from '../interfaces-private';
 import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
@@ -25,7 +25,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract getIndex(forValue: IValue): _IIndex<any>;
     abstract explain(e: _Explainer): _SelectExplanation;
 
-    constructor(readonly schema: _IQuery) {
+    constructor(readonly schema: _ISchema) {
     }
 
     select(select: SelectedColumn[]): _ISelection<any> {

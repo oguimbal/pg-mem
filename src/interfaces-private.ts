@@ -1,6 +1,6 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef } from './parser/syntax/ast';
-import type { Map as ImMap } from 'immutable';
+import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
 
@@ -29,7 +29,7 @@ export function setId<T = any>(item: T, id: string): T {
     return item;
 }
 
-export interface _IQuery extends ISchema {
+export interface _ISchema extends ISchema {
 
     readonly name: string;
     readonly db: _IDb;
@@ -39,6 +39,7 @@ export interface _IQuery extends ISchema {
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
     _doRenTab(db: string, to: string);
+    clone(toDb: _IDb): _ISchema;
 }
 
 
@@ -57,7 +58,7 @@ export interface _Transaction {
 }
 
 export interface _ISelection<T = any> {
-    readonly schema: _IQuery;
+    readonly schema: _ISchema;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
     enumerate(t: _Transaction): Iterable<T>;
@@ -99,7 +100,7 @@ export type _SelectExplanation = {
 } | {
     /** A selection transformation */
     id: number;
-    type:'map';
+    type: 'map';
     select?: {
         what: _ExprExplanation;
         as: string;
@@ -164,18 +165,20 @@ export type _ExprExplanation = {
 }
 
 export interface _IDb extends IMemoryDb {
-    readonly public: _IQuery;
+    readonly public: _ISchema;
     readonly data: _Transaction;
-    getSchema(db: string): _IQuery;
+    getSchema(db: string): _ISchema;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent): void;
-    listSchemas(): _IQuery[];
+    listSchemas(): _ISchema[];
+    onSchemaChange(): void;
+    getTable(name: string, nullIfNotExists?: boolean): _ITable;
 }
 
 export interface _ITable<T = any> extends IMemoryTable {
 
     readonly hidden: boolean;
-    readonly schema: _IQuery;
+    readonly schema: _ISchema;
     readonly name: string;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
@@ -184,16 +187,11 @@ export interface _ITable<T = any> extends IMemoryTable {
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
     setReadonly(): this;
     /** Create a column */
-    addColumn(column: CreateColumnDefTyped | CreateColumnDef, t: _Transaction): _Column;
+    addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column;
     /** Get a column to modify it */
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column;
     rename(to: string): this;
     addConstraint(constraint: ConstraintDef, t: _Transaction);
-}
-
-export interface CreateColumnDefTyped extends Omit<CreateColumnDef, 'dataType'> {
-    type: _IType;
-    serial?: boolean;
 }
 
 export interface _Column {
@@ -219,9 +217,6 @@ export interface CreateIndexColDef {
     desc?: boolean
 }
 
-export interface _IDb extends IMemoryDb {
-    getTable(name: string, nullIfNotExists?: boolean): _ITable;
-}
 
 export interface _IType<TRaw = any> extends IType {
     /** Data type */
@@ -237,6 +232,7 @@ export interface _IType<TRaw = any> extends IType {
     canConvertImplicit(to: DataType | _IType<TRaw>): boolean;
     canConvert(to: DataType | _IType<TRaw>): boolean;
     convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;
+    constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget);
 }
 
 export interface IValue<TRaw = any> {
@@ -329,3 +325,45 @@ export interface _IIndex<T = any> {
 
     explain(e: _Explainer): _IndexExplanation;
 }
+
+export interface TableRecordDef<T> {
+    hasPrimary?: boolean;
+    readonly?: boolean;
+    hidden?: boolean;
+    name?: string;
+    dataId?: symbol;
+
+    serials: ImMap<string, number>;
+    it: number;
+    indexByHash: ImMap<string, _IIndex<T>>;
+    indexByName: ImMap<string, _IIndex<T>>;
+    columnDefs: List<string>;
+    columnsByName: ImMap<string, CR<T>>;
+}
+
+export interface TableColumnRecordDef<T> {
+    default: IValue;
+    notNull: boolean;
+    usedInIndexes: ImSet<_IIndex>;
+    type: _IType;
+    name: string;
+}
+
+export type TR<T> = Record<TableRecordDef<T>>;
+export type CR<T> = Record<TableColumnRecordDef<T>>;
+export const EmtpyTable = Record<TableRecordDef<any>>({
+    serials: ImMap(),
+    it: 0,
+    indexByHash: ImMap(),
+    indexByName: ImMap(),
+    columnDefs: List(),
+    columnsByName: ImMap(),
+});
+
+export const NewColumn = Record<TableColumnRecordDef<any>>({
+    default: null,
+    notNull: false,
+    usedInIndexes: ImSet(),
+    type: null,
+    name: null,
+});

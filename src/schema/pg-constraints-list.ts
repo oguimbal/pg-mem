@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../interfaces-private';
 import {  Schema } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
 import { TableIndex } from './table-index';
@@ -14,32 +14,32 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'columns',
         fields: [
-            { id: 'oid', type: Types.int } // hidden oid column
-            , { id: 'conname', type: Types.text() } // <== 'name' type
-            , { id: 'connamespace', type: Types.int } // <== 'oid' type
-            , { id: 'contype', type: Types.text(1) } // <== 'char(1)' type
-            , { id: 'condeferrable', type: Types.bool }
-            , { id: 'condeferred', type: Types.bool }
-            , { id: 'convalidated', type: Types.bool }
-            , { id: 'conrelid', type: Types.int } // <== oid
-            , { id: 'contypid', type: Types.int } // <== oid
-            , { id: 'conindid', type: Types.int } // <== oid
-            , { id: 'conparentid', type: Types.int } // <== oid
-            , { id: 'confrelid', type: Types.int } // <== oid
-            , { id: 'confupdtype', type: Types.text(1) } // <== 'char(1)' type
-            , { id: 'confdeltype', type: Types.text(1) } // <== 'char(1)' type
-            , { id: 'confmatchtype', type: Types.text(1) } // <== 'char(1)' type
-            , { id: 'conislocal', type: Types.bool }
-            , { id: 'coninhcount', type: Types.int }
-            , { id: 'connoinherit', type: Types.bool }
-            , { id: 'conkey', type: makeArray(Types.int) }
-            , { id: 'confkey', type: makeArray(Types.int) }
-            , { id: 'conpfeqop', type: makeArray(Types.int) } // <== oid[]
-            , { id: 'conppeqop', type: makeArray(Types.int) } // <== oid[]
-            , { id: 'conffeqop', type: makeArray(Types.int) } // <== oid[]
-            , { id: 'conexclop', type: makeArray(Types.int) } // <== oid[]
-            , { id: 'conbin', type: Types.text() } // <== weird type
-            , { id: 'consrc', type: Types.text() }
+            { name: 'oid', type: Types.int } // hidden oid column
+            , { name: 'conname', type: Types.text() } // <== 'name' type
+            , { name: 'connamespace', type: Types.int } // <== 'oid' type
+            , { name: 'contype', type: Types.text(1) } // <== 'char(1)' type
+            , { name: 'condeferrable', type: Types.bool }
+            , { name: 'condeferred', type: Types.bool }
+            , { name: 'convalidated', type: Types.bool }
+            , { name: 'conrelid', type: Types.int } // <== oid
+            , { name: 'contypid', type: Types.int } // <== oid
+            , { name: 'conindid', type: Types.int } // <== oid
+            , { name: 'conparentid', type: Types.int } // <== oid
+            , { name: 'confrelid', type: Types.int } // <== oid
+            , { name: 'confupdtype', type: Types.text(1) } // <== 'char(1)' type
+            , { name: 'confdeltype', type: Types.text(1) } // <== 'char(1)' type
+            , { name: 'confmatchtype', type: Types.text(1) } // <== 'char(1)' type
+            , { name: 'conislocal', type: Types.bool }
+            , { name: 'coninhcount', type: Types.int }
+            , { name: 'connoinherit', type: Types.bool }
+            , { name: 'conkey', type: makeArray(Types.int) }
+            , { name: 'confkey', type: makeArray(Types.int) }
+            , { name: 'conpfeqop', type: makeArray(Types.int) } // <== oid[]
+            , { name: 'conppeqop', type: makeArray(Types.int) } // <== oid[]
+            , { name: 'conffeqop', type: makeArray(Types.int) } // <== oid[]
+            , { name: 'conexclop', type: makeArray(Types.int) } // <== oid[]
+            , { name: 'conbin', type: Types.text() } // <== weird type
+            , { name: 'consrc', type: Types.text() }
         ]
     };
 
@@ -59,8 +59,8 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
             return null;
         }
         let ret = {};
-        for (const { id } of this._schema.fields) {
-            ret[id] = null;
+        for (const { name } of this._schema.fields) {
+            ret[name] = null;
         }
 
         ret = {

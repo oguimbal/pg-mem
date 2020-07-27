@@ -17,6 +17,11 @@ export class Transaction implements _Transaction {
         this.origData = data;
     }
 
+
+    clone() {
+        return new Transaction(null, this.data);
+    }
+
     fork(): _Transaction {
         return new Transaction(this, this.data);
     }

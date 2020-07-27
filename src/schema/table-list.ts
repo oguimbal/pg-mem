@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery, _Transaction, _Explainer } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction, _Explainer } from '../interfaces-private';
 import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
 import { TableIndex } from './table-index';
@@ -14,18 +14,18 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'tables',
         fields: [
-            { id: 'table_catalog', type: Types.text() }
-            , { id: 'table_schema', type: Types.text() }
-            , { id: 'table_name', type: Types.text() }
-            , { id: 'table_type', type: Types.text() }
-            , { id: 'self_referencing_column_name', type: Types.text() }
-            , { id: 'reference_generation', type: Types.text() }
-            , { id: 'user_defined_type_catalog', type: Types.text() }
-            , { id: 'user_defined_type_schema', type: Types.text() }
-            , { id: 'user_defined_type_name', type: Types.text() }
-            , { id: 'is_insertable_into', type: Types.text(3) }
-            , { id: 'is_typed', type: Types.text(3) }
-            , { id: 'commit_action', type: Types.text() }
+            { name: 'table_catalog', type: Types.text() }
+            , { name: 'table_schema', type: Types.text() }
+            , { name: 'table_name', type: Types.text() }
+            , { name: 'table_type', type: Types.text() }
+            , { name: 'self_referencing_column_name', type: Types.text() }
+            , { name: 'reference_generation', type: Types.text() }
+            , { name: 'user_defined_type_catalog', type: Types.text() }
+            , { name: 'user_defined_type_schema', type: Types.text() }
+            , { name: 'user_defined_type_name', type: Types.text() }
+            , { name: 'is_insertable_into', type: Types.text(3) }
+            , { name: 'is_typed', type: Types.text(3) }
+            , { name: 'commit_action', type: Types.text() }
         ]
     };
 

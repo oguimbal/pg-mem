@@ -1,6 +1,5 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError } from './interfaces';
-import { MemoryTable } from './table';
-import { _IDb, _ISelection, _ITable, _Transaction, _IQuery } from './interfaces-private';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup } from './interfaces';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema } from './interfaces-private';
 import { Query } from './query';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -15,30 +14,59 @@ export function newDb(): IMemoryDb {
         buildAlias,
         buildFilter,
     });
-    return new MemoryDb();
+    return new MemoryDb(Transaction.root());
 }
 
 class MemoryDb implements _IDb {
 
     private handlers = new Map<TableEvent | GlobalEvent, Set<(...args: any[]) => any>>();
-    readonly data = Transaction.root();
-    private schemas = new Map<string, _IQuery>();
+    private schemas = new Map<string, _ISchema>();
+
+    schemaVersion = 1;
 
     readonly adapters = new Adapters(this);
     get public() {
         return this.getSchema(null)
     }
 
-    constructor() {
-        this.createSchema('public');
+    onSchemaChange() {
+        this.schemaVersion++;
+        this.raiseGlobal('schema-change');
+    }
+
+    constructor(public data: Transaction, schemas?: Map<string, _ISchema>) {
+        if (!schemas) {
+            this.createSchema('public');
+        } else {
+            this.schemas = schemas;
+        }
         this.declareSchema('information_schema')
             .informationSchma();
+    }
+
+    backup(): IBackup {
+        return new Backup(this);
+    }
+
+
+    fork(): IMemoryDb {
+        const cloned = this.data.clone();
+        const sch = new Map<string, _ISchema>();
+        const ret = new MemoryDb(cloned, sch);
+        for (const [k, v] of this.schemas.entries()) {
+            if (k === 'information_schema') {
+                continue;
+            }
+            sch.set(k, v.clone(ret));
+        }
+        return ret;
     }
 
     declareSchema(name: string) {
         if (this.schemas.has(name)) {
             throw new Error('Schema exists: ' + name);
         }
+        this.onSchemaChange();
         const ret = new Query(name, this);
         this.schemas.set(name, ret);
         return ret;
@@ -75,7 +103,7 @@ class MemoryDb implements _IDb {
         }
     }
 
-    getSchema(db: string): _IQuery {
+    getSchema(db: string): _ISchema {
         db = db ?? 'public';
         const got = this.schemas.get(db);
         if (!got) {
@@ -88,4 +116,20 @@ class MemoryDb implements _IDb {
         return [...this.schemas.values()];
     }
 
+}
+
+class Backup implements IBackup {
+    private readonly data: Transaction;
+    private readonly schemaVersion: number;
+    constructor(private db: MemoryDb) {
+        this.data = db.data.clone();
+        this.schemaVersion = db.schemaVersion;
+    }
+
+    restore() {
+        if (this.schemaVersion !== this.db.schemaVersion) {
+            throw new Error('You cannot restore this backup: schema has been changed since this backup has been created => prefer .clone() in this kind of cases.');
+        }
+        this.db.data = this.data;
+    }
 }

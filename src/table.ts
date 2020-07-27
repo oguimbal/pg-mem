@@ -1,5 +1,5 @@
-import { IMemoryTable, Schema, SchemaField, DataType, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _IQuery, _Column, _IType, CreateColumnDefTyped, _IIndex, _Explainer, _SelectExplanation } from './interfaces-private';
+import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound } from './interfaces';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection, columnEvaluator } from './transforms/selection';
@@ -8,18 +8,25 @@ import { nullIsh } from './utils';
 import { Map as ImMap } from 'immutable';
 import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef } from './parser/syntax/ast';
 import { fromNative } from './datatypes';
-import { Evaluator } from './valuetypes';
 import { ColRef } from './column';
-import { Query } from './query';
 import { buildAlias } from './transforms/alias';
 import { FilterBase, DataSourceBase } from './transforms/transform-base';
 
+function deepCopySchema(s: Schema): Schema {
+    return {
+        name: s.name,
+        fields: [...s.fields.map(x => ({
+            ...x,
+            constraint: x.constraint && { ...x.constraint },
+        }))],
+        constraints: s.constraints && [...s.constraints.map(x => ({ ...x }))],
+    };
+}
 
 type Raw<T> = ImMap<string, T>;
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
     private handlers = new Map<TableEvent, Set<() => void>>();
-
     selection: _ISelection<T>;
     private it = 0;
     hasPrimary: boolean;
@@ -31,6 +38,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private indexByName = new Map<string, BIndex<T>>();
     columnDefs: ColRef[] = [];
     columnsByName = new Map<string, ColRef>();
+    name: string;
 
     readonly columns: IValue[] = [];
 
@@ -38,41 +46,26 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this.bin(t).size;
     }
 
-    name: string;
-
-    rename(name: string) {
-        const on = this.name;
-        if (on === name) {
-            return this;
-        }
-        this.name = name;
-        this.schema._doRenTab(on, name);
-        this.selection = buildAlias(this, this.name);
-        return this;
+    clone(to: _ISchema): _ITable<any> {
+        const ret = new MemoryTable(to, to.db.data, deepCopySchema(this._schema));
+        ret.dataId = this.dataId;
+        return ret;
     }
 
-    constructor(readonly schema: _IQuery, t: _Transaction, _schema: Schema) {
+
+    constructor(readonly schema: _ISchema, t: _Transaction, readonly _schema: Schema) {
         super(schema);
         this.name = _schema.name;
         this.selection = buildAlias(this, this.name);
 
         // fields
         for (const s of _schema.fields) {
-            this.addColumn({
-                type: s.type as _IType,
-                name: s.id,
-                constraint: s.primary ? { type: 'primary key' }
-                    : s.unique ? { type: 'unique', notNull: s.notNull }
-                        : s.notNull ? { type: 'not null' }
-                            : null,
-                serial: s.autoIncrement,
-                default: s.default,
-            }, t);
+            this.addColumn(s, t, true);
         }
 
         // auto increments
-        for (const s of _schema.fields.filter(x => x.autoIncrement)) {
-            this.serials.set(s.id, 0);
+        for (const s of _schema.fields.filter(x => x.serial)) {
+            this.serials.set(s.name, 0);
         }
 
         // other table constraints
@@ -90,6 +83,17 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
+    rename(name: string) {
+        const on = this.name;
+        if (on === name) {
+            return this;
+        }
+        this.name = name;
+        this.schema._doRenTab(on, name);
+        this.selection = buildAlias(this, this.name);
+        this.schema.db.onSchemaChange();
+        return this;
+    }
 
     getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
         const got = this.columnsByName.get(column.toLowerCase());
@@ -107,28 +111,28 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         };
     }
 
-    addColumn(column: CreateColumnDefTyped | CreateColumnDef, t: _Transaction): _Column {
+    addColumn(column: SchemaField | CreateColumnDef, t: _Transaction, noAmendSchema?: boolean): _Column {
         if ('dataType' in column) {
             const tp = {
                 ...column,
                 type: fromNative(column.dataType),
             };
             delete tp.dataType;
-            return this.addColumn(tp, t);
+            return this.addColumn(tp, t, noAmendSchema);
         }
 
         const low = column.name.toLowerCase();
         if (this.columnsByName.has(low)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
-        const cref = new ColRef(this, columnEvaluator(this, column.name, column.type));
+        const cref = new ColRef(this, columnEvaluator(this, column.name, column.type as _IType), column);
 
         if (column.default) {
             cref.alter({
                 type: 'set default',
                 default: column.default,
                 updateExisting: true,
-            }, t)
+            }, t, noAmendSchema)
         }
 
         this.columnDefs.push(cref);
@@ -136,7 +140,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         try {
             if (column.constraint) {
-                cref.addConstraint(column.constraint, t);
+                cref.addConstraint(column.constraint, t, noAmendSchema);
             }
         } catch (e) {
             this.columnDefs.pop();
@@ -146,6 +150,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // once constraints created, reference them. (constraint creation might have thrown)m
         this.columns.push(cref.expression);
+        if (!noAmendSchema) {
+            this._schema.fields.push(column);
+            this.schema.db.onSchemaChange();
+        }
     }
 
 
@@ -372,7 +380,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.indexByName.delete(u.indexName);
     }
 
-    listIndexes(): IndexDef[] {
+    listIndices(): IndexDef[] {
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
                 name: x.indexName,

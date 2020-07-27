@@ -22,14 +22,14 @@ describe('[Queries] Where', () => {
         db.public.declareTable({
             name: 'data',
             fields: [{
-                id: 'id',
+                name: 'id',
                 type: Types.text(),
-                primary: true,
+                constraint: { type: 'primary key' },
             }, {
-                id: 'str',
+                name: 'str',
                 type: Types.text(),
             }, {
-                id: 'otherStr',
+                name: 'otherStr',
                 type: Types.text(),
             }],
         });

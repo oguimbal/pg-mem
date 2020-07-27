@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _Transaction, _IQuery } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _Transaction, _ISchema } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
 import { Types } from '../datatypes';
@@ -15,51 +15,51 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'columns',
         fields: [
-            { id: 'table_catalog', type: Types.text() }
-            , { id: 'table_schema', type: Types.text() }
-            , { id: 'table_name', type: Types.text() }
-            , { id: 'column_name', type: Types.text() }
-            , { id: 'ordinal_position', type: Types.int }
-            , { id: 'column_default', type: Types.text() }
-            , { id: 'is_nullable', type: Types.text(3) }
-            , { id: 'data_type', type: Types.text() }
-            , { id: 'character_maximum_length', type: Types.int }
-            , { id: 'character_octet_length', type: Types.int }
-            , { id: 'numeric_precision', type: Types.int }
-            , { id: 'numeric_precision_radix', type: Types.int }
-            , { id: 'numeric_scale', type: Types.int }
-            , { id: 'datetime_precision', type: Types.int }
-            , { id: 'interval_type', type: Types.text() }
-            , { id: 'interval_precision', type: Types.int }
-            , { id: 'character_set_catalog', type: Types.text() }
-            , { id: 'character_set_schema', type: Types.text() }
-            , { id: 'character_set_name', type: Types.text() }
-            , { id: 'collation_catalog', type: Types.text() }
-            , { id: 'collation_schema', type: Types.text() }
-            , { id: 'collation_name', type: Types.text() }
-            , { id: 'domain_catalog', type: Types.text() }
-            , { id: 'domain_schema', type: Types.text() }
-            , { id: 'domain_name', type: Types.text() }
-            , { id: 'udt_catalog', type: Types.text() } // <====
-            , { id: 'udt_schema', type: Types.text() } // <====
-            , { id: 'udt_name', type: Types.text() } // <====
-            , { id: 'scope_catalog', type: Types.text() } // <====
-            , { id: 'scope_schema', type: Types.text() } // <====
-            , { id: 'scope_name', type: Types.text() } // <====
-            , { id: 'maximum_cardinality', type: Types.int } // <====
-            , { id: 'dtd_identifier', type: Types.int } // <=== INDEX
-            , { id: 'is_self_referencing', type: Types.text(3) }
-            , { id: 'is_identity', type: Types.text(3) } // <==
-            , { id: 'identity_generation', type: Types.text() } // <==
-            , { id: 'identity_start', type: Types.text() } // <==
-            , { id: 'identity_document', type: Types.text() } // <==
-            , { id: 'identity_increment', type: Types.text() } // <==
-            , { id: 'identity_maximum', type: Types.text() } // <==
-            , { id: 'identity_minimum', type: Types.text() } // <==
-            , { id: 'identity_cycle', type: Types.text(3) } // <==
-            , { id: 'is_generated', type: Types.text() } // <==
-            , { id: 'generation_expression', type: Types.text() } // <==
-            , { id: 'is_updatable', type: Types.text(3) } // <==
+            { name: 'table_catalog', type: Types.text() }
+            , { name: 'table_schema', type: Types.text() }
+            , { name: 'table_name', type: Types.text() }
+            , { name: 'column_name', type: Types.text() }
+            , { name: 'ordinal_position', type: Types.int }
+            , { name: 'column_default', type: Types.text() }
+            , { name: 'is_nullable', type: Types.text(3) }
+            , { name: 'data_type', type: Types.text() }
+            , { name: 'character_maximum_length', type: Types.int }
+            , { name: 'character_octet_length', type: Types.int }
+            , { name: 'numeric_precision', type: Types.int }
+            , { name: 'numeric_precision_radix', type: Types.int }
+            , { name: 'numeric_scale', type: Types.int }
+            , { name: 'datetime_precision', type: Types.int }
+            , { name: 'interval_type', type: Types.text() }
+            , { name: 'interval_precision', type: Types.int }
+            , { name: 'character_set_catalog', type: Types.text() }
+            , { name: 'character_set_schema', type: Types.text() }
+            , { name: 'character_set_name', type: Types.text() }
+            , { name: 'collation_catalog', type: Types.text() }
+            , { name: 'collation_schema', type: Types.text() }
+            , { name: 'collation_name', type: Types.text() }
+            , { name: 'domain_catalog', type: Types.text() }
+            , { name: 'domain_schema', type: Types.text() }
+            , { name: 'domain_name', type: Types.text() }
+            , { name: 'udt_catalog', type: Types.text() } // <====
+            , { name: 'udt_schema', type: Types.text() } // <====
+            , { name: 'udt_name', type: Types.text() } // <====
+            , { name: 'scope_catalog', type: Types.text() } // <====
+            , { name: 'scope_schema', type: Types.text() } // <====
+            , { name: 'scope_name', type: Types.text() } // <====
+            , { name: 'maximum_cardinality', type: Types.int } // <====
+            , { name: 'dtd_identifier', type: Types.int } // <=== INDEX
+            , { name: 'is_self_referencing', type: Types.text(3) }
+            , { name: 'is_identity', type: Types.text(3) } // <==
+            , { name: 'identity_generation', type: Types.text() } // <==
+            , { name: 'identity_start', type: Types.text() } // <==
+            , { name: 'identity_document', type: Types.text() } // <==
+            , { name: 'identity_increment', type: Types.text() } // <==
+            , { name: 'identity_maximum', type: Types.text() } // <==
+            , { name: 'identity_minimum', type: Types.text() } // <==
+            , { name: 'identity_cycle', type: Types.text(3) } // <==
+            , { name: 'is_generated', type: Types.text() } // <==
+            , { name: 'generation_expression', type: Types.text() } // <==
+            , { name: 'is_updatable', type: Types.text(3) } // <==
         ]
     };
 
@@ -82,8 +82,8 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
             return null;
         }
         let ret = {};
-        for (const { id } of this._schema.fields) {
-            ret[id] = null;
+        for (const { name } of this._schema.fields) {
+            ret[name] = null;
         }
 
         ret = {

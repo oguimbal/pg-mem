@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _IQuery } from '../interfaces-private';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
@@ -9,30 +9,30 @@ export class PgAttributeTable extends ReadOnlyTable implements _ITable {
     _schema = {
         name: 'pg_attribute',
         fields: [
-            { id: 'attrelid', type: Types.int } // oid
-            , { id: 'attname', type: Types.text() }
-            , { id: 'atttypid', type: Types.int } // oid
-            , { id: 'attstattarget', type: Types.int }
-            , { id: 'attlen', type: Types.int }
-            , { id: 'attnum', type: Types.int }
-            , { id: 'attndims', type: Types.int }
-            , { id: 'attcacheoff', type: Types.int }
-            , { id: 'atttypmod', type: Types.int }
-            , { id: 'attbyval', type: Types.bool }
-            , { id: 'attstorage', type: Types.text(1) } // char(1)
-            , { id: 'attalign', type: Types.text(1) } // char(1)
-            , { id: 'attnotnull', type: Types.bool }
-            , { id: 'atthasdef', type: Types.bool }
-            , { id: 'atthasmissing', type: Types.bool }
-            , { id: 'attidntity', type: Types.text(1) } // char(1)
-            , { id: 'attisdroppd', type: Types.bool }
-            , { id: 'attislocal', type: Types.bool }
-            , { id: 'attinhcount', type: Types.int }
-            , { id: 'attcollation', type: Types.int } // oid
-            , { id: 'attacl', type: Types.jsonb } // aclitem[]
-            , { id: 'attoptions', type: makeArray(Types.text()) }
-            , { id: 'attfdwoptions', type: makeArray(Types.text()) }
-            , { id: 'attmissingval', type: Types.jsonb }// anyarray
+            { name: 'attrelid', type: Types.int } // oid
+            , { name: 'attname', type: Types.text() }
+            , { name: 'atttypid', type: Types.int } // oid
+            , { name: 'attstattarget', type: Types.int }
+            , { name: 'attlen', type: Types.int }
+            , { name: 'attnum', type: Types.int }
+            , { name: 'attndims', type: Types.int }
+            , { name: 'attcacheoff', type: Types.int }
+            , { name: 'atttypmod', type: Types.int }
+            , { name: 'attbyval', type: Types.bool }
+            , { name: 'attstorage', type: Types.text(1) } // char(1)
+            , { name: 'attalign', type: Types.text(1) } // char(1)
+            , { name: 'attnotnull', type: Types.bool }
+            , { name: 'atthasdef', type: Types.bool }
+            , { name: 'atthasmissing', type: Types.bool }
+            , { name: 'attidntity', type: Types.text(1) } // char(1)
+            , { name: 'attisdroppd', type: Types.bool }
+            , { name: 'attislocal', type: Types.bool }
+            , { name: 'attinhcount', type: Types.int }
+            , { name: 'attcollation', type: Types.int } // oid
+            , { name: 'attacl', type: Types.jsonb } // aclitem[]
+            , { name: 'attoptions', type: makeArray(Types.text()) }
+            , { name: 'attfdwoptions', type: makeArray(Types.text()) }
+            , { name: 'attmissingval', type: Types.jsonb }// anyarray
         ]
     };
 

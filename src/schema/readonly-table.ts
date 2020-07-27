@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _IQuery, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, CreateColumnDefTyped, IndexDef, _Explainer, _SelectExplanation, _IType } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType } from '../interfaces-private';
 import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound } from '../interfaces';
@@ -16,7 +16,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     readonly selection: _ISelection = buildAlias(this);
     hidden = true;
 
-    constructor(schema: _IQuery) {
+    constructor(schema: _ISchema) {
         super(schema);
     }
 
@@ -33,9 +33,9 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         }
         this._columns = [];
         for (const _col of this._schema.fields) {
-            const newCol = columnEvaluator(this, _col.id, _col.type as _IType);
+            const newCol = columnEvaluator(this, _col.name, _col.type as _IType);
             this._columns.push(newCol);
-            this.columnsById.set(_col.id.toLowerCase(), newCol);
+            this.columnsById.set(_col.name.toLowerCase(), newCol);
         }
     }
 
@@ -58,7 +58,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
 
-    listIndexes(): IndexDef[] {
+    listIndices(): IndexDef[] {
         return [];
     }
 
@@ -72,7 +72,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     update(t: _Transaction, toUpdate: any) {
         throw new ReadOnlyError('information schema');
     }
-    addColumn(column: CreateColumnDefTyped | CreateColumnDef): _Column {
+    addColumn(column: SchemaField | CreateColumnDef): _Column {
         throw new ReadOnlyError('information schema');
     }
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
