@@ -230,18 +230,20 @@ describe('[Queries] Joins', () => {
                 _: 'join',
                 inner: true,
                 id: 2,
-                join: {
+                restrictive: {
                     _: 'table',
                     id: 3,
                     table: 'user',
                 },
-                with: {
+                joined: {
                     _: 'table',
                     id: 4,
                     table: 'photo',
                 },
                 on: {
-                    index: {
+                    iterate: 3,
+                    iterateSide: 'restrictive',
+                    joinIndex: {
                         _: 'btree',
                         btree: ['userId'],
                         onTable: 'photo',
@@ -278,18 +280,20 @@ describe('[Queries] Joins', () => {
                 _: 'join',
                 inner: true,
                 id: 2,
-                join: {
+                restrictive: {
                     _: 'table',
                     id: 3,
                     table: 'user',
                 },
-                with: {
+                joined: {
                     _: 'table',
                     id: 4,
                     table: 'photo',
                 },
                 on: {
-                    index: {
+                    iterate: 3,
+                    iterateSide: 'restrictive',
+                    joinIndex: {
                         _: 'btree',
                         btree: ['userId'],
                         onTable: 'photo',
@@ -324,18 +328,20 @@ describe('[Queries] Joins', () => {
                 _: 'join',
                 inner: true,
                 id: 2,
-                join: {
+                restrictive: {
                     _: 'table',
                     id: 3,
                     table: 'user',
                 },
-                with: {
+                joined: {
                     _: 'table',
                     id: 4,
                     table: 'photo',
                 },
                 on: {
-                    index: {
+                    iterate: 3,
+                    iterateSide: 'restrictive',
+                    joinIndex: {
                         _: 'btree',
                         btree: ['userId'],
                         onTable: 'photo',

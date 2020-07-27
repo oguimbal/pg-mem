@@ -2,84 +2,182 @@ import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchem
 import { buildValue } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
-import { Expr } from '../parser/syntax/ast';
+import { Expr, ExprBinary } from '../parser/syntax/ast';
+import { List } from 'immutable';
 
 let jCnt = 0;
 
 interface JoinRaw<TLeft, TRight> {
-    '>left': TLeft;
-    '>right': TRight;
+    '>restrictive': TLeft;
+    '>joined': TRight;
 }
+interface JoinStrategy {
+    iterate: _ISelection<any>;
+    iterateSide: 'joined' | 'restrictive';
+    joinIndex: _IIndex<any>;
+    onValue: IValue;
+    othersPredicate?: IValue<any>;
+}
+
+
+interface It {
+    [Symbol.iterator](): Iterator<ExprBinary, boolean>;
+}
+
+function* extractAnds(this: void, on: Expr): It {
+    if (on.type !== 'binary') {
+        return false;
+    }
+    if (on.op === '=') {
+        yield on;
+        return true;
+    } else if (on.op === 'AND') {
+        return (yield* extractAnds(on.left))
+            && (yield* extractAnds(on.right));
+    }
+    return false;
+}
+
+function chooseStrategy(this: void, t: _Transaction, strategies: JoinStrategy[]) {
+    strategies.sort((a, b) => a.iterate.entropy(t) > b.iterate.entropy(t) ? 1 : -1);
+    return strategies[0];
+}
+
 export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
 
-
     private _columns: IValue<any>[] = [];
-    private leftExpression: IValue<any>;
-    private indexedRight: _IIndex<any>;
     private seqScanExpression: IValue<any>;
     private joinId: number;
-    private columnsMapping = new Map<IValue, IValue>();
+    private columnsMapping = new Map<IValue, {
+        side: 'joined' | 'restrictive';
+        col: IValue;
+    }>();
     private indexCache = new Map<IValue, _IIndex>();
+    strategies: JoinStrategy[] = [];
+    private building;
 
     get columns(): IValue<any>[] {
         return this._columns;
     }
 
-    private get leftColumns() {
-        return this.left.columns
+    private get restrictiveColumns() {
+        return this.restrictive.columns
     }
 
-    private get rightColumns() {
-        return this.right.columns
+    private get joinedColumns() {
+        return this.joined.columns
     }
 
     entropy(t: _Transaction): number {
-        return this.left.entropy(t);
+        const strategy = chooseStrategy(t, this.strategies);
+        if (!strategy) {
+            // catastophic join... very high entropy...
+            return this.restrictive.entropy(t) * this.joined.entropy(t);
+        }
+
+        // todo: multiply that by the mean count per keys in strategy.joinIndex ?
+        const ret = strategy.iterate.entropy(t);
+        return ret;
     }
 
     constructor(db: _ISchema
-        , readonly left: _ISelection<TLeft>
-        , readonly right: _ISelection<TRight>
+        , readonly restrictive: _ISelection<TLeft>
+        , readonly joined: _ISelection<TRight>
         , on: Expr
         , private innerJoin: boolean) {
         super(db);
 
         this.joinId = jCnt++;
-        for (const c of this.leftColumns) {
-            const nc = c.setWrapper(this, x => x['>left']);
+        for (const c of this.restrictiveColumns) {
+            const nc = c.setWrapper(this, x => x['>restrictive']);
             this._columns.push(nc);
-            this.columnsMapping.set(nc, c);
+            this.columnsMapping.set(nc, {
+                col: c,
+                side: 'restrictive'
+            });
         }
-        for (const c of this.rightColumns) {
-            const nc = c.setWrapper(this, x => x['>right']);
+        for (const c of this.joinedColumns) {
+            const nc = c.setWrapper(this, x => x['>joined']);
             this._columns.push(nc);
-            this.columnsMapping.set(nc, c);
+            this.columnsMapping.set(nc, {
+                col: c,
+                side: 'joined',
+            });
         }
 
-        // only support indexed joins on binary expressions
-        // todo: multiple columns indexes join
-        if (on.type === 'binary') {
-            const a = buildValue(this, on.left);
-            const b = buildValue(this, on.right);
-
-            // const aIndex = a.wrappedOrigin?.getIndex()
-            if (b.index && b.index.expressions.length === 1 && b && a.origin === left && b.origin === right) {
-                // right part of binary expression is an index on the joined table
-                this.leftExpression = a;
-                this.indexedRight = b.index;
-            } else if (a.index && a.index.expressions.length === 1 && a.origin === right && b.origin === left) {
-                // left part of binary expression is an index on the joined table
-                this.leftExpression = b;
-                this.indexedRight = a.index;
-            }
-        }
+        this.fetchStrategies(on);
 
         this.seqScanExpression = buildValue(this, on).convert(DataType.bool);
     }
 
+    private fetchStrategies(on: Expr) {
+        const all = [...extractAnds(on)];
+        for (let i = 0; i < all.length; i++) {
+            const others = [...all.slice(0, i), ...all.slice(i + 1)];
+            const thisOne = all[i];
+            const strats = [...this.fetchEqStrategy(thisOne)];
+            if (others.length) {
+                const and = others.slice(1)
+                    .reduce<ExprBinary>((v, c) => ({
+                        type: 'binary',
+                        left: c,
+                        right: v,
+                        op: 'AND',
+                    }), others[0]);
+                const othersPredicate = buildValue(this, and);;
+                for (const s of strats) {
+                    s.othersPredicate = othersPredicate;
+                }
+            }
+            this.strategies.push(...strats);
+        }
+    }
+
+    private *fetchEqStrategy(on: ExprBinary): Iterable<JoinStrategy> {
+        this.building = true;
+        const a = buildValue(this, on.left);
+        const b = buildValue(this, on.right);
+        this.building = false;
+        let restrictedVal: IValue;
+        let joinedVal: IValue;
+
+        // const aIndex = a.wrappedOrigin?.getIndex()
+        if (a.origin === this.restrictive && b.origin === this.joined) {
+            restrictedVal = a;
+            joinedVal = b;
+        } else if (b.origin === this.restrictive && a.origin === this.joined) {
+            restrictedVal = b;
+            joinedVal = a;
+        }
+
+        let processInner = this.innerJoin;
+        let iterateSide: 'restrictive' | 'joined' = 'restrictive'
+        while (restrictedVal && joinedVal) {
+            // can always iterat on restricted value & use joined table foreign index
+            const jindex = joinedVal.index;
+            if (jindex && jindex.expressions.length === 1) {
+                yield {
+                    iterate: iterateSide === 'restrictive' ? this.restrictive : this.joined,
+                    iterateSide,
+                    onValue: joinedVal,
+                    joinIndex: jindex,
+                }
+            }
+            if (!processInner) {
+                break;
+            }
+            // if is an inner join, then both sides can be interverted
+            processInner = false;
+            const t = restrictedVal;
+            restrictedVal = joinedVal;
+            joinedVal = t;
+            iterateSide = 'joined';
+        }
+    }
+
     getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
-        const onLeft = this.left.getColumn(column, true)?.setWrapper(this, x => x['>left']);
-        const onRight = this.right.getColumn(column, true)?.setWrapper(this, x => x['>right']);
+        let onLeft = this.restrictive.getColumn(column, true);
+        let onRight = this.joined.getColumn(column, true);
         if (!onLeft && !onRight) {
             if (nullIfNotFound) {
                 return null;
@@ -89,55 +187,100 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         if (!!onLeft && !!onRight) {
             throw new QueryError(`column reference "${column}" is ambiguous`);
         }
-        return onLeft ?? onRight;
+        if (this.building) {
+            return onLeft ?? onRight;
+        }
+        return onLeft?.setWrapper(this, x => x['>restrictive'])
+            ?? onRight?.setWrapper(this, x => x['>joined']);
     }
 
-
     *enumerate(t: _Transaction): Iterable<any> {
-
-        if (this.indexedRight) {
+        const strategy = chooseStrategy(t, this.strategies);
+        if (strategy) {
+            // choose the iterator that has less values
             // find the right value using index
-            for (const l of this.left.enumerate(t)) {
-                const joinValue = this.leftExpression.get(this.buildItem(l, null), t);
-                // get corresponding right value
-                let yielded = false;
-                for (const r of this.indexedRight.enumerate({
-                    type: 'eq',
-                    key: [joinValue],
-                    t,
-                })) {
-                    yielded = true;
-                    yield this.buildItem(l, r);
-                }
-
-                if (!this.innerJoin && !yielded) {
-                    yield this.buildItem(l, null);
-                }
+            for (const l of strategy.iterate.enumerate(t)) {
+                yield* this.iterateStrategyItem(l, strategy, t);
             }
         } else {
             // perform a seq scan
             this.schema.db.raiseGlobal('catastrophic-join-optimization');
-            const allRight = [...this.right.enumerate(t)];
-            for (const l of this.left.enumerate(t)) {
-                let yielded = false;
-                for (const cr of allRight) {
-                    const combined = this.buildItem(l, cr);
-                    const result = this.seqScanExpression.get(combined, t);
-                    if (result) {
-                        yielded = true;
-                        yield combined;
-                        break;
-                    }
-                }
-                if (!this.innerJoin && !yielded) {
-                    yield this.buildItem(l, null);
-                }
+            const others = [...this.joined.enumerate(t)];
+            for (const l of this.restrictive.enumerate(t)) {
+                this.iterateCatastrophicItem(l, others, 'restrictive', t);
             }
         }
     }
 
+    *iterateCatastrophicItem(item: any, others: any[], side: 'joined' | 'restrictive', t: _Transaction) {
+        const { template, buildItem } = this.builder(item, side);
+        let yielded = false;
+        for (const cr of others) {
+            const combined = buildItem(cr);
+            const result = this.seqScanExpression.get(combined, t);
+            if (result) {
+                yielded = true;
+                yield combined;
+                break;
+            }
+        }
+        if (!this.innerJoin && !yielded) {
+            yield template;
+        }
+    }
+
+    private builder(item: any, side: 'joined' | 'restrictive') {
+
+        // if we're in an inner join, and the chosen strategy
+        // has inverted join order, then invert built items
+        let template: any;
+        let buildItem: (x) => any;
+        if (side === 'joined') {
+            buildItem = x => this.buildItem(x, item);
+            template = this.buildItem(null, item);
+        } else {
+            buildItem = x => this.buildItem(item, x);
+            template = this.buildItem(item, null);
+        }
+        return { buildItem, template };
+    }
+
+    *iterateStrategyItem(item: any, strategy: JoinStrategy, t: _Transaction) {
+
+        const { template, buildItem } = this.builder(item, strategy.iterateSide);
+
+        const joinValue = strategy.onValue.get(item, t);
+        // get corresponding right value(s)
+        let yielded = false;
+        for (const o of strategy.joinIndex.enumerate({
+            type: 'eq',
+            key: [joinValue],
+            t,
+        })) {
+
+            // build item
+            const item = buildItem(o);
+
+            // check othre predicates (in case the join has an AND statement)
+            if (strategy.othersPredicate) {
+                const others = strategy.othersPredicate.get(item, t);
+                if (!others) {
+                    continue;
+                }
+            }
+
+            // finally, yieldvalue
+            yielded = true;
+            yield item;
+        }
+
+        if (!this.innerJoin && !yielded) {
+            yield template;
+        }
+    }
+
     buildItem(l: TLeft, r: TRight) {
-        const ret = { '>right': r, '>left': l }
+        const ret = { '>joined': r, '>restrictive': l }
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
         return ret;
     }
@@ -153,22 +296,26 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
         // todo: filter using indexes of tables (index propagation)'
         const mapped = this.columnsMapping.get(forValue);
-        const originIndex = mapped.index;
-        const ret = new JoinIndex(this, originIndex);
+        const originIndex = mapped.col.index;
+        const ret = new JoinIndex(this, originIndex, mapped.side);
         this.indexCache.set(forValue, ret);
         return ret;
     }
 
     explain(e: _Explainer): _SelectExplanation {
+        const strategy = chooseStrategy(e.transaction, this.strategies);
         return {
             id: e.idFor(this),
             _: 'join',
-            join: this.left.explain(e),
-            with: this.right.explain(e),
+            restrictive: this.restrictive.explain(e),
+            joined: this.joined.explain(e),
             inner: this.innerJoin,
-            on: this.indexedRight ? {
-                index: this.indexedRight.explain(e),
-                matches: this.leftExpression.explain(e),
+            on: strategy ? {
+                iterate: e.idFor(strategy.iterate),
+                iterateSide: strategy.iterateSide,
+                joinIndex: strategy.joinIndex.explain(e),
+                matches: strategy.onValue.explain(e),
+                ...strategy.othersPredicate ? { filtered: true } : {},
             } : {
                     seqScan: this.seqScanExpression.explain(e),
                 },
@@ -177,7 +324,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 }
 
 export class JoinIndex<T> implements _IIndex<T> {
-    constructor(readonly owner: JoinSelection<T>, private base: _IIndex) {
+    constructor(readonly owner: JoinSelection<T>, private base: _IIndex, private side: 'restrictive' | 'joined') {
     }
 
     get expressions(): IndexExpression[] {
@@ -186,7 +333,12 @@ export class JoinIndex<T> implements _IIndex<T> {
 
 
     entropy(op: IndexOp): number {
-        // same as source
+        const strategy = this.chooseStrategy(op.t);
+        if (!strategy) {
+            // very high entropy (catastophic join)
+            return this.base.entropy(op) * this.other.entropy(op.t);
+        }
+        // todo: multiply that by the mean count per keys in strategy.joinIndex ?
         return this.base.entropy(op);
     }
 
@@ -200,17 +352,43 @@ export class JoinIndex<T> implements _IIndex<T> {
         }
     }
 
+    private chooseStrategy(t: _Transaction) {
+        const strats = this.owner.strategies.filter(x => x.iterateSide === this.side);
+        if (!strats.length) {
+            return null;
+        }
+        return chooseStrategy(t, strats);
+    }
+
+    private get other() {
+        return this.side === 'joined'
+            ? this.owner.restrictive
+            : this.owner.joined;
+    }
+
     *enumerate(op: IndexOp): Iterable<T> {
-        for (const i of this.base.enumerate(op)) {
-            yield this.owner.buildItem(i, op.t);
+        const strategy = this.chooseStrategy(op.t);
+        if (strategy) {
+            for (const i of this.base.enumerate(op)) {
+                yield* this.owner.iterateStrategyItem(i, strategy, op.t);
+            }
+        } else {
+            this.owner.schema.db.raiseGlobal('catastrophic-join-optimization');
+            const all = [...this.other.enumerate(op.t)];
+
+            for (const i of this.base.enumerate(op)) {
+                yield* this.owner.iterateCatastrophicItem(i, all, this.side, op.t);
+            }
         }
     }
 
 
     explain(e: _Explainer): _IndexExplanation {
+        const strat = this.chooseStrategy(e.transaction);
         return {
-            _: 'joinIndex',
-            of: this.base.explain(e),
+            _: 'indexOnJoin',
+            index: this.base.explain(e),
+            strategy: strat?.joinIndex?.explain(e) ?? 'catastrophic',
         }
     }
 }

@@ -130,6 +130,20 @@ export class Evaluator<T = any> implements IValue<T> {
         );
     }
 
+    setOrigin(origin: _ISelection): IValue<T> {
+        const ret = new Evaluator<T>(
+            this.type
+            , this.id
+            , this.sql
+            , this.hash
+            , this
+            , this.val
+            , this.opts
+        );
+        ret.origin = origin;
+        return ret;
+    }
+
     setWrapper(newOrigin: _ISelection, unwrap: (val: any) => any) {
         if (this.isAny) {
             throw new QueryError('Unexpected use of ANY()');

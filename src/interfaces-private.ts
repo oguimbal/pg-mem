@@ -86,17 +86,25 @@ export type _SelectExplanation = {
     /** A jointure */
     id: number;
     _: 'join';
-    join: _SelectExplanation;
-    with: _SelectExplanation;
+    /**  The restrictive table (the one which MUST have a matched elemnt) */
+    restrictive: _SelectExplanation;
+    /** The joined table */
+    joined: _SelectExplanation;
     inner: boolean;
     on: {
         /** 'with' will have to be scanned with this expression */
         seqScan: _ExprExplanation;
     } | {
-        /** the 'with' table has this index that can be used */
-        index: _IndexExplanation;
-        /** It will be matched with this expression (computable from the 'join' table) */
+        /** Which seq will be iterated (could be either 'join' or 'with' when there is an inner join) */
+        iterate: number;
+        /** Which iteration side has been chosen (always 'restrictive' for non inner joins) */
+        iterateSide: 'joined' | 'restrictive';
+        /** the index table on the other table that can be used to lookup corresponding item(s) */
+        joinIndex: _IndexExplanation;
+        /** It will be matched with this expression (computable from the other table) */
         matches: _ExprExplanation;
+        /** True if there is a predicate filter that is also applied (happens when there are 'ANDs' in join condition) */
+        filtered?: boolean;
     }
 } | {
     /** A selection transformation */
@@ -167,7 +175,12 @@ export type _IndexExplanation = {
     /** Enumerated collection */
     for: _SelectExplanation;
 } | {
-    _: 'joinIndex';
+    /** Uses an index of a column propagated by a join */
+    _: 'indexOnJoin';
+    /** The in propagated column that is used */
+    index: _IndexExplanation;
+    /** How elements from the other table will be joined */
+    strategy: _IndexExplanation | 'catastrophic';
 };
 
 export type _ExprExplanation = {
@@ -296,6 +309,7 @@ export interface IValue<TRaw = any> {
      * Creates a copy of this column that can
      **/
     setWrapper<TNewRaw>(newOrigin: _ISelection, unwrap: (val: TNewRaw) => TRaw): IValue<TRaw>;
+    setOrigin(origin: _ISelection): IValue<TRaw>;
 
     explain(e: _Explainer): _ExprExplanation;
 }

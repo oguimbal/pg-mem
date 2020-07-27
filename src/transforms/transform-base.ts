@@ -76,6 +76,41 @@ export abstract class FilterBase<T> extends TransformBase<T> {
         return this.base.columns;
     }
 
+    /**
+    private _columns: IValue[];
+    private _columnMappings: Map<IValue, IValue>;
+    get columns(): ReadonlyArray<IValue<any>> {
+        this.initCols();
+        return this._columns;
+        // return this.base.columns;
+    }
+
+    private initCols() {
+        if (this._columns) {
+            return;
+        }
+        this._columns = [];
+        this._columnMappings = new Map();
+        for (const c of this.base.columns) {
+            const nc = c.setOrigin(this);
+            this._columns.push(nc);
+            this._columnMappings.set(c, nc);
+        }
+    }
+
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+        if (!this.base) { // istanbul ignore next
+            throw new Error('Should not call .getColumn() on join');
+        }
+        if (!('columns' in this.base)) { // istanbul ignore next
+            throw new Error('Should not call getColumn() on table');
+        }
+        this.initCols();
+        const col = this.base.getColumn(column, nullIfNotFound);
+        return col && this._columnMappings.get(col);
+    }
+     */
+
     getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
         if (!this.base) { // istanbul ignore next
             throw new Error('Should not call .getColumn() on join');
