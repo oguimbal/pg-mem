@@ -49,6 +49,26 @@ describe('[Queries] Simple queries', () => {
         expect(got).to.deep.equal([]);
     });
 
+
+
+    it('does not return twice the same entity on seq scan', () => {
+        simpleDb();
+        none(`insert into data(id, str) values ('some id', null)`);
+        const [first] = many('select * from data');
+        const [second] = many('select * from data');
+        expect(first).to.deep.equal(second);
+        expect(first).not.to.equal(second);//<== should be a copy
+    });
+
+    it('does not return twice the same entity on index scan', () => {
+        simpleDb();
+        none(`insert into data(id, str) values ('some id', null)`);
+        const [first] = many(`select * from data where id='some id'`);
+        const [second] = many(`select * from data where id='some id'`);
+        expect(first).to.deep.equal(second);
+        expect(first).not.to.equal(second);//<== should be a copy
+    });
+
     it('does not equate null values on seq scan', () => {
         simpleDb();
         none(`insert into data(id, str, otherStr) values ('id1', null, null)`);

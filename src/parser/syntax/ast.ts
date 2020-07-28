@@ -1,3 +1,5 @@
+import { IType } from 'src/interfaces';
+
 export type Statement = SelectStatement
     | CreateTableStatement
     | CreateIndexStatement
@@ -253,6 +255,7 @@ export type Expr = ExprRef
     | ExprBool
     | ExprCall
     | SelectStatement
+    | ExprConstant
     | ExprTernary;
 
 
@@ -273,6 +276,12 @@ export interface ExprBinary {
     left: Expr;
     right: Expr;
     op: BinaryOperator;
+}
+
+export interface ExprConstant {
+    type: 'constant';
+    dataType: DataTypeDef | IType;
+    value: any;
 }
 
 

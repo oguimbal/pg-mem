@@ -5,7 +5,9 @@
 
 # https://www.postgresql.org/docs/12/sql-delete.html
 
-delete_statement -> (kw_delete %kw_from)
+delete_statement -> delete_delete | delete_truncate
+
+delete_delete -> (kw_delete %kw_from)
                         table_ref_aliased
                     select_where:?
                     (%kw_returning select_expr_list_aliased {% last %}):?
@@ -19,3 +21,8 @@ delete_statement -> (kw_delete %kw_from)
                             ...returning ? { returning } : {},
                         }
                     } %}
+
+delete_truncate ->  (kw_truncate %kw_table:?) table_ref_aliased {% x => ({
+                            type: 'delete',
+                            from: unwrap(x[1]),
+                        }) %}

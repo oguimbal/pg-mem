@@ -1,4 +1,4 @@
-import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField } from './interfaces-private';
+import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler } from './interfaces-private';
 import type { MemoryTable } from './table';
 import { Evaluator } from './valuetypes';
 import { ColumnConstraint, AlterColumn } from './parser/syntax/ast';
@@ -15,6 +15,7 @@ export class ColRef implements _Column {
     default: IValue;
     notNull: boolean;
     usedInIndexes = new Set<BIndex>();
+    changeHandlers = new Set<ChangeHandler<any>>();
 
     constructor(private table: MemoryTable
         , public expression: Evaluator

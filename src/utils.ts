@@ -292,3 +292,13 @@ export function nullIsh(v: any) {
 export function hasNullish(...vals: any[]) {
     return vals.some(nullIsh);
 }
+
+export function deepCloneSimple<T>(v: T): T {
+    if (!v || typeof v !== 'object' || v instanceof Date) {
+        return v;
+    }
+    if (Array.isArray(v)) {
+        return v.map(x => deepCloneSimple(x)) as any;
+    }
+    return { ...v };
+}

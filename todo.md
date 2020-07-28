@@ -12,9 +12,7 @@
 - UT: check that throws ambiguous column: "select x.a from (select val1 as a, val2 as a from tbl) x;"
 - Handle "insert into tbl select * from otherTbl"
 
-- Review & refactor all .hasItem() & unit test them.
 
 - "auto-create" tables mode (which guess/adapt their schema on insert)
 - ORDER BY
 - LIMIT
-- DELETE

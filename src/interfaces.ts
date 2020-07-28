@@ -40,7 +40,7 @@ export enum DataType {
 
 export interface MemoryDbOptions {
     /**
-     * When set to true, this will auto create indices when adding a foreign key.
+     * When set to true, this will auto create an index on foreign table when adding a foreign key.
      * 👉 Recommanded when using Typeorm .synchronize(), which creates foreign keys but not indices !
      **/
     readonly autoCreateForeignKeyIndices?: boolean;

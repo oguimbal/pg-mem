@@ -82,6 +82,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildTernary(data, val);
         case 'select':
             return buildSelectAsArray(data, val);
+        case 'constant':
+            return Value.constant(val.dataType as any, val.value);
         default:
             throw NotSupported.never(val);
     }

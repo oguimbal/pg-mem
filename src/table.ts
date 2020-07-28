@@ -1,18 +1,21 @@
 import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection, columnEvaluator } from './transforms/selection';
 import { parse } from './parser/parser';
-import { nullIsh } from './utils';
+import { nullIsh, deepCloneSimple } from './utils';
 import { Map as ImMap } from 'immutable';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef } from './parser/syntax/ast';
+import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary } from './parser/syntax/ast';
 import { fromNative } from './datatypes';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
 import { FilterBase, DataSourceBase } from './transforms/transform-base';
+import { Value } from './valuetypes';
 
-
+function indexHash(this: void, vals: IValue[]) {
+    return vals.map(x => x.hash).sort().join('|');
+}
 type Raw<T> = ImMap<string, T>;
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
@@ -34,6 +37,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     name: string;
 
     readonly columns: IValue[] = [];
+    private changeHandlers = new Set<ChangeHandler<T>>();
 
     get debugId() {
         return this.name;
@@ -197,7 +201,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     *enumerate(t: _Transaction): Iterable<T> {
         this.raise('seq-scan');
         for (const v of this.bin(t).values()) {
-            yield { ...v }; // copy the original data to prevent it from being mutated.
+            yield deepCloneSimple(v); // copy the original data to prevent it from being mutated.
         }
     }
 
@@ -239,9 +243,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             this.serials.set(k, v + 1);
         }
 
-        // index & check indx contrainsts
-        this.indexElt(t, toInsert);
-
         // set default values
         for (const c of this.columnDefs) {
             c.setDefaults(toInsert, t);
@@ -252,6 +253,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             c.checkConstraints(toInsert, t);
         }
 
+        // check change handlers (foreign keys)
+        for (const h of this.changeHandlers) {
+            h(null, toInsert, t);
+        }
+
+        // index & check indx contrainsts
+        this.indexElt(t, toInsert);
+
         this.setBin(t, this.bin(t).set(newId, toInsert));
         return toInsert;
     }
@@ -260,8 +269,55 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.readonly) {
             throw new ReadOnlyError(this.name);
         }
-        this.delete(t, toUpdate);
-        return this.insert(t, toUpdate, true);
+        const bin = this.bin(t);
+        const id = getId(toUpdate);
+        const exists = bin.get(id);
+
+        // set default values
+        for (const c of this.columnDefs) {
+            c.setDefaults(toUpdate, t);
+        }
+
+        // check constraints
+        for (const c of this.columnDefs) {
+            c.checkConstraints(toUpdate, t);
+        }
+
+
+        // check change handlers (foreign keys)
+        if (exists && this.changeHandlers.size) {
+            const change = new Set<ChangeHandler<T>>();
+            for (const c of this.columnDefs.filter(x => x.changeHandlers.size)) {
+                const old = exists[c.expression.id];
+                const neu = toUpdate[c.expression.id];
+                if (c.expression.type.equals(old, neu)) {
+                    continue;
+                }
+                for (const ch of c.changeHandlers) {
+                    change.add(ch);
+                }
+                if (change.size === this.changeHandlers.size) {
+                    break;
+                }
+            }
+            for (const ch of change) {
+                ch(exists, toUpdate, t); // actual check
+            }
+        }
+
+        // remove old version from index
+        if (exists) {
+            for (const k of this.indexByHash.values()) {
+                k.index.delete(exists, t);
+            }
+        }
+
+        // add new version to index
+        this.indexElt(t, toUpdate);
+
+        // store raw
+        this.setBin(t, bin.delete(id).set(id, toUpdate));
+        return toUpdate;
     }
 
     delete(t: _Transaction, toDelete: T) {
@@ -272,11 +328,17 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             throw new Error('Unexpected error: an operation has been asked on an item which does not belong to this table');
         }
 
+        // check change handlers (foreign keys)
+        for (const h of this.changeHandlers) {
+            h(toDelete, null, t);
+        }
+
         // remove from indices
         for (const k of this.indexByHash.values()) {
             k.index.delete(got, t);
         }
         this.setBin(t, bin.delete(id));
+
         return got;
     }
 
@@ -335,7 +397,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
 
-        const ihash = expressions.columns.map(x => x.value.hash).sort().join('|');
+        const ihash = indexHash(expressions.columns.map(x => x.value));
         const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
 
         if (this.indexByHash.has(ihash) || this.indexByName.has(index.indexName)) {
@@ -385,22 +447,30 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     addConstraint(cst: ConstraintDef, t: _Transaction) {
         switch (cst.type) {
             case 'foreign key':
-                const ftable = this.schema.getTable(cst.foreignTable);
+                const ftable = this.schema.getTable(cst.foreignTable) as MemoryTable;
                 const cols = cst.localColumns.map(x => this.getColumnRef(x));
                 const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
                 if (cols.length !== fcols.length) {
                     throw new QueryError('Foreign key count mismatch');
                 }
+                cols.forEach((c, i) => {
+                    if (fcols[i].expression.type !== c.expression.type) {
+                        throw new QueryError(`Foreign key column type mismatch`);
+                    }
+                });
                 if (cst.onDelete !== 'no action' || cst.onUpdate !== 'no action') {
                     throw new NotSupported('Foreign keys with actions not yet supported');
                 }
+
+                // check that there is an unique index on this table for the given expressions
+                const ihash = indexHash(fcols.map(x => x.expression));
+                if (!ftable.indexByHash.get(ihash)?.index?.unique) {
+                    throw new QueryError(`there is no unique constraint matching given keys for referenced table "${this.name}"`);
+                }
+
+
+                // auto-create indices
                 if (this.schema.db.options.autoCreateForeignKeyIndices) {
-                    this.createIndex(t, {
-                        ifNotExists: true,
-                        columns: fcols.map<CreateIndexColDef>(x => ({
-                            value: x.expression,
-                        })),
-                    });
                     this.createIndex(t, {
                         ifNotExists: true,
                         columns: cols.map<CreateIndexColDef>(x => ({
@@ -408,10 +478,90 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                         })),
                     });
                 }
-                // todo...
+
+
+                // when changing the foreign table key, must not be anything in this table that matches
+                ftable.onChange(cst.foreignColumns, (old, _, dt) => {
+                    if (!old) {
+                        return;
+                    }
+                    const vals = fcols.map(x => old[x.expression.id]);
+                    if (vals.some(nullIsh)) {
+                        return;
+                    }
+                    // build foreign key equality expression
+                    const equals = cst.localColumns.map<ExprBinary>((x, i) => ({
+                        type: 'binary',
+                        op: '=',
+                        left: { type: 'ref', name: x, table: this.name },
+                        // hack, see #fkcheck
+                        right: {
+                            type: 'constant',
+                            value: vals[i],
+                            dataType: fcols[i].expression.type,
+                        },
+                    }));
+                    const expr = equals.slice(1).reduce<Expr>((a, b) => ({
+                        type: 'binary',
+                        op: 'AND',
+                        left: a,
+                        right: b,
+                    }), equals[0]);
+
+                    // check nothing matches
+                    for (const _ of this.selection.filter(expr).enumerate(dt)) {
+                        throw new QueryError(`update or delete on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
+                    }
+                });
+
+                // when changing something in this table, then there must be a key match in the foreign table
+                this.onChange(cst.localColumns, (_, neu, dt) => {
+                    if (!neu) {
+                        return;
+                    }
+                    const vals = cols.map(x => neu[x.expression.id]);
+                    if (vals.some(nullIsh)) {
+                        return;
+                    }
+                    // build foreign key equality expression
+                    const equals = cst.foreignColumns.map<ExprBinary>((x, i) => ({
+                        type: 'binary',
+                        op: '=',
+                        left: { type: 'ref', name: x, table: ftable.name },
+                        // hack, see #fkcheck
+                        right: {
+                            type: 'constant',
+                            value: vals[i],
+                            dataType: cols[i].expression.type,
+                        },
+                    }));
+                    const expr = equals.slice(1).reduce<Expr>((a, b) => ({
+                        type: 'binary',
+                        op: 'AND',
+                        left: a,
+                        right: b,
+                    }), equals[0]);
+
+                    // check there is a match
+                    let yielded = false;
+                    for (const _ of ftable.selection.filter(expr).enumerate(dt)) {
+                        yielded = true;
+                    }
+                    if (!yielded) {
+                        throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
+                    }
+                });
                 return;
             default:
                 throw NotSupported.never(cst, 'constraint type');
         }
     }
+
+    onChange(columns: string[], check: ChangeHandler<T>) {
+        this.changeHandlers.add(check);
+        for (const c of columns) {
+            this.getColumnRef(c).changeHandlers.add(check);
+        }
+    }
+
 }

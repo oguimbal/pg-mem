@@ -223,7 +223,11 @@ export interface _ITable<T = any> extends IMemoryTable {
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column;
     rename(to: string): this;
     addConstraint(constraint: ConstraintDef, t: _Transaction);
+    /** Will be executed when one of the given columns is affected (update/delete) */
+    onChange(columns: string[], check: ChangeHandler<T>);
 }
+
+export type ChangeHandler<T> = (old: T, neu: T, t: _Transaction) => void;
 
 export interface _Column {
     readonly default: IValue;

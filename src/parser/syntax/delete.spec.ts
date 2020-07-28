@@ -15,6 +15,12 @@ describe('[PG syntax] Delete', () => {
         }
     });
 
+
+    checkDelete([`truncate test`, `truncate table test`], {
+        type: 'delete',
+        from: { table: 'test' },
+    });
+
     checkDelete([`delete from test returning *`], {
         type: 'delete',
         from: { table: 'test' },

@@ -2,6 +2,7 @@ import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transact
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
+import { deepCloneSimple } from './utils';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -61,8 +62,8 @@ export class BIndex<T = any> implements _IIndex<T> {
         , readonly onTable: _ITable<T>
         , readonly hash: string
         , public indexName: string
-        , private unique: boolean
-        , private notNull: boolean) {
+        , readonly unique: boolean
+        , readonly notNull: boolean) {
         const asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });
@@ -166,7 +167,7 @@ export class BIndex<T = any> implements _IIndex<T> {
 
     eqFirst(rawKey: IndexKey, t: _Transaction): T {
         for (const r of this.eq(rawKey, t)) {
-            return r;
+            return deepCloneSimple(r);
         }
     }
 
@@ -301,7 +302,12 @@ export class BIndex<T = any> implements _IIndex<T> {
         }
     }
 
-    enumerate(op: IndexOp): Iterable<T> {
+    *enumerate(op: IndexOp): Iterable<T> {
+        for (const x of this._enumerate(op)) {
+            yield deepCloneSimple(x);
+        }
+    }
+    private _enumerate(op: IndexOp): Iterable<T> {
         switch (op.type) {
             case 'eq':
                 return this.eq(op.key, op.t);

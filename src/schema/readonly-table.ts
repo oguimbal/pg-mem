@@ -105,4 +105,9 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     on(): void {
         throw new NotSupported('subscribing information schema');
     }
+
+    onChange(columns: string[], check: (item: T, t: _Transaction) => void) {
+        // nop
+    }
+
 }
