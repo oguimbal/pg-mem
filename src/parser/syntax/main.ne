@@ -9,6 +9,7 @@
 @include "insert.ne"
 @include "update.ne"
 @include "alter-table.ne"
+@include "delete.ne"
 
 
 # list of statements, separated by ";"
@@ -33,3 +34,4 @@ statement
     | insert_statement
     | update_statement
     | altertable_statement
+    | delete_statement

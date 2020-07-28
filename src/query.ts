@@ -4,7 +4,7 @@ import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
@@ -95,6 +95,9 @@ export class Query implements _ISchema, ISchema {
                     break;
                 case 'select':
                     last = this.executeSelect(t, p);
+                    break;
+                case 'delete':
+                    last = this.executeDelete(t, p);
                     break;
                 case 'create table':
                     t = t.fullCommit();
@@ -249,6 +252,26 @@ export class Query implements _ISchema, ISchema {
             .explain(new Explainer(this.db.data))
     }
 
+    executeDelete(t: _Transaction, p: DeleteStatement): QueryResult {
+        const table = this.db.getSchema(p.from.db)
+            .getTable(p.from.table);
+        const toDelete = table
+            .selection
+            .filter(p.where);
+        const rows = [];
+        for (const item of toDelete.enumerate(t)) {
+            table.delete(t, item);
+            rows.push(item);
+        }
+        const returning = p.returning && buildSelection(new ArrayFilter(table.selection, rows), p.returning);
+        return {
+            rows: !returning ? [] : [...returning.enumerate(t)],
+            rowCount: rows.length,
+            command: 'DELETE',
+            fields: [],
+        }
+    }
+
     executeSelect(t: _Transaction, p: SelectStatement): QueryResult {
         const subj = this.buildSelect(p);
         this.lastSelect = subj;
@@ -352,21 +375,6 @@ export class Query implements _ISchema, ISchema {
             command: 'UPDATE',
             fields: [],
         }
-    }
-
-
-    executeDelete(t: _Transaction, p: any) {
-        // const into = this.db
-        //     .getSchema(p.table.db)
-        //     .getTable(p.table.table);
-
-        // const items = into
-        //     .selection
-        //     .filter(p.where);
-
-        // for (const i of items.enumerate(t)) {
-        //     into.delete(t, i);
-        // }
     }
 
     executeInsert(t: _Transaction, p: InsertStatement): QueryResult {

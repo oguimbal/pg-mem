@@ -213,6 +213,7 @@ export interface _ITable<T = any> extends IMemoryTable {
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
     insert(t: _Transaction, toInsert: T): T;
+    delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
     setReadonly(): this;

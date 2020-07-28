@@ -61,7 +61,6 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         throw new ReadOnlyError('information schema');
     }
 
-
     listIndices(): IndexDef[] {
         return [];
     }
@@ -86,6 +85,9 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         throw new ReadOnlyError('information schema');
     }
     insert(toInsert: any): void {
+        throw new ReadOnlyError('information schema');
+    }
+    delete(t: _Transaction, toDelete: T): void {
         throw new ReadOnlyError('information schema');
     }
     createIndex(): this {

@@ -4,6 +4,7 @@ export type Statement = SelectStatement
     | CommitStatement
     | InsertStatement
     | UpdateStatement
+    | DeleteStatement
     | RollbackStatement
     | AlterTableStatement
     | StartTransactionStatement;
@@ -19,6 +20,13 @@ export interface RollbackStatement {
     type: 'rollback';
 }
 
+
+export interface DeleteStatement {
+    type: 'delete';
+    from: TableRefAliased;
+    returning?: SelectedColumn[];
+    where?: Expr;
+}
 
 export interface InsertStatement {
     type: 'insert';

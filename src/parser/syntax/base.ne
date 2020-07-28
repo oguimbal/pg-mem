@@ -96,6 +96,7 @@ kw_cascade -> %word {% notReservedKw('cascade')  %}
 kw_no -> %word {% notReservedKw('no')  %}
 kw_action -> %word {% notReservedKw('action')  %}
 kw_restrict -> %word {% notReservedKw('restrict')  %}
+kw_delete -> %word {% notReservedKw('restrict')  %}
 
 
 # === Composite keywords

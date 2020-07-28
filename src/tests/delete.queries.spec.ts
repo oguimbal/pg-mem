@@ -18,7 +18,7 @@ describe('[Queries] Deletes', () => {
         none = db.public.none.bind(db.public);
     });
 
-    it('can delete with conditions', () => {
+    it('can delete with conditions simple', () => {
         expect(many(`create table test(a text);
             insert into test values ('a'), ('b'), ('c');
             delete from test where a <= 'b';
@@ -39,12 +39,24 @@ describe('[Queries] Deletes', () => {
 
     it('does not delete if rollback transaction', () => {
         expect(many(`create table test(a text);
+            insert into test values ('a'), ('b'), ('c');
+            commit;
+            start transaction;
+            delete from test where a <= 'b';
+            rollback;
+            select * from test;`))
+            .to.deep.equal([{ a: 'a' }, { a: 'b' }, { a: 'c' }])
+    });
+
+    it('delete if in same rollbacked transaction', () => {
+        expect(many(`create table test(a text);
+            commit;
             start transaction;
             insert into test values ('a'), ('b'), ('c');
             delete from test where a <= 'b';
             rollback;
             select * from test;`))
-            .to.deep.equal([{ a: 'a' }, { a: 'b' }, { a: 'c' }])
+            .to.deep.equal([])
     });
 
     it('can truncate table', () => {
@@ -60,8 +72,8 @@ describe('[Queries] Deletes', () => {
         none(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
         CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
         ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-        INSERT INTO "user"("id,"name") VALUES (1, 'me');
-        INSERT INTO "photo"("id, "url", "userId") VALUES (1, 'me-1.jpg', 1);`);
+        INSERT INTO "user"("id","name") VALUES (1, 'me');
+        INSERT INTO "photo"("id", "url", "userId") VALUES (1, 'me-1.jpg', 1);`);
 
         assert.throws(() => none('delete from photo where id = 1'));
 
