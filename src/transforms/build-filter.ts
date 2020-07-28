@@ -82,7 +82,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
         case 'OR': {
             const leftFilter = buildFilter(on, left);
             const rightFilter = buildFilter(on, right);
-            if (leftFilter instanceof SeqScanFilter || rightFilter instanceof SeqScanFilter) {
+            if (op === 'OR' && (leftFilter instanceof SeqScanFilter || rightFilter instanceof SeqScanFilter)) {
                 return null;
             }
             return op === 'AND'

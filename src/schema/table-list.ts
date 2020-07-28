@@ -11,6 +11,10 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         return IS_SCHEMA;
     }
 
+    isOriginOf(v: IValue) {
+        return v.origin === this || v.origin === this.selection;
+    }
+
     _schema: Schema = {
         name: 'tables',
         fields: [

@@ -126,18 +126,6 @@ describe('[Queries] Simple queries', () => {
 
 
 
-
-
-    it('checks this is an invalid syntax', () => {
-        assert.throws(() => none(`create table test(val integer);
-                create index on test(val);
-                insert into test values (1), (2), (3), (4)
-                select * from test where val >= 2;`)); //   ^  missing a ";" ... but was not throwing.
-    })
-
-
-
-
     it('supports to_date function', () => {
         expect(many(`select to_date('20170103','YYYYMMDD') as x`))
             .to.deep.equal([{ x: new Date('2017-01-03') }]);

@@ -9,7 +9,7 @@ import { Map as ImMap } from 'immutable';
 import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef } from './parser/syntax/ast';
 import { fromNative } from './datatypes';
 import { ColRef } from './column';
-import { buildAlias } from './transforms/alias';
+import { buildAlias, Alias } from './transforms/alias';
 import { FilterBase, DataSourceBase } from './transforms/transform-base';
 
 
@@ -17,7 +17,7 @@ type Raw<T> = ImMap<string, T>;
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
     private handlers = new Map<TableEvent, Set<() => void>>();
-    selection: _ISelection<T>;
+    readonly selection: _ISelection<T>;
     private it = 0;
     hasPrimary: boolean;
     private readonly: boolean;
@@ -44,7 +44,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     isOriginOf(a: IValue<any>): boolean {
-        return a.origin === this.selection || a.origin === this;
+        return a.origin === this.selection;
     }
 
     constructor(readonly schema: _ISchema, t: _Transaction, _schema: Schema) {
@@ -79,7 +79,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
         this.name = name;
         this.schema._doRenTab(on, name);
-        this.selection = buildAlias(this, this.name);
+        (this.selection as Alias<T>).name = this.name.toLowerCase();
         this.schema.db.onSchemaChange();
         return this;
     }
@@ -113,7 +113,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.columnsByName.has(low)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
-        const cref = new ColRef(this, columnEvaluator(this, column.name, column.type as _IType), column);
+        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column);
 
         if (column.default) {
             cref.alter({
@@ -339,6 +339,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
 
         if (this.indexByHash.has(ihash) || this.indexByName.has(index.indexName)) {
+            if (expressions.ifNotExists) {
+                return;
+            }
             throw new QueryError('Index already exists');
         }
 
@@ -390,6 +393,20 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 }
                 if (cst.onDelete !== 'no action' || cst.onUpdate !== 'no action') {
                     throw new NotSupported('Foreign keys with actions not yet supported');
+                }
+                if (this.schema.db.options.autoCreateForeignKeyIndices) {
+                    this.createIndex(t, {
+                        ifNotExists: true,
+                        columns: fcols.map<CreateIndexColDef>(x => ({
+                            value: x.expression,
+                        })),
+                    });
+                    this.createIndex(t, {
+                        ifNotExists: true,
+                        columns: cols.map<CreateIndexColDef>(x => ({
+                            value: x.expression,
+                        })),
+                    });
                 }
                 // todo...
                 return;

@@ -67,7 +67,7 @@ describe('[Queries] Selections', () => {
                 select: [{
                     what: {
                         col: 'val',
-                        on: 4,
+                        on: 'test',
                     },
                     as: 'valAlias',
                 }],
@@ -75,7 +75,6 @@ describe('[Queries] Selections', () => {
                     id: 3,
                     _: 'seqFilter',
                     filtered: {
-                        id: 4,
                         _: 'table',
                         table: 'test',
                     }

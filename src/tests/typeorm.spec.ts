@@ -5,17 +5,20 @@ import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 import { typeormSimpleSample } from '../../samples/typeorm/simple';
 import { typeormJoinsSample } from '../../samples/typeorm/joins';
+import { _IDb } from '../interfaces-private';
 
 describe('Typeorm', () => {
 
-    let db: IMemoryDb;
+    let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
     function all(table = 'data') {
         return many(`select * from ${table}`);
     }
     beforeEach(() => {
-        db = newDb();
+        db = newDb({
+            autoCreateForeignKeyIndices: true,
+        }) as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });
@@ -157,7 +160,16 @@ describe('Typeorm', () => {
     });
 
 
-    it ('can perform full join queries', () => {
+    function explainMapSelect() {
+        const expl = db.public.explainLastSelect();
+        if (expl._ !== 'map') {
+            assert.fail('should be a map');
+            return null;
+        }
+        return expl.of;
+    }
+
+    it('can perform full join queries', () => {
         const got = many(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
         CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
         ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -171,11 +183,36 @@ describe('Typeorm', () => {
         INSERT INTO "user"("name") VALUES ('you') RETURNING "id";
         UPDATE "photo" SET "userId" = 2 WHERE "id" = 3;
         UPDATE "photo" SET "userId" = 2 WHERE "id" = 4;
-        SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId" FROM "user" "user" LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id" WHERE "user"."name" = 'me';`);
+        SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+            FROM "user" "user"
+            LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id"
+            WHERE "user"."name" = 'me';`);
+
+        assert.deepEqual(explainMapSelect(), {
+            _: 'seqFilter',
+            id: 2,
+            filtered: {
+                _: 'join',
+                id: 3,
+                restrictive: { _: 'table', table: 'user' },
+                joined: { _: 'table', table: 'photo' },
+                inner: false,
+                on: {
+                    iterate: 'user',
+                    iterateSide: 'restrictive',
+                    joinIndex: {
+                        _: 'btree',
+                        btree: ['userId'],
+                        onTable: 'photo'
+                    },
+                    matches: { on: 'user', col: 'id' },
+                }
+            }
+        })
 
         expect(got).to.deep.equal([
-            {user_id: 1, user_name: 'me', photo_id: 1, photo_url: 'photo-of-me-1.jpg', photo_userId: 1 },
-            {user_id: 1, user_name: 'me', photo_id: 2, photo_url: 'photo-of-me-2.jpg', photo_userId: 1 },
+            { user_id: 1, user_name: 'me', photo_id: 1, photo_url: 'photo-of-me-1.jpg', photo_userId: 1 },
+            { user_id: 1, user_name: 'me', photo_id: 2, photo_url: 'photo-of-me-2.jpg', photo_userId: 1 },
         ])
     })
 

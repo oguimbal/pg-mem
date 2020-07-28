@@ -16,6 +16,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     readonly selection: _ISelection = buildAlias(this);
     hidden = true;
 
+    isOriginOf(v: IValue) {
+        return v.origin === this || v.origin === this.selection;
+    }
+
     constructor(schema: _ISchema) {
         super(schema);
     }

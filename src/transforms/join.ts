@@ -217,7 +217,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             this.schema.db.raiseGlobal('catastrophic-join-optimization');
             const others = [...this.joined.enumerate(t)];
             for (const l of this.restrictive.enumerate(t)) {
-                this.iterateCatastrophicItem(l, others, 'restrictive', t);
+                yield* this.iterateCatastrophicItem(l, others, 'restrictive', t);
             }
         }
     }
@@ -231,7 +231,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             if (result) {
                 yielded = true;
                 yield combined;
-                break;
             }
         }
         if (!this.innerJoin && !yielded) {

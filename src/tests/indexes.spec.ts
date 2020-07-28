@@ -175,7 +175,7 @@ describe('[Queries] Indices', () => {
                 id: 2,
                 select: [{
                     what: {
-                        on: 4, // <== table (4) is hidden by the fact that there is an index at play.
+                        on: 'test',
                         col: 'val'
                     },
                     as: 'xx',

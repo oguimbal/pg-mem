@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef } from './parser/syntax/ast';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
@@ -194,6 +194,7 @@ export type _ExprExplanation = {
 }
 
 export interface _IDb extends IMemoryDb {
+    readonly options: MemoryDbOptions;
     readonly public: _ISchema;
     readonly data: _Transaction;
     getSchema(db: string): _ISchema;
@@ -234,6 +235,7 @@ export interface _Column {
 }
 
 export interface CreateIndexDef {
+    ifNotExists?: boolean;
     columns: CreateIndexColDef[];
     indexName?: string;
     unique?: boolean;

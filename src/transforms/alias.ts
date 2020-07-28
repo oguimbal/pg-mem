@@ -12,14 +12,18 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     return new Alias(on, alias);
 }
 
-class Alias<T> extends FilterBase<T>{
+export class Alias<T> extends TransformBase<T>{
 
     get debugId() {
         return this.base.debugId;
     }
 
-    constructor(sel: _ISelection, readonly name: string) {
+    constructor(sel: _ISelection, public name: string) {
         super(sel);
+    }
+
+    get columns(): ReadonlyArray<IValue<any>> {
+        return this.base.columns;
     }
 
     enumerate(t: _Transaction): Iterable<T> {
@@ -54,4 +58,9 @@ class Alias<T> extends FilterBase<T>{
         //     of: this.base.explain(e),
         // };
     }
+
+    getIndex(forValue: IValue) {
+        return this.base.getIndex(forValue);
+    }
+
 }

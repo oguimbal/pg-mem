@@ -64,6 +64,40 @@ describe('[Queries] Joins', () => {
         })
     });
 
+
+    it('seq-scan inner join', () => {
+        const result = many(`create table ta(aid text, bid text);
+                            create table tb(bid text, val text);
+                            insert into ta values ('aid1', 'bid1');
+                            insert into ta values ('aid2', 'bid2');
+
+                            insert into tb values ('bid1', 'val1');
+                            insert into tb values ('bid2', 'val2');
+
+                            select val, aid, ta.bid as abid, tb.bid as bbid from ta
+                                join tb on ta.bid = tb.bid`);
+
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'join',
+            id: 2,
+            inner: true,
+            restrictive: { _: 'table', table: 'ta' },
+            joined: { _: 'table', table: 'tb' },
+            on: {
+                seqScan: {
+                    col: 'bid = bid',
+                    on: 2,// <== directly on join
+                } as any,
+            }
+        })
+
+        expect(result).to.deep.equal([
+            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
+            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
+        ]);
+    });
+
     it('reverses inner join on index when lots of left values and index present', () => {
         preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text);

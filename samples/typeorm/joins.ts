@@ -1,6 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, Connection, BaseEntity, LessThan, DeleteDateColumn, OneToMany, ManyToOne } from "typeorm";
 import { newDb } from '../../src/db';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import shallow from 'chai-shallow-deep-equal';
+chai.use(shallow);
 
 @Entity()
 export class User extends BaseEntity {
@@ -31,8 +33,14 @@ export class Photo extends BaseEntity {
 
 export async function typeormJoinsSample() {
 
+    //==== create a memory db
+    const db = newDb({
+        // 👉 Recommanded when using Typeorm .synchronize(), which creates foreign keys but not indices !
+        autoCreateForeignKeyIndices: true,
+    });
+
     //==== create a Typeorm connection
-    const got: Connection = await newDb().adapters.createTypeormConnection({
+    const got: Connection = await db.adapters.createTypeormConnection({
         type: 'postgres',
         entities: [User, Photo]
     });
@@ -66,7 +74,7 @@ export async function typeormJoinsSample() {
             .where('user.name = :name', { name: 'me' })
             .getOne();
 
-        expect(user).to.deep.equal({
+        expect(user).to.shallowDeepEqual({
             id: 1,
             name: 'me',
             photos: [{

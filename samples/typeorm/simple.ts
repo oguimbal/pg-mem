@@ -22,8 +22,14 @@ export class User extends BaseEntity {
 
 export async function typeormSimpleSample() {
 
+    //==== create a memory db
+    const db = newDb({
+        // 👉 Recommanded when using Typeorm .synchronize(), which creates foreign keys but not indices !
+       autoCreateForeignKeyIndices: true,
+   });
+
     //==== create a Typeorm connection
-    const got: Connection = await newDb().adapters.createTypeormConnection({
+    const got: Connection = await db.adapters.createTypeormConnection({
         type: 'postgres',
         entities: [User]
     });

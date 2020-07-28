@@ -1,4 +1,4 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup } from './interfaces';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup, MemoryDbOptions } from './interfaces';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema } from './interfaces-private';
 import { Query } from './query';
 import { initialize } from './transforms/transform-base';
@@ -8,13 +8,13 @@ import { buildFilter } from './transforms/build-filter';
 import { Adapters } from './adapters';
 import { Transaction } from './transaction';
 
-export function newDb(): IMemoryDb {
+export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     initialize({
         buildSelection,
         buildAlias,
         buildFilter,
     });
-    return new MemoryDb(Transaction.root());
+    return new MemoryDb(Transaction.root(), null, opts ?? {});
 }
 
 class MemoryDb implements _IDb {
@@ -34,7 +34,7 @@ class MemoryDb implements _IDb {
         this.raiseGlobal('schema-change');
     }
 
-    constructor(public data: Transaction, schemas?: Map<string, _ISchema>) {
+    constructor(public data: Transaction, schemas?: Map<string, _ISchema>, readonly options: MemoryDbOptions = {}) {
         if (!schemas) {
             this.createSchema('public');
         } else {
