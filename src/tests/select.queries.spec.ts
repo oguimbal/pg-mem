@@ -122,5 +122,12 @@ describe('[Queries] Selections', () => {
         }
         const built = buildValue(db.getTable('data').selection, where.left);
         assert.exists(built.index);
-    })
+    });
+
+
+    it('detects ambiguous column selections on aliases', () => {
+        // same-name columns not supported...if supported, must continue to throw when doing this:
+        assert.throws(() => none(`create table data(id text primary key, str text);
+            select x.a from (select id as a, str as a from data) x;`));
+    });
 });

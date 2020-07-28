@@ -72,7 +72,15 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                 this.columnIds.push(s.alias);
             }
         }
-        this.columnIds = buildColumnIds(this.columnIds);
+
+        // build column ids
+        let anonymous = 0;
+        for (let i = 0; i < this.columnIds.length; i++) {
+            if (!this.columnIds[i]) {
+                this.columnIds[i] = 'column' + (anonymous++);
+            }
+        }
+        // this.columnIds = buildColumnIds(this.columnIds);
 
         // build columns to select
         for (let i = 0; i < columns.length; i++) {
@@ -86,8 +94,6 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                 this.refColumn(_col, this.columnIds[i]);
             }
         }
-
-
     }
 
     private refColumn(fromCol: IValue, alias: string) {
