@@ -25,6 +25,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract hasItem(value: T, t: _Transaction): boolean;
     abstract getIndex(forValue: IValue): _IIndex<any>;
     abstract explain(e: _Explainer): _SelectExplanation;
+    abstract isOriginOf(a: IValue<any>): boolean;
 
     constructor(readonly schema: _ISchema) {
     }
@@ -62,6 +63,10 @@ export abstract class TransformBase<T> extends DataSourceBase<T> {
 
     entropy(t: _Transaction): number {
         return this.base.entropy(t);
+    }
+
+    isOriginOf(a: IValue<any>): boolean {
+        return a.origin === this || this.base?.isOriginOf(a);
     }
 }
 

@@ -9,20 +9,34 @@ import lru from 'lru-cache';
 import { buildFilter } from './transforms/build-filter';
 
 
-const builtLru = new lru<Expr, IValue>({
-    max: 500,
-})
+const builtLru = new lru<_ISelection, lru<Expr, IValue>>({
+    max: 30,
+});
 export function buildValue(data: _ISelection, val: Expr): IValue {
     return _buildValue(data, val);
 }
 
+export function uncache(data: _ISelection) {
+    builtLru.del(data);
+}
+
 function _buildValue(data: _ISelection, val: Expr): IValue {
     // cache expressions build (they almost are always rebuilt several times in a row)
-    let got = builtLru.get(val);
-    if (got) {
-        return got;
+    let selLru = builtLru.get(data);
+    let got: IValue;
+    if (selLru) {
+        got = selLru.get(val);
+        if (got) {
+            return got;
+        }
     }
-    builtLru.set(val, got = _buildValueReal(data, val));
+    got = _buildValueReal(data, val);
+    if (!selLru) {
+        builtLru.set(data, selLru = new lru({
+            max: 50,
+        }));
+    }
+    selLru.set(val, got);
     return got;
 }
 

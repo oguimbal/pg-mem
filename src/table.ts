@@ -35,10 +35,17 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     readonly columns: IValue[] = [];
 
+    get debugId() {
+        return this.name;
+    }
+
     entropy(t: _Transaction) {
         return this.bin(t).size;
     }
 
+    isOriginOf(a: IValue<any>): boolean {
+        return a.origin === this.selection || a.origin === this;
+    }
 
     constructor(readonly schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
@@ -88,7 +95,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     explain(e: _Explainer): _SelectExplanation {
         return {
             _: 'table',
-            id: e.idFor(this),
             table: this.name,
         };
     }
@@ -287,7 +293,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     getIndex(forValue: IValue): _IIndex {
-        if (!forValue || forValue.origin !== this.selection && forValue.origin !== this) {
+        if (!forValue || !this.isOriginOf(forValue)) {
             return null;
         }
         const got = this.indexByHash.get(forValue.hash);

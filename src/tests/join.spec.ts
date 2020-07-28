@@ -4,7 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
-import { preventSeqScan } from './test-utils';
+import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 import { _IDb } from '../interfaces-private';
 
@@ -19,7 +19,17 @@ describe('[Queries] Joins', () => {
         none = db.public.none.bind(db.public);
     });
 
+    function explainMapSelect() {
+        const expl = db.public.explainLastSelect();
+        if (expl._ !== 'map') {
+            assert.fail('should be a map');
+            return null;
+        }
+        return expl.of;
+    }
+
     it('simple join on index', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text);
                             create table tb(bid text primary key, val text);
                             insert into ta values ('aid1', 'bid1');
@@ -30,11 +40,105 @@ describe('[Queries] Joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'join',
+            id: 2,
+            inner: true,
+            restrictive: { _: 'table', table: 'ta' },
+            joined: { _: 'table', table: 'tb' },
+            on: {
+                iterate: 'ta',
+                iterateSide: 'restrictive',
+                joinIndex: {
+                    _: 'btree',
+                    btree: ['bid'],
+                    onTable: 'tb',
+                },
+                matches: { on: 'ta', col: 'bid' },
+            }
+        })
+    });
+
+    it('reverses inner join on index when lots of left values and index present', () => {
+        preventCataJoin(db);
+        const result = many(`create table ta(aid text primary key, bid text);
+                            create table tb(bid text primary key, val text);
+                            create index on ta(bid);
+                            insert into ta values ('aid1', 'bid1');
+                            insert into ta values ('aid2', 'bid2');
+                            insert into ta values ('aid3', null);
+                            insert into ta values ('aid4', null);
+
+                            insert into tb values ('bid1', 'val1');
+                            insert into tb values ('bid2', 'val2');
+
+                            select val, aid, ta.bid as abid, tb.bid as bbid from ta
+                                join tb on ta.bid = tb.bid`);
+        expect(result).to.deep.equal([
+            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
+            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
+        ]);
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'join',
+            id: 2,
+            inner: true,
+            restrictive: { _: 'table', table: 'ta' },
+            joined: { _: 'table', table: 'tb' },
+            on: {
+                iterate: 'tb', // has inversed inner join
+                iterateSide: 'joined',
+                joinIndex: {
+                    _: 'btree',
+                    btree: ['bid'],
+                    onTable: 'ta',
+                },
+                matches: { on: 'tb', col: 'bid' },
+            }
+        })
+    });
+
+
+
+    it('does not join on null values when using index', () => {
+        preventCataJoin(db);
+        const result = many(`create table ta(aid text primary key, bid text);
+                            create table tb(bid text, val text);
+                            create index on tb(bid);
+                            insert into ta values ('aid1', null);
+                            insert into ta values ('aid2', 'bid2');
+
+                            insert into tb values (null, 'val1');
+                            insert into tb values ('bid2', 'val2');
+
+                            select val, aid, ta.bid as abid, tb.bid as bbid from ta
+                                join tb on ta.bid = tb.bid`);
+        expect(result).to.deep.equal([
+            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
+        ]);
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'join',
+            id: 2,
+            inner: true,
+            restrictive: { _: 'table', table: 'ta' },
+            joined: { _: 'table', table: 'tb' },
+            on: {
+                iterate: 'ta',
+                iterateSide: 'restrictive',
+                joinIndex: {
+                    _: 'btree',
+                    btree: ['bid'],
+                    onTable: 'tb',
+                },
+                matches: { on: 'ta', col: 'bid' },
+            }
+        })
     });
 
     // it('simple join on index with comma syntax', () => {
@@ -58,6 +162,7 @@ describe('[Queries] Joins', () => {
 
 
     it('join with left null values', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text);
                             create table tb(bid text primary key, val text);
                             insert into ta values ('aid1', 'bid1');
@@ -68,7 +173,6 @@ describe('[Queries] Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
 
-        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
         ]);
@@ -76,6 +180,7 @@ describe('[Queries] Joins', () => {
 
 
     it('left outer join with left null values', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text);
                             create table tb(bid text primary key, val text);
                             insert into ta values ('aid1', 'bid1');
@@ -86,35 +191,77 @@ describe('[Queries] Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 left outer join tb on ta.bid = tb.bid`);
 
-        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: null, aid: 'aid2', abid: 'bid2', bbid: null }
         ]);
+
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'join',
+            id: 2,
+            restrictive: { _: 'table', table: 'ta' },
+            joined: { _: 'table', table: 'tb' },
+            inner: false,
+            on: {
+                iterate: 'ta',
+                iterateSide: 'restrictive',
+                joinIndex: {
+                    _: 'btree',
+                    btree: ['bid'],
+                    onTable: 'tb',
+                },
+                matches: {
+                    on: 'ta',
+                    col: 'bid',
+                }
+            }
+        });
     });
 
 
 
     it('right outer join with left null values', () => {
-        const result = many(`create table ta(aid text primary key, bid text);
+        const watch = watchCataJoins(db);
+        const result = many(`create table ta(aid text primary key, bida text);
                             create table tb(bid text primary key, val text);
+                            create index on ta(bida);
                             insert into ta values ('aid1', 'bid1');
                             insert into ta values ('aid2', 'bid2');
 
                             insert into tb values ('bid1', 'val1');
 
-                            select val, aid, ta.bid as abid, tb.bid as bbid from ta
-                                right outer join tb on ta.bid = tb.bid`);
+                            select val, aid, ta.bida as abid, tb.bid as bbid from ta
+                                right outer join tb on ta.bida = tb.bid`);
 
-        preventSeqScan(db);
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'join',
+            inner: false,
+            id: 2,
+            restrictive: { _: 'table', table: 'tb' },
+            joined: { _: 'table', table: 'ta' },
+            on: {
+                iterate: 'tb',
+                iterateSide: 'restrictive',
+                joinIndex: {
+                    _: 'btree',
+                    btree: ['bida'],
+                    onTable: 'ta',
+                },
+                matches: { on: 'tb', col: 'bid' },
+            },
+        });
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
         ]);
+        watch.check();
     });
 
 
 
     it('condition on left part of join', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text, num int);
                             create table tb(bid text primary key, val text, num int);
                             insert into ta values ('aid1', 'bid1', 42);
@@ -126,15 +273,38 @@ describe('[Queries] Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid
                             where ta.num > 42`);
-        preventSeqScan(db);
+
         expect(result).to.deep.equal([
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'seqFilter',
+            id: 2,
+            filtered: {
+                _: 'join',
+                inner: true,
+                id: 3,
+                restrictive: { _: 'table', table: 'ta' },
+                joined: { _: 'table', table: 'tb' },
+                on: {
+                    iterate: 'ta',
+                    iterateSide: 'restrictive',
+                    joinIndex: {
+                        _: 'btree',
+                        btree: ['bid'],
+                        onTable: 'tb',
+                    },
+                    matches: { on: 'ta', col: 'bid' },
+                },
+            }
+        });
     });
 
 
 
     it('condition on right part of join', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text, num int);
                             create table tb(bid text primary key, val text, num int);
                             insert into ta values ('aid1', 'bid1', 42);
@@ -146,15 +316,37 @@ describe('[Queries] Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid
                             where tb.num < 12`);
-        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
         ]);
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'seqFilter',
+            id: 2,
+            filtered: {
+                _: 'join',
+                inner: true,
+                id: 3,
+                restrictive: { _: 'table', table: 'ta' },
+                joined: { _: 'table', table: 'tb' },
+                on: {
+                    iterate: 'ta',
+                    iterateSide: 'restrictive',
+                    joinIndex: {
+                        _: 'btree',
+                        btree: ['bid'],
+                        onTable: 'tb',
+                    },
+                    matches: { on: 'ta', col: 'bid' },
+                },
+            }
+        });
     });
 
 
 
     it('OR condition on right both parts of join', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text, num int);
                             create table tb(bid text primary key, val text, num int);
                             insert into ta values ('aid1', 'bid1', 100);
@@ -168,15 +360,38 @@ describe('[Queries] Joins', () => {
                              from ta
                                 join tb on ta.bid = tb.bid
                             where ta.num < 10 OR tb.num < 10`);
-        preventSeqScan(db);
         expect(result).to.deep.equal([
-            { val: 'val1', aid: 'aid3', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 100 },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2', anum: 100, bnum: 1 },
+            { val: 'val1', aid: 'aid3', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 100 },
         ]);
+
+        const expl = explainMapSelect();
+        assert.deepEqual(expl, {
+            _: 'seqFilter',
+            id: 2,
+            filtered: {
+                _: 'join',
+                inner: true,
+                id: 3,
+                restrictive: { _: 'table', table: 'ta' },
+                joined: { _: 'table', table: 'tb' },
+                on: {
+                    iterate: 'ta',
+                    iterateSide: 'restrictive',
+                    joinIndex: {
+                        _: 'btree',
+                        btree: ['bid'],
+                        onTable: 'tb',
+                    },
+                    matches: { on: 'ta', col: 'bid' },
+                },
+            }
+        });
     });
 
 
     it('AND condition on right both parts of join', () => {
+        preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text, num int);
                                 create table tb(bid text primary key, val text, num int);
                                 insert into ta values ('aid1', 'bid1', 1);
@@ -190,7 +405,6 @@ describe('[Queries] Joins', () => {
                                 from ta
                                     join tb on ta.bid = tb.bid
                                 where ta.num < 10 AND tb.num < 10`);
-        preventSeqScan(db);
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 1 },
         ]);
@@ -201,7 +415,7 @@ describe('[Queries] Joins', () => {
     function photos() {
         none(`CREATE TABLE "user" ("id" text primary key, "name" text NOT NULL);
         CREATE TABLE "photo" ("id" text primary key, "url" text NOT NULL, "userId" text);
-        create index on photo(userId);
+        create index on photo("userId");
         INSERT INTO "photo" VALUES ('p1', 'me-1.jpg', 'u1');
         INSERT INTO "photo" VALUES ('p2', 'me-2.jpg', 'u1');
         INSERT INTO "photo" VALUES ('p3', 'you-1.jpg', 'u2');
@@ -232,16 +446,14 @@ describe('[Queries] Joins', () => {
                 id: 2,
                 restrictive: {
                     _: 'table',
-                    id: 3,
                     table: 'user',
                 },
                 joined: {
                     _: 'table',
-                    id: 4,
                     table: 'photo',
                 },
                 on: {
-                    iterate: 3,
+                    iterate: 'user',
                     iterateSide: 'restrictive',
                     joinIndex: {
                         _: 'btree',
@@ -249,7 +461,7 @@ describe('[Queries] Joins', () => {
                         onTable: 'photo',
                     },
                     matches: {
-                        on: 3,
+                        on: 'user',
                         col: 'id',
                     }
                 }
@@ -282,16 +494,14 @@ describe('[Queries] Joins', () => {
                 id: 2,
                 restrictive: {
                     _: 'table',
-                    id: 3,
                     table: 'user',
                 },
                 joined: {
                     _: 'table',
-                    id: 4,
                     table: 'photo',
                 },
                 on: {
-                    iterate: 3,
+                    iterate: 'user',
                     iterateSide: 'restrictive',
                     joinIndex: {
                         _: 'btree',
@@ -299,9 +509,10 @@ describe('[Queries] Joins', () => {
                         onTable: 'photo',
                     },
                     matches: {
-                        on: 3,
+                        on: 'user',
                         col: 'id',
-                    }
+                    },
+                    filtered: true,
                 }
             }
         })
@@ -330,16 +541,14 @@ describe('[Queries] Joins', () => {
                 id: 2,
                 restrictive: {
                     _: 'table',
-                    id: 3,
                     table: 'user',
                 },
                 joined: {
                     _: 'table',
-                    id: 4,
                     table: 'photo',
                 },
                 on: {
-                    iterate: 3,
+                    iterate: 'user',
                     iterateSide: 'restrictive',
                     joinIndex: {
                         _: 'btree',
@@ -347,9 +556,10 @@ describe('[Queries] Joins', () => {
                         onTable: 'photo',
                     },
                     matches: {
-                        on: 3,
+                        on: 'user',
                         col: 'id',
-                    }
+                    },
+                    filtered: true
                 }
             }
         })

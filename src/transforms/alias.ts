@@ -13,6 +13,11 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
 }
 
 class Alias<T> extends FilterBase<T>{
+
+    get debugId() {
+        return this.base.debugId;
+    }
+
     constructor(sel: _ISelection, readonly name: string) {
         super(sel);
     }

@@ -82,6 +82,9 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
         case 'OR': {
             const leftFilter = buildFilter(on, left);
             const rightFilter = buildFilter(on, right);
+            if (leftFilter instanceof SeqScanFilter || rightFilter instanceof SeqScanFilter) {
+                return null;
+            }
             return op === 'AND'
                 ? new AndFilter([leftFilter, rightFilter])
                 : new OrFilter(leftFilter, rightFilter);
@@ -176,15 +179,15 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
             if (leftValue.index && leftValue.index.expressions[0].hash === leftValue.hash && rightValue.isConstant) {
                 const fop = op === '>' ? 'gt'
                     : op === '>=' ? 'ge'
-                    : op === '<' ? 'lt'
-                    : 'le';
+                        : op === '<' ? 'lt'
+                            : 'le';
                 return new IneqFilter(leftValue, fop, rightValue.get());
             }
             if (rightValue.index && rightValue.index.expressions[0].hash === rightValue.hash && leftValue.isConstant) {
                 const fop = op === '>' ? 'le'
                     : op === '>=' ? 'lt'
-                    : op === '<' ? 'ge'
-                    : 'gt';
+                        : op === '<' ? 'ge'
+                            : 'gt';
                 return new IneqFilter(rightValue, fop, leftValue.get());
             }
     }
@@ -198,7 +201,7 @@ function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTerna
             const lo = buildValue(on, filter.lo);
             const hi = buildValue(on, filter.hi);
             const valueIndex = value.index;
-            if (valueIndex &&  valueIndex.expressions[0].hash === value.hash && lo.isConstant && hi.isConstant) {
+            if (valueIndex && valueIndex.expressions[0].hash === value.hash && lo.isConstant && hi.isConstant) {
                 const lov = lo.get();
                 const hiv = hi.get();
                 if (hasNullish(lov, hiv)) {

@@ -484,7 +484,10 @@ class Explainer implements _Explainer {
     constructor(readonly transaction: _Transaction) {
     }
 
-    idFor(sel: _ISelection<any>): number {
+    idFor(sel: _ISelection<any>): string | number {
+        if (sel.debugId) {
+            return sel.debugId;
+        }
         if (this.sels.has(sel)) {
             return this.sels.get(sel);
         }

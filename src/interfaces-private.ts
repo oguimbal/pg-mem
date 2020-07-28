@@ -59,6 +59,8 @@ export interface _Transaction {
 }
 
 export interface _ISelection<T = any> {
+    readonly debugId?: string;
+
     readonly schema: _ISchema;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
@@ -75,16 +77,17 @@ export interface _ISelection<T = any> {
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
     setAlias(alias?: string): _ISelection;
     subquery(data: _ISelection<any>, op: SelectStatement): _ISelection;
+    isOriginOf(a: IValue<any>): boolean;
     explain(e: _Explainer): _SelectExplanation;
 }
 export interface _Explainer {
     readonly transaction: _Transaction;
-    idFor(sel: _ISelection): number;
+    idFor(sel: _ISelection): string | number;
 }
 
 export type _SelectExplanation = {
     /** A jointure */
-    id: number;
+    id: string | number;
     _: 'join';
     /**  The restrictive table (the one which MUST have a matched elemnt) */
     restrictive: _SelectExplanation;
@@ -95,8 +98,8 @@ export type _SelectExplanation = {
         /** 'with' will have to be scanned with this expression */
         seqScan: _ExprExplanation;
     } | {
-        /** Which seq will be iterated (could be either 'join' or 'with' when there is an inner join) */
-        iterate: number;
+        /** Which seq id will be iterated (could be either 'join' or 'with' when there is an inner join) */
+        iterate: string | number;
         /** Which iteration side has been chosen (always 'restrictive' for non inner joins) */
         iterateSide: 'joined' | 'restrictive';
         /** the index table on the other table that can be used to lookup corresponding item(s) */
@@ -108,7 +111,7 @@ export type _SelectExplanation = {
     }
 } | {
     /** A selection transformation */
-    id: number;
+    id: string | number;
     _: 'map';
     select?: {
         what: _ExprExplanation;
@@ -117,18 +120,17 @@ export type _SelectExplanation = {
     of: _SelectExplanation;
 } | {
     /** A table */
-    id: number;
     _: 'table';
     table: string;
 } | {
     /** An AND filter */
-    id: number;
+    id: string | number;
     _: 'and',
     enumerate: _SelectExplanation;
     andCheck: _SelectExplanation[];
 } | {
     /** A raw array definition */
-    id: number;
+    id: string | number;
     _: 'constantSet';
     rawArrayLen: number;
 } | {
@@ -139,23 +141,23 @@ export type _SelectExplanation = {
      * - < > <= >= = !=
      *
      * (against constants) */
-    id: number;
+    id: string | number;
     _: 'eq' | 'ineq' | 'neq' | 'inside' | 'outside';
     entropy: number;
     /** The index that will be used to check equality */
     on: _IndexExplanation;
 } | {
     /** An empty set */
-    id: number;
+    id: string | number;
     _: 'empty';
 } | {
     /** An union set */
-    id: number;
+    id: string | number;
     _: 'union',
     union: _SelectExplanation[];
 } | {
     /** A seq-scan filter of another set */
-    id: number;
+    id: string | number;
     _: 'seqFilter';
     filtered: _SelectExplanation;
 }
@@ -187,7 +189,7 @@ export type _ExprExplanation = {
     constant: true;
 } | {
     /** ID of the origin of this selection */
-    on: number;
+    on: string | number;
     col: string;
 }
 
