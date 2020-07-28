@@ -6,7 +6,6 @@ import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from './parser/syntax/ast';
 import lru from 'lru-cache';
-import { buildFilter } from './transforms/build-filter';
 
 
 const builtLru = new lru<_ISelection, lru<Expr, IValue>>({
@@ -143,7 +142,10 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             getter = (a, b) => type.equals(a, b);
             break;
         case '!=':
-            getter = (a, b) => !type.equals(a, b);
+            getter = (a, b) => {
+                const ret = type.equals(a, b);
+                return nullIsh(ret) ? null : !ret;
+            };
             break;
         case '>':
             getter = (a, b) => type.gt(a, b);

@@ -346,6 +346,7 @@ export type IndexOp = {
     type: 'eq' | 'neq' | 'gt' | 'lt' | 'ge' | 'le';
     key: IndexKey;
     t: _Transaction;
+    matchNull?: boolean;
 } | {
     type: 'inside' | 'outside'
     lo: IndexKey;

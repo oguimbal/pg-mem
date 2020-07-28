@@ -40,19 +40,27 @@ describe('[Queries] Indices', () => {
         return db;
     }
 
-    function setupNulls() {
-        const db = simpleDb()
-        none('create index on data(str)');
-        none(`insert into data(id, str) values ('id1', null)`);
-        none(`insert into data(id, str) values ('id2', 'notnull2')`);
-        none(`insert into data(id, str) values ('id3', null)`);
-        none(`insert into data(id, str) values ('id4', 'notnull4')`);
+    function setupNulls(withIndex = true) {
+        db = simpleDb()
+        if (withIndex) {
+            none('create index on data(str);')
+        }
+        none(`insert into data(id, str) values ('id1', null);
+                insert into data(id, str) values ('id2', 'notnull2');
+                insert into data(id, str) values ('id3', null);
+                insert into data(id, str) values ('id4', 'notnull4')`);
         return db;
     }
 
     it('uses indexes for null values', () => {
         const db = setupNulls();
         preventSeqScan(db);
+        const got = many('select * from data where str is null');
+        expect(got).to.deep.equal([{ id: 'id1', str: null, otherStr: null }, { id: 'id3', str: null, otherStr: null }]);
+    });
+
+    it('returns something on seqscan for is null', () => {
+        const db = setupNulls(false);
         const got = many('select * from data where str is null');
         expect(got).to.deep.equal([{ id: 'id1', str: null, otherStr: null }, { id: 'id3', str: null, otherStr: null }]);
     });
@@ -138,7 +146,7 @@ describe('[Queries] Indices', () => {
                     },
                     for: {
                         _: 'neq',
-                        entropy: 10/3,
+                        entropy: 10 / 3,
                         id: 2,
                         on: {
                             _: 'btree',

@@ -2,7 +2,7 @@ import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transact
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
-import { deepCloneSimple } from './utils';
+import { deepCloneSimple, nullIsh } from './utils';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -166,7 +166,7 @@ export class BIndex<T = any> implements _IIndex<T> {
     }
 
     eqFirst(rawKey: IndexKey, t: _Transaction): T {
-        for (const r of this.eq(rawKey, t)) {
+        for (const r of this.eq(rawKey, t, false)) {
             return deepCloneSimple(r);
         }
     }
@@ -310,9 +310,9 @@ export class BIndex<T = any> implements _IIndex<T> {
     private _enumerate(op: IndexOp): Iterable<T> {
         switch (op.type) {
             case 'eq':
-                return this.eq(op.key, op.t);
+                return this.eq(op.key, op.t, op.matchNull);
             case 'neq':
-                return this.neq(op.key, op.t);
+                return this.neq(op.key, op.t, op.matchNull);
             case 'ge':
                 return this.ge(op.key, op.t);
             case 'le':
@@ -332,7 +332,10 @@ export class BIndex<T = any> implements _IIndex<T> {
         }
     }
 
-    *eq(key: IndexKey, t: _Transaction): Iterable<T> {
+    *eq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<T> {
+        if (!matchNull && key.some(nullIsh)) {
+            return;
+        }
         const it = this.bin(t).find(key);
         while (it.valid && this.compare(it.key, key) === 0) {
             yield* it.value.values();
@@ -342,7 +345,10 @@ export class BIndex<T = any> implements _IIndex<T> {
 
 
 
-    *neq(key: IndexKey, t: _Transaction): Iterable<T> {
+    *neq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<T> {
+        if (!matchNull && key.some(nullIsh)) {
+            return;
+        }
         // yield before
         const bin = this.bin(t);
         let it = bin.begin;

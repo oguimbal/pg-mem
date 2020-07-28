@@ -30,7 +30,7 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelect
         if (itype !== Types.bool) {
             throw new CastError(itype.primary, DataType.bool);
         }
-        return new EqFilter(built, true, 'eq');
+        return new EqFilter(built, true, 'eq', false);
     }
 
     // if this filter is a constant expression (ex: 1 = 1)
@@ -61,7 +61,7 @@ function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary):
         case 'IS NOT NULL': {
             const leftValue = buildValue(on, operand);
             if (leftValue.index) {
-                return new EqFilter(leftValue, null, op === 'IS NULL' ? 'eq' : 'neq');
+                return new EqFilter(leftValue, null, op === 'IS NULL' ? 'eq' : 'neq', true);
             }
             return new SeqScanFilter(on, Value.isNull(leftValue, op === 'IS NULL'));
         }
@@ -166,10 +166,10 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
         case '=':
         case '!=': {
             if (leftValue.index && rightValue.isConstant) {
-                return new EqFilter(leftValue, rightValue.get(), op === '=' ? 'eq' : 'neq')
+                return new EqFilter(leftValue, rightValue.get(), op === '=' ? 'eq' : 'neq', false)
             }
             if (rightValue.index && leftValue.isConstant) {
-                return new EqFilter(rightValue, leftValue.get(), op === '=' ? 'eq' : 'neq');
+                return new EqFilter(rightValue, leftValue.get(), op === '=' ? 'eq' : 'neq', false);
             }
         }
         case '>':

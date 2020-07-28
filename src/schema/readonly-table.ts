@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler } from '../interfaces-private';
 import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound } from '../interfaces';
@@ -106,7 +106,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         throw new NotSupported('subscribing information schema');
     }
 
-    onChange(columns: string[], check: (item: T, t: _Transaction) => void) {
+    onChange(columns: string[], check: ChangeHandler<T>) {
         // nop
     }
 

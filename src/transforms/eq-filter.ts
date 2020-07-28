@@ -25,7 +25,8 @@ export class EqFilter<T = any> extends FilterBase<T> {
 
     constructor(private onValue: IValue<T>
         , private equalsCst: any
-        , private op: 'eq' | 'neq') {
+        , private op: 'eq' | 'neq'
+        , private matchNull: boolean) {
         super(onValue.origin);
         if (onValue.index.expressions.length !== 1) {
             throw new Error('Unexpected index equality expressions count mismatch');
@@ -36,6 +37,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
             type: op,
             key: [equalsCst],
             t: null,
+            matchNull: this.matchNull,
         }
     }
 
