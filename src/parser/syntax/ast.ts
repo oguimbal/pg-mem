@@ -186,6 +186,12 @@ export interface SelectStatement {
     from?: From[];
     where?: Expr;
     groupBy?: Expr[];
+    limit?: LimitStatement;
+}
+
+export interface LimitStatement {
+    limit?: number;
+    offset?: number;
 }
 
 

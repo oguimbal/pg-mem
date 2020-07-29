@@ -5,12 +5,14 @@ import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
 import type { buildGroupBy } from './aggregation';
-import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
+import type { buildLimit } from './limit';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement } from '../parser/syntax/ast';
 import { RestrictiveIndex } from './restrictive-index';
 
 interface Fns {
     buildSelection: typeof buildSelection;
     buildAlias: typeof buildAlias;
+    buildLimit: typeof buildLimit;
     buildFilter: typeof buildFilter;
     buildGroupBy: typeof buildGroupBy;
 }
@@ -62,6 +64,10 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     subquery(data: _ISelection<any>, op: SelectStatement): _ISelection {
         // todo: handle refs to 'data' in op statement.
         return this.schema.buildSelect(op);
+    }
+
+    limit(limit: LimitStatement): _ISelection {
+        return fns.buildLimit(this, limit)
     }
 }
 

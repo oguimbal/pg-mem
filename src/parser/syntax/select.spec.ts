@@ -59,6 +59,35 @@ describe('[PG syntax] Select statements', () => {
         columns: noAlias([{ type: 'ref', name: '*' }]),
     });
 
+
+    checkSelect(['select * from test limit 5', 'select * from test fetch first 5', 'select * from test fetch next 5 rows'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        limit: { limit: 5 },
+    });
+
+    checkSelect(['select * from test limit 0'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        limit: { limit: 0 },
+    });
+
+    checkSelect(['select * from test limit 5 offset 3', 'select * from test offset 3 rows fetch first 5'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        limit: { limit: 5, offset: 3 },
+    });
+
+    checkSelect(['select * from test offset 3', 'select * from test offset 3 rows'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        limit: { offset: 3 },
+    });
+
     checkSelect(['select a.*, b.*'], {
         type: 'select',
         columns: noAlias([{

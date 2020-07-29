@@ -98,6 +98,9 @@ kw_action -> %word {% notReservedKw('action')  %}
 kw_restrict -> %word {% notReservedKw('restrict')  %}
 kw_truncate -> %word {% notReservedKw('truncate')  %}
 kw_by -> %word {% notReservedKw('by')  %}
+kw_row -> %word {% notReservedKw('row')  %}
+kw_rows -> %word {% notReservedKw('rows')  %}
+kw_next -> %word {% notReservedKw('next')  %}
 
 
 # === Composite keywords

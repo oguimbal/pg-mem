@@ -5,13 +5,14 @@
 # https://www.postgresql.org/docs/12/sql-select.html
 
 select_statement
-    -> select_what select_from:? select_where:? select_groupby:? {% ([columns, from, where, groupBy]) => {
+    -> select_what select_from:? select_where:? select_groupby:? select_limit {% ([columns, from, where, groupBy, limit]) => {
         from = unwrap(from);
         groupBy = groupBy && (groupBy.length === 1 && groupBy[0].type === 'list' ? groupBy[0].expressions : groupBy);
         return {
             columns,
             ...from ? { from: Array.isArray(from) ? from : [from] } : {},
             ...groupBy ? { groupBy } : {},
+            ...limit ? { limit } : {},
             where,
             type: 'select',
         }
@@ -80,3 +81,23 @@ select_where -> %kw_where expr {% last %}
 
 
 select_groupby -> %kw_group kw_by expr_list_raw {% last %}
+
+# [ LIMIT { count | ALL } ]
+# [ OFFSET start [ ROW | ROWS ] ]
+# [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+select_limit -> (%kw_limit int {%last%}):?
+                (%kw_offset int (kw_row | kw_rows):? {% get(1) %}):?
+                (%kw_fetch (kw_first | kw_next):? int (kw_row | kw_rows):? {% get(2) %}):?
+                {% ([limit1, offset, limit2], rej) => {
+                    if (typeof limit1 === 'number' && typeof limit2 === 'number') {
+                        return rej;
+                    }
+                    if (typeof limit1 !== 'number' && typeof limit2 !== 'number' && typeof offset !== 'number') {
+                        return null;
+                    }
+                    const limit = typeof limit1 === 'number' ? limit1 : limit2;
+                    return {
+                        ...typeof limit === 'number' ? {limit}: {},
+                        ...offset ? {offset} : {},
+                    }
+                }%}
