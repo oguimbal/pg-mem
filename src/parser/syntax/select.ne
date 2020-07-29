@@ -90,7 +90,7 @@ select_groupby -> %kw_group kw_by expr_list_raw {% last %}
 select_limit -> (%kw_limit int {%last%}):?
                 (%kw_offset int (kw_row | kw_rows):? {% get(1) %}):?
                 (%kw_fetch (kw_first | kw_next):? int (kw_row | kw_rows):? {% get(2) %}):?
-                {% ([limit1, offset, limit2], rej) => {
+                {% ([limit1, offset, limit2], _, rej) => {
                     if (typeof limit1 === 'number' && typeof limit2 === 'number') {
                         return rej;
                     }

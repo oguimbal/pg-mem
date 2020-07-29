@@ -1,4 +1,4 @@
-@{% const {lexer} = require('../lexer.ts'); %}
+@{% const {lexer, LOCATION} = require('../lexer.ts'); %}
 @lexer lexer
 @include "base.ne"
 @include "expr.ne"
@@ -11,16 +11,24 @@
 @include "alter-table.ne"
 @include "delete.ne"
 
-
 # list of statements, separated by ";"
-main -> statement (statement_separator:+ statement {% last %}):* statement_separator:*  {% ([head, _tail]) => {
-    const tail = unwrap(_tail);
-    if (tail) {
-        return tail.length
-            ? [unwrap(head), ...tail.map(unwrap)]
-            : [unwrap(head), tail];
+main -> statement_separator:* statement (statement_separator:+ statement):* statement_separator:*  {% ([_, head, _tail]) => {
+    const tail = _tail; // && _tail[0];
+    if (!tail || !tail.length) {
+        return unwrap(head);
     }
-    return unwrap(head);
+    const ret = [unwrap(head)];
+    for (const t of tail) {
+        const lastSep = last(unwrap(t[0]));
+        const statement = unwrap(t[1]);
+        statement[LOCATION] = {
+            line: lastSep.line,
+            col: lastSep.col,
+            offset: lastSep.offset,
+        };
+        ret.push(statement);
+    }
+    return ret;
 } %}
 
 statement_separator -> %semicolon

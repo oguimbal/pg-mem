@@ -1,5 +1,6 @@
 import moo, { Rules } from 'moo';
 import { sqlKeywords } from './keywords';
+export { LOCATION } from './syntax/ast';
 
 // build keywords
 const keywodsMap: any = {};

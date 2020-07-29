@@ -10,7 +10,7 @@
         return e;
     }
     const get = i => x => x[i];
-    const last = x => x && x[x.length - 1];
+    const last = x => Array.isArray(x) ? x[x.length - 1] : x;
     const trim = x => x && x.trim();
     const value = x => x && x.value;
     function flatten(e) {

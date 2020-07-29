@@ -1,6 +1,8 @@
 import { IType } from '../../interfaces';
 
-export type Statement = SelectStatement
+export const LOCATION = Symbol('_location_');
+
+export type Statement = (SelectStatement
     | CreateTableStatement
     | CreateIndexStatement
     | CommitStatement
@@ -9,7 +11,14 @@ export type Statement = SelectStatement
     | DeleteStatement
     | RollbackStatement
     | AlterTableStatement
-    | StartTransactionStatement;
+    | StartTransactionStatement) & {
+        /** Location of the last ";" prior to this statement */
+        [LOCATION]?: {
+            line: number;
+            col: number;
+            offset: number;
+        }
+    };
 
 
 export interface StartTransactionStatement {
