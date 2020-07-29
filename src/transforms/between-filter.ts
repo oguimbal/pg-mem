@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
@@ -42,6 +42,11 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
 
     enumerate(t: _Transaction): Iterable<T> {
         return this.onValue.index.enumerate({ ...this.opDef, t });
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        return null;
     }
 
     explain(e: _Explainer): _SelectExplanation {

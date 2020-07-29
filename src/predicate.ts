@@ -6,6 +6,7 @@ import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from './parser/syntax/ast';
 import lru from 'lru-cache';
+import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 
 
 const builtLru = new lru<_ISelection, lru<Expr, IValue>>({
@@ -64,6 +65,12 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'integer':
             return Value.number(val.value, Types.int);
         case 'call':
+            if (aggregationFunctions.has(val.function)) {
+                if (!(data instanceof Aggregation)) {
+                    throw new QueryError(`aggregate functions are not allowed in WHERE`);
+                }
+                return data.getAggregation(val.function, val.args);
+            }
             const args = val.args.map(x => _buildValue(data, x));
             return Value.function(val.function, args);
         case 'cast':
@@ -137,6 +144,8 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
     let getter: (a: any, b: any) => any;
     let returnType: _IType = Types.bool;
+    let commutative = true;
+    let forcehash: any = null;
     switch (op) {
         case '=':
             getter = (a, b) => type.equals(a, b);
@@ -149,15 +158,19 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             break;
         case '>':
             getter = (a, b) => type.gt(a, b);
+            forcehash = { op: '>', left: leftValue.hash, right: rightValue.hash };
             break;
         case '<':
             getter = (a, b) => type.lt(a, b);
+            forcehash = { op: '>', left: rightValue.hash, right: leftValue.hash };
             break;
         case '>=':
             getter = (a, b) => type.gt(a, b) || type.equals(a, b);
+            forcehash = { op: '>=', left: leftValue.hash, right: rightValue.hash };
             break;
         case '<=':
             getter = (a, b) => type.lt(a, b) || type.equals(a, b);
+            forcehash = { op: '>=', left: rightValue.hash, right: leftValue.hash };
             break;
         case '+':
         case '-':
@@ -170,12 +183,14 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             switch (op) {
                 case '+':
                     getter = (a, b) => a + b;
+                    commutative = true;
                     break;
                 case '-':
                     getter = (a, b) => a - b;
                     break;
                 case '*':
                     getter = (a, b) => a * b;
+                    commutative = true;
                     break;
                 case '/':
                     if (isInteger(type)) {
@@ -232,13 +247,25 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
                 } else {
                     matcher = buildLikeMatcher(pattern, caseSenit);
                 }
-                getter = not
-                    ? a => nullIsh(a) ? true : !matcher(a)
-                    : a => nullIsh(a) ? null : matcher(a);
+                getter = !not
+                    ? a => nullIsh(a) ? null : matcher(a)
+                    : a => {
+                        if (nullIsh(a)) {
+                            return null;
+                        }
+                        const val = matcher(a);
+                        return nullIsh(val) ? null : !val;
+                    };
             } else {
-                getter = not
-                    ? (a, b) => nullIsh(a) ? true : !buildLikeMatcher(b, caseSenit)(a)
-                    : (a, b) => hasNullish(a, b) ? null : buildLikeMatcher(b, caseSenit)(a);
+                getter = !not
+                    ? (a, b) => hasNullish(a, b) ? null : buildLikeMatcher(b, caseSenit)(a)
+                    : (a, b) => {
+                        if (hasNullish(a, b)) {
+                            return null;
+                        }
+                        const val = buildLikeMatcher(b, caseSenit)(a);
+                        return nullIsh(val) ? null : !val;
+                    };
             }
             break;
         default:
@@ -246,7 +273,10 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
     }
 
     const sql = `${leftValue.sql} ${op} ${rightValue.sql}`;
-    const hashed = hash({ left: leftValue.hash, op, right: rightValue.hash });
+    const hashed = hash(forcehash
+        ?? (commutative
+            ? { op, vals: [leftValue.hash, rightValue.hash].sort() }
+            : { left: leftValue.hash, op, right: rightValue.hash }));
 
     // handle cases like:  blah = ANY(stuff)
     if (leftValue.isAny || rightValue.isAny) {
@@ -262,6 +292,9 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
         , (raw, t) => {
             const leftRaw = leftValue.get(raw, t);
             const rightRaw = rightValue.get(raw, t);
+            if (nullIsh(leftRaw) || nullIsh(rightRaw)) {
+                return null;
+            }
             return getter(leftRaw, rightRaw);
         });
 

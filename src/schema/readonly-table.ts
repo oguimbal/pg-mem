@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private';
 import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound } from '../interfaces';
@@ -65,6 +65,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return [];
     }
 
+    stats(t: _Transaction): Stats | null {
+        throw new NotSupported('stats (count, ...) on information schema');
+    }
+
     get columnDefs(): _Column[] {
         throw new ReadOnlyError('information schema');
     }
@@ -98,7 +102,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return this;
     }
 
-    getIndex(forValue: IValue): _IIndex<any> {
+    getIndex(...forValue: IValue[]): _IIndex<any> {
         return null;
     }
 

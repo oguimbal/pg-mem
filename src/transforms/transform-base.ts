@@ -1,6 +1,6 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats } from '../interfaces-private';
 import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
@@ -26,6 +26,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract getIndex(forValue: IValue): _IIndex<any>;
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
+    abstract stats(t: _Transaction): Stats | null;
 
     constructor(readonly schema: _ISchema) {
     }
@@ -126,8 +127,8 @@ export abstract class FilterBase<T> extends TransformBase<T> {
         return this.base.getColumn(column, nullIfNotFound);
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
-        const index = this.base.getIndex(forValue);
+    getIndex(...forValue: IValue<any>[]): _IIndex<any> {
+        const index = this.base.getIndex(...forValue);
         if (!index) {
             return null;
         }

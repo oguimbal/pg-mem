@@ -5,6 +5,7 @@ import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 import moment from 'moment';
 import { parseArrayLiteral } from './parser/parser';
+import { nullIsh } from './utils';
 
 export function buildCall(name: string, args: IValue[]) {
     let type: _IType;
@@ -12,6 +13,7 @@ export function buildCall(name: string, args: IValue[]) {
 
     name = name.toLowerCase();
     let unpure: boolean;
+    let acceptNulls = false;
     switch (name) {
         case 'lower':
         case 'upper':
@@ -27,6 +29,7 @@ export function buildCall(name: string, args: IValue[]) {
             }
             break;
         case 'concat':
+            acceptNulls = true;
             args = args.map(x => x.convert(DataType.text));
             type = Types.text();
             get = (...x: string[]) => x.join('');
@@ -85,6 +88,12 @@ export function buildCall(name: string, args: IValue[]) {
             get = () => new Date();
             unpure = true;
             break;
+        case 'coalesce':
+            acceptNulls = true;
+            args = args.map(x => x.convert(args[0].type));
+            type = args[0].type;
+            get = (...args: any[]) => args.find(x => !nullIsh(x));
+            break;
         default:
             throw new NotSupported('Unsupported function: ' + name);
     }
@@ -96,6 +105,9 @@ export function buildCall(name: string, args: IValue[]) {
         , args
         , (raw, t) => {
             const argRaw = args.map(x => x.get(raw, t));
+            if (!acceptNulls && argRaw.some(nullIsh)) {
+                return null;
+            }
             return get(...argRaw);
         }, unpure ? { unpure } : undefined);
 }

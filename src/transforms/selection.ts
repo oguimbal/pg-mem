@@ -1,20 +1,47 @@
-import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp } from '../interfaces-private';
+import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats } from '../interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField } from '../interfaces';
 import { buildValue } from '../predicate';
-import { buildColumnIds } from '../utils';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
-import { SelectedColumn, CreateColumnDef } from '../parser/syntax/ast';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr } from '../parser/syntax/ast';
+import { aggregationFunctions, Aggregation } from './aggregation';
+import { AstVisitor } from '../ast-visitor';
+import { isSelectAllArgList } from '../utils';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[]) {
-    const [first] = select;
-    if (select.length === 1 && first.expr.type === 'ref' && first.expr.name === '*' && !first.expr.table) {
+
+    // if this is a "SELECT *" => just ignore
+    if (isSelectAllArgList(select.map(x => x.expr))) {
         if (!on.columns.length) {
             throw new QueryError('SELECT * with no tables specified is not valid');
         }
         return on;
     }
+
+    // if there is any aggregation function
+    // check if there is any aggregation
+    for (const col of select) {
+        if (new HasAggregVisitor().check(col.expr)) {
+            // yea, there is an aggregation somewhere in selection
+            return new Aggregation(on, [], select);
+        }
+    }
+
     return new Selection(on, select);
+}
+
+class HasAggregVisitor extends AstVisitor {
+    private aggreg: boolean;
+    check(e: Expr) {
+        this.visit(e);
+        return this.aggreg;
+    }
+    visitCall(expr: ExprCall) {
+        if (aggregationFunctions.has(expr.function)) {
+            // yea, this is an aggregation
+            this.aggreg = true;
+        }
+    }
 }
 
 export function columnEvaluator(this: void, on: _ISelection, id: string, type: _IType) {
@@ -112,6 +139,12 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         ci.push(col);
     }
 
+
+    stats(t: _Transaction): Stats | null {
+        return this.base.stats(t);
+    }
+
+
     *enumerate(t: _Transaction): Iterable<T> {
         for (const item of this.base.enumerate(t)) {
             yield this.build(item, t);
@@ -174,6 +207,14 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
 
 export class SelectionIndex<T> implements _IIndex<T> {
     constructor(readonly owner: Selection<T>, private base: _IIndex) {
+    }
+
+    stats(t: _Transaction, key?: IndexKey) {
+        return this.base.stats(t, key);
+    }
+
+    iterateKeys(t: _Transaction) {
+        return this.base.iterateKeys(t);
     }
 
     get expressions(): IndexExpression[] {

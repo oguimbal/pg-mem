@@ -117,6 +117,17 @@ describe('[Queries] Indices', () => {
     });
 
 
+    it('can commutative index on an expression', () => {
+        none(`create table test(a integer, b integer);
+                create index on test((a+b));
+                insert into test values (1, 2);
+                insert into test values (3, 4);`);
+        preventSeqScan(db); // <== should use index even if index is on expression
+        // notice that b+a is not the expression usedin index creation
+        expect(many(`select a from test where (b+a)=3`).map(x => x.a)).to.deep.equal([1]);
+    });
+
+
     it('can use an index on an aliased selection', () => {
         preventSeqScan(db);
         const got = many(`create table test(txt text, val integer);

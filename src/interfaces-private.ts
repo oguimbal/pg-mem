@@ -58,6 +58,11 @@ export interface _Transaction {
     getSet<T>(identity: symbol): ImSet<T>;
 }
 
+export interface Stats {
+    /** Returns this selection size, or null if it cannot be computed without iteration */
+    count: number;
+}
+
 export interface _ISelection<T = any> {
     readonly debugId?: string;
 
@@ -69,8 +74,10 @@ export interface _ISelection<T = any> {
     /** Returns true if the given value is present in this */
     hasItem(value: T, t: _Transaction): boolean;
 
+    stats(t: _Transaction): Stats | null;
+
     /** Gets the index associated with this value (or returns null) */
-    getIndex(forValue: IValue): _IIndex<T>;
+    getIndex(...forValue: IValue[]): _IIndex<T>;
     readonly columns: ReadonlyArray<IValue>;
     filter(where: Expr): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
@@ -160,6 +167,19 @@ export type _SelectExplanation = {
     id: string | number;
     _: 'seqFilter';
     filtered: _SelectExplanation;
+} | {
+    id: string | number;
+    _: 'aggregate';
+    aggregator: {
+        /** aggregation will iterate the whole lot */
+        seqScan: _ExprExplanation;
+    } | {
+        /** aggregation uses an index items which already contains required aggregations */
+        index: _IndexExplanation
+    } | {
+        /** aggregation is trivial (select count(*) from table) */
+        trivial: _ISelection;
+    };
 }
 
 export type _IndexExplanation = {
@@ -334,12 +354,17 @@ export interface _IIndex<T = any> {
     /** Returns a measure of how many items will be returned by this op */
     entropy(t: IndexOp): number;
 
+    /** Returns this selection stats, or null if it cannot be computed without iteration */
+    stats(t: _Transaction, key?: IndexKey): Stats | null;
+
     /** Get values equating the given key */
     eqFirst(rawKey: IndexKey, t: _Transaction): T;
 
     enumerate(op: IndexOp): Iterable<T>;
 
     explain(e: _Explainer): _IndexExplanation;
+
+    iterateKeys(t: _Transaction): Iterable<IndexKey> | null;
 }
 
 export type IndexOp = {

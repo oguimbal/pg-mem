@@ -54,6 +54,11 @@ export class Query implements _ISchema, ISchema {
         this.query(query);
     }
 
+    one(query: string): any {
+        const [result] = this.many(query);
+        return result;
+    }
+
     many(query: string): any[] {
         return this.query(query).rows;
     }
@@ -331,6 +336,8 @@ export class Query implements _ISchema, ISchema {
                     throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
             }
         }
+
+        // filter & select
         sel = sel ?? this.dualTable.selection;
         sel = sel.filter(p.where)
             .select(p.columns);

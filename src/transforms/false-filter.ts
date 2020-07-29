@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, IValue, _Explainer, _SelectExplanation, _Transaction, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 
 export class FalseFilter<T = any> extends FilterBase<T> {
@@ -17,6 +17,12 @@ export class FalseFilter<T = any> extends FilterBase<T> {
 
     enumerate(): Iterable<T> {
         return [];
+    }
+
+    stats(t: _Transaction): Stats | null {
+        return {
+            count: 0,
+        }
     }
 
     explain(e: _Explainer): _SelectExplanation {

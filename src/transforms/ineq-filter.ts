@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
@@ -30,6 +30,11 @@ export class IneqFilter<T = any> extends FilterBase<T> {
             key: [than],
             t: null,
         }
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        return null;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexKey, IndexOp } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexKey, IndexOp, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
@@ -9,6 +9,22 @@ export class EqFilter<T = any> extends FilterBase<T> {
 
     entropy(t: _Transaction): number {
         return this.index.entropy({ ...this.opDef, t });
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        const stats = this.index.stats(t, [this.equalsCst]);
+        if (this.op === 'eq' || !stats) {
+            return stats;
+        }
+        // if neq, then compute from eq and all
+        const all = this.index.stats(t);
+        if (!all) {
+            return null;
+        }
+        return {
+            count: all.count - stats.count,
+        };
     }
 
     hasItem(item: T, t: _Transaction) {

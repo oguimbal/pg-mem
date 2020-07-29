@@ -1,4 +1,4 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey } from '../interfaces-private';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats } from '../interfaces-private';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 
 export class TableIndex implements _IIndex {
@@ -11,6 +11,13 @@ export class TableIndex implements _IIndex {
         throw new Error('not implemented');
     }
 
+    stats(t: _Transaction, key?: IndexKey): Stats | null {
+        return null;
+    }
+
+    iterateKeys() {
+        return null;
+    }
 
     constructor(readonly onTable: _ITable & { itemsByTable(table: string, t: _Transaction): Iterable<any>; ownSymbol: any }, private col: IValue) {
         this.expressions = [col];

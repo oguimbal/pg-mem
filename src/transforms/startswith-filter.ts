@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 
@@ -28,6 +28,11 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
         if (onValue.index.expressions[0].hash !== this.onValue.hash) {
             throw new Error('Startwith must be the first component of the index');
         }
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        return null;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

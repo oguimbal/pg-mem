@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 
 
@@ -17,6 +17,10 @@ export class OrFilter<T = any> extends FilterBase<T> {
         if (left.columns !== right.columns) { //  istanbul ignore next
             throw new Error('Column set mismatch');
         }
+    }
+
+    stats(t: _Transaction): Stats | null {
+        return null;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

@@ -107,6 +107,10 @@ export interface ISchema {
      */
     none(query: string): void;
     /**
+     * Execute a query with a single result
+     */
+    one(query: string): any;
+    /**
      * Another way to create tables (equivalent to "create table" queries")
      */
     declareTable(table: Schema): IMemoryTable;

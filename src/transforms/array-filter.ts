@@ -1,5 +1,5 @@
 import { FilterBase } from './transform-base';
-import { _ISelection, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, _Explainer, _SelectExplanation, _Transaction, Stats } from '../interfaces-private';
 
 export class ArrayFilter<T = any> extends FilterBase<T> {
 
@@ -27,6 +27,11 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
         return this.elts;
     }
 
+    stats(t: _Transaction): Stats | null {
+        return {
+            count: this.elts.length,
+        };
+    }
 
     explain(e: _Explainer): _SelectExplanation {
         return {

@@ -1,4 +1,4 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey } from '../interfaces-private';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats } from '../interfaces-private';
 import { ReadOnlyError, NotSupported } from '../interfaces';
 
 interface IndexSubject<T> {
@@ -27,6 +27,13 @@ export class CustomIndex<T> implements _IIndex<T> {
         return this.subject.size;
     }
 
+    stats(t: _Transaction, key?: IndexKey): Stats | null {
+        return null;
+    }
+
+    iterateKeys() {
+        return null;
+    }
 
     add(raw: any): void {
         throw new ReadOnlyError();

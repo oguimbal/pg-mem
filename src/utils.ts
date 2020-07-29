@@ -1,6 +1,7 @@
 import moment from 'moment';
 import { List } from 'immutable';
 import { IValue, NotSupported } from './interfaces-private';
+import { SelectedColumn, Expr } from './parser/syntax/ast';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -279,6 +280,9 @@ export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
     const reg = new RegExp(likeRegexString, caseSensitive ? '' : 'i');
 
     return (stringToMatch: string | number) => {
+        if (nullIsh(stringToMatch)) {
+            return null;
+        }
         if (typeof stringToMatch != "string") {
             stringToMatch = stringToMatch.toString();
         }
@@ -300,5 +304,22 @@ export function deepCloneSimple<T>(v: T): T {
     if (Array.isArray(v)) {
         return v.map(x => deepCloneSimple(x)) as any;
     }
-    return { ...v };
+
+    const ret: any = {};
+    for (const k of Object.keys(v)) {
+        ret[k] = deepCloneSimple(v[k]);
+    }
+    for (const k of Object.getOwnPropertySymbols(v)) {
+        ret[k] = v[k]; // no need to deep clone that
+    }
+    return ret;
+}
+
+
+export function isSelectAllArgList(select: Expr[]) {
+    const [first] = select;
+    return select.length === 1
+        && first.type === 'ref'
+        && first.name === '*'
+        // && !first.table
 }

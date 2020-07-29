@@ -1,4 +1,4 @@
-import { IType } from 'src/interfaces';
+import { IType } from '../../interfaces';
 
 export type Statement = SelectStatement
     | CreateTableStatement

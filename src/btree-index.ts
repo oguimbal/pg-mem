@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats } from './interfaces-private';
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
@@ -210,6 +210,24 @@ export class BIndex<T = any> implements _IIndex<T> {
         // multiply by average values per key
         return e * all / bin.length;
     }
+
+    stats(t: _Transaction, key?: IndexKey): Stats {
+        if (!key) {
+            return {
+                count: t.get<number>(this.treeCountId) ?? 0,
+            };
+        }
+        const found = this.bin(t).get(key);
+        return {
+            count: found?.size ?? 0,
+        };
+    }
+
+    iterateKeys(t: _Transaction): Iterable<IndexKey> {
+        const bin = this.bin(t);
+        return bin.keys;
+    }
+
 
     private _keyCount(op: IndexOp) {
         const bin = this.bin(op.t);

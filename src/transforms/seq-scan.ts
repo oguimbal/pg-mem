@@ -1,4 +1,4 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { DataType } from '../interfaces';
 import { FilterBase } from './transform-base';
 
@@ -20,6 +20,11 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
     constructor(private selection: _ISelection<T>, private getter: IValue<T>) {
         super(selection);
         this.getter = getter.convert(DataType.bool);
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        return null;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

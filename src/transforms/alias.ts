@@ -1,5 +1,5 @@
 import { TransformBase, FilterBase } from './transform-base';
-import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError } from '../interfaces-private';
+import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats } from '../interfaces-private';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     if (!alias) {
@@ -24,6 +24,10 @@ export class Alias<T> extends TransformBase<T>{
 
     get columns(): ReadonlyArray<IValue<any>> {
         return this.base.columns;
+    }
+
+    stats(t: _Transaction): Stats | null {
+        return this.base.stats(t);
     }
 
     enumerate(t: _Transaction): Iterable<T> {
@@ -59,8 +63,8 @@ export class Alias<T> extends TransformBase<T>{
         // };
     }
 
-    getIndex(forValue: IValue) {
-        return this.base.getIndex(forValue);
+    getIndex(...forValue: IValue[]) {
+        return this.base.getIndex(...forValue);
     }
 
 }

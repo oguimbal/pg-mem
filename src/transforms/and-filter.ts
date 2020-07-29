@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { SeqScanFilter } from './seq-scan';
 
@@ -42,6 +42,11 @@ export class AndFilter<T = any> extends FilterBase<T> {
             .sort((a, b) => a.entropy(t) > b.entropy(t) ? 1 : -1);
         const [best] = sorted.splice(0, 1);
         return { best, sorted };
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        return null;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

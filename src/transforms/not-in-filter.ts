@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, IndexKey } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, IndexKey, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 import { nullIsh } from '../utils';
@@ -33,6 +33,23 @@ export class NotInFilter<T = any> extends FilterBase<T> {
             throw new QueryError('Cannot iterate element list');
         }
         this.keys = elts.map(x => [x]);
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        const all = this.base.stats(t);
+        if (!all) {
+            return null;
+        }
+        const elts = this.elts.map(x => this.index.stats(t, [x]));
+        if (elts.some(x => !x)) {
+            return null;
+        }
+        // compute from 'all'
+        for (const i of elts) {
+            all.count -= i.count;
+        }
+        return all;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

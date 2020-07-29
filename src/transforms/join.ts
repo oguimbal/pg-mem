@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats } from '../interfaces-private';
 import { buildValue, uncache } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
 import { DataSourceBase } from './transform-base';
@@ -204,6 +204,10 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return mapped;
     }
 
+    stats(t: _Transaction): Stats | null {
+        return null;
+    }
+
     *enumerate(t: _Transaction): Iterable<any> {
         const strategy = chooseStrategy(t, this.strategies);
         if (strategy) {
@@ -348,6 +352,13 @@ export class JoinIndex<T> implements _IIndex<T> {
         return this.base.expressions;
     }
 
+    stats(t: _Transaction, key?: IndexKey): Stats | null {
+        return null;
+    }
+
+    iterateKeys() {
+        return null;
+    }
 
     entropy(op: IndexOp): number {
         const strategy = this.chooseStrategy(op.t);

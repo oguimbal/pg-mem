@@ -1,4 +1,4 @@
-import { _IIndex, IValue, IndexExpression, _Transaction, IndexKey, _Explainer, _IndexExplanation, IndexOp, _ISelection } from '../interfaces-private';
+import { _IIndex, IValue, IndexExpression, _Transaction, IndexKey, _Explainer, _IndexExplanation, IndexOp, _ISelection, Stats } from '../interfaces-private';
 
 export class RestrictiveIndex<T> implements _IIndex<T> {
     constructor(private base: _IIndex<T>, readonly filter: _ISelection<T>) {
@@ -13,6 +13,15 @@ export class RestrictiveIndex<T> implements _IIndex<T> {
         return this.base.expressions;
     }
 
+    stats(t: _Transaction, key?: IndexKey): Stats | null {
+        // cannot comput without iterating
+        return null;
+    }
+
+    iterateKeys() {
+        // cannot comput without iterating
+        return null;
+    }
 
     eqFirst(rawKey: IndexKey, t: _Transaction) {
         for (const i of this.base.enumerate({
@@ -48,5 +57,4 @@ export class RestrictiveIndex<T> implements _IIndex<T> {
             // criteria: this.restrict.explain(e),
         }
     }
-
 }

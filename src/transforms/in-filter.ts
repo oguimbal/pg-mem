@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 import { nullIsh } from '../utils';
@@ -36,6 +36,21 @@ export class InFilter<T = any> extends FilterBase<T> {
         if (!Array.isArray(elts)) {
             throw new QueryError('Cannot iterate element list');
         }
+    }
+
+    stats(t: _Transaction): Stats | null {
+        const elts = this.elts.map(x => this.index.stats(t, [x]));
+        if (elts.some(x => !x)) {
+            return null;
+        }
+        // compute from elements
+        const ret: Stats = {
+            count: 0,
+        };
+        for (const i of elts) {
+            ret.count += i.count;
+        }
+        return ret;
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

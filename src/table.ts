@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection, columnEvaluator } from './transforms/selection';
@@ -74,6 +74,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                     throw NotSupported.never(c, 'constraint type');
             }
         }
+    }
+
+
+    stats(t: _Transaction): Stats | null {
+        return {
+            count: this.bin(t).size,
+        };
     }
 
     rename(name: string) {
@@ -354,11 +361,12 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this.bin(t).has(id);
     }
 
-    getIndex(forValue: IValue): _IIndex {
-        if (!forValue || !this.isOriginOf(forValue)) {
+    getIndex(...forValues: IValue[]): _IIndex {
+        if (!forValues.length || forValues.some(x => !x || !this.isOriginOf(x))) {
             return null;
         }
-        const got = this.indexByHash.get(forValue.hash);
+        const ihash = indexHash(forValues);
+        const got = this.indexByHash.get(ihash);
         return got?.index ?? null;
     }
 
