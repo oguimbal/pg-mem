@@ -475,7 +475,7 @@ class TextType extends TypeBase<string> {
             case DataType.timestamp:
                 return value
                     .setConversion(str => {
-                        const conv = moment(str);
+                        const conv = moment.utc(str);
                         if (!conv.isValid()) {
                             throw new QueryError(`Invalid timestamp format: ` + str);
                         }
@@ -486,7 +486,7 @@ class TextType extends TypeBase<string> {
             case DataType.date:
                 return value
                     .setConversion(str => {
-                        const conv = moment(str);
+                        const conv = moment.utc(str);
                         if (!conv.isValid()) {
                             throw new QueryError(`Invalid timestamp format: ` + str);
                         }

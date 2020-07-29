@@ -3,6 +3,7 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
+import { preventSeqScan } from './test-utils';
 
 describe('[Queries] Count', () => {
 
@@ -48,10 +49,23 @@ describe('[Queries] Count', () => {
                         insert into test values (1, null), (null, 1), (1, 1), (2, 3), (null, null);
                         select count(val2) as val2cnt, count(val) as valCnt,val from test group by val;`))
             .to.deep.equal([
-                { val2cnt: 1, valCnt: 0, val: null }
+                { val2cnt: 1, valCnt: 2, val: 1 }
+                , { val2cnt: 1, valCnt: 0, val: null }
                 , { val2cnt: 1, valCnt: 1, val: 2 }
-                , { val2cnt: 1, valCnt: 2, val: 1 }
             ])
     })
 
+    it('can use index on expression to count', () => {
+        preventSeqScan(db);
+        expect(many(`create table test(a int, b int);
+                        create index on test((a+b));
+                        insert into test values (1, 1), (2, 0), (3, 0), (4, 0), (4, null);
+                        select count(*) as cnt, b+a as g from test group by a+b;`))
+            .to.deep.equal([
+                { g: 2, cnt: 2 }
+                , { g: 3, cnt: 1 }
+                , { g: 4, cnt: 1 }
+                , { g: null, cnt: 1 }
+            ])
+    })
 });

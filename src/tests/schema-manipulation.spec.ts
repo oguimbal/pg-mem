@@ -89,7 +89,7 @@ describe('[Queries] Schema manipulation', () => {
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
         expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
     });
 
     // TODO =>  NOT SUPPORTED BY PARSER
@@ -108,7 +108,7 @@ describe('[Queries] Schema manipulation', () => {
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
         expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 00:00:00']);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 00:00:00']);
     });
 
 

@@ -2,13 +2,16 @@
 @include "base.ne"
 @include "expr.ne"
 
+# https://www.postgresql.org/docs/12/sql-select.html
 
 select_statement
-    -> select_what select_from:? select_where:? {% ([columns, from, where]) => {
+    -> select_what select_from:? select_where:? select_groupby:? {% ([columns, from, where, groupBy]) => {
         from = unwrap(from);
+        groupBy = groupBy && (groupBy.length === 1 && groupBy[0].type === 'list' ? groupBy[0].expressions : groupBy);
         return {
             columns,
             ...from ? { from: Array.isArray(from) ? from : [from] } : {},
+            ...groupBy ? { groupBy } : {},
             where,
             type: 'select',
         }
@@ -74,3 +77,6 @@ select_expr_list_item -> expr ident_aliased:? {% x => ({
 
 # WHERE [expr]
 select_where -> %kw_where expr {% last %}
+
+
+select_groupby -> %kw_group kw_by expr_list_raw {% last %}

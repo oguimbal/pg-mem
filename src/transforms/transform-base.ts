@@ -4,6 +4,7 @@ import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _Selec
 import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
+import type { buildGroupBy } from './aggregation';
 import { Expr, SelectedColumn, SelectStatement } from '../parser/syntax/ast';
 import { RestrictiveIndex } from './restrictive-index';
 
@@ -11,6 +12,7 @@ interface Fns {
     buildSelection: typeof buildSelection;
     buildAlias: typeof buildAlias;
     buildFilter: typeof buildFilter;
+    buildGroupBy: typeof buildGroupBy;
 }
 let fns: Fns;
 export function initialize(init: Fns) {
@@ -40,6 +42,14 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
             return this;
         }
         const plan = fns.buildFilter(this, filter);
+        return plan;
+    }
+
+    groupBy(grouping: Expr[], select: SelectedColumn[]): _ISelection {
+        if (!grouping?.length) {
+            return this;
+        }
+        const plan = fns.buildGroupBy(this, grouping, select);
         return plan;
     }
 

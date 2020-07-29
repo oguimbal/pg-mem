@@ -119,6 +119,22 @@ describe('[PG syntax] Select statements', () => {
         }]
     })
 
+    checkSelect(['select * from test group by grp', 'select * from test group by (grp)'], {
+        type: 'select',
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        from: [{ type: 'table', table: 'test' }],
+        groupBy: [{ type: 'ref', name: 'grp' }]
+    })
+
+    checkSelect(['select * from test group by a,b', 'select * from test group by (a,b)'], {
+        type: 'select',
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        from: [{ type: 'table', table: 'test' }],
+        groupBy: [
+            { type: 'ref', name: 'a' },
+            { type: 'ref', name: 'b' }
+        ]
+    })
 
 
     function buildJoin(t: JoinType): SelectStatement {

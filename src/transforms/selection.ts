@@ -4,7 +4,7 @@ import { buildValue } from '../predicate';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
 import { SelectedColumn, CreateColumnDef, ExprCall, Expr } from '../parser/syntax/ast';
-import { aggregationFunctions, Aggregation } from './aggregation';
+import { aggregationFunctions, buildGroupBy } from './aggregation';
 import { AstVisitor } from '../ast-visitor';
 import { isSelectAllArgList } from '../utils';
 
@@ -23,7 +23,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[]) {
     for (const col of select) {
         if (new HasAggregVisitor().check(col.expr)) {
             // yea, there is an aggregation somewhere in selection
-            return new Aggregation(on, [], select);
+            return buildGroupBy(on, [], select);
         }
     }
 

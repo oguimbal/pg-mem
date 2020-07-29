@@ -339,8 +339,13 @@ export class Query implements _ISchema, ISchema {
 
         // filter & select
         sel = sel ?? this.dualTable.selection;
-        sel = sel.filter(p.where)
-            .select(p.columns);
+        sel = sel.filter(p.where);
+
+        if (p.groupBy) {
+            sel = sel.groupBy(p.groupBy, p.columns);
+        } else {
+            sel = sel.select(p.columns);
+        }
         return sel;
     }
 

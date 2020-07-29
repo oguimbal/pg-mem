@@ -252,7 +252,6 @@ describe('[Queries] Operators', () => {
                 .to.deep.equal([
                     { val: 'bar' }
                     , { val: 'FOOBAR' }
-                    , { val: null }
                 ]);
         });
 
@@ -262,7 +261,6 @@ describe('[Queries] Operators', () => {
                 select * from test where val not ilike 'fo%'`))
                 .to.deep.equal([
                     { val: 'bar' }
-                    , { val: null }
                 ]);
         });
     })

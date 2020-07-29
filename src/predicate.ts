@@ -31,6 +31,9 @@ function _buildValue(data: _ISelection, val: Expr): IValue {
         }
     }
     got = _buildValueReal(data, val);
+    if (data instanceof Aggregation) {
+        got = data.checkIfIsKey(got);
+    }
     if (!selLru) {
         builtLru.set(data, selLru = new lru({
             max: 50,

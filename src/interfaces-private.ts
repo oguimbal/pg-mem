@@ -80,6 +80,7 @@ export interface _ISelection<T = any> {
     getIndex(...forValue: IValue[]): _IIndex<T>;
     readonly columns: ReadonlyArray<IValue>;
     filter(where: Expr): _ISelection;
+    groupBy(grouping: Expr[], select: SelectedColumn[]): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
     setAlias(alias?: string): _ISelection;

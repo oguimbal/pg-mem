@@ -185,6 +185,7 @@ export interface SelectStatement {
     columns?: SelectedColumn[];
     from?: From[];
     where?: Expr;
+    groupBy?: Expr[];
 }
 
 

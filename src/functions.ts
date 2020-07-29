@@ -43,7 +43,7 @@ export function buildCall(name: string, args: IValue[]) {
                 if ((data ?? null) === null || (format ?? null) === null) {
                     return null; // if one argument is null => null
                 }
-                const ret = moment(data, format);
+                const ret = moment.utc(data, format);
                 if (!ret.isValid()) {
                     throw new QueryError(`The text '${data}' does not match the date format ${format}`);
                 }

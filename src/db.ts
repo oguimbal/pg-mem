@@ -7,12 +7,14 @@ import { buildAlias } from './transforms/alias';
 import { buildFilter } from './transforms/build-filter';
 import { Adapters } from './adapters';
 import { Transaction } from './transaction';
+import { buildGroupBy } from './transforms/aggregation';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     initialize({
         buildSelection,
         buildAlias,
         buildFilter,
+        buildGroupBy,
     });
     return new MemoryDb(Transaction.root(), null, opts ?? {});
 }
