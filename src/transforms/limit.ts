@@ -1,7 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
-import { DataType } from '../interfaces';
 import { FilterBase } from './transform-base';
-import { LimitStatement } from 'src/parser/syntax/ast';
+import { LimitStatement } from '../parser/syntax/ast';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
     return new LimitFilter(on, limit.limit, limit.offset);

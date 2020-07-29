@@ -88,6 +88,32 @@ describe('[PG syntax] Select statements', () => {
         limit: { offset: 3 },
     });
 
+
+    checkSelect(['select * from test order by a asc limit 3', 'select * from test order by a limit 3'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        limit: { limit: 3 },
+        orderBy: [{
+            by: { type: 'ref', name: 'a' },
+            order: 'ASC',
+        }]
+    });
+
+
+    checkSelect(['select * from test order by a asc, b desc'], {
+        type: 'select',
+        from: [{ type: 'table', table: 'test' }],
+        columns: noAlias([{ type: 'ref', name: '*' }]),
+        orderBy: [{
+            by: { type: 'ref', name: 'a' },
+            order: 'ASC',
+        }, {
+            by: { type: 'ref', name: 'b' },
+            order: 'DESC',
+        }]
+    });
+
     checkSelect(['select a.*, b.*'], {
         type: 'select',
         columns: noAlias([{

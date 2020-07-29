@@ -6,7 +6,9 @@ import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
 import type { buildGroupBy } from './aggregation';
 import type { buildLimit } from './limit';
-import { Expr, SelectedColumn, SelectStatement, LimitStatement } from '../parser/syntax/ast';
+import type { buildOrderBy } from './order-by';
+
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from '../parser/syntax/ast';
 import { RestrictiveIndex } from './restrictive-index';
 
 interface Fns {
@@ -15,6 +17,7 @@ interface Fns {
     buildLimit: typeof buildLimit;
     buildFilter: typeof buildFilter;
     buildGroupBy: typeof buildGroupBy;
+    buildOrderBy: typeof buildOrderBy;
 }
 let fns: Fns;
 export function initialize(init: Fns) {
@@ -68,6 +71,10 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
     limit(limit: LimitStatement): _ISelection {
         return fns.buildLimit(this, limit)
+    }
+
+    orderBy(orderBy: OrderByStatement[]): _ISelection<any> {
+        return fns.buildOrderBy(this, orderBy);
     }
 }
 

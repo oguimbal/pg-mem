@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement } from './parser/syntax/ast';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from './parser/syntax/ast';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
@@ -81,6 +81,7 @@ export interface _ISelection<T = any> {
     readonly columns: ReadonlyArray<IValue>;
     filter(where: Expr): _ISelection;
     limit(limit: LimitStatement): _ISelection;
+    orderBy(orderBy: OrderByStatement[]): _ISelection<any>;
     groupBy(grouping: Expr[], select: SelectedColumn[]): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
     getColumn(column: string, nullIfNotFound?: boolean): IValue;
@@ -126,6 +127,10 @@ export type _SelectExplanation = {
         what: _ExprExplanation;
         as: string;
     }[];
+    of: _SelectExplanation;
+} | {
+    id: string | number;
+    _: 'orderBy';
     of: _SelectExplanation;
 } | {
     /** A selection transformation */

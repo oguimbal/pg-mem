@@ -5,7 +5,8 @@
 # https://www.postgresql.org/docs/12/sql-select.html
 
 select_statement
-    -> select_what select_from:? select_where:? select_groupby:? select_limit {% ([columns, from, where, groupBy, limit]) => {
+    -> select_what select_from:? select_where:? select_groupby:? select_order_by:? select_limit
+    {% ([columns, from, where, groupBy, orderBy, limit]) => {
         from = unwrap(from);
         groupBy = groupBy && (groupBy.length === 1 && groupBy[0].type === 'list' ? groupBy[0].expressions : groupBy);
         return {
@@ -13,6 +14,7 @@ select_statement
             ...from ? { from: Array.isArray(from) ? from : [from] } : {},
             ...groupBy ? { groupBy } : {},
             ...limit ? { limit } : {},
+            ...orderBy ? { orderBy } : {},
             where,
             type: 'select',
         }
@@ -101,3 +103,12 @@ select_limit -> (%kw_limit int {%last%}):?
                         ...offset ? {offset} : {},
                     }
                 }%}
+
+select_order_by -> (%kw_order kw_by) select_order_by_expr (comma select_order_by_expr {%last%}):*  {% ([_, head, tail]) => {
+    return [head, ...(tail || [])];
+} %}
+
+select_order_by_expr -> expr (%kw_asc | %kw_desc):? {% ([by, order]) => ({
+    by,
+    order: flattenStr(order).join('').toUpperCase() || 'ASC',
+}) %}

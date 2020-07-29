@@ -346,6 +346,9 @@ export class Query implements _ISchema, ISchema {
         } else {
             sel = sel.select(p.columns);
         }
+        if (p.orderBy) {
+            sel = sel.orderBy(p.orderBy);
+        }
         if (p.limit) {
             sel = sel.limit(p.limit);
         }

@@ -187,6 +187,12 @@ export interface SelectStatement {
     where?: Expr;
     groupBy?: Expr[];
     limit?: LimitStatement;
+    orderBy?: OrderByStatement[];
+}
+
+export interface OrderByStatement {
+    by: Expr;
+    order: 'ASC' | 'DESC';
 }
 
 export interface LimitStatement {

@@ -9,6 +9,7 @@ import { Adapters } from './adapters';
 import { Transaction } from './transaction';
 import { buildGroupBy } from './transforms/aggregation';
 import { buildLimit } from './transforms/limit';
+import { buildOrderBy } from './transforms/order-by';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     initialize({
@@ -17,6 +18,7 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
         buildFilter,
         buildGroupBy,
         buildLimit,
+        buildOrderBy,
     });
     return new MemoryDb(Transaction.root(), null, opts ?? {});
 }
