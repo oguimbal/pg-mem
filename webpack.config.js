@@ -86,6 +86,8 @@ module.exports = {
             ? path.join(__dirname, 'lib')
             : path.join(__dirname, 'output'),
         // this ensures that source maps are mapped to actual files (not "webpack:" uris)
-        devtoolModuleFilenameTemplate: info => info.resourcePath,
+        devtoolModuleFilenameTemplate: mode === 'production'
+            ? info => info.resourcePath
+            : info => path.resolve(__dirname, info.resourcePath),
     },
 };

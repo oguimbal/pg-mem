@@ -1,12 +1,12 @@
 {
   "name": "pg-mem",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
     "start": "webpack --config webpack.config.js",
     "build": "rimraf lib && webpack --config webpack.config.js --prod",
-    "release": "npm run build && cp -r src lib/src && npm publish lib",
+    "release": "npm run test && npm run build && cp -r src lib/src && npm publish lib",
     "start:playground": "webpack-dev-server --hot --config playground.webpack.config.js",
     "build:playground": "webpack --config playground.webpack.config.js --prod",
     "release:playground": "npm run build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",

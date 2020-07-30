@@ -748,17 +748,31 @@ export function fromNative(native: DataTypeDef): _IType {
     switch (native.type) {
         case 'text':
         case 'varchar':
+        case 'char':
+        case 'character':
+        case 'character varying':
             return Types.text(native.length);
         case 'int':
         case 'integer':
         case 'serial':
+        case 'bigserial':
+        case 'smallserial':
+        case 'smallint':
+        case 'bigint':
             return Types.int;
         case 'decimal':
         case 'float':
+        case 'double precision':
+        case 'numeric':
+        case 'real':
+        case 'money':
             return Types.float;
         case 'timestamp':
             return Types.timestamp;
         case 'date':
+        case 'timestamp':
+        case 'timestamp with time zone':
+        case 'timestamp without time zone':
             return Types.date;
         case 'json':
             return Types.json;

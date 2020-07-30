@@ -1,6 +1,6 @@
 import 'mocha';
 import 'chai';
-import { checkCreateTable } from './spec-utils';
+import { checkCreateTable, checkInvalid } from './spec-utils';
 
 describe('[PG syntax] Create table', () => {
 
@@ -75,8 +75,30 @@ describe('[PG syntax] Create table', () => {
         }],
     });
 
+    checkCreateTable(['create table"test"(value timestamp with time zone)'], {
+        type: 'create table',
+        name: 'test',
+        columns: [{
+            name: 'value',
+            dataType: { type: 'timestamp with time zone' },
+        }],
+    });
 
-    checkCreateTable(['create table"test"(id"text"primary key, value text unique not null)'], {
+    checkInvalid('create table"test"(value "timestamp" with time zone)');
+    checkInvalid('create table"test"(value timestamp with "time" zone)');
+
+    checkCreateTable(['create table"test"(value timestamp)', 'create table"test"(value "timestamp")'], {
+        type: 'create table',
+        name: 'test',
+        columns: [{
+            name: 'value',
+            dataType: { type: 'timestamp' },
+        }],
+    });
+
+
+    checkCreateTable(['create table"test"(id"text"primary key, value text unique not null)'
+        , 'create table"test"(id "text" primary key, value text unique not null)'], {
         type: 'create table',
         name: 'test',
         columns: [{

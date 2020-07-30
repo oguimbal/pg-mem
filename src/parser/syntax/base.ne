@@ -67,7 +67,17 @@ collist -> ident (comma ident {% last %}):* {% ([head, tail]) => {
 # === Non reserved keywords
 # ... which are not in keywords.ts (thus parsed as words)
 @{%
- const notReservedKw = (kw) => (x, _, rej) => x[0].value.toLowerCase() === kw ? x[0].value.toLowerCase() : rej
+ const notReservedKw = (kw) => (x, _, rej) => {
+     const val = typeof x[0] === 'string' ? x[0] : x[0].value;
+     const low = val.toLowerCase();
+     return low === kw ? low : rej;
+ }
+ const kw = notReservedKw;
+ const anyKw = (...kw) => (x, _, rej) => {
+     const val = typeof x[0] === 'string' ? x[0] : x[0].value;
+     const low = val.toLowerCase();
+     return kw.includes(low) ? low : rej;
+ }
 %}
 kw_between -> %word {% notReservedKw('between')  %}
 kw_if -> %word {% notReservedKw('if')  %}
@@ -111,9 +121,11 @@ kw_primary_key -> %kw_primary kw_key
 
 
 # === Datatype
-data_type -> word (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% x => {
+
+# https://www.postgresql.org/docs/9.5/datatype.html
+data_type -> data_type_simple (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% x => {
     const brack = x[2];
-    const type = unwrap(x[0]).toLowerCase();
+    const type = flattenStr(x[0]).join(' ').toLowerCase();
     let ret = {
         type,
         ... (typeof x[1] === 'number' && x[1] >= 0 ) ? { length: x[1] } : {},
@@ -126,6 +138,31 @@ data_type -> word (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% 
     }
     return ret;
 } %}
+
+data_type_simple
+    -> data_type_text
+    | data_type_numeric
+    | data_type_date
+    | word {% anyKw('json', 'jsonb', 'boolean', 'money', 'bytea', 'regtype') %}
+
+
+# https://www.postgresql.org/docs/9.5/datatype-numeric.html
+data_type_numeric -> word {% anyKw('smallint', 'int', 'float', 'integer', 'bigint', 'bigint', 'decimal', 'numeric', 'real', 'smallserial', 'serial', 'bigserial') %}
+                    | (%word {% kw('double') %}) (%word {% kw('precision') %})
+
+# https://www.postgresql.org/docs/9.5/datatype-character.html
+data_type_text
+            -> word  {% anyKw('character', 'varchar', 'char', 'text') %}
+            | word {% kw('character') %}
+            | (%word {% kw('character') %}) (%word {% kw('varying') %})
+
+#https://www.postgresql.org/docs/9.5/datatype-datetime.html
+data_type_date
+    -> word {% kw('date') %}
+    | word {% kw('interval') %}
+    | word {% kw('timestamp') %}
+    | (%word {% anyKw('timestamp', 'time') %}) (%kw_with | %word {% kw('without') %}) (%word {% kw('time') %}) (%word {% kw('zone') %})
+
 
 
 # === Table ref  (ex:  [db.]mytable [as X] )
