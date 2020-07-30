@@ -37,7 +37,7 @@ module.exports = {
                 test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
-                    transpileOnly: true,
+                    transpileOnly: mode === 'development',
                 },
             },
             ...isCoverage ? [
@@ -74,6 +74,7 @@ module.exports = {
             patterns: [
                 { from: 'package.json', to: 'package.json' },
                 { from: 'readme.md', to: 'readme.md' },
+                { from: 'index.d.ts', to: 'index.d.ts' },
             ],
         }),
     ]
@@ -83,7 +84,8 @@ module.exports = {
         ],
 
     output: {
-        library: 'PgMem',
+        library: '',
+        libraryTarget: 'commonjs',
         path: mode === 'production'
             ? path.join(__dirname, 'lib')
             : path.join(__dirname, 'output'),

@@ -1,11 +1,12 @@
 {
   "name": "pg-mem",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
     "start": "webpack --config webpack.config.js",
     "build": "webpack --config webpack.config.js --prod",
+    "publish": "npm run build && npm publish lib",
     "start:playground": "webpack-dev-server --hot --config playground.webpack.config.js",
     "build:playground": "webpack --config playground.webpack.config.js --prod",
     "publish:playground": "npm run build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",
@@ -14,6 +15,25 @@
     "cover": "cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text npm run test"
   },
   "author": "Olivier Guimbal",
+  "repository": "https://github.com/oguimbal/pg-mem",
+  "issues": "https://github.com/oguimbal/pg-mem/issues",
+  "keywords": [
+    "postgres",
+    "pg-mock",
+    "mock",
+    "memory",
+    "db",
+    "database",
+    "pg",
+    "typeorm",
+    "pg-promise",
+    "pg-native",
+    "unit test",
+    "ut",
+    "sql",
+    "pgsql",
+    "postgresql"
+  ],
   "license": "MIT",
   "dependencies": {
     "functional-red-black-tree": "^1.0.1",

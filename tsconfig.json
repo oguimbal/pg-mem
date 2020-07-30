@@ -9,7 +9,10 @@
         "skipLibCheck": true,
         "moduleResolution": "node",
         "baseUrl": ".",
-        "jsx": "react"
+        "jsx": "react",
+        "declaration": true,
+        "declarationMap": true,
+        "declarationDir": "lib"
     },
     "include": [
         "src/**/*.ts",
