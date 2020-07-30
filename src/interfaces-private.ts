@@ -256,7 +256,7 @@ export interface _ITable<T = any> extends IMemoryTable {
     /** Get a column to modify it */
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column;
     rename(to: string): this;
-    addConstraint(constraint: ConstraintDef, t: _Transaction);
+    addConstraint(constraint: ConstraintDef, t: _Transaction, constraintName?: string);
     /** Will be executed when one of the given columns is affected (update/delete) */
     onChange(columns: string[], check: ChangeHandler<T>);
 }

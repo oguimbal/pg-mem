@@ -8,7 +8,8 @@
         "types": [],
         "skipLibCheck": true,
         "moduleResolution": "node",
-        "baseUrl": "."
+        "baseUrl": ".",
+        "jsx": "react"
     },
     "include": [
         "src/**/*.ts",

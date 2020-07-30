@@ -4,14 +4,14 @@ import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 
-type QR = QueryResult & { ignored?: boolean };
+
 export class Query implements _ISchema, ISchema {
 
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
@@ -63,82 +63,103 @@ export class Query implements _ISchema, ISchema {
         return this.query(query).rows;
     }
 
-    query(query: string): QueryResult {
+
+    query(text: string): QueryResult {
+        let last: QueryResult;
+        for (const r of this.queries(text)) {
+            last = r;
+        }
+        return last;
+    }
+
+    *queries(query: string): Iterable<QueryResult> {
         query = query + ';';
-        console.log(query);
-        console.log('\n');
+        // console.log(query);
+        // console.log('\n');
 
         let parsed = parse(query);
         if (!Array.isArray(parsed)) {
             parsed = [parsed];
         }
-        let last: QR
         let t = this.db.data.fork();
         for (const _p of parsed) {
             if (!_p) {
                 continue;
             }
-            const p = watchUse(_p);
-            switch (p.type) {
-                case 'start transaction':
-                    t = t.fork();
-                    continue;
-                case 'commit':
-                    t = t.commit();
-                    if (!t.isChild) {
-                        t = t.fork(); // recreate an implicit transaction
-                    }
-                    continue;
-                case 'rollback':
-                    t = t.rollback();
-                    continue;
-                case 'insert':
-                    last = this.executeInsert(t, p);
-                    break;
-                case 'update':
-                    last = this.executeUpdate(t, p);
-                    break;
-                case 'select':
-                    last = this.executeSelect(t, p);
-                    break;
-                case 'delete':
-                    last = this.executeDelete(t, p);
-                    break;
-                case 'create table':
-                    t = t.fullCommit();
-                    last = this.executeCreateTable(t, p);
-                    t = t.fork();
-                    break;
-                case 'create index':
-                    t = t.fullCommit();
-                    last = this.executeCreateIndex(t, p);
-                    t = t.fork();
-                    break;
-                case 'alter table':
-                    t = t.fullCommit();
-                    last = this.executeAlterRequest(t, p);
-                    t = t.fork();
-                    break;
-                default:
-                    throw NotSupported.never(p, 'statement type');
-            }
-            if (!last.ignored) {
-                p.check?.();
+            let last: QueryResult
+            try {
+                const p = watchUse(_p);
+                p[LOCATION] = _p[LOCATION];
+                switch (p.type) {
+                    case 'start transaction':
+                        t = t.fork();
+                        continue;
+                    case 'commit':
+                        t = t.commit();
+                        if (!t.isChild) {
+                            t = t.fork(); // recreate an implicit transaction
+                        }
+                        continue;
+                    case 'rollback':
+                        t = t.rollback();
+                        continue;
+                    case 'insert':
+                        last = this.executeInsert(t, p);
+                        break;
+                    case 'update':
+                        last = this.executeUpdate(t, p);
+                        break;
+                    case 'select':
+                        last = this.executeSelect(t, p);
+                        break;
+                    case 'delete':
+                        last = this.executeDelete(t, p);
+                        break;
+                    case 'create table':
+                        t = t.fullCommit();
+                        last = this.executeCreateTable(t, p);
+                        t = t.fork();
+                        break;
+                    case 'create index':
+                        t = t.fullCommit();
+                        last = this.executeCreateIndex(t, p);
+                        t = t.fork();
+                        break;
+                    case 'alter table':
+                        t = t.fullCommit();
+                        last = this.executeAlterRequest(t, p);
+                        t = t.fork();
+                        break;
+                    default:
+                        throw NotSupported.never(p, 'statement type');
+                }
+                if (!last.ignored) {
+                    p.check?.();
+                }
+                yield last;
+            } catch (e) {
+                e.location = this.locOf(_p);
+                throw e;
             }
         }
+
         // implicit final commit
         t.fullCommit();
-        return last;
     }
 
-    executeAlterRequest(t: _Transaction, p: AlterTableStatement): QR {
+    private locOf(p: Statement): StatementLocation {
+        return p[LOCATION] ?? {};
+    }
+
+    executeAlterRequest(t: _Transaction, p: AlterTableStatement): QueryResult {
         const table = this.db.getSchema(p.table.db)
             .getTable(p.table.table, p.ifExists);
-        const nop: QR = {
+        const nop: QueryResult = {
             command: 'ALTER',
             fields: [],
             rowCount: 0,
             rows: [],
+            location: this.locOf(p),
         };
         function ignore() {
             nop.ignored = true;
@@ -182,8 +203,8 @@ export class Query implements _ISchema, ISchema {
             case 'rename constraint':
                 throw new NotSupported('rename constraint');
             case 'add constraint':
-                table.addConstraint(change.constraint, t);
-                return ignore(); // todo
+                table.addConstraint(change.constraint, t, change.constraintName);
+                return nop;
             default:
                 throw NotSupported.never(change, 'alter request');
 
@@ -211,13 +232,25 @@ export class Query implements _ISchema, ISchema {
             fields: [],
             rowCount: 0,
             rows: [],
+            location: this.locOf(p),
         };
     }
 
     executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
+        const ret: QueryResult = {
+            command: 'CREATE',
+            fields: [],
+            rowCount: 0,
+            rows: [],
+            location: this.locOf(p),
+        };
         // get creation parameters
         const table = p.name;
         if (this.getTable(table, true)) {
+            if (p.ifNotExists) {
+                ret.ignored = true;
+                return ret;
+            }
             throw new QueryError('Table exists: ' + table);
         }
 
@@ -234,12 +267,7 @@ export class Query implements _ISchema, ISchema {
                     }
                 })
         });
-        return {
-            command: 'CREATE',
-            fields: [],
-            rowCount: 0,
-            rows: [],
-        };
+        return ret;
     }
 
     explainLastSelect(): _SelectExplanation {
@@ -274,6 +302,7 @@ export class Query implements _ISchema, ISchema {
             rowCount: rows.length,
             command: 'DELETE',
             fields: [],
+            location: this.locOf(p),
         }
     }
 
@@ -286,6 +315,7 @@ export class Query implements _ISchema, ISchema {
             rowCount: rows.length,
             command: 'SELECT',
             fields: [],
+            location: this.locOf(p),
         };
     }
 
@@ -392,6 +422,7 @@ export class Query implements _ISchema, ISchema {
             rows,
             command: 'UPDATE',
             fields: [],
+            location: this.locOf(p),
         }
     }
 
@@ -452,6 +483,7 @@ export class Query implements _ISchema, ISchema {
             rows,
             command: 'INSERT',
             fields: [],
+            location: this.locOf(p),
         }
     }
 

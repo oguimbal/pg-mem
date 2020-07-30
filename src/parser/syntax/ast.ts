@@ -12,14 +12,15 @@ export type Statement = (SelectStatement
     | RollbackStatement
     | AlterTableStatement
     | StartTransactionStatement) & {
-        /** Location of the last ";" prior to this statement */
-        [LOCATION]?: {
-            line: number;
-            col: number;
-            offset: number;
-        }
+        [LOCATION]?: StatementLocation;
     };
 
+export interface StatementLocation {
+    /** Location of the last ";" prior to this statement */
+    start?: number;
+    /** Location of the first ";" after this statement (if any) */
+    end?: number;
+}
 
 export interface StartTransactionStatement {
     type: 'start transaction';

@@ -452,7 +452,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    addConstraint(cst: ConstraintDef, t: _Transaction) {
+    addConstraint(cst: ConstraintDef, t: _Transaction, constraintName?: string) {
+        // todo add constraint name
         switch (cst.type) {
             case 'foreign key':
                 const ftable = this.schema.getTable(cst.foreignTable) as MemoryTable;

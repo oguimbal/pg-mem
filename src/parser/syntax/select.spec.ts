@@ -1,7 +1,7 @@
 import 'mocha';
 import 'chai';
 import { checkSelect, checkInvalid } from './spec-utils';
-import { SelectedColumn, Expr, ExprBinary, JoinType, SelectStatement } from './ast';
+import { SelectedColumn, Expr, ExprBinary, JoinType, SelectStatement, Statement, LOCATION } from './ast';
 
 describe('[PG syntax] Select statements', () => {
 

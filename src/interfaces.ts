@@ -1,4 +1,4 @@
-import { TableConstraint, DataTypeDef, Expr, CreateColumnDef } from './parser/syntax/ast';
+import { TableConstraint, CreateColumnDef, StatementLocation } from './parser/syntax/ast';
 
 
 
@@ -118,6 +118,12 @@ export interface ISchema {
      * Execute a query
      */
     query(text: string): QueryResult;
+
+
+    /**
+     * Progressively executes a query, yielding results until the end of enumeration (or an exception)
+     */
+    queries(text: string): Iterable<QueryResult>
 }
 
 export interface QueryResult {
@@ -126,6 +132,11 @@ export interface QueryResult {
     rowCount: number;
     fields: Array<FieldInfo>;
     rows: any[];
+
+    /** Ignored (because of an "if not exists" or equivalent) */
+    ignored?: boolean;
+    /** Location of the last ";" prior to this statement */
+    location: StatementLocation;
 }
 
 export interface FieldInfo {

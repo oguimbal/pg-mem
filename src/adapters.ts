@@ -1,5 +1,5 @@
 import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces';
-import pgEscape from 'pg-escape';
+import { literal } from './pg-escape';
 import moment from 'moment';
 declare var __non_webpack_require__;
 
@@ -72,7 +72,7 @@ export class Adapters implements LibAdapters {
                     };
                 } else {
                     // clean copy to avoid mutating things outside our scope
-                    query = {...query};
+                    query = { ...query };
                 }
                 if (!values?.length) {
                     return query;
@@ -93,7 +93,7 @@ export class Adapters implements LibAdapters {
                     const val = values[i - 1];
                     switch (typeof val) {
                         case 'string':
-                            return pgEscape('%L', val);
+                            return literal(val);
                         case 'boolean':
                             return val ? 'true' : 'false';
                         case 'number':
@@ -106,7 +106,7 @@ export class Adapters implements LibAdapters {
                                 return `'${moment(val).toISOString()}'`;
                             }
                             if (typeof val === 'object') {
-                                return pgEscape('%L', JSON.stringify(val));
+                                return literal(JSON.stringify(val));
                             }
                             throw new Error('Invalid query parameter')
                     }

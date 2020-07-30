@@ -1,4 +1,4 @@
-import { Statement, Expr } from './syntax/ast';
+import { Statement, Expr, LOCATION } from './syntax/ast';
 import { Parser, Grammar } from 'nearley';
 import sqlGrammar from './syntax/main.ne';
 import arrayGrammar from './literal-syntaxes/array.ne';

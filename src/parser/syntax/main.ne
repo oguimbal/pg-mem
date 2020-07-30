@@ -14,18 +14,23 @@
 # list of statements, separated by ";"
 main -> statement_separator:* statement (statement_separator:+ statement):* statement_separator:*  {% ([_, head, _tail]) => {
     const tail = _tail; // && _tail[0];
+    const first = unwrap(head);
+    first[LOCATION] = { start: 0 };
     if (!tail || !tail.length) {
-        return unwrap(head);
+        return first;
     }
-    const ret = [unwrap(head)];
+    const ret = [first];
+    let prev = first;
     for (const t of tail) {
-        const lastSep = last(unwrap(t[0]));
+        const firstSep = unwrap(t[0][0]);
+        prev[LOCATION].end = firstSep.offset;
+
+        const lastSep = unwrap(last(t[0]));
         const statement = unwrap(t[1]);
         statement[LOCATION] = {
-            line: lastSep.line,
-            col: lastSep.col,
-            offset: lastSep.offset,
+            start: lastSep.offset,
         };
+        prev = statement;
         ret.push(statement);
     }
     return ret;
