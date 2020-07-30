@@ -4,6 +4,7 @@
 
 It works both in node or in browser.
 
+## See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
 
 ## DISCLAIMER
 
@@ -13,23 +14,31 @@ This lib is quite new, so forgive it if some obivious pg syntax is not supported
 
 ... And open an issue if you feel like a feature should be implemented :)
 
+Moreover, even if I wrote hundreds of tests, keep in mind that this implementation is a best effort to replicate PG.
+Keep an eye on your query results if you perform complex queries.
+Please file issues if some results seem incoherent with what should be returned.
 
-## See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
+Finally, I invite you to read the below section to have an idea of you can or cannot do.
+
+
+# Supported features
 
 It supports:
 - [x] Transactions
 - [x] Indices, somewhat (on "simple" requests)
 - [x] Basic data types (json, dates, ...)
 - [x] Joins, group bys, ...
-- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
+- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
 
 
-It does not (yet) support:
+It does not (yet) support (this is kind-of a todo list):
 - [ ] Gin Indices
 - [ ] Cartesian Joins
-- [ ] Some aggregations (avg, count)
+- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions.ts) !
+- [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
 - [ ] Stored procedures
-- [ ] Lots of small and not so small things (collate, timezones, tsqueries, ...)
+- [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
+- [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
 
 ... PR are open :)
 
@@ -103,6 +112,33 @@ import {Client} from 'pg';
 // use:
 import {newDb} from 'pg-mem';
 const {Client} = newDb.adapters.createPg();
+```
+
+
+## pg-promise (pgp)
+
+You can ask `pg-mem` to get you a [pg-promise](https://github.com/vitaly-t/pg-promise) instance bound to this db.
+
+Given that pg-promise [does not provide](https://github.com/vitaly-t/pg-promise/issues/743) any way to be hooked, [I had to fork it](https://github.com/oguimbal/pg-promise).
+You must install this fork in order to use this  (not necessarily use it in production):
+
+```bash
+npm i @oguimbal/pg-promise -D
+```
+
+Then:
+
+```typescript
+// instead of
+import pgp from 'pg-promise';
+const pg = pgp(opts)
+
+// use:
+import {newDb} from 'pg-mem';
+const pg = await newDb.adapters.createPgPromise();
+
+// then use it like you would with pg-promise
+await pg.connect();
 ```
 
 

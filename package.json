@@ -1,6 +1,6 @@
 {
   "name": "pg-mem",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
@@ -49,6 +49,7 @@
     "@babel/core": "^7.10.5",
     "@babel/preset-env": "^7.10.4",
     "@hot-loader/react-dom": "^16.13.0",
+    "@oguimbal/pg-promise": "^10.5.8",
     "@types/chai": "^4.2.11",
     "@types/lru-cache": "^5.1.0",
     "@types/mocha": "^8.0.0",

@@ -7,3 +7,4 @@
 - Handle "insert into tbl select * from otherTbl"
 - "auto-create" tables mode (which guess/adapt their schema on insert)
 - aggregation functions (avg...)
+- better coverage

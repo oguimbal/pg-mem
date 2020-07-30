@@ -53,6 +53,10 @@ export class Adapters implements LibAdapters {
             on() {
                 // nop
             }
+            release() {
+            }
+            removeListener() {
+            }
             end(callback) {
                 callback();
                 return Promise.resolve();
@@ -143,10 +147,10 @@ export class Adapters implements LibAdapters {
 
     createPgPromise(queryLatency?: number) {
         // https://vitaly-t.github.io/pg-promise/module-pg-promise.html
-        const pgp = __non_webpack_require__('pg-promise');
-        return pgp({
-            pgNative: this.createPgNative(),
+        const pgp = __non_webpack_require__('@oguimbal/pg-promise')({
+            customPg: this.createPg(queryLatency),
         });
+        return pgp('fake connection string');
     }
 
     createPgNative(queryLatency?: number) {
