@@ -20,7 +20,8 @@
         "package-lock.json": true,
         ".nyc_output": true,
         "coverage": true,
-        "dist": true
+        "dist": true,
+        "lib": true
     },
     "mochaExplorer.env": {
         // set this to 'true' to disable AST full utilization monitorying.

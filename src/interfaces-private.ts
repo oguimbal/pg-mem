@@ -233,7 +233,7 @@ export interface _IDb extends IMemoryDb {
     readonly data: _Transaction;
     getSchema(db: string): _ISchema;
     raiseTable(table: string, event: TableEvent): void;
-    raiseGlobal(event: GlobalEvent): void;
+    raiseGlobal(event: GlobalEvent, ...args: any[]): void;
     listSchemas(): _ISchema[];
     onSchemaChange(): void;
     getTable(name: string, nullIfNotExists?: boolean): _ITable;

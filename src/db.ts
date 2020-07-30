@@ -1,4 +1,4 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup, MemoryDbOptions } from './interfaces';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema } from './interfaces-private';
 import { Query } from './query';
 import { initialize } from './transforms/transform-base';
@@ -73,12 +73,15 @@ class MemoryDb implements _IDb {
         return this.public.getTable(name, nullIfNotExists);
     }
 
-    on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any) {
+    on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any): ISubscription {
         let lst = this.handlers.get(event);
         if (!lst) {
             this.handlers.set(event, lst = new Set());
         }
         lst.add(handler);
+        return {
+            unsubscribe: () => lst.delete(handler),
+        };
     }
 
     raiseTable(table: string, event: TableEvent): void {
@@ -88,10 +91,10 @@ class MemoryDb implements _IDb {
         }
     }
 
-    raiseGlobal(event: GlobalEvent): void {
+    raiseGlobal(event: GlobalEvent, ...data: any[]): void {
         const got = this.handlers.get(event);
         for (const h of got ?? []) {
-            h();
+            h(...data);
         }
     }
 

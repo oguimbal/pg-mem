@@ -68,9 +68,10 @@ export interface IMemoryDb {
      */
     getTable(table: string): IMemoryTable;
     /** Subscribe to a global event */
-    on(event: GlobalEvent, handler: () => any);
+    on(event: 'query', handler: (query: string) => any): ISubscription;
+    on(event: GlobalEvent, handler: () => any): ISubscription;
     /** Subscribe to an event on all tables */
-    on(event: TableEvent, handler: (table: string) => any);
+    on(event: TableEvent, handler: (table: string) => any): ISubscription;
 
     /**
      * Creates a restore point.
@@ -91,9 +92,14 @@ export interface IBackup {
 export interface LibAdapters {
     /** Create a PG module that will be equivalent to require('pg') */
     createPg(queryLatency?: number): { Pool: any; Client: any };
-    /**  */
+
+    /** Create a pg-promise instance bound to this db */
     createPgPromise(queryLatency?: number): any;
-    /** Hook a not-yet-connected Typeorm connection */
+
+    /** Create a pg-native instance bound to this db */
+    createPgNative(queryLatency?: number): any;
+
+    /** Create a Typeorm connection bound to this db */
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number);
 }
 
@@ -146,14 +152,17 @@ export interface FieldInfo {
 
 
 export type TableEvent = 'seq-scan';
-export type GlobalEvent = 'catastrophic-join-optimization' | 'schema-change';
+export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change';
 
 export interface IMemoryTable {
-    // createIndex(expressions: string[]): this;
     /** Subscribe to an event on this table */
-    on(event: TableEvent, handler: () => any): void;
+    on(event: TableEvent, handler: () => any): ISubscription;
     /** List existing indices defined on this table */
     listIndices(): IndexDef[];
+}
+
+export interface ISubscription {
+    unsubscribe(): void;
 }
 
 export interface IndexDef {

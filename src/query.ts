@@ -76,75 +76,80 @@ export class Query implements _ISchema, ISchema {
         query = query + ';';
         // console.log(query);
         // console.log('\n');
-
-        let parsed = parse(query);
-        if (!Array.isArray(parsed)) {
-            parsed = [parsed];
-        }
-        let t = this.db.data.fork();
-        for (const _p of parsed) {
-            if (!_p) {
-                continue;
+        try {
+            let parsed = parse(query);
+            if (!Array.isArray(parsed)) {
+                parsed = [parsed];
             }
-            let last: QueryResult
-            try {
-                const p = watchUse(_p);
-                p[LOCATION] = _p[LOCATION];
-                switch (p.type) {
-                    case 'start transaction':
-                        t = t.fork();
-                        continue;
-                    case 'commit':
-                        t = t.commit();
-                        if (!t.isChild) {
-                            t = t.fork(); // recreate an implicit transaction
-                        }
-                        continue;
-                    case 'rollback':
-                        t = t.rollback();
-                        continue;
-                    case 'insert':
-                        last = this.executeInsert(t, p);
-                        break;
-                    case 'update':
-                        last = this.executeUpdate(t, p);
-                        break;
-                    case 'select':
-                        last = this.executeSelect(t, p);
-                        break;
-                    case 'delete':
-                        last = this.executeDelete(t, p);
-                        break;
-                    case 'create table':
-                        t = t.fullCommit();
-                        last = this.executeCreateTable(t, p);
-                        t = t.fork();
-                        break;
-                    case 'create index':
-                        t = t.fullCommit();
-                        last = this.executeCreateIndex(t, p);
-                        t = t.fork();
-                        break;
-                    case 'alter table':
-                        t = t.fullCommit();
-                        last = this.executeAlterRequest(t, p);
-                        t = t.fork();
-                        break;
-                    default:
-                        throw NotSupported.never(p, 'statement type');
+            let t = this.db.data.fork();
+            for (const _p of parsed) {
+                if (!_p) {
+                    continue;
                 }
-                if (!last.ignored) {
-                    p.check?.();
+                let last: QueryResult
+                try {
+                    const p = watchUse(_p);
+                    p[LOCATION] = _p[LOCATION];
+                    switch (p.type) {
+                        case 'start transaction':
+                            t = t.fork();
+                            continue;
+                        case 'commit':
+                            t = t.commit();
+                            if (!t.isChild) {
+                                t = t.fork(); // recreate an implicit transaction
+                            }
+                            continue;
+                        case 'rollback':
+                            t = t.rollback();
+                            continue;
+                        case 'insert':
+                            last = this.executeInsert(t, p);
+                            break;
+                        case 'update':
+                            last = this.executeUpdate(t, p);
+                            break;
+                        case 'select':
+                            last = this.executeSelect(t, p);
+                            break;
+                        case 'delete':
+                            last = this.executeDelete(t, p);
+                            break;
+                        case 'create table':
+                            t = t.fullCommit();
+                            last = this.executeCreateTable(t, p);
+                            t = t.fork();
+                            break;
+                        case 'create index':
+                            t = t.fullCommit();
+                            last = this.executeCreateIndex(t, p);
+                            t = t.fork();
+                            break;
+                        case 'alter table':
+                            t = t.fullCommit();
+                            last = this.executeAlterRequest(t, p);
+                            t = t.fork();
+                            break;
+                        default:
+                            throw NotSupported.never(p, 'statement type');
+                    }
+                    if (!last.ignored) {
+                        p.check?.();
+                    }
+                    yield last;
+                } catch (e) {
+                    e.location = this.locOf(_p);
+                    throw e;
                 }
-                yield last;
-            } catch (e) {
-                e.location = this.locOf(_p);
-                throw e;
             }
-        }
 
-        // implicit final commit
-        t.fullCommit();
+            // implicit final commit
+            t.fullCommit();
+            this.db.raiseGlobal('query', query);
+        } catch (e) {
+            this.db.raiseGlobal('query-failed', query);
+            throw e;
+        }
     }
 
     private locOf(p: Statement): StatementLocation {

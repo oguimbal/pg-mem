@@ -106,7 +106,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return null;
     }
 
-    on(): void {
+    on(): any {
         throw new NotSupported('subscribing information schema');
     }
 

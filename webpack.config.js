@@ -1,19 +1,25 @@
 const webpack = require('webpack');
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
+const CopyPlugin = require('copy-webpack-plugin');
 
 var isCoverage = process.env.NODE_ENV === 'coverage';
+const mode = process.argv.includes('--prod')
+    ? 'production'
+    : 'development';
 
 module.exports = {
-    entry: {
-        'tests': isCoverage
-            ? ['./tests-index.js']
-            : ['webpack/hot/poll?100', './tests-index.js']
-    },
-    watch: true,
+    entry: mode === 'production' ? {
+        'index': './src/index.ts',
+    } : {
+            'tests': isCoverage
+                ? ['./tests-index.js']
+                : ['webpack/hot/poll?100', './tests-index.js']
+        },
+    watch: mode === 'development',
     target: 'node',
     devtool: 'source-map',
-    mode: 'development',
+    mode,
     node: {
         // required if you want __dirname to behave as usual https://webpack.js.org/configuration/node/
         __dirname: false
@@ -63,18 +69,24 @@ module.exports = {
         // this one is usually useful (not required for this example)
         // plugins: [new TsconfigPathsPlugin({ configFile: path.resolve(__dirname, 'tsconfig.json') })],
     },
-    plugins: [
-        // required
-        new webpack.HotModuleReplacementPlugin(),
-        // new webpack.SourceMapDevToolPlugin({
-        //   // this will emit the right path in sourcemaps so mocha finds the right files
-        //   publicPath: path.join('file:///', __dirname),
-        //   fileContext: 'public',
-        // })
-    ],
+    plugins: mode === 'production' ? [
+        new CopyPlugin({
+            patterns: [
+                { from: 'package.json', to: 'package.json' },
+                { from: 'readme.md', to: 'readme.md' },
+            ],
+        }),
+    ]
+        : [
+            // required
+            new webpack.HotModuleReplacementPlugin(),
+        ],
 
     output: {
-        path: path.join(__dirname, 'output'),
+        library: 'PgMem',
+        path: mode === 'production'
+            ? path.join(__dirname, 'lib')
+            : path.join(__dirname, 'output'),
         // this ensures that source maps are mapped to actual files (not "webpack:" uris)
         devtoolModuleFilenameTemplate: info => path.resolve(__dirname, info.resourcePath),
     },

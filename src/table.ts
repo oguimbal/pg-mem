@@ -1,4 +1,4 @@
-import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound } from './interfaces';
+import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
@@ -179,12 +179,15 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return t.set(this.dataId, val);
     }
 
-    on(event: TableEvent, handler: () => any) {
+    on(event: TableEvent, handler: () => any): ISubscription {
         let lst = this.handlers.get(event);
         if (!lst) {
             this.handlers.set(event, lst = new Set());
         }
         lst.add(handler);
+        return {
+            unsubscribe: () => lst.delete(handler),
+        };
     }
 
     raise(event: TableEvent) {

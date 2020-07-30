@@ -1,7 +1,39 @@
 import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces';
 import { literal } from './pg-escape';
 import moment from 'moment';
+import lru from 'lru-cache';
 declare var __non_webpack_require__;
+
+const delay = (time: number) => new Promise(done => setTimeout(done, time));
+
+function replaceQueryArgs$(this: void, sql: string, values: any[]) {
+    return sql.replace(/\$(\d+)/g, (str, istr) => {
+        const i = Number.parseInt(istr);
+        if (i > values.length) {
+            throw new Error('Unmatched parameter in query ' + str);
+        }
+        const val = values[i - 1];
+        switch (typeof val) {
+            case 'string':
+                return literal(val);
+            case 'boolean':
+                return val ? 'true' : 'false';
+            case 'number':
+                return val.toString(10);
+            default:
+                if (val === null || val === undefined) {
+                    return null;
+                }
+                if (val instanceof Date) {
+                    return `'${moment(val).toISOString()}'`;
+                }
+                if (typeof val === 'object') {
+                    return literal(JSON.stringify(val));
+                }
+                throw new Error('Invalid query parameter')
+        }
+    });
+}
 
 export class Adapters implements LibAdapters {
 
@@ -85,32 +117,7 @@ export class Adapters implements LibAdapters {
                 // console.log(query);
                 // console.log('\n');
 
-                query.text = query.text.replace(/\$(\d+)/g, (str, istr) => {
-                    const i = Number.parseInt(istr);
-                    if (i > values.length) {
-                        throw new Error('Unmatched parameter in query ' + str);
-                    }
-                    const val = values[i - 1];
-                    switch (typeof val) {
-                        case 'string':
-                            return literal(val);
-                        case 'boolean':
-                            return val ? 'true' : 'false';
-                        case 'number':
-                            return val.toString(10);
-                        default:
-                            if (val === null || val === undefined) {
-                                return null;
-                            }
-                            if (val instanceof Date) {
-                                return `'${moment(val).toISOString()}'`;
-                            }
-                            if (typeof val === 'object') {
-                                return literal(JSON.stringify(val));
-                            }
-                            throw new Error('Invalid query parameter')
-                    }
-                });
+                query.text = replaceQueryArgs$(query.text, values);
                 return query;
             }
         }
@@ -135,7 +142,83 @@ export class Adapters implements LibAdapters {
 
 
     createPgPromise(queryLatency?: number) {
-        throw new Error('Method not implemented.');
+        // https://vitaly-t.github.io/pg-promise/module-pg-promise.html
+        const pgp = __non_webpack_require__('pg-promise');
+        return pgp({
+            pgNative: this.createPgNative(),
+        });
+    }
+
+    createPgNative(queryLatency?: number) {
+        queryLatency = queryLatency ?? 0;
+        const prepared = new lru<string, string>({
+            max: 1000,
+            maxAge: 5000,
+        });
+        function handlerFor(a, b) {
+            return typeof a === 'function' ? a : b;
+        }
+        const that = this;
+        return class Client {
+            async connect(a: any, b: any) {
+                const handler = handlerFor(a, b);
+                await delay(queryLatency);
+                handler?.();
+            }
+
+            connectSync() {
+                // nop
+            }
+
+            async prepare(name: string, sql: string, npar: number, callback: any) {
+                await delay(queryLatency);
+                this.prepareSync(name, sql, npar);
+                callback();
+            }
+
+            prepareSync(name: string, sql: string, npar: number) {
+                prepared.set(name, sql);
+            }
+
+            async execute(name: string, a: any, b: any) {
+                const handler = handlerFor(a, b);
+                const pars = Array.isArray(a) ? a : [];
+                await delay(queryLatency);
+                try {
+                    const rows = this.executeSync(name, pars);
+                    handler(null, rows);
+                } catch (e) {
+                    handler(e);
+                }
+            }
+            executeSync(name: string, pars?: any) {
+                pars = Array.isArray(pars) ? pars : [];
+                const prep = prepared.get(name);
+                if (!prep) {
+                    throw new Error('Unkown prepared statement ' + name);
+                }
+                return this.querySync(prep, pars);
+            }
+
+
+            async query(sql: string, b: any, c: any) {
+                const handler = handlerFor(b, c);
+                const params = Array.isArray(b) ? b : [];
+                try {
+                    await delay(queryLatency);
+                    const result = this.querySync(sql, params);
+                    handler(null, result);
+                } catch (e) {
+                    handler?.(e);
+                }
+            }
+
+            querySync(sql: string, params: any[]) {
+                sql = replaceQueryArgs$(sql, params);
+                const ret = that.db.public.many(sql);
+                return ret;
+            }
+        }
     }
 
 }
