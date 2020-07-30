@@ -125,7 +125,6 @@ module.exports = [
         output: {
             path: ouptutpath,
             filename: 'main.js',
-            publicPath: '/',
         },
         optimization: {
             runtimeChunk: 'single',
