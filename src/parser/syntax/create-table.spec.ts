@@ -71,7 +71,13 @@ describe('[PG syntax] Create table', () => {
         name: 'test',
         columns: [{
             name: 'value',
-            dataType: { type: 'array', arrayOf: { type: 'array', arrayOf: { type: 'text' } } },
+            dataType: {
+                type: 'array',
+                arrayOf: {
+                    type: 'array',
+                    arrayOf: { type: 'text' }
+                }
+            },
         }],
     });
 

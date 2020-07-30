@@ -145,8 +145,13 @@ describe('[Queries] Schema manipulation', () => {
         assert.throws(() => db.public.none(`insert into test(value) values ('{"a" 42}');`));
     });
 
-    it ('can create ', () => {
+    it('bugfix 1', () => {
         const db = newDb();
         db.public.none('CREATE TABLE "a" ("id" character varying NOT NULL, "b" jsonb NOT NULL, "c" jsonb NOT NULL, "d" character varying NOT NULL, "e" jsonb NOT NULL, "f" TIMESTAMP NOT NULL, "g" character varying NOT NULL, "h" jsonb NOT NULL, "i" jsonb NOT NULL, "j" jsonb NOT NULL, "k" jsonb NOT NULL, "l" jsonb NOT NULL, "m" character varying NOT NULL, "n" jsonb NOT NULL, "o" jsonb NOT NULL, "p" jsonb NOT NULL, "q" jsonb NOT NULL, "r" character varying NOT NULL, "s" jsonb NOT NULL, "t" jsonb NOT NULL, "u" TIMESTAMP NOT NULL, "v" jsonb NOT NULL, "w" text NOT NULL, "x" text NOT NULL, "y" TIMESTAMP NOT NULL, "z" jsonb NOT NULL, CONSTRAINT "PK_e2f1f4741f2094ce789b0a7c5b3" PRIMARY KEY ("id"));');
+    })
+
+    it('bugfix 2', () => {
+        const db = newDb();
+        db.public.none('CREATE TABLE "a" ("id" character varying NOT NULL, "b" text NOT NULL, "c" character varying NOT NULL, "d" jsonb array NOT NULL, "e" jsonb NOT NULL, CONSTRAINT "PK_17c3a89f58a2997276084e706e8" PRIMARY KEY ("id"));');
     })
 });

@@ -123,18 +123,23 @@ kw_primary_key -> %kw_primary kw_key
 # === Datatype
 
 # https://www.postgresql.org/docs/9.5/datatype.html
-data_type -> data_type_simple (lparen int rparen {% get(1) %}):? (%lbracket %rbracket):* {% x => {
-    const brack = x[2];
+data_type -> data_type_simple (lparen int rparen {% get(1) %}):? (%kw_array | (%lbracket %rbracket):+):? {% x => {
+    let asArray = x[2];
     const type = flattenStr(x[0]).join(' ').toLowerCase();
     let ret = {
         type,
         ... (typeof x[1] === 'number' && x[1] >= 0 ) ? { length: x[1] } : {},
     };
-    for (const b of brack) {
-        ret = {
-            type: 'array',
-            arrayOf: ret,
-        };
+    if (asArray) {
+        if (asArray[0].type === 'kw_array') {
+            asArray = [['array']]
+        }
+        for (const _ of asArray[0]) {
+            ret = {
+                type: 'array',
+                arrayOf: ret,
+            };
+        }
     }
     return ret;
 } %}
