@@ -296,7 +296,7 @@ export const Value = {
     null(ofType?: _IType): IValue {
         return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null, null);
     },
-    text(value: string, length: number = null) {
+    text(value: string, length: number = null): IValue {
         return new Evaluator(
             Types.text(length)
             , null
@@ -305,7 +305,7 @@ export const Value = {
             , null
             , value);
     },
-    number(value: number, type = Types.float) {
+    number(value: number, type = Types.float): IValue {
         return new Evaluator(
             type
             , null
@@ -314,10 +314,10 @@ export const Value = {
             , null
             , value);
     },
-    function(value: string, args: IValue[]) {
+    function(value: string, args: IValue[]): IValue {
         return buildCall(value, args);
     },
-    bool(value: boolean) {
+    bool(value: boolean): IValue {
         const str = value ? 'true' : 'false';
         return new Evaluator(
             Types.bool
@@ -328,7 +328,7 @@ export const Value = {
             , value);
     },
     /** @deprecated Use with care */
-    constant(_type: DataType | _IType, value: any) {
+    constant(_type: DataType | _IType, value: any): IValue {
         const type = value === null ? Types.null : makeType(_type);
         return new Evaluator(type
             , null
@@ -337,7 +337,7 @@ export const Value = {
             , null
             , value);
     },
-    in(value: IValue, array: IValue, inclusive: boolean) {
+    in(value: IValue, array: IValue, inclusive: boolean): IValue {
         if (!value) {
             throw new Error('Argument null');
         }
@@ -361,7 +361,7 @@ export const Value = {
                 return inclusive ? has : !has;
             });
     },
-    isNull(leftValue: IValue, expectNull: boolean) {
+    isNull(leftValue: IValue, expectNull: boolean): IValue {
         return new Evaluator(
             Types.bool
             , null
@@ -376,7 +376,7 @@ export const Value = {
                 return left !== null && left !== undefined;
             }))
     },
-    isTrue(leftValue: IValue, expectTrue: boolean) {
+    isTrue(leftValue: IValue, expectTrue: boolean): IValue {
         leftValue = leftValue.convert(Types.bool);
         return new Evaluator(
             Types.bool
@@ -392,7 +392,7 @@ export const Value = {
                 return !(left === true); //  never returns null
             }));
     },
-    isFalse(leftValue: IValue, expectFalse: boolean) {
+    isFalse(leftValue: IValue, expectFalse: boolean): IValue {
         leftValue = leftValue.convert(Types.bool);
         return new Evaluator(
             Types.bool
@@ -408,14 +408,14 @@ export const Value = {
                 return !(left === false); //  never returns null
             }));
     },
-    negate(value: IValue) {
+    negate(value: IValue): IValue {
         if (!isNumeric(value.type)) {
             throw new QueryError('Can only apply "-" unary operator to numeric types');
         }
         return (value as Evaluator)
             .setConversion(x => -x, x => '-(' + x + ')', x => ({ neg: x }));
     },
-    array(values: IValue[]) {
+    array(values: IValue[]): IValue {
         if (!values.length) {
             throw new QueryError('Expecting some value in list');
         }

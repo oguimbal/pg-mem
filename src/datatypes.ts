@@ -694,17 +694,17 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
 //     [key in DataType]?: _IType;
 // };
 export const Types = { // : Ctors
-    [DataType.bool]: new BoolType(),
-    [DataType.text]: (len = null) => makeText(len),
-    [DataType.timestamp]: new TimestampType(DataType.timestamp),
-    [DataType.date]: new TimestampType(DataType.date),
-    [DataType.jsonb]: new JSONBType(DataType.jsonb),
-    [DataType.regtype]: new RegType(),
-    [DataType.json]: new JSONBType(DataType.json),
-    [DataType.null]: new NullType(),
-    [DataType.float]: new NumberType(DataType.float),
-    [DataType.int]: new NumberType(DataType.int),
-    [DataType.long]: new NumberType(DataType.long),
+    [DataType.bool]: new BoolType() as _IType,
+    [DataType.text]: (len = null) => makeText(len) as _IType,
+    [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
+    [DataType.date]: new TimestampType(DataType.date) as _IType,
+    [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
+    [DataType.regtype]: new RegType() as _IType,
+    [DataType.json]: new JSONBType(DataType.json) as _IType,
+    [DataType.null]: new NullType() as _IType,
+    [DataType.float]: new NumberType(DataType.float) as _IType,
+    [DataType.int]: new NumberType(DataType.int) as _IType,
+    [DataType.long]: new NumberType(DataType.long) as _IType,
 }
 
 

@@ -40,7 +40,7 @@ export class Adapters implements LibAdapters {
     constructor(private db: IMemoryDb) {
     }
 
-    createPg(queryLatency?: number) {
+    createPg(queryLatency?: number): { Pool: any; Client: any } {
         const that = this;
         // https://node-postgres.com/features/queries
         interface PgQuery {

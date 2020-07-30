@@ -17,13 +17,12 @@ module.exports = {
                 : ['webpack/hot/poll?100', './tests-index.js']
         },
     watch: mode === 'development',
+    optimization: {
+        minimize: false,
+    },
     target: 'node',
     devtool: 'source-map',
     mode,
-    node: {
-        // required if you want __dirname to behave as usual https://webpack.js.org/configuration/node/
-        __dirname: false
-    },
 
     externals: [
         nodeExternals({
@@ -65,16 +64,13 @@ module.exports = {
         ],
     },
     resolve: {
-        extensions: ['.tsx', '.ts', '.js', '.ne'], // '.pegjs',
-        // this one is usually useful (not required for this example)
-        // plugins: [new TsconfigPathsPlugin({ configFile: path.resolve(__dirname, 'tsconfig.json') })],
+        extensions: ['.tsx', '.ts', '.js', '.ne'],
     },
     plugins: mode === 'production' ? [
         new CopyPlugin({
             patterns: [
                 { from: 'package.json', to: 'package.json' },
                 { from: 'readme.md', to: 'readme.md' },
-                { from: 'index.d.ts', to: 'index.d.ts' },
             ],
         }),
     ]
@@ -90,6 +86,6 @@ module.exports = {
             ? path.join(__dirname, 'lib')
             : path.join(__dirname, 'output'),
         // this ensures that source maps are mapped to actual files (not "webpack:" uris)
-        devtoolModuleFilenameTemplate: info => path.resolve(__dirname, info.resourcePath),
+        devtoolModuleFilenameTemplate: info => info.resourcePath,
     },
 };

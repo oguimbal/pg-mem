@@ -303,6 +303,7 @@ export interface _IType<TRaw = any> extends IType {
     canConvert(to: DataType | _IType<TRaw>): boolean;
     convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;
     constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget);
+    prefer(type: _IType<any>): _IType;
 }
 
 export interface IValue<TRaw = any> {

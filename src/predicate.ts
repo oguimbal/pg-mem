@@ -272,7 +272,8 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             }
             break;
         default:
-            throw NotSupported.never(op, 'operator');
+            // throw NotSupported.never(op, 'operator');
+            throw new NotSupported('operator ' + op);
     }
 
     const sql = `${leftValue.sql} ${op} ${rightValue.sql}`;

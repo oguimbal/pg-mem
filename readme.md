@@ -41,7 +41,7 @@ As always, it stats with an:
 npm i pg-mem --save
 ```
 
-## Nodejs, webpack, etc
+Then, assuming you're using something like Webpack if you're targetting a browser:
 
 ```typescript
 import { newDb } from 'pg-mem';
@@ -49,10 +49,6 @@ import { newDb } from 'pg-mem';
 const db = newDb();
 db.public.many(/* put some sql here */)
 ```
-
-## Browser environment
-
-todo: document that.
 
 # Features
 
