@@ -506,6 +506,11 @@ class TextType extends TypeBase<string> {
                         } else if ('false'.startsWith(str)) {
                             return false;
                         }
+                        if ('yes'.startsWith(str)) {
+                            return true;
+                        } else if ('no'.startsWith(str)) {
+                            return false;
+                        }
                         throw new CastError(DataType.text, DataType.bool, 'string ' + rawStr);
                     }
                         , sql => `(${sql})::boolean`
@@ -782,6 +787,8 @@ export function fromNative(native: DataTypeDef): _IType {
             return Types.regtype;
         case 'array':
             return makeArray(fromNative(native.arrayOf));
+        case 'boolean':
+            return Types.bool;
         default:
             throw new NotSupported('Type ' + JSON.stringify(native.type));
     }
