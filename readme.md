@@ -21,7 +21,7 @@ It supports:
 - [x] Indices, somewhat (on "simple" requests)
 - [x] Basic data types (json, dates, ...)
 - [x] Joins, group bys, ...
-- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
+- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
 
 
 It does not (yet) support:
@@ -105,23 +105,6 @@ import {newDb} from 'pg-mem';
 const {Client} = newDb.adapters.createPg();
 ```
 
-
-## pg-promise (pgp)
-
-You can ask `pg-mem` to get you a [pg-promise](https://github.com/vitaly-t/pg-promise) instance bound to this db.
-
-
-```typescript
-// instead of
-import pgp from 'pg-promise';
-const pg = pgp(opts)
-
-// use:
-import {newDb} from 'pg-mem';
-const pg = newDb.adapters.createPgPromise();
-```
-
-note: You must install `pg-promise` module first.
 
 ## Typeorm
 
