@@ -14,13 +14,14 @@ export class Evaluator<T = any> implements IValue<T> {
 
     readonly isConstantLiteral: boolean;
     readonly usedColumns = new Set<IValue>();
+    readonly forceNotConstant: boolean;
 
     get index() {
         return this.origin?.getIndex(this);
     }
 
     get isConstant(): boolean {
-        return !this.usedColumns.size;
+        return !this.usedColumns.size && !this.forceNotConstant;
     }
 
     get isConstantReal(): boolean {
@@ -42,16 +43,22 @@ export class Evaluator<T = any> implements IValue<T> {
         , private opts?: {
             isAny?: boolean;
             isColumnOf?: _ISelection;
+            forceNotConstant?: boolean;
             unpure?: boolean;
         }) {
         this.isConstantLiteral = typeof val !== 'function';
+        if (opts?.forceNotConstant) {
+            this.forceNotConstant = true;
+        }
 
         // fetch columns to depend on
         let depArray: IValue[];
+        let hasNotConstant = false;
         if (dependencies) {
             if (!Array.isArray(dependencies)) {
                 depArray = [dependencies];
                 this.usedColumns = dependencies.usedColumns as Set<IValue>;
+                hasNotConstant = !dependencies.isConstant;
                 this.origin = dependencies.origin;
             } else {
                 this.usedColumns = new Set();
@@ -61,6 +68,9 @@ export class Evaluator<T = any> implements IValue<T> {
                             throw new Error('You cannot evaluate an expression which coming from multiple origins');
                         }
                         this.origin = d.origin;
+                    }
+                    if (!d.isConstant) {
+                        hasNotConstant = true;
                     }
                     for (const u of d.usedColumns) {
                         this.usedColumns.add(u);
@@ -74,10 +84,14 @@ export class Evaluator<T = any> implements IValue<T> {
             this.origin = opts.isColumnOf;
             delete opts.isColumnOf;
         }
+        if (hasNotConstant && !this.usedColumns.size) {
+            this.forceNotConstant = true;
+        }
 
         if (!this.usedColumns.size // no used columns
             && !this.origin
             && !this.opts?.unpure
+            && !this.forceNotConstant
             && !depArray?.some(x => !x.isConstantReal)  // all real constant dependencies
         ) {
             // no dependency => this is a real constant => evaluate it.

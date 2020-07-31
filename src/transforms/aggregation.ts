@@ -282,7 +282,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             , []
             , raw => raw[id]
             , {
-                unpure: true
+                forceNotConstant: true,
             });
 
         this.aggregations.set(hashed, {

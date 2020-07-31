@@ -34,6 +34,13 @@ describe('[Queries] Count', () => {
             .to.deep.equal({ cnt: 3 });
     });
 
+    it('selects simple count in expression', () => {
+        expect(one(`create table test(val text);
+            insert into test values ('a'), ('b'), (null);
+            select count(*)+1 as cnt from test`))
+            .to.deep.equal({ cnt: 4 });
+    });
+
 
 
     it('counts nulls the right way', () => {
