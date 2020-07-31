@@ -128,7 +128,7 @@ describe('[Queries] Indices', () => {
     });
 
 
-    it('can use an index on an aliased selection', () => {
+    it('can use an index on an aliased selection not aliased var', () => {
         preventSeqScan(db);
         const got = many(`create table test(txt text, val integer);
         create index on test(txt);
@@ -140,7 +140,7 @@ describe('[Queries] Indices', () => {
         insert into test values ('C', 3);
         select * from (select val from test where txt != 'A') x where x.val > 1`);
 
-        const explain = db.public.explainSelect(`select * from (select val from test where txt != 'A') x where x.val > 1`);
+        const explain = db.public.explainLastSelect();
         // assert.deepEqual(explain, {} as any);
         assert.deepEqual(explain, {
             _: 'ineq',

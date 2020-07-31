@@ -14,6 +14,8 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
 
 export class Alias<T> extends TransformBase<T>{
 
+    private oldToThis = new Map<IValue, IValue>();
+    private thisToOld = new Map<IValue, IValue>();
     get debugId() {
         return this.base.debugId;
     }
@@ -21,9 +23,21 @@ export class Alias<T> extends TransformBase<T>{
     constructor(sel: _ISelection, public name: string) {
         super(sel);
     }
-
+    private _columns: IValue<any>[];
     get columns(): ReadonlyArray<IValue<any>> {
-        return this.base.columns;
+        this.init();
+        return this._columns;
+    }
+    init() {
+        if (this._columns) {
+            return;
+        }
+        this._columns = this.base.columns.map(x => {
+            const ret = x.setOrigin(this);
+            this.oldToThis.set(x, ret);
+            this.thisToOld.set(ret, x);
+            return ret;
+        });
     }
 
     stats(t: _Transaction): Stats | null {
@@ -49,7 +63,16 @@ export class Alias<T> extends TransformBase<T>{
             }
             column = exec[2];
         }
-        return this.base.getColumn(column, nullIfNotFound);
+        const got = this.base.getColumn(column, nullIfNotFound);
+        if (!got) {
+            return got;
+        }
+        this.init();
+        const ret = this.oldToThis.get(got);
+        if (!ret) {
+            throw new Error('Corrupted alias');
+        }
+        return ret;
     }
 
     explain(e: _Explainer): _SelectExplanation {
@@ -64,7 +87,7 @@ export class Alias<T> extends TransformBase<T>{
     }
 
     getIndex(...forValue: IValue[]) {
-        return this.base.getIndex(...forValue);
+        return this.base.getIndex(...forValue.map(v => this.thisToOld.get(v) ?? v));
     }
 
 }

@@ -2,10 +2,7 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { trimNullish } from '../utils';
-import { Types } from '../datatypes';
 import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
-import { IMemoryDb } from '../interfaces';
 import { _IDb } from '../interfaces-private';
 
 describe('[Queries] Joins', () => {
@@ -637,6 +634,62 @@ describe('[Queries] Joins', () => {
                 { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
                 { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
             ]);
+    });
+
+    it ('can self right join', () => {
+        const got = many(`create table test(usr text, friend text);
+        insert into test values ('me', 'you');
+        insert into test values ('me', 'other1');
+        insert into test values ('you', 'me');
+        insert into test values ('you', 'other2');
+        select a.usr, b.friend from
+            test a
+            right join test b on a.friend = b.usr;`);
+        expect(got)
+            .to.deep.equal([
+                { usr: 'you', friend: 'you' }
+                , { usr: 'you', friend: 'other1' }
+                , { usr: 'me', friend: 'me' }
+                , { usr: 'me', friend: 'other2' }
+            ])
+    })
+
+    it ('can self left join', () => {
+        const got = many(`create table test(usr text, friend text);
+        insert into test values ('me', 'you');
+        insert into test values ('me', 'other1');
+        insert into test values ('you', 'me');
+        insert into test values ('you', 'other2');
+        select a.usr, b.friend from
+            test a
+            left join test b on a.friend = b.usr;`);
+        expect(got)
+            .to.deep.equal([
+                { usr: 'me', friend: 'me' },
+                { usr: 'me', friend: 'other2' },
+                { usr: 'me', friend: null },
+                { usr: 'you', friend: 'you' },
+                { usr: 'you', friend: 'other1' },
+                { usr: 'you', friend: null },
+            ])
+    });
+
+    it ('can self inner join', () => {
+        const got = many(`create table test(usr text, friend text);
+        insert into test values ('me', 'you');
+        insert into test values ('me', 'other1');
+        insert into test values ('you', 'me');
+        insert into test values ('you', 'other2');
+        select a.usr, b.friend from
+            test a
+            join test b on a.friend = b.usr;`);
+        expect(got)
+            .to.deep.equal([
+                { usr: 'me', friend: 'me' },
+                { usr: 'me', friend: 'other2' },
+                { usr: 'you', friend: 'you' },
+                { usr: 'you', friend: 'other1' },
+            ])
     });
 
     // it ('can full join', () => {

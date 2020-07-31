@@ -134,7 +134,7 @@ export interface ISchema {
 
 export interface QueryResult {
     /** Last command that has been executed */
-    command: 'UPDATE' | 'INSERT' | 'CREATE' | 'SELECT' | 'ALTER' | 'DELETE';
+    command: string;
     rowCount: number;
     fields: Array<FieldInfo>;
     rows: any[];

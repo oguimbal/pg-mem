@@ -131,7 +131,13 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     setOrigin(origin: _ISelection): IValue<T> {
-        const ret = new Evaluator<T>(
+        const ret = this.clone();
+        ret.origin = origin;
+        return ret;
+    }
+
+    clone() {
+        return new Evaluator<T>(
             this.type
             , this.id
             , this.sql
@@ -140,9 +146,8 @@ export class Evaluator<T = any> implements IValue<T> {
             , this.val
             , this.opts
         );
-        ret.origin = origin;
-        return ret;
     }
+
 
     setWrapper(newOrigin: _ISelection, unwrap: (val: any) => any) {
         if (this.isAny) {

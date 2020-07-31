@@ -27,6 +27,54 @@ describe('[PG syntax] Insert', () => {
         },]],
     });
 
+    checkInsert([`insert into test(a) values (1) on conflict do nothing`], {
+        type: 'insert',
+        into: { table: 'test' },
+        columns: ['a'],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        },]],
+        onConflict: {
+            do: 'do nothing',
+        },
+    });
+
+    checkInsert([`insert into test(a) values (1) on conflict (a, b) do nothing`], {
+        type: 'insert',
+        into: { table: 'test' },
+        columns: ['a'],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        },]],
+        onConflict: {
+            do: 'do nothing',
+            on: [
+                { type: 'ref', name: 'a' }
+                , { type: 'ref', name: 'b' }
+            ]
+        },
+    });
+
+    checkInsert([`insert into test(a) values (1) on conflict do update set a=3`], {
+        type: 'insert',
+        into: { table: 'test' },
+        columns: ['a'],
+        values: [[{
+            type: 'integer',
+            value: 1,
+        },]],
+        onConflict: {
+            do: {
+                sets: [{
+                    column: 'a',
+                    value: { type: 'integer', value: 3 },
+                }]
+            },
+        },
+    });
+
     checkInsert([`insert into test values (1) returning "id";`], {
         type: 'insert',
         into: { table: 'test' },
@@ -123,6 +171,6 @@ describe('[PG syntax] Insert', () => {
             type: 'integer',
             value: 1,
         }
-        , 'default']]
+            , 'default']]
     });
 });

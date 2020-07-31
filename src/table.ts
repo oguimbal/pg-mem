@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection, columnEvaluator } from './transforms/selection';
@@ -24,9 +24,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private it = 0;
     hasPrimary: boolean;
     private readonly: boolean;
-    private serials = new Map<string, number>();
     hidden: boolean;
     private dataId = Symbol();
+    private serialsId: symbol = Symbol();
     private indexByHash = new Map<string, {
         index: BIndex<T>;
         expressions: IValue[];
@@ -138,7 +138,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // auto increments
         if (column.serial) {
-            this.serials.set(column.name, 0);
+            t.set(this.serialsId, t.getMap(this.serialsId).set(column.name, 0));
         }
 
         this.columnDefs.push(cref);
@@ -227,31 +227,25 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(t: _Transaction, toInsert: T, shouldHaveId?: boolean): T {
+    insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T {
         if (this.readonly) {
             throw new ReadOnlyError(this.name);
         }
 
         // get ID of this item
-        let newId: string;
-        if (shouldHaveId) {
-            newId = getId(toInsert);
-            if (!newId) {
-                throw new Error('Unexpeced update error');
-            }
-        } else {
-            newId = this.name + '_' + (this.it++);
-            setId(toInsert, newId);
-        }
+        const newId = this.name + '_' + (this.it++);
+        setId(toInsert, newId);
 
         // serial (auto increments) columns
-        for (const [k, v] of this.serials.entries()) {
+        let serials = t.getMap(this.serialsId);
+        for (const [k, v] of serials.entries()) {
             if (!nullIsh(toInsert[k])) {
                 continue;
             }
             toInsert[k] = v + 1;
-            this.serials.set(k, v + 1);
+            serials = serials.set(k, v + 1);
         }
+        t.set(this.serialsId, serials);
 
         // set default values
         for (const c of this.columnDefs) {
@@ -263,6 +257,35 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             c.checkConstraints(toInsert, t);
         }
 
+        // check "on conflict"
+        if (onConflict) {
+            if ('ignore' in onConflict) {
+                if (onConflict.ignore === 'all') {
+                    for (const k of this.indexByHash.values()) {
+                        const found = k.index.eqFirst(k.index.buildKey(toInsert, t), t);
+                        if (found) {
+                            return found; // ignore.
+                        }
+                    }
+                } else {
+                    const index = onConflict.ignore as BIndex;
+                    const found = index.eqFirst(index.buildKey(toInsert, t), t);
+                    if (found) {
+                        return found; // ignore.
+                    }
+                }
+            } else {
+                const index = onConflict.onIndex as BIndex;
+                const key = index.buildKey(toInsert, t);
+                const got = index.eqFirst(key, t);
+                if (got) {
+                    // update !
+                    onConflict.update(got, toInsert);
+                    return this.update(t, got);
+                }
+            }
+        }
+
         // check change handlers (foreign keys)
         for (const h of this.changeHandlers) {
             h(null, toInsert, t);
@@ -270,7 +293,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // index & check indx contrainsts
         this.indexElt(t, toInsert);
-
         this.setBin(t, this.bin(t).set(newId, toInsert));
         return toInsert;
     }

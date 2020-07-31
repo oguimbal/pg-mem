@@ -238,7 +238,10 @@ export interface _IDb extends IMemoryDb {
     onSchemaChange(): void;
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
 }
-
+export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
+    onIndex: _IIndex;
+    update: (item: any, excluded: any) => void;
+}
 export interface _ITable<T = any> extends IMemoryTable {
 
     readonly hidden: boolean;
@@ -246,7 +249,7 @@ export interface _ITable<T = any> extends IMemoryTable {
     readonly name: string;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
-    insert(t: _Transaction, toInsert: T): T;
+    insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T;
     delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
@@ -259,6 +262,7 @@ export interface _ITable<T = any> extends IMemoryTable {
     addConstraint(constraint: ConstraintDef, t: _Transaction, constraintName?: string);
     /** Will be executed when one of the given columns is affected (update/delete) */
     onChange(columns: string[], check: ChangeHandler<T>);
+    getIndex(...forValues: IValue[]): _IIndex;
 }
 
 export type ChangeHandler<T> = (old: T, neu: T, t: _Transaction) => void;
@@ -354,6 +358,7 @@ export interface IValue<TRaw = any> {
      **/
     setWrapper<TNewRaw>(newOrigin: _ISelection, unwrap: (val: TNewRaw) => TRaw): IValue<TRaw>;
     setOrigin(origin: _ISelection): IValue<TRaw>;
+    clone(): IValue<any>;
 
     explain(e: _Explainer): _ExprExplanation;
 }
@@ -364,6 +369,7 @@ export interface IndexExpression {
     readonly type: _IType;
 }
 export interface _IIndex<T = any> {
+    readonly unique?: boolean;
     readonly expressions: IndexExpression[];
 
     /** Returns a measure of how many items will be returned by this op */

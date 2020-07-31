@@ -26,14 +26,14 @@ createtable_declarationlist -> createtable_declaration (comma createtable_declar
 createtable_declaration -> (createtable_constraint | createtable_column) {% unwrap %}
 
 # see "table_constraint" section of doc
-createtable_constraint -> %kw_constraint word createtable_constraint_def {% x => {
-    const name = unwrap(x[1]);
+createtable_constraint -> (%kw_constraint word {% last %}):? createtable_constraint_def {% x => {
+    const name = unwrap(x[0]);
     if (!name) {
-        return unwrap(x[2]);
+        return unwrap(x[1]);
     }
     return {
         constraintName: name,
-        ...unwrap(x[2]),
+        ...unwrap(x[1]),
     }
 } %}
 

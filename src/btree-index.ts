@@ -94,7 +94,7 @@ export class BIndex<T = any> implements _IIndex<T> {
         return 0;
     }
 
-    private buildKey(raw: any, t: _Transaction) {
+    buildKey(raw: any, t: _Transaction) {
         return this.expressions.map(k => k.get(raw, t));
     }
 

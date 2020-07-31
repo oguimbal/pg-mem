@@ -35,4 +35,11 @@ describe('pg-promise', () => {
             var: 'varchar',
         }]);
     });
+
+    it('can execute begin', async () => {
+        simpleDb();
+        const pgp = db.adapters.createPgPromise();
+        await pgp.connect();
+        await pgp.any('begin');
+    });
 });

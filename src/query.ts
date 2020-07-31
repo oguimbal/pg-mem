@@ -1,5 +1,5 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
@@ -93,16 +93,16 @@ export class Query implements _ISchema, ISchema {
                     switch (p.type) {
                         case 'start transaction':
                             t = t.fork();
-                            continue;
+                            break;
                         case 'commit':
                             t = t.commit();
                             if (!t.isChild) {
                                 t = t.fork(); // recreate an implicit transaction
                             }
-                            continue;
+                            break;
                         case 'rollback':
                             t = t.rollback();
-                            continue;
+                            break;
                         case 'insert':
                             last = this.executeInsert(t, p);
                             break;
@@ -133,6 +133,13 @@ export class Query implements _ISchema, ISchema {
                         default:
                             throw NotSupported.never(p, 'statement type');
                     }
+                    last = last ?? {
+                        command: p.type.toUpperCase(),
+                        rowCount: 0,
+                        fields: [],
+                        location: this.locOf(p),
+                        rows: [],
+                    };
                     if (!last.ignored) {
                         p.check?.();
                     }
@@ -440,43 +447,96 @@ export class Query implements _ISchema, ISchema {
         const table = this.db
             .getSchema(p.into.db)
             .getTable(p.into.table);
+        const selection = table
+            .selection
+            .setAlias(p.into.alias);
 
-        // get columns to insert into
-        const columns: string[] = p.columns ?? table.selection.columns.map(x => x.id);
 
         const ret = [];
-        const returning = p.returning && buildSelection(new ArrayFilter(table.selection, ret), p.returning);
+        const returning = p.returning && buildSelection(new ArrayFilter(selection, ret), p.returning);
 
-        // get values to insert
-        let rowCount = 0;
-        if (p.values) {
-            const values = p.values;
-            for (const val of values) {
-                rowCount++;
-                if (val.length !== columns.length) {
-                    throw new QueryError('Insert columns / values count mismatch');
-                }
-                const toInsert = {};
-                for (let i = 0; i < val.length; i++) {
-                    const v = val[i];
-                    const col = table.selection.getColumn(columns[i]);
-                    if (v === 'default') {
-                        continue;
-                    }
-                    const notConv = buildValue(null, v);
-                    const converted = notConv.convert(col.type);
-                    if (!converted.isConstant) {
-                        throw new QueryError('Cannot insert non constant expression');
-                    }
-                    toInsert[columns[i]] = converted.get();
-                }
-                ret.push(table.insert(t, toInsert));
-            }
-        } else if (p.select) {
+
+        let values = p.values;
+
+        if (p.select) {
             const selection = this.executeSelect(t, p.select);
             throw new Error('todo: array-mode iteration');
-        } else {
+        }
+        if (!values) {
             throw new QueryError('Nothing to insert');
+        }
+        if (!values.length) {
+            return null; // nothing to insert
+        }
+
+        // get columns to insert into
+        const columns: string[] = p.columns ?? table.selection.columns.map(x => x.id).slice(0, values[0].length);
+
+        // build 'on conflict' strategy
+        let ignoreConflicts: OnConflictHandler;
+        if (p.onConflict) {
+            // find the targeted index
+            const on = p.onConflict.on?.map(x => buildValue(table.selection, x));
+            let onIndex: _IIndex;
+            if (on) {
+                onIndex = table.getIndex(...on);
+                if (!onIndex?.unique) {
+                    throw new QueryError(`There is no unique or exclusion constraint matching the ON CONFLICT specification`);
+                }
+            }
+
+            // check if 'do nothing'
+            if (p.onConflict.do === 'do nothing') {
+                ignoreConflicts = { ignore: onIndex ?? 'all' };
+            } else {
+                if (!onIndex) {
+                    throw new QueryError(`ON CONFLICT DO UPDATE requires inference specification or constraint name`);
+                }
+                const subject = new JoinSelection(this
+                    , selection
+                    // fake data... we're only using this to get the multi table column resolution:
+                    , new ArrayFilter(table.selection, []).setAlias('excluded')
+                    , { type: 'boolean', value: false }
+                    , false
+                );
+                const sets = p.onConflict.do.sets.map(x => ({
+                    ...x,
+                    getter: x.value !== 'default' && buildValue(subject, x.value),
+                }));
+                ignoreConflicts = {
+                    onIndex,
+                    update: (item, excluded) => {
+                        const jitem = subject.buildItem(item, excluded);
+                        for (const s of sets) {
+                            item[s.column] = s.getter.get(jitem, t);
+                        }
+                    },
+                }
+            }
+        }
+
+        // insert values
+        let rowCount = 0;
+        for (const val of values) {
+            rowCount++;
+            if (val.length !== columns.length) {
+                throw new QueryError('Insert columns / values count mismatch');
+            }
+            const toInsert = {};
+            for (let i = 0; i < val.length; i++) {
+                const v = val[i];
+                const col = table.selection.getColumn(columns[i]);
+                if (v === 'default') {
+                    continue;
+                }
+                const notConv = buildValue(null, v);
+                const converted = notConv.convert(col.type);
+                if (!converted.isConstant) {
+                    throw new QueryError('Cannot insert non constant expression');
+                }
+                toInsert[columns[i]] = converted.get();
+            }
+            ret.push(table.insert(t, toInsert, ignoreConflicts));
         }
 
         const rows = returning

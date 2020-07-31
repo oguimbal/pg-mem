@@ -5,7 +5,7 @@ import { StartTransactionStatement, CommitStatement, Statement } from './ast';
 
 describe('[PG syntax] Simple statements', () => {
 
-    checkStatement(['start transaction'], {
+    checkStatement(['start transaction', 'begin'], {
         type: 'start transaction',
     });
 

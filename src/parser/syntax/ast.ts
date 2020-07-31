@@ -49,6 +49,14 @@ export interface InsertStatement {
     values?: (Expr | 'default')[][];
     /** Insert into select */
     select?: SelectStatement;
+    onConflict?: OnConflictAction;
+}
+
+export interface OnConflictAction {
+    on?: Expr[];
+    do: 'do nothing' | {
+        sets: SetStatement[];
+    };
 }
 
 export interface AlterTableStatement {

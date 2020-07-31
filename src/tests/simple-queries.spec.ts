@@ -243,4 +243,10 @@ describe('[Queries] Simple queries', () => {
 
         })
     })
+
+    it ('can create table with compound primary key', () => {
+        none(`create table test(ka text, kb integer, val text,  primary key (ka, kb));
+            insert into test values ('a', 1, 'oldA');`);
+        assert.throws(() => none(`insert into test values ('a', 1, 'oldA');`));
+    })
 });
