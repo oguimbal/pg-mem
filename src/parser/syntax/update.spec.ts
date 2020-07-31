@@ -13,6 +13,21 @@ describe('[PG syntax] Update', () => {
         }]
     });
 
+    checkUpdate([`update test set (a,b)=(1,2), c=3`], {
+        type: 'update',
+        table: { table: 'test' },
+        sets: [{
+            column: 'a',
+            value: { type: 'integer', value: 1 }
+        }, {
+            column: 'b',
+            value: { type: 'integer', value: 2 }
+        }, {
+            column: 'c',
+            value: { type: 'integer', value: 3 }
+        }]
+    });
+
     checkUpdate([`update test set a=1, b=a where a>1`], {
         type: 'update',
         table: { table: 'test' },
