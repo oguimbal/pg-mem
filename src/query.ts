@@ -385,11 +385,10 @@ export class Query implements _ISchema, ISchema {
 
         if (p.groupBy) {
             sel = sel.groupBy(p.groupBy, p.columns);
-        } else {
-            sel = sel.select(p.columns);
-        }
-        if (p.orderBy) {
             sel = sel.orderBy(p.orderBy);
+        } else {
+            sel = sel.orderBy(p.orderBy);
+            sel = sel.select(p.columns);
         }
         if (p.limit) {
             sel = sel.limit(p.limit);

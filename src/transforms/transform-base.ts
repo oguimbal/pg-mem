@@ -70,10 +70,16 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     }
 
     limit(limit: LimitStatement): _ISelection {
+        if (!limit?.limit && !limit?.offset) {
+            return this;
+        }
         return fns.buildLimit(this, limit)
     }
 
     orderBy(orderBy: OrderByStatement[]): _ISelection<any> {
+        if (!orderBy?.length) {
+            return this;
+        }
         return fns.buildOrderBy(this, orderBy);
     }
 }
