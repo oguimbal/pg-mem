@@ -51,6 +51,16 @@ describe('[Queries] Simple queries', () => {
 
 
 
+    it('can select NOT', () => {
+        expect(many(`select not true as v`))
+            .to.deep.equal([{ v: false }])
+    });
+
+    it('can select negate', () => {
+        expect(many(`select -(42) as v`))
+            .to.deep.equal([{ v: -42 }])
+    });
+
     it('does not return twice the same entity on seq scan', () => {
         simpleDb();
         none(`insert into data(id, str) values ('some id', null)`);
@@ -244,7 +254,7 @@ describe('[Queries] Simple queries', () => {
         })
     })
 
-    it ('can create table with compound primary key', () => {
+    it('can create table with compound primary key', () => {
         none(`create table test(ka text, kb integer, val text,  primary key (ka, kb));
             insert into test values ('a', 1, 'oldA');`);
         assert.throws(() => none(`insert into test values ('a', 1, 'oldA');`));

@@ -414,6 +414,10 @@ export const Value = {
             }));
     },
     negate(value: IValue): IValue {
+        if (value.type === Types.bool) {
+            return (value as Evaluator)
+                .setConversion(x => !x, x => 'NOT(' + x + ')', x => ({ not: x }));
+        }
         if (!isNumeric(value.type)) {
             throw new QueryError('Can only apply "-" unary operator to numeric types');
         }

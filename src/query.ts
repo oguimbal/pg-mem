@@ -4,7 +4,7 @@ import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation } from './parser/syntax/ast';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from './parser/syntax/ast';
 import { parse } from './parser/parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
@@ -406,22 +406,13 @@ export class Query implements _ISchema, ISchema {
             .selection
             .filter(p.where);
 
-        const sets = p.sets.map(x => ({
-            ...x,
-            getter: x.value !== 'default' && buildValue(items, x.value),
-        }));
+        const setter = this.createSetter(t, into, items, p.sets);
         const ret = [];
         let rowCount = 0;
         const returning = p.returning && buildSelection(new ArrayFilter(items, ret), p.returning);
         for (const i of items.enumerate(t)) {
             rowCount++;
-            for (const s of sets) {
-                if (s.value === 'default') {
-                    i[s.column] = null;
-                } else {
-                    i[s.column] = s.getter.get(i, t);
-                }
-            }
+            setter(i, i);
             ret.push(into.update(t, i));
         }
 
@@ -435,6 +426,27 @@ export class Query implements _ISchema, ISchema {
             command: 'UPDATE',
             fields: [],
             location: this.locOf(p),
+        }
+    }
+    private createSetter(t: _Transaction, setTable: _ITable, setSelection: _ISelection, _sets: SetStatement[]) {
+
+        const sets = _sets.map(x => {
+            const col = (setTable as MemoryTable).getColumnRef(x.column);
+            return {
+                col,
+                value: x.value,
+                getter: x.value !== 'default' && buildValue(setSelection, x.value).convert(col.expression.type),
+            };
+        });
+
+        return (target: any, source: any) => {
+            for (const s of sets) {
+                if (s.value === 'default') {
+                    target[s.col.expression.id] = s.col.default?.get() ?? null;
+                } else {
+                    target[s.col.expression.id] = s.getter.get(source, t);
+                }
+            }
         }
     }
 
@@ -499,17 +511,12 @@ export class Query implements _ISchema, ISchema {
                     , { type: 'boolean', value: false }
                     , false
                 );
-                const sets = p.onConflict.do.sets.map(x => ({
-                    ...x,
-                    getter: x.value !== 'default' && buildValue(subject, x.value),
-                }));
+                const setter = this.createSetter(t, table, subject, p.onConflict.do.sets);
                 ignoreConflicts = {
                     onIndex,
                     update: (item, excluded) => {
                         const jitem = subject.buildItem(item, excluded);
-                        for (const s of sets) {
-                            item[s.column] = s.getter.get(jitem, t);
-                        }
+                        setter(item, jitem);
                     },
                 }
             }

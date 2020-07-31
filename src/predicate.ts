@@ -117,9 +117,6 @@ function buildUnary(data: _ISelection, op: UnaryOperator, operand: Expr) {
             }
             return expr;
         case 'NOT':
-            expr
-                .convert(DataType.bool)
-                .setId
         case '-':
             return Value.negate(expr);
         default:

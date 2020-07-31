@@ -5,6 +5,8 @@ import { expect, assert } from 'chai';
 import { typeormSimpleSample } from '../../samples/typeorm/simple';
 import { typeormJoinsSample } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
+import { Entity, BaseEntity, PrimaryColumn, PrimaryGeneratedColumn, Column, Connection } from 'typeorm';
+import any from '*.ne';
 
 describe('Typeorm', () => {
 
@@ -215,6 +217,33 @@ describe('Typeorm', () => {
         ])
     })
 
+    async function typeOrm(entities: any[], fn: (db: Connection) => Promise<any>) {
+        const got: Connection = await db.adapters.createTypeormConnection({
+            type: 'postgres',
+            entities,
+        });
+        try {
+            await got.synchronize();
+            await fn(got);
+        } finally {
+            await got.close()
+        }
+    }
+
+
+    it('handles jsonb update', () => typeOrm([WithJsonb], async db => {
+        const repo = db.getRepository(WithJsonb);
+        const got = repo.create({
+            data: [{ someData: true }]
+        });
+        await got.save();
+        let all = await repo.findByIds([1]);
+        expect(all.map(x => x.data)).to.deep.equal([[{ someData: true }]]);
+        got.data = { other: true };
+        await got.save();
+        all = await repo.find();
+        expect(all.map(x => x.data)).to.deep.equal([{other: true}]);
+    }));
 
     it('can perform simple sample', async () => {
         await typeormSimpleSample();
@@ -224,3 +253,12 @@ describe('Typeorm', () => {
         await typeormJoinsSample();
     });
 });
+
+@Entity()
+class WithJsonb extends BaseEntity {
+    @PrimaryGeneratedColumn({ type: 'integer' })
+    id: number;
+
+    @Column({ type: 'jsonb' })
+    data: any;
+}

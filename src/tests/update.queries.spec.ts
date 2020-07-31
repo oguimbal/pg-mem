@@ -81,4 +81,20 @@ describe('[Queries] Updates', () => {
                     select * from test`))
             .to.deep.equal([{ key: 'a', val: 42 }, { key: 'x', val: 2 }, { key: 'a', val: 42 }])
     });
+
+    it('can handle jsonb update', () => {
+        expect(many(`create table test(val jsonb);
+                    insert into test values ('{"data": true}');
+                    update test set val = '{"other": true}';
+                    select * from test`))
+            .to.deep.equal([{ val: { other: true } }])
+    });
+
+    it('can handle bool update', () => {
+        expect(many(`create table test(val boolean);
+                    insert into test values ('Y');
+                    update test set val = 'N';
+                    select * from test`))
+            .to.deep.equal([{ val: false }])
+    });
 });

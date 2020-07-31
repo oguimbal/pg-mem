@@ -67,6 +67,15 @@ describe('[Queries] Inserts', () => {
             .to.deep.equal([{ id: 'x', a: 'oldA', b: 'oldA' }]);
     })
 
+
+    it('handles implicit conversions on conflict set', () => {
+        expect(many(`create table test(id text primary key, val jsonb);
+                        insert into test values ('x', '{"old": true}');
+                        insert into test values ('x') on conflict(id) do update set val='{"new": true}';
+                        select * from test;`))
+            .to.deep.equal([{ id: 'x', val: { new: true } }]);
+    });
+
     it('handles referencing excluded values in update', () => {
         expect(many(`create table test(id text primary key, a text, b text);
                         insert into test values ('x', 'oldA', 'oldB');
