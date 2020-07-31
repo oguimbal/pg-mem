@@ -20,7 +20,7 @@ type Raw<T> = ImMap<string, T>;
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
     private handlers = new Map<TableEvent, Set<() => void>>();
-    readonly selection: _ISelection<T>;
+    readonly selection: Alias<T>;
     private it = 0;
     hasPrimary: boolean;
     private readonly: boolean;
@@ -54,7 +54,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     constructor(readonly schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
-        this.selection = buildAlias(this, this.name);
+        this.selection = buildAlias(this, this.name) as Alias<T>;
 
         // fields
         for (const s of _schema.fields) {
@@ -157,6 +157,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // once constraints created, reference them. (constraint creation might have thrown)m
         this.columns.push(cref.expression);
         this.schema.db.onSchemaChange();
+        this.selection.rebuild();
     }
 
 

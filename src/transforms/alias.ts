@@ -14,6 +14,12 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
 
 export class Alias<T> extends TransformBase<T>{
 
+    rebuild() {
+        this._columns = null;
+        this.oldToThis.clear();
+        this.thisToOld.clear();
+    }
+
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
     get debugId() {

@@ -132,4 +132,11 @@ describe('[Queries] Inserts', () => {
             .to.deep.equal([{ id: 1 }]);
     })
 
+    it('[bugfix] allows returning statement', () => {
+        expect(many(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
+                ALTER TABLE "user" ADD data jsonb;
+                INSERT INTO "user"("name", "data") VALUES ('me', '{"tags":["nice"]}') RETURNING "id";`))
+            .to.deep.equal([{ id: 1 }])
+    })
+
 });
