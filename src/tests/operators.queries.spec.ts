@@ -124,6 +124,31 @@ describe('[Queries] Operators', () => {
             expect(trimNullish(got)).to.deep.equal([{ id: 'id1', str: 'str1' }, { id: 'id3', str: 'str3' }]);
         });
 
+        it('"IN" behaves nicely with null left without index', () => {
+            const got = many(`create table test(val text);
+                insert into test values ('a'), ('b'), (null);
+                select * from test where val in ('a', null)`);
+            expect(trimNullish(got)).to.deep.equal([{ val: 'a' }]);
+        });
+
+        it('"IN" behaves nicely with null left with index', () => {
+            preventSeqScan(db);
+            const got = many(`create table test(val text);
+                create index on test(val);
+                insert into test values ('a'), ('b'), (null);
+                select * from test where val in ('a', null)`);
+            expect(trimNullish(got)).to.deep.equal([{ val: 'a' }]);
+        });
+
+        it('"IN" behaves nicely with null constant left without index', () => {
+            const got = many(`create table test(val text);
+                insert into test values ('a'), ('b'), (null);
+                select * from test where null in (val, null)`);
+            expect(trimNullish(got)).to.deep.equal([]);
+        });
+
+
+
         it('"IN" clause with no constant', () => {
             simpleDb();
             none(`insert into data(id, str, otherStr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')`);

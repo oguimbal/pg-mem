@@ -607,7 +607,7 @@ export class ArrayType extends TypeBase<any[]> {
 
     doCanCast(to: _IType) {
         return to instanceof ArrayType
-            && to.canConvert(this.of);
+            && to.of.canConvert(this.of);
     }
 
     doCast(value: IValue, _to: _IType) {
@@ -620,7 +620,7 @@ export class ArrayType extends TypeBase<any[]> {
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(x, valueType.of).convert(to.of).get(raw, t));
+                return arr.map(x => Value.constant(valueType.of, x).convert(to.of).get(raw, t));
             });
     }
 

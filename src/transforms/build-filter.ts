@@ -1,6 +1,6 @@
 import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private';
 import { buildValue } from '../predicate';
-import { Types, makeArray } from '../datatypes';
+import { Types, makeArray, ArrayType } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../valuetypes';
 import { FalseFilter } from './false-filter';
@@ -97,7 +97,8 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             if (arrayValue.type.primary !== DataType.array) {
                 arrayValue = Value.array([arrayValue]);
             }
-            const array = arrayValue.convert(makeArray(value.type));
+            const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
+            const array = arrayValue.convert(makeArray(elementType));
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
                 const arrCst = array.get();
