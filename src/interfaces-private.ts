@@ -231,6 +231,7 @@ export interface _IDb extends IMemoryDb {
     readonly options: MemoryDbOptions;
     readonly public: _ISchema;
     readonly data: _Transaction;
+
     getSchema(db: string): _ISchema;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent, ...args: any[]): void;

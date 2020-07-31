@@ -11,13 +11,11 @@ import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 
-
 export class Query implements _ISchema, ISchema {
 
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
     private lastSelect: _ISelection<any>;
-
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable.insert(this.db.data, {});
@@ -72,12 +70,16 @@ export class Query implements _ISchema, ISchema {
         return last;
     }
 
+    private parse(query: string) {
+        return parse(query);
+    }
+
     *queries(query: string): Iterable<QueryResult> {
         query = query + ';';
         // console.log(query);
         // console.log('\n');
         try {
-            let parsed = parse(query);
+            let parsed = this.parse(query);
             if (!Array.isArray(parsed)) {
                 parsed = [parsed];
             }
@@ -86,6 +88,8 @@ export class Query implements _ISchema, ISchema {
                 if (!_p) {
                     continue;
                 }
+
+                // query execution
                 let last: QueryResult
                 try {
                     const p = watchUse(_p);
@@ -110,7 +114,16 @@ export class Query implements _ISchema, ISchema {
                             last = this.executeUpdate(t, p);
                             break;
                         case 'select':
-                            last = this.executeSelect(t, p);
+                            const subj = this.buildSelect(p);
+                            this.lastSelect = subj;
+                            const rows = [...subj.enumerate(t)];
+                            last = {
+                                rows,
+                                rowCount: rows.length,
+                                command: 'SELECT',
+                                fields: [],
+                                location: this.locOf(p),
+                            };
                             break;
                         case 'delete':
                             last = this.executeDelete(t, p);
@@ -318,19 +331,6 @@ export class Query implements _ISchema, ISchema {
         }
     }
 
-    executeSelect(t: _Transaction, p: SelectStatement): QueryResult {
-        const subj = this.buildSelect(p);
-        this.lastSelect = subj;
-        const rows = [...subj.enumerate(t)];
-        return {
-            rows,
-            rowCount: rows.length,
-            command: 'SELECT',
-            fields: [],
-            location: this.locOf(p),
-        };
-    }
-
     buildSelect(p: SelectStatement): _ISelection {
         if (p.type !== 'select') {
             throw new NotSupported(p.type);
@@ -470,7 +470,7 @@ export class Query implements _ISchema, ISchema {
         let values = p.values;
 
         if (p.select) {
-            const selection = this.executeSelect(t, p.select);
+            // const selection = this.executeSelect(t, p.select);
             throw new Error('todo: array-mode iteration');
         }
         if (!values) {

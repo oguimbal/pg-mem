@@ -3,9 +3,14 @@ import { Parser, Grammar } from 'nearley';
 import sqlGrammar from './syntax/main.ne';
 import arrayGrammar from './literal-syntaxes/array.ne';
 import { QueryError } from '../interfaces-private';
+import LRUCache from 'lru-cache';
+import hash from 'object-hash';
 
 let sqlCompiled: Grammar;
 let arrayCompiled: Grammar;
+const astCache = new LRUCache({
+    max: 1000,
+});
 
 export function parse(sql: string): Statement | Statement[];
 export function parse(sql: string, entry: 'expr'): Expr;
@@ -13,7 +18,23 @@ export function parse(sql: string, entry?: string): any {
     if (!sqlCompiled) {
         sqlCompiled = Grammar.fromCompiled(sqlGrammar);
     }
-    return _parse(sql, sqlCompiled, entry);
+
+    // when 'entry' is not specified, lets cache parsings
+    // => better perf on repetitive requests
+    const key = !entry && hash(sql);
+    if (!entry) {
+        const cached = astCache.get(key);
+        if (cached) {
+            return cached;
+        }
+    }
+    const ret = _parse(sql, sqlCompiled, entry);
+
+    // cache result
+    if (!entry) {
+        astCache.set(key, ret);
+    }
+    return ret;
 }
 
 export function parseArrayLiteral(sql: string): string[] {
