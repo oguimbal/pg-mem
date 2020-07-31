@@ -46,4 +46,17 @@ describe('DB restore points', () => {
         expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
     });
 
+
+    it('can backup & resotre db multiple times', () => {
+        simpleDb();
+        none(`insert into data(id) values ('value')`);
+        const bck = db.backup();
+        none(`update data set id='updatd';insert into data(id) values ('other')`);
+        bck.restore();
+        expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
+        none(`update data set id='updatd';insert into data(id) values ('other')`);
+        bck.restore();
+        expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
+    });
+
 });

@@ -125,6 +125,6 @@ class Backup implements IBackup {
         if (this.schemaVersion !== this.db.schemaVersion) {
             throw new Error('You cannot restore this backup: schema has been changed since this backup has been created => prefer .clone() in this kind of cases.');
         }
-        this.db.data = this.data;
+        this.db.data = this.data.clone();
     }
 }
