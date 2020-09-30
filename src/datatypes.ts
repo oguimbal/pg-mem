@@ -788,6 +788,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'array':
             return makeArray(fromNative(native.arrayOf));
         case 'boolean':
+        case 'bool':
             return Types.bool;
         default:
             throw new NotSupported('Type ' + JSON.stringify(native.type));
