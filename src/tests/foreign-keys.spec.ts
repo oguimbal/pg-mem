@@ -76,4 +76,11 @@ describe('[Queries] Foreign keys', () => {
         // check throws when forein key is NOK
         assert.throws(() => none(`INSERT INTO "photo"("id", "userName") VALUES (2, 'blah');`));
     })
+
+
+
+    it ('can alter table add foreign key', () => {
+        none(`create table test(t bool);
+        alter table test add constraint "testkey" primary key (t);`);
+    })
 });

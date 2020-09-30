@@ -77,6 +77,13 @@ altertable_add_constraint
 
 altertable_add_constraint_kind
     -> altertable_add_constraint_foreignkey
+    | altertable_add_constraint_primarykey
+
+altertable_add_constraint_primarykey
+    -> %kw_primary kw_key collist_paren {% x => ({
+            type: 'primary key',
+            columns: x[2],
+        }) %}
 
 altertable_add_constraint_foreignkey
     -> %kw_foreign kw_key collist_paren

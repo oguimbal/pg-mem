@@ -6,7 +6,7 @@ import { Selection, columnEvaluator } from './transforms/selection';
 import { parse } from './parser/parser';
 import { nullIsh, deepCloneSimple } from './utils';
 import { Map as ImMap } from 'immutable';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary } from './parser/syntax/ast';
+import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from './parser/syntax/ast';
 import { fromNative } from './datatypes';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
@@ -478,114 +478,121 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
+    addForeignKey(cst: ConstraintForeignKeyDef, t: _Transaction, constraintName?: string) {
+        const ftable = this.schema.getTable(cst.foreignTable) as MemoryTable;
+        const cols = cst.localColumns.map(x => this.getColumnRef(x));
+        const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
+        if (cols.length !== fcols.length) {
+            throw new QueryError('Foreign key count mismatch');
+        }
+        cols.forEach((c, i) => {
+            if (fcols[i].expression.type !== c.expression.type) {
+                throw new QueryError(`Foreign key column type mismatch`);
+            }
+        });
+        if (cst.onDelete !== 'no action' || cst.onUpdate !== 'no action') {
+            throw new NotSupported('Foreign keys with actions not yet supported');
+        }
+
+        // check that there is an unique index on this table for the given expressions
+        const ihash = indexHash(fcols.map(x => x.expression));
+        if (!ftable.indexByHash.get(ihash)?.index?.unique) {
+            throw new QueryError(`there is no unique constraint matching given keys for referenced table "${this.name}"`);
+        }
+
+
+        // auto-create indices
+        if (this.schema.db.options.autoCreateForeignKeyIndices) {
+            this.createIndex(t, {
+                ifNotExists: true,
+                columns: cols.map<CreateIndexColDef>(x => ({
+                    value: x.expression,
+                })),
+            });
+        }
+
+
+        // when changing the foreign table key, must not be anything in this table that matches
+        ftable.onChange(cst.foreignColumns, (old, _, dt) => {
+            if (!old) {
+                return;
+            }
+            const vals = fcols.map(x => old[x.expression.id]);
+            if (vals.some(nullIsh)) {
+                return;
+            }
+            // build foreign key equality expression
+            const equals = cst.localColumns.map<ExprBinary>((x, i) => ({
+                type: 'binary',
+                op: '=',
+                left: { type: 'ref', name: x, table: this.name },
+                // hack, see #fkcheck
+                right: {
+                    type: 'constant',
+                    value: vals[i],
+                    dataType: fcols[i].expression.type,
+                },
+            }));
+            const expr = equals.slice(1).reduce<Expr>((a, b) => ({
+                type: 'binary',
+                op: 'AND',
+                left: a,
+                right: b,
+            }), equals[0]);
+
+            // check nothing matches
+            for (const _ of this.selection.filter(expr).enumerate(dt)) {
+                throw new QueryError(`update or delete on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
+            }
+        });
+
+        // when changing something in this table, then there must be a key match in the foreign table
+        this.onChange(cst.localColumns, (_, neu, dt) => {
+            if (!neu) {
+                return;
+            }
+            const vals = cols.map(x => neu[x.expression.id]);
+            if (vals.some(nullIsh)) {
+                return;
+            }
+            // build foreign key equality expression
+            const equals = cst.foreignColumns.map<ExprBinary>((x, i) => ({
+                type: 'binary',
+                op: '=',
+                left: { type: 'ref', name: x, table: ftable.name },
+                // hack, see #fkcheck
+                right: {
+                    type: 'constant',
+                    value: vals[i],
+                    dataType: cols[i].expression.type,
+                },
+            }));
+            const expr = equals.slice(1).reduce<Expr>((a, b) => ({
+                type: 'binary',
+                op: 'AND',
+                left: a,
+                right: b,
+            }), equals[0]);
+
+            // check there is a match
+            let yielded = false;
+            for (const _ of ftable.selection.filter(expr).enumerate(dt)) {
+                yielded = true;
+            }
+            if (!yielded) {
+                throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
+            }
+        });
+    }
+
     addConstraint(cst: ConstraintDef, t: _Transaction, constraintName?: string) {
         // todo add constraint name
         switch (cst.type) {
             case 'foreign key':
-                const ftable = this.schema.getTable(cst.foreignTable) as MemoryTable;
-                const cols = cst.localColumns.map(x => this.getColumnRef(x));
-                const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
-                if (cols.length !== fcols.length) {
-                    throw new QueryError('Foreign key count mismatch');
-                }
-                cols.forEach((c, i) => {
-                    if (fcols[i].expression.type !== c.expression.type) {
-                        throw new QueryError(`Foreign key column type mismatch`);
-                    }
-                });
-                if (cst.onDelete !== 'no action' || cst.onUpdate !== 'no action') {
-                    throw new NotSupported('Foreign keys with actions not yet supported');
-                }
-
-                // check that there is an unique index on this table for the given expressions
-                const ihash = indexHash(fcols.map(x => x.expression));
-                if (!ftable.indexByHash.get(ihash)?.index?.unique) {
-                    throw new QueryError(`there is no unique constraint matching given keys for referenced table "${this.name}"`);
-                }
-
-
-                // auto-create indices
-                if (this.schema.db.options.autoCreateForeignKeyIndices) {
-                    this.createIndex(t, {
-                        ifNotExists: true,
-                        columns: cols.map<CreateIndexColDef>(x => ({
-                            value: x.expression,
-                        })),
-                    });
-                }
-
-
-                // when changing the foreign table key, must not be anything in this table that matches
-                ftable.onChange(cst.foreignColumns, (old, _, dt) => {
-                    if (!old) {
-                        return;
-                    }
-                    const vals = fcols.map(x => old[x.expression.id]);
-                    if (vals.some(nullIsh)) {
-                        return;
-                    }
-                    // build foreign key equality expression
-                    const equals = cst.localColumns.map<ExprBinary>((x, i) => ({
-                        type: 'binary',
-                        op: '=',
-                        left: { type: 'ref', name: x, table: this.name },
-                        // hack, see #fkcheck
-                        right: {
-                            type: 'constant',
-                            value: vals[i],
-                            dataType: fcols[i].expression.type,
-                        },
-                    }));
-                    const expr = equals.slice(1).reduce<Expr>((a, b) => ({
-                        type: 'binary',
-                        op: 'AND',
-                        left: a,
-                        right: b,
-                    }), equals[0]);
-
-                    // check nothing matches
-                    for (const _ of this.selection.filter(expr).enumerate(dt)) {
-                        throw new QueryError(`update or delete on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
-                    }
-                });
-
-                // when changing something in this table, then there must be a key match in the foreign table
-                this.onChange(cst.localColumns, (_, neu, dt) => {
-                    if (!neu) {
-                        return;
-                    }
-                    const vals = cols.map(x => neu[x.expression.id]);
-                    if (vals.some(nullIsh)) {
-                        return;
-                    }
-                    // build foreign key equality expression
-                    const equals = cst.foreignColumns.map<ExprBinary>((x, i) => ({
-                        type: 'binary',
-                        op: '=',
-                        left: { type: 'ref', name: x, table: ftable.name },
-                        // hack, see #fkcheck
-                        right: {
-                            type: 'constant',
-                            value: vals[i],
-                            dataType: cols[i].expression.type,
-                        },
-                    }));
-                    const expr = equals.slice(1).reduce<Expr>((a, b) => ({
-                        type: 'binary',
-                        op: 'AND',
-                        left: a,
-                        right: b,
-                    }), equals[0]);
-
-                    // check there is a match
-                    let yielded = false;
-                    for (const _ of ftable.selection.filter(expr).enumerate(dt)) {
-                        yielded = true;
-                    }
-                    if (!yielded) {
-                        throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
-                    }
-                });
+                this.addForeignKey(cst, t, constraintName);
+                return;
+            case 'primary key':
+                this.createIndex(t, cst.columns, 'primary', constraintName);
                 return;
             default:
                 throw NotSupported.never(cst, 'constraint type');

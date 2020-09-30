@@ -107,15 +107,25 @@ export type AlterColumn = {
 };
 
 
-export type ConstraintDef = {
+export type ConstraintDef
+    = ConstraintForeignKeyDef
+    | ConstraintPrimaryKeyDef
+    | {
+        type: never;
+    }
+
+export interface  ConstraintPrimaryKeyDef {
+    type: 'primary key';
+    columns: string[];
+}
+
+export interface ConstraintForeignKeyDef {
     type: 'foreign key';
     localColumns: string[];
     foreignTable: string;
     foreignColumns: string[];
     onDelete: ConstraintAction
     onUpdate: ConstraintAction
-} | {
-    type: never;
 }
 
 /**

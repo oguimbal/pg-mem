@@ -145,5 +145,20 @@ describe('[PG syntax] Alter table', () => {
                 onDelete: 'no action',
             }
         }
+    });
+
+
+    checkAlterTable(`ALTER TABLE "test" ADD CONSTRAINT "cname"
+                 PRIMARY KEY ("a", "b")`, {
+        type: 'alter table',
+        table: { table: 'test' },
+        change: {
+            type: 'add constraint',
+            constraintName: 'cname',
+            constraint: {
+                type: 'primary key',
+                columns: ['a', 'b'],
+            }
+        }
     })
 });

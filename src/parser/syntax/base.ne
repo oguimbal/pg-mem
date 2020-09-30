@@ -151,7 +151,7 @@ data_type_simple
     -> data_type_text
     | data_type_numeric
     | data_type_date
-    | word {% anyKw('json', 'jsonb', 'boolean', 'money', 'bytea', 'regtype') %}
+    | word {% anyKw('json', 'jsonb', 'boolean', 'bool', 'money', 'bytea', 'regtype') %}
 
 
 # https://www.postgresql.org/docs/9.5/datatype-numeric.html
