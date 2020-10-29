@@ -144,6 +144,18 @@ export class Adapters implements LibAdapters {
         return created.connect();
     }
 
+    createSlonik(queryLatency?: number) {
+        const { createMockPool, createMockQueryResult } = __non_webpack_require__('slonik');
+        return createMockPool({
+            query: async (sql, args) => {
+                await delay(queryLatency ?? 0);
+                const formatted = replaceQueryArgs$(sql, args);
+                const ret = this.db.public.many(formatted);
+                return createMockQueryResult(ret);
+            },
+        });
+    }
+
 
     createPgPromise(queryLatency?: number) {
         // https://vitaly-t.github.io/pg-promise/module-pg-promise.html

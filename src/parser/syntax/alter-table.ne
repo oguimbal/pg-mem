@@ -7,7 +7,6 @@
 altertable_statement -> kw_alter %kw_table kw_ifexists:? table_ref
                         altertable_action {% x => ({
                             type: 'alter table',
-                            table: unwrap(x[1]),
                             ... x[2] ? {ifExists: true} : {},
                             table: unwrap(x[3]),
                             change: unwrap(x[4]),

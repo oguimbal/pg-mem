@@ -1,6 +1,6 @@
 {
   "name": "pg-mem",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
@@ -82,6 +82,7 @@
     "react-monaco-editor": "^0.39.1",
     "reactjs-popup": "^1.5.0",
     "rimraf": "^3.0.2",
+    "slonik": "^23.0.1",
     "source-map-support": "^0.5.19",
     "style-loader": "^1.2.1",
     "ts-loader": "^8.0.0",

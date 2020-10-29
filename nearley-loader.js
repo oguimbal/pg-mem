@@ -14,8 +14,10 @@ module.exports = function (input) {
     alreadycompiled: [],
   }
   var compilation = compile(parser.results[0], opts);
-  for (const dep of opts.alreadycompiled) {
-    this.addDependency(dep);
+  if (this.addDependency) {
+    for (const dep of opts.alreadycompiled) {
+      this.addDependency(dep);
+    }
   }
   lint(compilation, {});
   const ret = generate(compilation, 'grammar');

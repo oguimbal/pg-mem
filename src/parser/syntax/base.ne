@@ -129,7 +129,8 @@ kw_primary_key -> %kw_primary kw_key
 data_type -> data_type_simple (lparen int rparen {% get(1) %}):? (%kw_array | (%lbracket %rbracket):+):? {% x => {
     let asArray = x[2];
     const type = flattenStr(x[0]).join(' ').toLowerCase();
-    let ret = {
+    let ret;
+    ret = {
         type,
         ... (typeof x[1] === 'number' && x[1] >= 0 ) ? { length: x[1] } : {},
     };

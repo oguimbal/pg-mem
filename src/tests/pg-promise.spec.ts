@@ -2,8 +2,6 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { typeormSimpleSample } from '../../samples/typeorm/simple';
-import { typeormJoinsSample } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
 
 describe('pg-promise', () => {
