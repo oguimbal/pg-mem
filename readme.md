@@ -101,6 +101,7 @@ import {newDb} from 'pg-mem';
 const Client = newDb.adapters.createPgNative();
 ```
 
+
 ## node-postgres (pg)
 
 You can use `pg-mem` to get a memory version of the [node-postgres (pg)](https://github.com/brianc/node-postgres) module.
@@ -139,6 +140,21 @@ const pg = await newDb.adapters.createPgPromise();
 
 // then use it like you would with pg-promise
 await pg.connect();
+```
+
+
+## slonik
+
+You can use `pg-mem` to get a memory version of a [slonik](https://github.com/gajus/slonik) pool.
+
+```typescript
+// instead of
+import {createPool} from 'slonik';
+const pool = createPool(/* args */);
+
+// use:
+import {newDb} from 'pg-mem';
+const pool = newDb.adapters.createSlonik();
 ```
 
 

@@ -34,7 +34,7 @@ export function trimNullish<T>(value: T, depth = 5): T {
 
 
 export function watchUse<T>(rootValue: T): T & { check?(); } {
-    if (!rootValue || globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
+    if (!rootValue || typeof globalThis !== 'undefined' && globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
         return rootValue;
     }
     if (typeof rootValue !== 'object') {
