@@ -1,4 +1,4 @@
-import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler } from './interfaces-private';
+import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil } from './interfaces-private';
 import type { MemoryTable } from './table';
 import { Evaluator } from './valuetypes';
 import { ColumnConstraint, AlterColumn } from './parser/syntax/ast';
@@ -12,8 +12,8 @@ import { BIndex } from './btree-index';
 
 export class ColRef implements _Column {
 
-    default: IValue;
-    notNull: boolean;
+    default: IValue | nil;
+    notNull = false;
     usedInIndexes = new Set<BIndex>();
     changeHandlers = new Set<ChangeHandler<any>>();
 
@@ -70,8 +70,8 @@ export class ColRef implements _Column {
 
         // first, move data (this cannot throw => OK to modify mutable data)
         this.table.remapData(t, v => {
-            const ov = v[this.expression.id];
-            delete v[this.expression.id];
+            const ov = v[this.expression.id!];
+            delete v[this.expression.id!];
             v[to] = ov;
         });
         // for (const v of this.table.bin(t)) {
@@ -98,7 +98,7 @@ export class ColRef implements _Column {
                 }
                 if (alter.updateExisting) {
                     const defVal = df.get();
-                    this.table.remapData(t, x => x[this.expression.id] = defVal);
+                    this.table.remapData(t, x => x[this.expression.id!] = defVal);
                 }
                 this.default = df;
                 break;
@@ -113,10 +113,10 @@ export class ColRef implements _Column {
                 const conv = this.expression.convert(newType);
                 const eid = this.expression.id;
 
-                this.table.remapData(t, x => x[this.expression.id] = conv.get(x, t));
+                this.table.remapData(t, x => x[this.expression.id!] = conv.get(x, t));
 
                 // once converted, do nasty things to change expression
-                this.replaceExpression(eid, newType);
+                this.replaceExpression(eid!, newType);
                 break;
             default:
                 throw NotSupported.never(alter, 'alter column type');
@@ -126,7 +126,7 @@ export class ColRef implements _Column {
     }
 
     private replaceExpression(newId: string, newType: _IType) {
-        const on = this.expression.id.toLowerCase();
+        const on = this.expression.id!.toLowerCase();
         const nn = newId.toLowerCase();
         this.expression = columnEvaluator(this.table, newId, newType);
 
@@ -136,7 +136,7 @@ export class ColRef implements _Column {
     }
 
     drop(t: _Transaction): void {
-        const on = this.expression.id.toLowerCase();
+        const on = this.expression.id!.toLowerCase();
         const i = this.table.columnDefs.indexOf(this);
         if (i < 0) {
             throw new Error('Corrupted table');
@@ -148,7 +148,7 @@ export class ColRef implements _Column {
         }
 
         // remove associated data
-        this.table.remapData(t, x => delete x[this.expression.id]);
+        this.table.remapData(t, x => delete x[this.expression.id!]);
 
         // nasty business to remove columns
         this.table.columnsByName.delete(on);
@@ -172,9 +172,9 @@ export class ColRef implements _Column {
             return;
         }
         if (!this.default) {
-            toInsert[this.expression.id] = null
+            toInsert[this.expression.id!] = null
         } else {
-            toInsert[this.expression.id] = this.default.get();
+            toInsert[this.expression.id!] = this.default.get();
         }
     }
 }

@@ -1,8 +1,9 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from './parser/syntax/ast';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
+
 
 // export type PrimaryKey = string | number;
 const ID = Symbol('_id');
@@ -18,14 +19,14 @@ export function getId(item: any): string {
 }
 
 export function setId<T = any>(item: T, id: string): T {
-    const got = item[ID];
+    const got = (item as any)[ID];
     if (got === id) {
         return item;
     }
     if (got) {
         throw new Error('Unexpected: Cannot update an ID');
     }
-    item[ID] = id;
+    (item as any)[ID] = id;
     return item;
 }
 
@@ -35,11 +36,13 @@ export interface _ISchema extends ISchema {
     readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
     explainSelect(sql: string): _SelectExplanation;
-    explainLastSelect(): _SelectExplanation;
-    getTable(table: string, nullIfNotFound?: boolean): _ITable;
+    explainLastSelect(): _SelectExplanation | undefined;
+    getTable(table: string): _ITable;
+    getTable(table: string, nullIfNotFound: false): _ITable;
+    getTable(table: string, nullIfNotFound?: boolean): _ITable | null;
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
-    _doRenTab(db: string, to: string);
+    _doRenTab(db: string, to: string): any;
 }
 
 
@@ -77,14 +80,15 @@ export interface _ISelection<T = any> {
     stats(t: _Transaction): Stats | null;
 
     /** Gets the index associated with this value (or returns null) */
-    getIndex(...forValue: IValue[]): _IIndex<T>;
+    getIndex(...forValue: IValue[]): _IIndex<T> | nil;
     readonly columns: ReadonlyArray<IValue>;
-    filter(where: Expr): _ISelection;
+    filter(where: Expr | nil): _ISelection;
     limit(limit: LimitStatement): _ISelection;
-    orderBy(orderBy: OrderByStatement[]): _ISelection<any>;
-    groupBy(grouping: Expr[], select: SelectedColumn[]): _ISelection;
+    orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any>;
+    groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue;
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
     subquery(data: _ISelection<any>, op: SelectStatement): _ISelection;
     isOriginOf(a: IValue<any>): boolean;
@@ -232,7 +236,7 @@ export interface _IDb extends IMemoryDb {
     readonly public: _ISchema;
     readonly data: _Transaction;
 
-    getSchema(db: string): _ISchema;
+    getSchema(db?: string | null): _ISchema;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent, ...args: any[]): void;
     listSchemas(): _ISchema[];
@@ -258,18 +262,19 @@ export interface _ITable<T = any> extends IMemoryTable {
     /** Create a column */
     addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column;
     /** Get a column to modify it */
-    getColumnRef(column: string, nullIfNotFound?: boolean): _Column;
+    getColumnRef(column: string): _Column;
+    getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
-    addConstraint(constraint: ConstraintDef, t: _Transaction, constraintName?: string);
+    addConstraint(constraint: ConstraintDef, t: _Transaction, constraintName?: string): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
-    onChange(columns: string[], check: ChangeHandler<T>);
-    getIndex(...forValues: IValue[]): _IIndex;
+    onChange(columns: string[], check: ChangeHandler<T>): void;
+    getIndex(...forValues: IValue[]): _IIndex | nil;
 }
 
-export type ChangeHandler<T> = (old: T, neu: T, t: _Transaction) => void;
+export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;
 
 export interface _Column {
-    readonly default: IValue;
+    readonly default: IValue | nil;
     readonly expression: IValue;
     readonly usedInIndexes: ReadonlySet<_IIndex>;
     alter(alter: AlterColumn, t: _Transaction): this;
@@ -296,19 +301,19 @@ export interface CreateIndexColDef {
 export interface _IType<TRaw = any> extends IType {
     /** Data type */
     readonly primary: DataType;
-    readonly regTypeName: string;
+    readonly regTypeName: string | null;
 
     toString(): string;
-    equals(a: TRaw, b: TRaw): boolean;
-    gt(a: TRaw, b: TRaw): boolean;
-    ge(a: TRaw, b: TRaw): boolean;
-    lt(a: TRaw, b: TRaw): boolean;
-    le(a: TRaw, b: TRaw): boolean;
-    canConvertImplicit(to: DataType | _IType<TRaw>): boolean;
-    canConvert(to: DataType | _IType<TRaw>): boolean;
+    equals(a: TRaw, b: TRaw): boolean | null;
+    gt(a: TRaw, b: TRaw): boolean | null;
+    ge(a: TRaw, b: TRaw): boolean | null;
+    lt(a: TRaw, b: TRaw): boolean | null;
+    le(a: TRaw, b: TRaw): boolean | null;
+    canConvertImplicit(to: DataType | _IType<TRaw>): boolean | nil;
+    canConvert(to: DataType | _IType<TRaw>): boolean | nil;
     convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;
     constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget);
-    prefer(type: _IType<any>): _IType;
+    prefer(type: _IType<any>): _IType | nil;
 }
 
 export interface IValue<TRaw = any> {
@@ -330,25 +335,25 @@ export interface IValue<TRaw = any> {
     readonly isConstantLiteral: boolean;
 
     /** Will be set if there is an index on this value */
-    readonly index: _IIndex;
+    readonly index: _IIndex | nil;
 
     /** Originates from this selection */
-    readonly origin: _ISelection;
+    readonly origin: _ISelection | nil;
 
 
     /** Column ID, or null */
-    readonly id: string;
+    readonly id: string | nil;
 
     /** Hash of this value (used to identify indexed expressions) */
     readonly hash: string;
 
     /** Clean debug reconsitutition of SQL used to parse this value */
-    readonly sql: string;
+    readonly sql: string | nil;
 
     /** Get value if is a constant */
     get(): any;
     /** Get value if is NOT a constant */
-    get(raw: TRaw, t: _Transaction): any;
+    get(raw: TRaw, t?: _Transaction | nil): any;
 
     setId(newId: string): IValue;
     canConvert(to: DataType | _IType): boolean;
@@ -380,7 +385,7 @@ export interface _IIndex<T = any> {
     stats(t: _Transaction, key?: IndexKey): Stats | null;
 
     /** Get values equating the given key */
-    eqFirst(rawKey: IndexKey, t: _Transaction): T;
+    eqFirst(rawKey: IndexKey, t: _Transaction): T | null;
 
     enumerate(op: IndexOp): Iterable<T>;
 
@@ -440,9 +445,9 @@ export const EmtpyTable = Record<TableRecordDef<any>>({
 });
 
 export const NewColumn = Record<TableColumnRecordDef<any>>({
-    default: null,
+    default: null as any,
     notNull: false,
     usedInIndexes: ImSet(),
-    type: null,
-    name: null,
+    type: null as any,
+    name: null as any,
 });

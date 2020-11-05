@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 var nearley = require('nearley/lib/nearley.js');
 var compile = require('nearley/lib/compile.js');
 var generate = require('nearley/lib/generate.js');
@@ -8,6 +10,7 @@ var nearleyGrammar = nearley.Grammar.fromCompiled(rawGrammar);
 
 module.exports = function (input) {
   var parser = new nearley.Parser(nearleyGrammar);
+  console.log('Parsing nearley', this.resource);
   parser.feed(input);
   const opts = {
     args: [this.resourcePath],
@@ -21,5 +24,6 @@ module.exports = function (input) {
   }
   lint(compilation, {});
   const ret = generate(compilation, 'grammar');
+  // fs.writeFileSync(this.resource + '.compiled.ts', ret);
   return ret;
 }

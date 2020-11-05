@@ -1,7 +1,7 @@
-import moo, { Rules } from 'moo';
+import {compile} from 'moo';
 
 // build lexer
-export const lexer = moo.compile({
+export const lexer = compile({
     valueString: {
         match: /"(?:\\["\\]|[^\n"\\])*"/,
         value: x => JSON.parse(x),
@@ -23,3 +23,5 @@ lexer.next = (next => () => {
     }
     return tok;
 })(lexer.next);
+
+export const lexerAny: any = lexer;

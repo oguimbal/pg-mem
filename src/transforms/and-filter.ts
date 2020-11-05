@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
+import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { SeqScanFilter } from './seq-scan';
 
@@ -6,11 +6,11 @@ import { SeqScanFilter } from './seq-scan';
 
 export class AndFilter<T = any> extends FilterBase<T> {
 
-    get index(): _IIndex<T> {
+    get index(): _IIndex<T> | nil {
         return null;
     }
 
-    private prevEntropy: { t: _Transaction; ret: number };
+    private prevEntropy?: { t: _Transaction; ret: number };
 
     entropy(t: _Transaction) {
         // just a bit of caching

@@ -36,23 +36,23 @@ export class EqFilter<T = any> extends FilterBase<T> {
         if (nullIsh(eq)) {
             return false;
         }
-        return this.op === 'eq' ? eq : !eq;
+        return this.op === 'eq' ? !!eq : !eq;
     }
 
     constructor(private onValue: IValue<T>
         , private equalsCst: any
         , private op: 'eq' | 'neq'
         , private matchNull: boolean) {
-        super(onValue.origin);
-        if (onValue.index.expressions.length !== 1) {
+        super(onValue.origin!);
+        if (onValue.index!.expressions.length !== 1) {
             throw new Error('Unexpected index equality expressions count mismatch');
         }
 
-        this.index = this.onValue.index;
+        this.index = this.onValue.index!;
         this.opDef = {
             type: op,
             key: [equalsCst],
-            t: null,
+            t: null as any,
             matchNull: this.matchNull,
         }
     }
@@ -68,7 +68,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
             id: e.idFor(this),
             _: this.op,
             entropy: this.entropy(e.transaction),
-            on: this.onValue.index.explain(e),
+            on: this.onValue.index!.explain(e),
         };
     }
 }

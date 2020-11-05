@@ -1,10 +1,10 @@
-import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription } from './interfaces';
+import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { Selection, columnEvaluator } from './transforms/selection';
 import { parse } from './parser/parser';
-import { nullIsh, deepCloneSimple } from './utils';
+import { nullIsh, deepCloneSimple, Optional } from './utils';
 import { Map as ImMap } from 'immutable';
 import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from './parser/syntax/ast';
 import { fromNative } from './datatypes';
@@ -22,9 +22,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
     private it = 0;
-    hasPrimary: boolean;
-    private readonly: boolean;
-    hidden: boolean;
+    hasPrimary = false;
+    private readonly = false;
+    hidden = false;
     private dataId = Symbol();
     private serialsId: symbol = Symbol();
     private indexByHash = new Map<string, {
@@ -95,7 +95,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this;
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
         const got = this.columnsByName.get(column.toLowerCase());
         if (!got && !nullIfNotFound) {
             throw new ColumnNotFound(column);
@@ -116,7 +118,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 ...column,
                 type: fromNative(column.dataType),
             };
-            delete tp.dataType;
+            delete (tp as Optional<typeof tp>).dataType;
             return this.addColumn(tp, t);
         }
 
@@ -133,7 +135,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 updateExisting: true,
             }, t)
         } else {
-            this.remapData(t, x => x[column.name] = null);
+            this.remapData(t, x => (x as any)[column.name] = null);
         }
 
         // auto increments
@@ -158,10 +160,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.columns.push(cref.expression);
         this.schema.db.onSchemaChange();
         this.selection.rebuild();
+        return cref;
     }
 
 
-    getColumnRef(column: string, nullIfNotFound?: boolean): ColRef {
+    getColumnRef(column: string): ColRef;
+    getColumnRef(column: string, nullIfNotFound?: boolean): ColRef | nil;
+    getColumnRef(column: string, nullIfNotFound?: boolean): ColRef | nil {
         const got = this.columnsByName.get(column.toLowerCase());
         if (!got) {
             if (nullIfNotFound) {
@@ -187,7 +192,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
         lst.add(handler);
         return {
-            unsubscribe: () => lst.delete(handler),
+            unsubscribe: () => lst!.delete(handler),
         };
     }
 
@@ -240,10 +245,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // serial (auto increments) columns
         let serials = t.getMap(this.serialsId);
         for (const [k, v] of serials.entries()) {
-            if (!nullIsh(toInsert[k])) {
+            if (!nullIsh((toInsert as any)[k])) {
                 continue;
             }
-            toInsert[k] = v + 1;
+            (toInsert as any)[k] = v + 1;
             serials = serials.set(k, v + 1);
         }
         t.set(this.serialsId, serials);
@@ -321,8 +326,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (exists && this.changeHandlers.size) {
             const change = new Set<ChangeHandler<T>>();
             for (const c of this.columnDefs.filter(x => x.changeHandlers.size)) {
-                const old = exists[c.expression.id];
-                const neu = toUpdate[c.expression.id];
+                const old = (exists as any)[c.expression.id!];
+                const neu = (toUpdate as any)[c.expression.id!];
                 if (c.expression.type.equals(old, neu)) {
                     continue;
                 }
@@ -387,7 +392,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this.bin(t).has(id);
     }
 
-    getIndex(...forValues: IValue[]): _IIndex {
+    getIndex(...forValues: IValue[]): _IIndex | nil {
         if (!forValues.length || forValues.some(x => !x || !this.isOriginOf(x))) {
             return null;
         }
@@ -432,11 +437,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         const ihash = indexHash(expressions.columns.map(x => x.value));
-        const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, expressions.unique, expressions.notNull);
+        const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, !!expressions.unique, !!expressions.notNull);
 
         if (this.indexByHash.has(ihash) || this.indexByName.has(index.indexName)) {
             if (expressions.ifNotExists) {
-                return;
+                return this;
             }
             throw new QueryError('Index already exists');
         }
@@ -451,7 +456,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // ⚠⚠ This must be done LAST, to avoid throwing an execption if index population failed
         for (const col of index.expressions) {
             for (const used of col.usedColumns) {
-                this.getColumnRef(used.id).usedInIndexes.add(index);
+                this.getColumnRef(used.id!).usedInIndexes.add(index);
             }
         }
         this.indexByHash.set(ihash, { index, expressions: index.expressions });
@@ -474,7 +479,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
                 name: x.index.indexName,
-                expressions: x.expressions.map(x => x.sql),
+                expressions: x.expressions.map(x => x.sql!),
             }));
     }
 
@@ -517,7 +522,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             if (!old) {
                 return;
             }
-            const vals = fcols.map(x => old[x.expression.id]);
+            const vals = fcols.map(x => old[x.expression.id!]);
             if (vals.some(nullIsh)) {
                 return;
             }
@@ -551,7 +556,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             if (!neu) {
                 return;
             }
-            const vals = cols.map(x => neu[x.expression.id]);
+            const vals = cols.map(x => (neu as any)[x.expression.id!]);
             if (vals.some(nullIsh)) {
                 return;
             }

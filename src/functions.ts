@@ -12,7 +12,7 @@ export function buildCall(name: string, args: IValue[]) {
     let get: (...args: any[]) => any;
 
     name = name.toLowerCase();
-    let unpure: boolean;
+    let unpure = false;
     let acceptNulls = false;
     switch (name) {
         case 'lower':

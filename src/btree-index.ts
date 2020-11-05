@@ -1,6 +1,7 @@
 import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats } from './interfaces-private';
+// @ts-ignore
 import createTree from 'functional-red-black-tree';
-import { QueryError, NotSupported } from './interfaces';
+import { QueryError, NotSupported, nil } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
 import { deepCloneSimple, nullIsh } from './utils';
 
@@ -28,7 +29,7 @@ interface BTree<T> {
     readonly begin: BIterator<T>;
     readonly end: BIterator<T>;
     /**  If a truthy value is returned from the visitor, then iteration is stopped. */
-    forEach(fn: (key: IndexKey, value: T) => boolean, low?: number, high?: number);
+    forEach(fn: (key: IndexKey, value: T) => boolean, low?: number, high?: number): void;
     // root;
 }
 
@@ -36,7 +37,7 @@ interface BIterator<T> {
     readonly key: IndexKey;
     readonly value: T;
     // tree;
-    readonly index;
+    readonly index: any;
     readonly valid: boolean;
     clone(): BIterator<T>;
     remove(): BTree<T>;
@@ -165,10 +166,11 @@ export class BIndex<T = any> implements _IIndex<T> {
         this.setCount(t, this.getCount(t) - 1);
     }
 
-    eqFirst(rawKey: IndexKey, t: _Transaction): T {
+    eqFirst(rawKey: IndexKey, t: _Transaction): T | null {
         for (const r of this.eq(rawKey, t, false)) {
             return deepCloneSimple(r);
         }
+        return null;
     }
 
 
@@ -328,9 +330,9 @@ export class BIndex<T = any> implements _IIndex<T> {
     private _enumerate(op: IndexOp): Iterable<T> {
         switch (op.type) {
             case 'eq':
-                return this.eq(op.key, op.t, op.matchNull);
+                return this.eq(op.key, op.t, op.matchNull!);
             case 'neq':
-                return this.neq(op.key, op.t, op.matchNull);
+                return this.neq(op.key, op.t, op.matchNull!);
             case 'ge':
                 return this.ge(op.key, op.t);
             case 'le':
@@ -461,7 +463,7 @@ export class BIndex<T = any> implements _IIndex<T> {
         return {
             _: 'btree',
             onTable: this.onTable.name,
-            btree: this.expressions.map(x => x.sql),
+            btree: this.expressions.map(x => x.sql!),
         }
     }
 }

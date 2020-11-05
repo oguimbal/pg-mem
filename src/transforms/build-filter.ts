@@ -19,7 +19,7 @@ export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _I
     return _buildFilter(on, filter) ?? new SeqScanFilter(on, buildValue(on, filter))
 }
 
-function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> {
+function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> | null {
     // check if there is a direct index
     const built = buildValue(on, filter);
     if (built.index) {
@@ -51,10 +51,11 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelect
         case 'ternary':
             return buildTernaryFilter(on, filter);
         default:
+            return null;
     }
 }
 
-function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary): _ISelection<T> {
+function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary): _ISelection<T> | null {
     const { operand, op } = filter;
     switch (op) {
         case 'IS NULL':
@@ -66,9 +67,10 @@ function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary):
             return new SeqScanFilter(on, Value.isNull(leftValue, op === 'IS NULL'));
         }
     }
+    return null;
 }
 
-function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> {
+function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null{
     const { left, right, op } = filter;
     switch (op) {
         case '=':
@@ -98,7 +100,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
                 arrayValue = Value.array([arrayValue]);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
-            const array = arrayValue.convert(makeArray(elementType));
+            const array = arrayValue.convert(makeArray(elementType!));
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
                 const arrCst = array.get();
@@ -147,9 +149,10 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             }
         }
     }
+    return null;
 }
 
-function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> {
+function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null {
     const { op, left, right } = filter;
     let leftValue = buildValue(on, left);
     let rightValue = buildValue(on, right);
@@ -192,9 +195,10 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
                 return new IneqFilter(rightValue, fop, leftValue.get());
             }
     }
+    return null;
 }
 
-function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTernary): _ISelection<T> {
+function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTernary): _ISelection<T> | null {
     switch (filter.op) {
         case 'BETWEEN':
         case 'NOT BETWEEN': {
@@ -212,4 +216,5 @@ function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTerna
             }
         }
     }
+    return null;
 }

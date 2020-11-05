@@ -7,16 +7,16 @@ import { assert, expect } from 'chai';
 export class User extends BaseEntity {
 
     @PrimaryGeneratedColumn({ type: 'integer' })
-    id: number;
+    id!: number;
 
     @Column({ type: 'text' })
-    firstName: string;
+    firstName!: string;
 
     @Column({ type: 'text' })
-    lastName: string;
+    lastName!: string;
 
     @Column({ type: 'int' })
-    age: number;
+    age!: number;
 
 }
 

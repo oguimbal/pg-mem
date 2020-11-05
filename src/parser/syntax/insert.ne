@@ -1,4 +1,4 @@
-@lexer lexer
+@lexer lexerAny
 @include "base.ne"
 @include "expr.ne"
 @include "select.ne"

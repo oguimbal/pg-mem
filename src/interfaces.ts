@@ -1,6 +1,6 @@
 import { TableConstraint, CreateColumnDef, StatementLocation } from './parser/syntax/ast';
 
-
+export type nil = undefined | null;
 
 export type Schema = {
     name: string;
@@ -58,7 +58,7 @@ export interface IMemoryDb {
     /**
      * Get an existing schema
      */
-    getSchema(name: string): ISchema;
+    getSchema(db?: string | null): ISchema;
     /**
      * Create a schema in this database
      */
@@ -103,7 +103,7 @@ export interface LibAdapters {
     createPgNative(queryLatency?: number): any;
 
     /** Create a Typeorm connection bound to this db */
-    createTypeormConnection(typeOrmConnection: any, queryLatency?: number);
+    createTypeormConnection(typeOrmConnection: any, queryLatency?: number): any;
 }
 
 export interface ISchema {

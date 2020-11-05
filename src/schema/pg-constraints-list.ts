@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../interfaces-private';
-import {  Schema } from '../interfaces';
+import {  nil, Schema } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
 import { TableIndex } from './table-index';
 import { ReadOnlyTable } from './readonly-table';
@@ -60,7 +60,7 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
         }
         let ret = {};
         for (const { name } of this._schema.fields) {
-            ret[name] = null;
+            (ret as any)[name] = null;
         }
 
         ret = {
@@ -77,7 +77,7 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
         return !!value?.[IS_SCHEMA];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
+    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
         if (forValue.id === 'table_name') {
             return new TableIndex(this, forValue);
         }

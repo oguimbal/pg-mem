@@ -8,7 +8,7 @@ import hash from 'object-hash';
 
 let sqlCompiled: Grammar;
 let arrayCompiled: Grammar;
-const astCache = new LRUCache({
+const astCache: LRUCache<any, any> = new LRUCache({
     max: 1000,
 });
 

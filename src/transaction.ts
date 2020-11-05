@@ -13,7 +13,7 @@ export class Transaction implements _Transaction {
         return !!this.parent;
     }
 
-    private constructor(private parent: Transaction, private data: ImMap<symbol, any>) {
+    private constructor(private parent: Transaction | null, private data: ImMap<symbol, any>) {
         this.origData = data;
     }
 

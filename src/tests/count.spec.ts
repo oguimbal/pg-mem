@@ -19,10 +19,9 @@ describe('[Queries] Count', () => {
     });
 
     function explainMapSelect() {
-        const expl = db.public.explainLastSelect();
+        const expl = db.public.explainLastSelect()!;
         if (expl._ !== 'map') {
             assert.fail('should be a map');
-            return null;
         }
         return expl.of;
     }

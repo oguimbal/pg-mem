@@ -1,12 +1,12 @@
-@lexer lexer
+@lexer lexerAny
 @include "base.ne"
 
 
 # https://www.postgresql.org/docs/12/sql-createtable.html
 createtable_statement -> %kw_create %kw_table kw_ifnotexists:? word lparen createtable_declarationlist rparen {% x => {
 
-    const cols = x[5].filter(v => 'dataType' in v);
-    const constraints = x[5].filter(v => !('dataType' in v));
+    const cols = x[5].filter((v: any) => 'dataType' in v);
+    const constraints = x[5].filter((v: any) => !('dataType' in v));
 
     return {
         type: 'create table',

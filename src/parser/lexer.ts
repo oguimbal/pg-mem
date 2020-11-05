@@ -1,4 +1,4 @@
-import moo, { Rules } from 'moo';
+import {compile, keywords} from 'moo';
 import { sqlKeywords } from './keywords';
 export { LOCATION } from './syntax/ast';
 
@@ -7,14 +7,14 @@ const keywodsMap: any = {};
 for (const k of sqlKeywords) {
     keywodsMap['kw_' + k.toLowerCase()] = k;
 }
-const caseInsensitiveKeywords = (map) => {
-    const transform = moo.keywords(map)
-    return text => transform(text.toUpperCase())
+const caseInsensitiveKeywords = (map: any) => {
+    const transform = keywords(map)
+    return (text: string) => transform(text.toUpperCase())
 }
 
 
 // build lexer
-export const lexer = moo.compile({
+export const lexer = compile({
     word: {
         match: /[a-zA-Z][A-Za-z0-9_]*/,
         type: caseInsensitiveKeywords(keywodsMap),
@@ -77,3 +77,5 @@ lexer.next = (next => () => {
     }
     return tok;
 })(lexer.next);
+
+export const lexerAny: any = lexer;

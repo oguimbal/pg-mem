@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats } from '../interfaces-private';
 import { buildValue, uncache } from '../predicate';
-import { QueryError, ColumnNotFound, DataType, NotSupported } from '../interfaces';
+import { QueryError, ColumnNotFound, DataType, NotSupported, nil } from '../interfaces';
 import { DataSourceBase } from './transform-base';
 import { Expr, ExprBinary } from '../parser/syntax/ast';
 import { nullIsh } from '../utils';
@@ -46,7 +46,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }>();
     private indexCache = new Map<IValue, _IIndex>();
     strategies: JoinStrategy[] = [];
-    private building;
+    private building = false;
 
 
     isOriginOf(a: IValue<any>): boolean {
@@ -84,9 +84,13 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         , private innerJoin: boolean) {
         super(db);
 
+        if (!on) {
+            throw new Error('Unspecified join ON clause');
+        }
+
         this.joinId = jCnt++;
         for (const c of this.restrictiveColumns) {
-            const nc = c.setWrapper(this, x => x['>restrictive']);
+            const nc = c.setWrapper(this, x => (x as any)['>restrictive']);
             this._columns.push(nc);
             this.columnsMappingParentToThis.set(c, nc);
             this.columnsMappingThisToParent.set(nc, {
@@ -96,7 +100,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             this.columnsMappingParentToThis
         }
         for (const c of this.joinedColumns) {
-            const nc = c.setWrapper(this, x => x['>joined']);
+            const nc = c.setWrapper(this, x => (x as any)['>joined']);
             this._columns.push(nc);
             this.columnsMappingParentToThis.set(c, nc);
             this.columnsMappingThisToParent.set(nc, {
@@ -145,8 +149,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         const a = buildValue(this, on.left);
         const b = buildValue(this, on.right);
         this.building = false;
-        let restrictedVal: IValue;
-        let joinedVal: IValue;
+        let restrictedVal: IValue | undefined = undefined;
+        let joinedVal: IValue | undefined = undefined;
 
         // const aIndex = a.wrappedOrigin?.getIndex()
         if (this.restrictive.isOriginOf(a) && this.joined.isOriginOf(b)) {
@@ -182,7 +186,9 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
         let onLeft = this.restrictive.getColumn(column, true);
         let onRight = this.joined.getColumn(column, true);
         if (!onLeft && !onRight) {
@@ -197,7 +203,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         if (this.building) {
             return onLeft ?? onRight;
         }
-        const mapped = this.columnsMappingParentToThis.get(onLeft ?? onRight);
+        const mapped = this.columnsMappingParentToThis.get(onLeft ?? onRight!);
         if (!mapped) {
             throw new Error('Corrupted join');
         }
@@ -247,13 +253,13 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         // if we're in an inner join, and the chosen strategy
         // has inverted join order, then invert built items
         let template: any;
-        let buildItem: (x) => any;
+        let buildItem: (x: any) => any;
         if (side === 'joined') {
             buildItem = x => this.buildItem(x, item);
-            template = this.buildItem(null, item);
+            template = this.buildItem(null as any, item);
         } else {
             buildItem = x => this.buildItem(item, x);
-            template = this.buildItem(item, null);
+            template = this.buildItem(item, null as any);
         }
         return { buildItem, template };
     }
@@ -305,7 +311,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         throw new NotSupported('lookups on joins');
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
+    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
         if (this.indexCache.has(forValue)) {
             return this.indexCache.get(forValue);
         }
@@ -370,7 +376,7 @@ export class JoinIndex<T> implements _IIndex<T> {
         return this.base.entropy(op);
     }
 
-    eqFirst(rawKey: IndexKey, t: _Transaction): T {
+    eqFirst(rawKey: IndexKey, t: _Transaction): T | null {
         for (const i of this.enumerate({
             type: 'eq',
             key: rawKey,
@@ -378,6 +384,7 @@ export class JoinIndex<T> implements _IIndex<T> {
         })) {
             return i;
         }
+        return null;
     }
 
     private chooseStrategy(t: _Transaction) {

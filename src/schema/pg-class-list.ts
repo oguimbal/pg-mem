@@ -56,26 +56,26 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
         ]
     };
 
-    private indexes: { [key: string]: _IIndex } = {
-        'oid': new CustomIndex(this, {
-            get size() {
-                return this.size
-            },
-            column: this.selection.getColumn('oid'),
-            byColumnValue: (oid: string, t: _Transaction) => {
-                return [this.byOid(oid, t)]
-            }
-        }),
-        'relname': new CustomIndex(this, {
-            get size() {
-                return this.size
-            },
-            column: this.selection.getColumn('relname'),
-            byColumnValue: (oid: string, t: _Transaction) => {
-                return [this.byRelName(oid, t)];
-            }
-        }),
-    }
+    // private indexes: { [key: string]: _IIndex } = {
+    //     'oid': new CustomIndex(this, {
+    //         get size() {
+    //             return this.size
+    //         },
+    //         column: this.selection.getColumn('oid'),
+    //         byColumnValue: (oid: string, t: _Transaction) => {
+    //             return [this.byOid(oid, t)]
+    //         }
+    //     }),
+    //     'relname': new CustomIndex(this, {
+    //         get size() {
+    //             return this.size
+    //         },
+    //         column: this.selection.getColumn('relname'),
+    //         byColumnValue: (oid: string, t: _Transaction) => {
+    //             return [this.byRelName(oid, t)];
+    //         }
+    //     }),
+    // }
 
 
 
@@ -83,7 +83,7 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
         const { type, id } = parseOid(oid);
         switch (type) {
             case 'table':
-                return this.makeTable(this.schema.getTable(id, true));
+                return this.makeTable(this.schema.getTable(id, true)!);
             case 'index':
                 return null;
             // return this.makeTable(this.db.getIndex(id, true));
@@ -120,15 +120,15 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
             return null;
         }
         throw new Error('todo');
-        const ret = {
-            relname: t.name,
-            relnamespace: t instanceof MemoryTable
-                ? MAIN_NAMESPACE
-                : SCHEMA_NAMESPACE,
-            relkind: 'r', //  r = ordinary table
-            [IS_SCHEMA]: true,
-        };
-        return setId(ret, '/schema/pg_class/table/' + t.name);
+        // const ret = {
+        //     relname: t.name,
+        //     relnamespace: t instanceof MemoryTable
+        //         ? MAIN_NAMESPACE
+        //         : SCHEMA_NAMESPACE,
+        //     relkind: 'r', //  r = ordinary table
+        //     [IS_SCHEMA]: true,
+        // };
+        // return setId(ret, '/schema/pg_class/table/' + t.name);
     }
 
     hasItem(value: any): boolean {

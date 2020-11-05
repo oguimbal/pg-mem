@@ -28,8 +28,8 @@ export class InFilter<T = any> extends FilterBase<T> {
 
     constructor(private onValue: IValue<T>
         , private elts: any[]) {
-        super(onValue.origin);
-        this.index = onValue.index;
+        super(onValue.origin!);
+        this.index = onValue.index!;
         if (this.index.expressions.length !== 1) {
             throw new Error('Only supports IN with signle expressions index');
         }
@@ -48,7 +48,7 @@ export class InFilter<T = any> extends FilterBase<T> {
             count: 0,
         };
         for (const i of elts) {
-            ret.count += i.count;
+            ret.count += i!.count;
         }
         return ret;
     }

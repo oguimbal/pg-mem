@@ -1,4 +1,4 @@
-@lexer lexer
+@lexer lexerAny
 @include "base.ne"
 @include "expr.ne"
 @include "select.ne"
@@ -46,7 +46,7 @@ update_set_multiple -> collist_paren %op_eq (lparen expr_list_raw rparen {% get(
     if (cols.length !== exprs.length) {
         throw new Error('number of columns does not match number of values');
     }
-    return cols.map((x, i) => ({
+    return cols.map((x: any, i: number) => ({
         column: unwrap(x),
         value: unwrap(exprs[i]),
     }))

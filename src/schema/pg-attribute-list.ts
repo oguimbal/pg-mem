@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
-import { ReadOnlyError, NotSupported } from '../interfaces';
+import { ReadOnlyError, NotSupported, nil } from '../interfaces';
 import { Types, makeArray } from '../datatypes';
 import { ReadOnlyTable } from './readonly-table';
 
@@ -48,7 +48,7 @@ export class PgAttributeTable extends ReadOnlyTable implements _ITable {
         return false;
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
+    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
         return null;
     }
 

@@ -1,4 +1,4 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField } from './interfaces';
+import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField, nil } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
@@ -15,7 +15,7 @@ export class Query implements _ISchema, ISchema {
 
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
-    private lastSelect: _ISelection<any>;
+    private lastSelect?: _ISelection<any>;
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable.insert(this.db.data, {});
@@ -63,11 +63,17 @@ export class Query implements _ISchema, ISchema {
 
 
     query(text: string): QueryResult {
-        let last: QueryResult;
+        let last: QueryResult | undefined;
         for (const r of this.queries(text)) {
             last = r;
         }
-        return last;
+        return last ?? {
+            command: text,
+            fields: [],
+            location: {},
+            rowCount: 0,
+            rows: [],
+        };
     }
 
     private parse(query: string) {
@@ -90,7 +96,7 @@ export class Query implements _ISchema, ISchema {
                 }
 
                 // query execution
-                let last: QueryResult
+                let last: QueryResult | undefined = undefined;
                 try {
                     const p = watchUse(_p);
                     p[LOCATION] = _p[LOCATION];
@@ -295,7 +301,7 @@ export class Query implements _ISchema, ISchema {
         return ret;
     }
 
-    explainLastSelect(): _SelectExplanation {
+    explainLastSelect(): _SelectExplanation | undefined {
         return this.lastSelect?.explain(new Explainer(this.db.data));
     }
     explainSelect(sql: string): _SelectExplanation {
@@ -335,7 +341,7 @@ export class Query implements _ISchema, ISchema {
         if (p.type !== 'select') {
             throw new NotSupported(p.type);
         }
-        let sel: _ISelection;
+        let sel: _ISelection | undefined = undefined;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
             const alias = from.type === 'table'
@@ -366,13 +372,13 @@ export class Query implements _ISchema, ISchema {
 
             switch (from.join?.type) {
                 case 'INNER JOIN':
-                    sel = new JoinSelection(this, sel, newT, from.join.on, true);
+                    sel = new JoinSelection(this, sel, newT, from.join.on!, true);
                     break;
                 case 'LEFT JOIN':
-                    sel = new JoinSelection(this, sel, newT, from.join.on, false);
+                    sel = new JoinSelection(this, sel, newT, from.join.on!, false);
                     break;
                 case 'RIGHT JOIN':
-                    sel = new JoinSelection(this, newT, sel, from.join.on, false);
+                    sel = new JoinSelection(this, newT, sel, from.join.on!, false);
                     break;
                 default:
                     throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
@@ -384,11 +390,11 @@ export class Query implements _ISchema, ISchema {
         sel = sel.filter(p.where);
 
         if (p.groupBy) {
-            sel = sel.groupBy(p.groupBy, p.columns);
+            sel = sel.groupBy(p.groupBy, p.columns!);
             sel = sel.orderBy(p.orderBy);
         } else {
             sel = sel.orderBy(p.orderBy);
-            sel = sel.select(p.columns);
+            sel = sel.select(p.columns!);
         }
         if (p.limit) {
             sel = sel.limit(p.limit);
@@ -406,7 +412,7 @@ export class Query implements _ISchema, ISchema {
             .filter(p.where);
 
         const setter = this.createSetter(t, into, items, p.sets);
-        const ret = [];
+        const ret: any[] = [];
         let rowCount = 0;
         const returning = p.returning && buildSelection(new ArrayFilter(items, ret), p.returning);
         for (const i of items.enumerate(t)) {
@@ -434,22 +440,24 @@ export class Query implements _ISchema, ISchema {
             return {
                 col,
                 value: x.value,
-                getter: x.value !== 'default' && buildValue(setSelection, x.value).convert(col.expression.type),
+                getter: x.value !== 'default'
+                    ? buildValue(setSelection, x.value).convert(col.expression.type)
+                    : null,
             };
         });
 
         return (target: any, source: any) => {
             for (const s of sets) {
                 if (s.value === 'default') {
-                    target[s.col.expression.id] = s.col.default?.get() ?? null;
+                    target[s.col.expression.id!] = s.col.default?.get() ?? null;
                 } else {
-                    target[s.col.expression.id] = s.getter.get(source, t);
+                    target[s.col.expression.id!] = s.getter?.get(source, t) ?? null;
                 }
             }
         }
     }
 
-    executeInsert(t: _Transaction, p: InsertStatement): QueryResult {
+    executeInsert(t: _Transaction, p: InsertStatement): QueryResult | undefined {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }
@@ -463,7 +471,7 @@ export class Query implements _ISchema, ISchema {
             .setAlias(p.into.alias);
 
 
-        const ret = [];
+        const ret: any[] = [];
         const returning = p.returning && buildSelection(new ArrayFilter(selection, ret), p.returning);
 
 
@@ -477,18 +485,21 @@ export class Query implements _ISchema, ISchema {
             throw new QueryError('Nothing to insert');
         }
         if (!values.length) {
-            return null; // nothing to insert
+            return undefined; // nothing to insert
         }
 
         // get columns to insert into
-        const columns: string[] = p.columns ?? table.selection.columns.map(x => x.id).slice(0, values[0].length);
+        const columns: string[] = p.columns
+            ?? table.selection.columns
+                .map(x => x.id!)
+                .slice(0, values[0].length);
 
         // build 'on conflict' strategy
-        let ignoreConflicts: OnConflictHandler;
+        let ignoreConflicts: OnConflictHandler | undefined = undefined;
         if (p.onConflict) {
             // find the targeted index
             const on = p.onConflict.on?.map(x => buildValue(table.selection, x));
-            let onIndex: _IIndex;
+            let onIndex: _IIndex | nil = null;
             if (on) {
                 onIndex = table.getIndex(...on);
                 if (!onIndex?.unique) {
@@ -528,7 +539,7 @@ export class Query implements _ISchema, ISchema {
             if (val.length !== columns.length) {
                 throw new QueryError('Insert columns / values count mismatch');
             }
-            const toInsert = {};
+            const toInsert: any = {};
             for (let i = 0; i < val.length; i++) {
                 const v = val[i];
                 const col = table.selection.getColumn(columns[i]);
@@ -558,17 +569,21 @@ export class Query implements _ISchema, ISchema {
         }
     }
 
-    getTable(name: string, nullIfNotExists?: boolean): _ITable {
+
+    getTable(table: string): _ITable;
+    getTable(table: string, nullIfNotFound: false): _ITable;
+    getTable(name: string, nullIfNotFound?: boolean): _ITable | null;
+    getTable(name: string, nullIfNotFound?: boolean): _ITable | null {
         name = name.toLowerCase();
         const got = this.tables.get(name);
-        if (!got && !nullIfNotExists) {
+        if (!got && !nullIfNotFound) {
             throw new TableNotFound(name);
         }
-        return got;
+        return got ?? null;
     }
 
 
-    declareTable(table: Schema, noSchemaChange?: boolean) {
+    declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
         const nm = table.name.toLowerCase();
         if (this.tables.has(nm)) {
             throw new Error('Table exists: ' + nm);
@@ -618,7 +633,7 @@ class Explainer implements _Explainer {
             return sel.debugId;
         }
         if (this.sels.has(sel)) {
-            return this.sels.get(sel);
+            return this.sels.get(sel)!;
         }
         const id = this.sels.size + 1;
         this.sels.set(sel, id);

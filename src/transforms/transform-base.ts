@@ -1,6 +1,6 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats, nil } from '../interfaces-private';
 import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
@@ -30,7 +30,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract readonly columns: ReadonlyArray<IValue<any>>;
     abstract getColumn(column: string, nullIfNotFound?: boolean): IValue<any>;
     abstract hasItem(value: T, t: _Transaction): boolean;
-    abstract getIndex(forValue: IValue): _IIndex<any>;
+    abstract getIndex(forValue: IValue): _IIndex<any> | null | undefined;
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
@@ -38,11 +38,11 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     constructor(readonly schema: _ISchema) {
     }
 
-    select(select: SelectedColumn[]): _ISelection<any> {
+    select(select: SelectedColumn[] | nil): _ISelection<any> {
         return fns.buildSelection(this, select);
     }
 
-    filter(filter: Expr): _ISelection {
+    filter(filter: Expr | undefined | null): _ISelection {
         if (!filter) {
             return this;
         }
@@ -50,7 +50,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return plan;
     }
 
-    groupBy(grouping: Expr[], select: SelectedColumn[]): _ISelection {
+    groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection {
         if (!grouping?.length) {
             return this;
         }
@@ -76,7 +76,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return fns.buildLimit(this, limit)
     }
 
-    orderBy(orderBy: OrderByStatement[]): _ISelection<any> {
+    orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any> {
         if (!orderBy?.length) {
             return this;
         }
@@ -146,7 +146,9 @@ export abstract class FilterBase<T> extends TransformBase<T> {
     }
      */
 
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
         if (!this.base) { // istanbul ignore next
             throw new Error('Should not call .getColumn() on join');
         }
@@ -156,7 +158,7 @@ export abstract class FilterBase<T> extends TransformBase<T> {
         return this.base.getColumn(column, nullIfNotFound);
     }
 
-    getIndex(...forValue: IValue<any>[]): _IIndex<any> {
+    getIndex(...forValue: IValue<any>[]): _IIndex<any> | null | undefined {
         const index = this.base.getIndex(...forValue);
         if (!index) {
             return null;

@@ -1,5 +1,5 @@
 
-@lexer lexer
+@lexer lexerAny
 @include "base.ne"
 
 

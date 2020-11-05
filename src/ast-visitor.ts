@@ -1,8 +1,8 @@
 import { Expr, ExprBinary, ExprUnary, ExprRef, ExprList, ExprCall, ExprCast, ExprCase, ExprMember, ExprArrayIndex, ExprTernary, SelectStatement } from './parser/syntax/ast';
-import { NotSupported } from './interfaces-private';
+import { nil, NotSupported } from './interfaces-private';
 
 export class AstVisitor {
-    visit(val: Expr) {
+    visit(val: Expr | nil) {
         if (!val) {
             return;
         }
@@ -42,7 +42,7 @@ export class AstVisitor {
         }
     }
     visitSelection(val: SelectStatement) {
-        for (const c of val.columns) {
+        for (const c of val.columns!) {
             this.visit(c.expr);
         }
         this.visit(val.where);

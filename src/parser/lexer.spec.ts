@@ -2,6 +2,8 @@ import 'mocha';
 import 'chai';
 import { lexer } from './lexer';
 import { expect, assert } from 'chai';
+import { Optional } from '../utils';
+import { Token } from 'moo';
 
 describe('[PG syntax] Lexer', () => {
 
@@ -10,14 +12,14 @@ describe('[PG syntax] Lexer', () => {
         /^int$/,
     ]
     function next(expected: any) {
-        const result = lexer.next();
+        const result = lexer.next()  as Optional<Token>;
         delete result.toString;
         delete result.col;
         delete result.line;
         delete result.lineBreaks;
         delete result.offset;
         delete result.text;
-        if (!hasContent.some(x => x.test(result.type))) {
+        if (!hasContent.some(x => x.test(result.type!))) {
             delete result.value;
         }
         expect(result).to.deep.equal(expected);

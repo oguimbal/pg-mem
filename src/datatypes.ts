@@ -1,5 +1,5 @@
 import { IValue, _IIndex, _ISelection, _IType, TR } from './interfaces-private';
-import { DataType, CastError, IType, QueryError, NotSupported } from './interfaces';
+import { DataType, CastError, IType, QueryError, NotSupported, nil } from './interfaces';
 import moment from 'moment';
 import hash from 'object-hash';
 import { deepEqual, deepCompare, nullIsh } from './utils';
@@ -10,9 +10,9 @@ import { parseArrayLiteral } from './parser/parser';
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
     abstract primary: DataType;
-    abstract regTypeName: string;
+    abstract regTypeName: string | null;
     /** Can be casted to */
-    doCanCast?(to: _IType<TRaw>): boolean;
+    doCanCast?(to: _IType<TRaw>): boolean | nil;
 
     /**
      * @see this.prefer() doc
@@ -25,7 +25,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
     doCanConvertImplicit?(to: _IType<TRaw>): boolean;
 
     /** Perform conversion */
-    doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any>;
+    doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any> | nil;
 
     doEquals(a: any, b: any): boolean {
         return a === b;
@@ -42,31 +42,31 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
         throw new Error('Method not implemented.');
     }
 
-    equals(a: TRaw, b: TRaw): boolean {
+    equals(a: TRaw, b: TRaw): boolean | null {
         if (a === null || b === null) {
             return null;
         }
         return this.doEquals(a, b);
     }
 
-    gt(a: TRaw, b: TRaw): boolean {
+    gt(a: TRaw, b: TRaw): boolean | null {
         if (a === null || b === null) {
             return null;
         }
         return this.doGt(a, b);
     }
-    lt(a: TRaw, b: TRaw): boolean {
+    lt(a: TRaw, b: TRaw): boolean | null {
         if (a === null || b === null) {
             return null;
         }
         return this.doLt(a, b);
     }
 
-    ge(a: TRaw, b: TRaw): boolean {
+    ge(a: TRaw, b: TRaw): boolean | null {
         return this.gt(a, b) || this.equals(a, b);
     }
 
-    le(a: TRaw, b: TRaw): boolean {
+    le(a: TRaw, b: TRaw): boolean | null {
         return this.lt(a, b) || this.equals(a, b);
     }
 
@@ -74,7 +74,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
      * When performing 'a+b', will be given 'b' type,
      * this returns the prefered resulting type, or null if they are not compatible
       */
-    prefer(type: DataType | _IType<TRaw>): _IType | null | undefined {
+    prefer(type: DataType | _IType<TRaw>): _IType | nil {
         const to = makeType(type) as TypeBase;
         if (to === this) {
             return this;
@@ -85,28 +85,28 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
                 return ret;
             }
         }
-        return to.doPrefer && to.doPrefer(this);
+        return to.doPrefer?.(this);
     }
 
     /**
      * Can constant literals be converted implicitely
      * (without a cast... i.e. you can use both values as different values of a case expression, for instance)
      **/
-    canConvertImplicit(_to: DataType | _IType<TRaw>): boolean {
+    canConvertImplicit(_to: DataType | _IType<TRaw>): boolean | nil {
         const to = makeType(_to);
         if (to === this) {
             return true;
         }
-        return this.doCanConvertImplicit && this.doCanConvertImplicit(to);
+        return this.doCanConvertImplicit?.(to);
     }
 
     /** Can be explicitely casted to */
-    canConvert(_to: DataType | _IType<TRaw>): boolean {
+    canConvert(_to: DataType | _IType<TRaw>): boolean | nil {
         const to = makeType(_to);
         if (to === this) {
             return true;
         }
-        return this.doCanCast && this.doCanCast(to);
+        return this.doCanCast?.(to);
     }
 
     /** Perform conversion */
@@ -127,7 +127,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
     constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget) {
         let current: TRaw;
-        const ev = new Evaluator(this, null, null, null, null, () => current, {
+        const ev = new Evaluator(this, null, null, null as any, null, () => current, {
             unpure: true,
         });
         const converted = this.convert(ev, _to);
@@ -149,12 +149,13 @@ class RegType extends TypeBase<_IType> {
         return DataType.regtype;
     }
 
-    doCanCast(_to: _IType): boolean {
+    doCanCast(_to: _IType): boolean | nil {
         switch (_to.primary) {
             case DataType.text:
             case DataType.int:
                 return true;
         }
+        return null;
     }
 
     doCast(a: Evaluator, to: _IType): Evaluator {
@@ -177,6 +178,7 @@ class RegType extends TypeBase<_IType> {
                         , s => `(${s})::TEXT`
                         , toText => ({ toText }))
         }
+        throw new Error('failed to cast');
     }
 
     doEquals(a: _IType, b: _IType): boolean {
@@ -203,13 +205,14 @@ class JSONBType extends TypeBase<any> {
         super();
     }
 
-    doCanCast(_to: _IType): boolean {
+    doCanCast(_to: _IType): boolean | nil {
         switch (_to.primary) {
             case DataType.text:
             case DataType.json:
             case DataType.jsonb:
                 return true;
         }
+        return null;
     }
 
     doCast(a: Evaluator, to: _IType): Evaluator {
@@ -255,6 +258,7 @@ class TimestampType extends TypeBase<Date> {
             case DataType.date:
                 return true;
         }
+        return null;
     }
 
     doCast(value: Evaluator, to: _IType) {
@@ -262,11 +266,12 @@ class TimestampType extends TypeBase<Date> {
             case DataType.timestamp:
                 return value;
             case DataType.date:
-                value
+                return value
                     .setConversion(raw => moment(raw).startOf('day').toDate()
                         , sql => `(${sql})::date`
                         , toDate => ({ toDate }));
         }
+        throw new Error('Unexpected cast error');
     }
 
     doEquals(a: any, b: any): boolean {
@@ -282,7 +287,7 @@ class TimestampType extends TypeBase<Date> {
 
 class NullType extends TypeBase<null> {
 
-    get regTypeName(): string {
+    get regTypeName(): string | null {
         return null;
     }
 
@@ -310,7 +315,7 @@ class NullType extends TypeBase<null> {
         return false;
     }
 
-    doPrefer(type) {
+    doPrefer(type: _IType) {
         return type; // always prefer notnull types
     }
 }
@@ -357,7 +362,7 @@ class NumberType extends TypeBase<number> {
         }
     }
 
-    doPrefer(type: _IType): _IType | undefined {
+    doPrefer(type: _IType): _IType | null {
         switch (type.primary) {
             case DataType.int:
             case DataType.long:
@@ -366,6 +371,7 @@ class NumberType extends TypeBase<number> {
             case DataType.decimal:
                 return type;
         }
+        return null;
     }
 
     canConvert(to: _IType) {
@@ -399,7 +405,7 @@ class NumberType extends TypeBase<number> {
             return value
                 .setType(Types.regtype)
                 .setConversion((int: number) => {
-                    const got = Types[DataType[allTypes[int]]] as _IType;
+                    const got = makeType((DataType as any)[allTypes[int]]);
                     if (!got) {
                         throw new CastError(DataType.int, DataType.regtype);
                     }
@@ -446,9 +452,10 @@ class TextType extends TypeBase<string> {
             case DataType.bool:
                 return true;
         }
+        return false;
     }
 
-    doCanCast(to: _IType): boolean {
+    doCanCast(to: _IType): boolean | nil {
         switch (to.primary) {
             case DataType.timestamp:
             case DataType.date:
@@ -468,6 +475,7 @@ class TextType extends TypeBase<string> {
         if (numbers.has(to.primary)) {
             return true;
         }
+        return undefined;
     }
 
     doCast(value: Evaluator<string>, to: _IType) {
@@ -524,13 +532,13 @@ class TextType extends TypeBase<string> {
             case DataType.text:
                 const fromStr = to as TextType;
                 const toStr = to as TextType;
-                if (toStr.len === null || fromStr.len < toStr.len) {
+                if (toStr.len === null || (fromStr.len ?? -1) < toStr.len) {
                     // no need to truncate
                     return value;
                 }
                 return value
                     .setConversion(str => {
-                        if (str?.length > toStr.len) {
+                        if (str?.length > toStr.len!) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
                         return str;
@@ -577,6 +585,7 @@ class TextType extends TypeBase<string> {
                     , sql => `(${sql})::${to.primary}`
                     , castNum => ({ castNum, to: to.primary }));
         }
+        return undefined;
     }
 }
 
@@ -616,7 +625,7 @@ export class ArrayType extends TypeBase<any[]> {
         return new Evaluator(to
             , value.id
             , value.sql
-            , value.hash
+            , value.hash!
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
@@ -683,13 +692,13 @@ export class ArrayType extends TypeBase<any[]> {
 
 export function makeType(to: DataType | _IType<any>): _IType<any> {
     if (typeof to === 'string') {
-        if (to === DataType.text) {
-            return Types.text();
-        }
-        if (!Types[to]) {
+        const ret = Types[to as keyof typeof Types];
+        if (!ret) {
             throw new Error('Unsupported raw type: ' + to);
         }
-        return Types[to];
+        return typeof ret === 'function'
+            ? ret()
+            : ret;
     }
     return to;
 }
@@ -700,7 +709,7 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
 // };
 export const Types = { // : Ctors
     [DataType.bool]: new BoolType() as _IType,
-    [DataType.text]: (len = null) => makeText(len) as _IType,
+    [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
@@ -713,14 +722,14 @@ export const Types = { // : Ctors
 }
 
 
-const typeIndexes = {};
+const typeIndexes: {[key: string]: number} = {};
 const allTypes = Object.keys(DataType);
 for (let i = 0; i < allTypes.length; i++) {
-    typeIndexes[DataType[allTypes[i]]] = i + 1;
+    typeIndexes[DataType[allTypes[i] as keyof typeof Types]] = i + 1;
 }
 
-const texts = new Map<number, _IType>();
-export function makeText(len: number = null) {
+const texts = new Map<number | null, _IType>();
+export function makeText(len: number | nil = null) {
     len = len ?? null;
     let got = texts.get(len);
     if (!got) {
@@ -786,7 +795,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'regtype':
             return Types.regtype;
         case 'array':
-            return makeArray(fromNative(native.arrayOf));
+            return makeArray(fromNative(native.arrayOf!));
         case 'boolean':
         case 'bool':
             return Types.bool;
@@ -811,7 +820,7 @@ export function reconciliateTypes(values: IValue[]): _IType {
         .reduce((final, c) => {
             const pref = final.prefer(c.type);
             if (!pref) {
-                throw new CastError(c.type.primary, final.primary, c.sql);
+                throw new CastError(c.type.primary, final.primary, c.sql ?? undefined);
             }
             return pref;
         }, Types.null);

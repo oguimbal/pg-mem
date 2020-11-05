@@ -20,7 +20,7 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
         buildLimit,
         buildOrderBy,
     });
-    return new MemoryDb(Transaction.root(), null, opts ?? {});
+    return new MemoryDb(Transaction.root(), undefined, opts ?? {});
 }
 
 class MemoryDb implements _IDb {
@@ -30,7 +30,7 @@ class MemoryDb implements _IDb {
 
     schemaVersion = 1;
 
-    readonly adapters = new Adapters(this);
+    readonly adapters: Adapters = new Adapters(this);
     get public() {
         return this.getSchema(null)
     }
@@ -69,7 +69,8 @@ class MemoryDb implements _IDb {
             .pgSchema();
     }
 
-    getTable(name: string, nullIfNotExists?: boolean): _ITable {
+    getTable(name: string): _ITable;
+    getTable(name: string, nullIfNotExists?: boolean): _ITable | null {
         return this.public.getTable(name, nullIfNotExists);
     }
 
@@ -80,7 +81,7 @@ class MemoryDb implements _IDb {
         }
         lst.add(handler);
         return {
-            unsubscribe: () => lst.delete(handler),
+            unsubscribe: () => lst?.delete(handler),
         };
     }
 
@@ -98,7 +99,7 @@ class MemoryDb implements _IDb {
         }
     }
 
-    getSchema(db: string): _ISchema {
+    getSchema(db?: string | null): _ISchema {
         db = db ?? 'public';
         const got = this.schemas.get(db);
         if (!got) {

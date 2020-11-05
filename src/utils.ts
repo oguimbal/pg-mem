@@ -7,25 +7,27 @@ export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
 }
 
+export type Optional<T> = {[key in keyof T]?: T[key]};
+
 
 
 export function trimNullish<T>(value: T, depth = 5): T {
     if (depth < 0)
-        return;
+        return value;
     if (value instanceof Array) {
         value.forEach(x => trimNullish(x, depth - 1))
     }
     if (typeof value !== 'object' || value instanceof Date || moment.isMoment(value) || moment.isDuration(value))
-        return;
+        return value;
 
     if (!value) {
         return value;
     }
 
     for (const k of Object.keys(value)) {
-        const val = value[k];
+        const val = (value as any)[k];
         if (val === undefined || val === null)
-            delete value[k];
+            delete (value as any)[k];
         else
             trimNullish(val, depth - 1);
     }
@@ -33,8 +35,8 @@ export function trimNullish<T>(value: T, depth = 5): T {
 }
 
 
-export function watchUse<T>(rootValue: T): T & { check?(); } {
-    if (!rootValue || typeof globalThis !== 'undefined' && globalThis?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
+export function watchUse<T>(rootValue: T): T & { check?(): any; } {
+    if (!rootValue || typeof globalThis !== 'undefined' && (globalThis as any)?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
         return rootValue;
     }
     if (typeof rootValue !== 'object') {
@@ -44,7 +46,7 @@ export function watchUse<T>(rootValue: T): T & { check?(); } {
         throw new NotSupported();
     }
     const toUse = new Map<string, any>();
-    function recurse(value: any, stack: List<string> = List()) {
+    function recurse(value: any, stack: List<string> = List()): any {
         if (!value || typeof value !== 'object') {
             return value;
         }
@@ -181,7 +183,7 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
         ? Object.keys(a)
         : new Set([...Object.keys(a), ...Object.keys(b)]);
     for (const k of set) {
-        const inner = deepCompare(a[k], b[k], strict, depth - 1, numberDelta);
+        const inner = deepCompare((a as any)[k], (b as any)[k], strict, depth - 1, numberDelta);
         if (inner) {
             return inner;
         }
@@ -307,10 +309,10 @@ export function deepCloneSimple<T>(v: T): T {
 
     const ret: any = {};
     for (const k of Object.keys(v)) {
-        ret[k] = deepCloneSimple(v[k]);
+        ret[k] = deepCloneSimple((v as any)[k]);
     }
     for (const k of Object.getOwnPropertySymbols(v)) {
-        ret[k] = v[k]; // no need to deep clone that
+        ret[k] = (v as any)[k]; // no need to deep clone that
     }
     return ret;
 }

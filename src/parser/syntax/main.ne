@@ -1,5 +1,9 @@
-@{% const {lexer, LOCATION} = require('../lexer.ts'); %}
-@lexer lexer
+@preprocessor typescript
+
+@{%
+import {lexerAny, LOCATION} from '../lexer';
+%}
+@lexer lexerAny
 @include "base.ne"
 @include "expr.ne"
 @include "select.ne"

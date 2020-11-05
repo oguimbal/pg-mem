@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction, _Explainer } from '../interfaces-private';
-import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
+import { ReadOnlyError, NotSupported, Schema, nil } from '../interfaces';
 import { Types } from '../datatypes';
 import { TableIndex } from './table-index';
 import { ReadOnlyTable } from './readonly-table';
@@ -11,7 +11,7 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         return IS_SCHEMA;
     }
 
-    isOriginOf(v: IValue) {
+    isOriginOf(v: IValue): boolean {
         return v.origin === this || v.origin === this.selection;
     }
 
@@ -73,7 +73,7 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         return !!value?.[IS_SCHEMA];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
+    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
         if (forValue.id === 'table_name') {
             return new TableIndex(this, forValue);
         }

@@ -20,7 +20,7 @@ export class CustomIndex<T> implements _IIndex<T> {
     }
 
     get indexName(): string {
-        return null;
+        return null as any;
     }
 
     entropy(): number {
@@ -43,6 +43,7 @@ export class CustomIndex<T> implements _IIndex<T> {
         for (const its of this.subject.byColumnValue(key, t)) {
             return its;
         }
+        return null;
     }
 
 

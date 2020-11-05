@@ -1,6 +1,6 @@
-@lexer lexer
+@lexer lexerAny
 @{%
-    function unwrap(e) {
+    function unwrap(e: any[]): any {
         if (Array.isArray(e) && e.length === 1) {
             e = unwrap(e[0]);
         }
@@ -9,11 +9,11 @@
         }
         return e;
     }
-    const get = i => x => x[i];
-    const last = x => Array.isArray(x) ? x[x.length - 1] : x;
-    const trim = x => x && x.trim();
-    const value = x => x && x.value;
-    function flatten(e) {
+    const get = (i: number) => (x: any[]) => x[i];
+    const last = (x: any[]) => Array.isArray(x) ? x[x.length - 1] : x;
+    const trim = (x: string | null | undefined) => x && x.trim();
+    const value = (x: any) => x && x.value;
+    function flatten(e: any): any[] {
         if (Array.isArray(e)) {
             const ret = [];
             for (const i of e) {
@@ -26,7 +26,7 @@
         }
         return [e];
     }
-    function flattenStr(e) {
+    function flattenStr(e: any): string[] {
         const fl = flatten(e);
         return fl.filter(x => !!x)
                     .map(x => typeof x === 'string' ? x
@@ -48,7 +48,7 @@ dot -> %dot {% id %}
 float
     -> %int dot %int:? {% args => parseFloat(args.join('')) %}
     | dot %int {% args => parseFloat(args.join('')) %}
-int -> %int {% arg => parseInt(arg, 10) %}
+int -> %int {% arg => parseInt(arg as any, 10) %}
 comma -> %comma {% id %}
 star -> %star {% x => x[0].value %}
 string -> %string {% x => x[0].value %}
@@ -67,13 +67,13 @@ collist -> ident (comma ident {% last %}):* {% ([head, tail]) => {
 # === Non reserved keywords
 # ... which are not in keywords.ts (thus parsed as words)
 @{%
- const notReservedKw = (kw) => (x, _, rej) => {
+ const notReservedKw = (kw: string) => (x: any[], _: any, rej: any) => {
      const val = typeof x[0] === 'string' ? x[0] : x[0].value;
      const low = val.toLowerCase();
      return low === kw ? low : rej;
  }
  const kw = notReservedKw;
- const anyKw = (...kw) => (x, _, rej) => {
+ const anyKw = (...kw: string[]) => (x: any[], _: any, rej: any) => {
      const val = typeof x[0] === 'string' ? x[0] : x[0].value;
      const low = val.toLowerCase();
      return kw.includes(low) ? low : rej;

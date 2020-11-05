@@ -2,12 +2,12 @@ import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces'
 import { literal } from './pg-escape';
 import moment from 'moment';
 import lru from 'lru-cache';
-declare var __non_webpack_require__;
+declare var __non_webpack_require__: any;
 
-const delay = (time: number) => new Promise(done => setTimeout(done, time));
+const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
 
 function replaceQueryArgs$(this: void, sql: string, values: any[]) {
-    return sql.replace(/\$(\d+)/g, (str, istr) => {
+    return sql.replace(/\$(\d+)/g, (str: any, istr: any) => {
         const i = Number.parseInt(istr);
         if (i > values.length) {
             throw new Error('Unmatched parameter in query ' + str);
@@ -22,7 +22,7 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
                 return val.toString(10);
             default:
                 if (val === null || val === undefined) {
-                    return null;
+                    return 'null';
                 }
                 if (val instanceof Date) {
                     return `'${moment(val).toISOString()}'`;
@@ -57,16 +57,16 @@ export class Adapters implements LibAdapters {
             }
             removeListener() {
             }
-            end(callback) {
+            end(callback: any) {
                 callback();
                 return Promise.resolve();
             }
-            connect(callback) {
+            connect(callback: any) {
                 callback?.(null, this, () => { });
                 return Promise.resolve(this);
             }
-            query(query, valuesOrCallback, callback) {
-                let values = null;
+            query(query: any, valuesOrCallback: any, callback: any) {
+                let values: any = null;
                 if (Array.isArray(valuesOrCallback)) {
                     values = valuesOrCallback;
                 }
@@ -85,7 +85,7 @@ export class Adapters implements LibAdapters {
                         callback(e);
                         err(e);
                     }
-                }, queryLatency));
+                }, queryLatency ?? 0));
             }
 
             private adaptResults(query: PgQuery, rows: QueryResult) {
@@ -100,7 +100,7 @@ export class Adapters implements LibAdapters {
                 }
             }
 
-            private adaptQuery(query: string | PgQuery, values: any[]): PgQuery {
+            private adaptQuery(query: string | PgQuery, values: any): PgQuery {
                 if (typeof query === 'string') {
                     query = {
                         text: query,
@@ -147,7 +147,7 @@ export class Adapters implements LibAdapters {
     createSlonik(queryLatency?: number) {
         const { createMockPool, createMockQueryResult } = __non_webpack_require__('slonik');
         return createMockPool({
-            query: async (sql, args) => {
+            query: async (sql: string, args: any[]) => {
                 await delay(queryLatency ?? 0);
                 const formatted = replaceQueryArgs$(sql, args);
                 const ret = this.db.public.many(formatted);
@@ -171,7 +171,7 @@ export class Adapters implements LibAdapters {
             max: 1000,
             maxAge: 5000,
         });
-        function handlerFor(a, b) {
+        function handlerFor(a: any, b: any) {
             return typeof a === 'function' ? a : b;
         }
         const that = this;

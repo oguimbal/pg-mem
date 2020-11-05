@@ -8,13 +8,13 @@ chai.use(shallow);
 export class User extends BaseEntity {
 
     @PrimaryGeneratedColumn({ type: 'integer' })
-    id: number;
+    id!: number;
 
     @Column({ type: 'text' })
-    name: string;
+    name!: string;
 
     @OneToMany(type => Photo, photo => photo.user)
-    photos: Photo[];
+    photos!: Photo[];
 }
 
 
@@ -22,13 +22,13 @@ export class User extends BaseEntity {
 export class Photo extends BaseEntity {
 
     @PrimaryGeneratedColumn({ type: 'integer' })
-    id: number;
+    id!: number;
 
     @Column({ type: 'text' })
-    url: string;
+    url!: string;
 
     @ManyToOne(type => User, user => user.photos)
-    user: User;
+    user!: User;
 }
 
 export async function typeormJoinsSample() {

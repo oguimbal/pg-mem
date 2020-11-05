@@ -162,10 +162,9 @@ describe('Typeorm', () => {
 
 
     function explainMapSelect() {
-        const expl = db.public.explainLastSelect();
+        const expl = db.public.explainLastSelect()!;
         if (expl._ !== 'map') {
             assert.fail('should be a map');
-            return null;
         }
         return expl.of;
     }
@@ -257,7 +256,7 @@ describe('Typeorm', () => {
 @Entity()
 class WithJsonb extends BaseEntity {
     @PrimaryGeneratedColumn({ type: 'integer' })
-    id: number;
+    id!: number;
 
     @Column({ type: 'jsonb' })
     data: any;

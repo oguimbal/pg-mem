@@ -1,7 +1,7 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private';
 import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast';
 import { DataSourceBase } from '../transforms/transform-base';
-import { Schema, ColumnNotFound } from '../interfaces';
+import { Schema, ColumnNotFound, nil } from '../interfaces';
 import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 
@@ -16,7 +16,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     readonly selection: _ISelection = buildAlias(this);
     hidden = true;
 
-    isOriginOf(v: IValue) {
+    isOriginOf(v: IValue): boolean {
         return v.origin === this || v.origin === this.selection;
     }
 
@@ -25,7 +25,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     private columnsById = new Map<string, IValue>();
-    private _columns: IValue[];
+    private _columns?: IValue[];
 
     get name(): string {
         return this._schema.name;
@@ -45,10 +45,12 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
 
     get columns(): ReadonlyArray<IValue<any>> {
         this.build();
-        return this._columns;
+        return this._columns!;
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
         this.build();
         const got = this.columnsById.get(column.toLowerCase());
         if (!got && !nullIfNotFound) {
@@ -102,7 +104,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return this;
     }
 
-    getIndex(...forValue: IValue[]): _IIndex<any> {
+    getIndex(...forValue: IValue[]): _IIndex<any> | nil {
         return null;
     }
 

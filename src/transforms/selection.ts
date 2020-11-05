@@ -1,5 +1,5 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField } from '../interfaces';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil } from '../interfaces';
 import { buildValue } from '../predicate';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
@@ -8,10 +8,10 @@ import { aggregationFunctions, buildGroupBy } from './aggregation';
 import { AstVisitor } from '../ast-visitor';
 import { isSelectAllArgList } from '../utils';
 
-export function buildSelection(on: _ISelection, select: SelectedColumn[]) {
+export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
 
     // if this is a "SELECT *" => just ignore
-    if (isSelectAllArgList(select.map(x => x.expr))) {
+    if (!select || isSelectAllArgList(select.map(x => x.expr))) {
         if (!on.columns.length) {
             throw new QueryError('SELECT * with no tables specified is not valid');
         }
@@ -31,7 +31,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[]) {
 }
 
 class HasAggregVisitor extends AstVisitor {
-    private aggreg: boolean;
+    private aggreg?: boolean;
     check(e: Expr) {
         this.visit(e);
         return this.aggreg;
@@ -90,13 +90,13 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                         throw new QueryError('Cannot alias *');
                     }
                     for (const _col of base.columns) {
-                        this.columnIds.push(_col.id);
+                        this.columnIds.push(_col.id!);
                     }
                 } else {
                     this.columnIds.push(s.alias ?? s.expr.name);
                 }
             } else {
-                this.columnIds.push(s.alias);
+                this.columnIds.push(s.alias!);
             }
         }
 
@@ -152,7 +152,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     }
 
     build(item: any, t: _Transaction): T {
-        const ret = {};
+        const ret: any = {};
         setId(ret, getId(item));
         ret[this.symbol] = this.symbol;
         for (let i = 0; i < this.columns.length; i++) {
@@ -163,10 +163,12 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     }
 
     hasItem(value: T, t: _Transaction): boolean {
-        return value[this.symbol] === this.symbol;
+        return (value as any)[this.symbol] === this.symbol;
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean): IValue {
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil {
         const ret = this.columnsById[column.toLowerCase()];
         if (!ret?.length) {
             if (nullIfNotFound) {
@@ -180,14 +182,14 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         return ret[0];
     }
 
-    getIndex(val: IValue) {
+    getIndex(val: IValue): _IIndex | nil {
         if (this.indexCache.has(val)) {
             return this.indexCache.get(val);
         }
         const mapped = this.columnMapping.get(val);
-        const originIndex = this.base.getIndex(mapped);
+        const originIndex = this.base.getIndex(mapped!);
         const ret = originIndex && new SelectionIndex(this, originIndex);
-        this.indexCache.set(val, ret);
+        this.indexCache.set(val, ret!);
         return ret;
     }
 

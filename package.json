@@ -12,6 +12,8 @@
     "release:playground": "npm run build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "mochapack src/**/*.spec.ts",
+    "deno:gen": "nearleyc src/parser/syntax/main.ne -o .deno/parser/syntax/main.ne.ts && nearleyc src/parser/literal-syntaxes/array.ne -o .deno/parser/literal-syntaxes/array.ne.ts",
+    "build:deno": "node ./deno-transpile.js --copy && npm run deno:gen && node ./deno-transpile.js --process",
     "cover": "cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text npm run test"
   },
   "author": "Olivier Guimbal",

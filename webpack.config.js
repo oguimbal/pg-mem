@@ -57,6 +57,10 @@ module.exports = {
                 test: /\.ne$/,
                 use: [
                     {
+                        loader: 'ts-loader',
+                        options: { appendTsSuffixTo: [/\.ne$/] }
+                    },
+                    {
                         loader: path.resolve(__dirname, 'nearley-loader.js')
                     }
                 ],

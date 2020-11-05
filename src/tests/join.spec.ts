@@ -17,10 +17,9 @@ describe('[Queries] Joins', () => {
     });
 
     function explainMapSelect() {
-        const expl = db.public.explainLastSelect();
+        const expl = db.public.explainLastSelect()!;
         if (expl._ !== 'map') {
             assert.fail('should be a map');
-            return null;
         }
         return expl.of;
     }
@@ -467,7 +466,7 @@ describe('[Queries] Joins', () => {
             FROM "user" "user"
             JOIN "photo" "photo" ON "photo"."userId"="user"."id"`;
         const sel = db.public.explainSelect(query);
-        delete sel['select'];
+        delete (sel as any)['select'];
         assert.deepEqual(sel, {
             _: 'map',
             id: 1,
@@ -515,7 +514,7 @@ describe('[Queries] Joins', () => {
             FROM "user" "user"
             JOIN "photo" "photo" ON "photo"."userId"="user"."id" AND "photo"."url" like 'you%'`;
         const sel = db.public.explainSelect(query);
-        delete sel['select'];
+        delete (sel as any)['select'];
         assert.deepEqual(sel, {
             _: 'map',
             id: 1,
@@ -562,7 +561,7 @@ describe('[Queries] Joins', () => {
             FROM "user" "user"
             JOIN "photo" "photo" ON "photo"."userId"="user"."id" AND "user"."name" like 'yo%'`;
         const sel = db.public.explainSelect(query);
-        delete sel['select'];
+        delete (sel as any)['select'];
         assert.deepEqual(sel, {
             _: 'map',
             id: 1,

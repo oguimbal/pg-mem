@@ -1,4 +1,4 @@
-@lexer lexer
+@lexer lexerAny
 @include "base.ne"
 @include "select.ne"
 
@@ -118,7 +118,7 @@ ops_like_operators
 
 ops_in -> %kw_not:? %kw_in
 ops_between -> %kw_not:? kw_between # {% x => x[0] ? `${x[0][0].value} ${x[1].value}`.toUpperCase() : x[1].value %}
-ops_member -> (%op_member | %op_membertext) {% x => unwrap(x).value %}
+ops_member -> (%op_member | %op_membertext) {% x => unwrap(x)?.value %}
 
 # x,y,z
 expr_list_raw -> expr_or_select (comma expr_or_select {% last %}):* {% ([head, tail]) => {

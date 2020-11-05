@@ -3,7 +3,7 @@ import { FilterBase } from './transform-base';
 import { LimitStatement } from '../parser/syntax/ast';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
-    return new LimitFilter(on, limit.limit, limit.offset);
+    return new LimitFilter(on, limit.limit!, limit.offset!);
 }
 
 class LimitFilter<T = any> extends FilterBase<T> {

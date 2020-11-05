@@ -9,7 +9,7 @@ export class NotInFilter<T = any> extends FilterBase<T> {
     private keys: IndexKey[];
 
     entropy(t: _Transaction) {
-        return this.onValue.index.entropy({
+        return this.onValue.index!.entropy({
             type: 'nin',
             keys: this.keys,
             t,
@@ -24,8 +24,8 @@ export class NotInFilter<T = any> extends FilterBase<T> {
 
     constructor(private onValue: IValue<T>
         , private elts: any[]) {
-        super(onValue.origin);
-        this.index = onValue.index;
+        super(onValue.origin!);
+        this.index = onValue.index!;
         if (this.index.expressions.length !== 1) {
             throw new Error('Only supports IN with signle expressions index');
         }
@@ -45,9 +45,9 @@ export class NotInFilter<T = any> extends FilterBase<T> {
         if (elts.some(x => !x)) {
             return null;
         }
-        // compute from 'all'
+        // compute based on 'all'
         for (const i of elts) {
-            all.count -= i.count;
+            all.count -= i!.count;
         }
         return all;
     }
@@ -66,7 +66,7 @@ export class NotInFilter<T = any> extends FilterBase<T> {
             id: e.idFor(this),
             _: 'neq',
             entropy: this.entropy(e.transaction),
-            on: this.onValue.index.explain(e),
+            on: this.onValue.index!.explain(e),
         };
     }
 }

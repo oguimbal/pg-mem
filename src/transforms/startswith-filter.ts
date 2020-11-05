@@ -9,7 +9,7 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
     }
 
     entropy(t: _Transaction) {
-        return this.onValue.index.entropy({
+        return this.onValue.index!.entropy({
             type: 'ge',
             key: [this.startWith],
             t,
@@ -24,8 +24,8 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
 
     constructor(private onValue: IValue<T>
         , private startWith: string) {
-        super(onValue.origin);
-        if (onValue.index.expressions[0].hash !== this.onValue.hash) {
+        super(onValue.origin!);
+        if (onValue.index!.expressions[0].hash !== this.onValue.hash) {
             throw new Error('Startwith must be the first component of the index');
         }
     }
@@ -36,7 +36,7 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
     }
 
     *enumerate(t: _Transaction): Iterable<T> {
-        const index = this.onValue.index;
+        const index = this.onValue.index!;
         for (const item of index.enumerate({
             type: 'ge',
             key: [this.startWith],
@@ -55,7 +55,7 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
             id: e.idFor(this),
             _: 'ineq',
             entropy: this.entropy(e.transaction),
-            on: this.onValue.index.explain(e),
+            on: this.onValue.index!.explain(e),
         };
     }
 }

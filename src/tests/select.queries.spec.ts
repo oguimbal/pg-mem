@@ -117,8 +117,8 @@ describe('[Queries] Selections', () => {
     it('has an index', () => {
         simpleDb();
         const { where } = parse(`select * from data where id='x'`) as SelectStatement;
-        if (where.type !== 'binary') {
-            return assert.fail('Should be a binary');
+        if (!where || where.type !== 'binary') {
+            assert.fail('Should be a binary');
         }
         const built = buildValue(db.getTable('data').selection, where.left);
         assert.exists(built.index);

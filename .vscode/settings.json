@@ -21,7 +21,8 @@
         ".nyc_output": true,
         "coverage": true,
         "dist": true,
-        "lib": true
+        "lib": true,
+        ".deno": true
     },
     "mochaExplorer.env": {
         // set this to 'true' to disable AST full utilization monitorying.

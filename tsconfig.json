@@ -1,4 +1,5 @@
 {
+    "extends": "./tsconfig.deno.json",
     "compilerOptions": {
         "target": "es2019",
         "module": "commonjs",

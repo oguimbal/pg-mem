@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _Transaction, _ISchema } from '../interfaces-private';
 import { Selection } from '../transforms/selection';
-import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
+import { ReadOnlyError, NotSupported, Schema, nil } from '../interfaces';
 import { Types } from '../datatypes';
 import { TableIndex } from './table-index';
 import { ReadOnlyTable } from './readonly-table';
@@ -83,7 +83,7 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
         }
         let ret = {};
         for (const { name } of this._schema.fields) {
-            ret[name] = null;
+            (ret as any)[name] = null;
         }
 
         ret = {
@@ -123,14 +123,14 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
         return !!value?.[IS_SCHEMA];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
+    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
         if (forValue.id === 'table_name') {
             return new TableIndex(this, forValue);
         }
         return null;
     }
 
-    *itemsByTable(table: string | _ITable, t: _Transaction) {
+    *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
         if (typeof table === 'string') {
             for (const s of this.schema.db.listSchemas()) {
                 const got = s.getTable(table, true);

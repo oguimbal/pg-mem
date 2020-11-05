@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IType } from './interfaces-private';
 import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from './utils';
-import { DataType, CastError, QueryError, IType, NotSupported } from './interfaces';
+import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
@@ -9,10 +9,10 @@ import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 
 
-const builtLru = new lru<_ISelection, lru<Expr, IValue>>({
+const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
     max: 30,
 });
-export function buildValue(data: _ISelection, val: Expr): IValue {
+export function buildValue(data: _ISelection | nil, val: Expr): IValue {
     return _buildValue(data, val);
 }
 
@@ -20,22 +20,22 @@ export function uncache(data: _ISelection) {
     builtLru.del(data);
 }
 
-function _buildValue(data: _ISelection, val: Expr): IValue {
+function _buildValue(data: _ISelection | nil, val: Expr): IValue {
     // cache expressions build (they almost are always rebuilt several times in a row)
-    let selLru = builtLru.get(data);
-    let got: IValue;
+    let selLru = builtLru.get(data ?? null);
+    let got: IValue | nil;
     if (selLru) {
         got = selLru.get(val);
         if (got) {
             return got;
         }
     }
-    got = _buildValueReal(data, val);
+    got = _buildValueReal(data!, val);
     if (data instanceof Aggregation) {
         got = data.checkIfIsKey(got);
     }
     if (!selLru) {
-        builtLru.set(data, selLru = new lru({
+        builtLru.set(data ?? null, selLru = new lru({
             max: 50,
         }));
     }
@@ -130,9 +130,6 @@ function buildIn(data: _ISelection, left: Expr, array: Expr, inclusive: boolean)
     return Value.in(leftValue, rightValue, inclusive);
 }
 
-function nop(ignore) {
-    // do nothing
-}
 
 function buildBinary(data: _ISelection, val: ExprBinary): IValue {
     const { left, right, op } = val;
@@ -236,7 +233,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
                 if (pattern === null) {
                     return Value.null(Types.bool);
                 }
-                let matcher: (str: string) => boolean;
+                let matcher: (str: string | number) => boolean | nil;
                 if (rightValue.isAny) {
                     // handle LIKE ANY()
                     if (!Array.isArray(pattern)) {
@@ -357,7 +354,7 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
             when: {
                 type: 'binary',
                 op: '=',
-                left: op.value,
+                left: op.value!,
                 right: v.when,
             },
             value: v.value,
@@ -442,7 +439,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
                 if (!Array.isArray(value)) {
                     return null;
                 }
-                return conv(value[op.member]);
+                return conv(value[op.member as number]);
             });
 }
 
@@ -534,7 +531,7 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
         , onData.columns[0]
         , (raw, t) => {
             const ret = [];
-            for (const v of onData.enumerate(t)) {
+            for (const v of onData.enumerate(t!)) {
                 ret.push(onData.columns[0].get(v, t));
             }
             return ret;

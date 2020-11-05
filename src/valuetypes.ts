@@ -1,5 +1,5 @@
 import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation } from './interfaces-private';
-import { DataType, QueryError, CastError } from './interfaces';
+import { DataType, QueryError, CastError, nil } from './interfaces';
 import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
 import { Query } from './query';
@@ -14,9 +14,9 @@ export class Evaluator<T = any> implements IValue<T> {
 
     readonly isConstantLiteral: boolean;
     readonly usedColumns = new Set<IValue>();
-    readonly forceNotConstant: boolean;
+    readonly forceNotConstant?: boolean;
 
-    get index() {
+    get index(): _IIndex | nil {
         return this.origin?.getIndex(this);
     }
 
@@ -28,18 +28,19 @@ export class Evaluator<T = any> implements IValue<T> {
         return typeof this.val !== 'function';
     }
 
-    origin: _ISelection;
+    origin: _ISelection | nil;
+
     get isAny(): boolean {
-        return this.opts?.isAny;
+        return this.opts?.isAny ?? false;
     }
 
     constructor(
         readonly type: _IType<T>
-        , readonly id: string
-        , readonly sql: string
+        , readonly id: string | nil
+        , readonly sql: string | nil
         , readonly hash: string
-        , dependencies: IValue | IValue[]
-        , public val: Object | number | string | Date | ((raw: any, transaction: _Transaction, isResult: boolean) => any)
+        , dependencies: IValue | IValue[] | nil
+        , public val: nil | Object | number | string | Date | ((raw: any, transaction: _Transaction | nil, isResult: boolean) => any)
         , private opts?: {
             isAny?: boolean;
             isColumnOf?: _ISelection;
@@ -52,7 +53,7 @@ export class Evaluator<T = any> implements IValue<T> {
         }
 
         // fetch columns to depend on
-        let depArray: IValue[];
+        let depArray: IValue[] | undefined = undefined;
         let hasNotConstant = false;
         if (dependencies) {
             if (!Array.isArray(dependencies)) {
@@ -124,7 +125,7 @@ export class Evaluator<T = any> implements IValue<T> {
         return new Evaluator<T>(
             this.type
             , this.id
-            , sqlConv(this.sql)
+            , this.sql && sqlConv(this.sql)
             , hash(hashConv(this.hash))
             , this
             , (raw, t) => {
@@ -150,7 +151,7 @@ export class Evaluator<T = any> implements IValue<T> {
         return ret;
     }
 
-    clone() {
+    clone(): Evaluator<T> {
         return new Evaluator<T>(
             this.type
             , this.id
@@ -163,7 +164,7 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
 
-    setWrapper(newOrigin: _ISelection, unwrap: (val: any) => any) {
+    setWrapper(newOrigin: _ISelection, unwrap: (val: any) => any): IValue<T> {
         if (this.isAny) {
             throw new QueryError('Unexpected use of ANY()');
         }
@@ -202,7 +203,7 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     get(): T;
-    get(raw: any, t: _Transaction): T;
+    get(raw: any, t: _Transaction | nil): T;
     get(raw?: any, t?: _Transaction): T {
         if ((nullIsh(raw) || !t) && !this.isConstant) {
             throw new Error('Cannot be evaluated as constant');
@@ -224,7 +225,7 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     canConvert(to: DataType | _IType<T>): boolean {
-        return this.type.canConvert(to);
+        return !!this.type.canConvert(to);
     }
 
     convert<T = any>(to: DataType | _IType<T>): IValue<T> {
@@ -243,7 +244,7 @@ export class Evaluator<T = any> implements IValue<T> {
         }
         return {
             on: e.idFor(this.origin),
-            col: this.id ?? this.sql,
+            col: this.id ?? this.sql!,
         };
     }
 }
@@ -313,9 +314,9 @@ export class Evaluator<T = any> implements IValue<T> {
 
 export const Value = {
     null(ofType?: _IType): IValue {
-        return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null, null);
+        return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null, undefined);
     },
-    text(value: string, length: number = null): IValue {
+    text(value: string, length: number | nil = null): IValue {
         return new Evaluator(
             Types.text(length)
             , null
@@ -352,7 +353,7 @@ export const Value = {
         return new Evaluator(type
             , null
             , null
-            , null
+            , (null as any)
             , null
             , value);
     },

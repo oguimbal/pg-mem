@@ -2,7 +2,7 @@ import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats } from '../interfaces-private';
 import { SelectedColumn, Expr } from '../parser/syntax/ast';
 import { buildValue } from '../predicate';
-import { ColumnNotFound, NotSupported, QueryError } from '../interfaces';
+import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
 import { isSelectAllArgList, nullIsh } from '../utils';
 import hash from 'object-hash';
 import { Evaluator } from '../valuetypes';
@@ -38,10 +38,10 @@ export function buildGroupBy(on: _ISelection, groupBy: Expr[], select: SelectedC
 interface AggregationComputer<TRet = any> {
     readonly type: _IType;
     /**  Compute from index  (ex: count(*) with a group-by) */
-    computeFromIndex?(key: IndexKey, index: _IIndex, t: _Transaction): TRet;
+    computeFromIndex?(key: IndexKey, index: _IIndex, t: _Transaction): TRet | undefined;
     /**  Compute out of nowhere when there is no group
      * (ex: when there is no grouping, count(*) on a table or count(xxx) when there is an index on xxx) */
-    computeNoGroup?(t: _Transaction): TRet;
+    computeNoGroup?(t: _Transaction): TRet | undefined;
 
     /** When iterating, each new group will have its computer */
     createGroup(t: _Transaction): AggregationGroupComputer<TRet>;
@@ -65,7 +65,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
     private groupByMapping = new Map<string, IValue>();
     private building: 'groupby' | 'select' | null = 'groupby';
     private readonly symbol = Symbol();
-    private readonly groupIndex: _IIndex<any>;
+    private readonly groupIndex?: _IIndex<any> | nil;
     private columnsById: Map<string, IValue>;
     private aggregations = new Map<string, {
         getter: IValue;
@@ -80,11 +80,11 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         for (let _i = 0; _i < groupedBy.length; _i++) {
             const i = _i;
             const g = groupedBy[i];
-            this.groupByMapping.set(g.hash, new Evaluator(
+            this.groupByMapping.set(g.hash!, new Evaluator(
                 g.type
                 , g.id
                 , g.sql
-                , g.hash
+                , g.hash!
                 , [g]
                 , v => v[this.symbol][i]
             ));
@@ -114,7 +114,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return this.groupByMapping.size || 1;
     }
 
-    stats(): Stats {
+    stats(): Stats | null {
         // cannot be computed without iterating
         return null;
     }
@@ -147,14 +147,14 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
                 let yielded = false;
                 let invalid = false;
                 // iterate all index keys
-                for (const k of this.groupIndex.iterateKeys(t)) {
+                for (const k of this.groupIndex.iterateKeys(t)!) {
                     if (invalid) {
                         break;
                     }
                     const ret: any = { [this.symbol]: k };
                     // try to compute from index
                     for (const agg of aggs) {
-                        const val = agg.computer.computeFromIndex(k, this.groupIndex, t);
+                        const val = agg.computer.computeFromIndex?.(k, this.groupIndex, t);
                         if (typeof val === 'undefined') {
                             if (yielded) {
                                 throw new Error('Compute from index has succeeded on an index key, but failed on another (which must not happen)');
@@ -231,7 +231,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             [this.symbol]: [],
         };
         for (const agg of this.aggregations.values()) {
-            const val = agg.computer.computeNoGroup(t);
+            const val = agg.computer.computeNoGroup?.(t);
             if (typeof val === 'undefined') {
                 return null;
             }
@@ -245,10 +245,12 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         if (this.building !== 'select') {
             return got;
         }
-        return this.groupByMapping.get(got.hash) ?? got;
+        return this.groupByMapping.get(got.hash!) ?? got;
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> {
+    getColumn(column: string): IValue;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
         if (this.building) {
             // when building, expressions are built agains "this"
             // => must check if parent column exists (might be aliased => cannot check by name)
@@ -311,10 +313,10 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
 
     hasItem(value: T, t: _Transaction): boolean {
-        return !!value[this.symbol];
+        return !!(value as any)[this.symbol];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> {
+    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
         // there is no index on aggregations
         return null;
     }
@@ -323,7 +325,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return {
             _: 'aggregate',
             id: e.idFor(this),
-            aggregator: null,
+            aggregator: null as any,
         }
     }
 
@@ -339,7 +341,7 @@ class CountStar implements AggregationComputer<number> {
         return Types.long;
     }
 
-    computeFromIndex?(key: IndexKey, index: _IIndex<any>, t: _Transaction) {
+    computeFromIndex(key: IndexKey, index: _IIndex<any>, t: _Transaction) {
         const stats = index.stats(t, key);
         return stats?.count;
     }
