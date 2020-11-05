@@ -62,6 +62,7 @@ if (process.argv.includes('--copy')) {
     });
 
     fs.writeFileSync(path.join(outDir, 'mod.ts'), `export * from './index';`);
+    fs.copyFileSync(path.join(__dirname, 'readme.md'), path.join(outDir, 'readme.md'));
 
 } else if (process.argv.includes('--process')) {
     // ============= TRANSPILE
