@@ -44,6 +44,8 @@ It does not (yet) support (this is kind-of a todo list):
 
 # Usage
 
+
+## Using NodeJS
 As always, it stats with an:
 
 ```bash
@@ -54,6 +56,17 @@ Then, assuming you're using something like Webpack if you're targetting a browse
 
 ```typescript
 import { newDb } from 'pg-mem';
+
+const db = newDb();
+db.public.many(/* put some sql here */)
+```
+
+## Using Deno
+
+Pretty straightforward :)
+
+```typescript
+import { newDb } from 'https://deno.land/x/pg-mem/mod.ts';
 
 const db = newDb();
 db.public.many(/* put some sql here */)
