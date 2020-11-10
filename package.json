@@ -6,7 +6,7 @@
   "scripts": {
     "start": "webpack --config webpack.config.js",
     "build": "rimraf lib && webpack --config webpack.config.js --prod",
-    "release": "git diff --exit-code && npm run test && npm run build && cp -r src lib/src && npm run build:deno && deno run deno-test.ts && npm publish lib &&  && npm run release-deno",
+    "release": "git diff --exit-code && npm run test && npm run cover && npm run build && cp -r src lib/src && npm run build:deno && deno run deno-test.ts && npm publish lib &&  npm run release-deno",
     "release-deno": "git add -A && git commit -m \"Build deno\" && PACKAGE_VERSION=$(cat package.json | grep \\\"version\\\" | head -1 | awk -F: '{ print $2 }' | sed 's/[\",]//g' | tr -d '[[:space:]]') && git tag $PACKAGE_VERSION && git push --tags",
     "start:playground": "webpack-dev-server --hot --config playground.webpack.config.js",
     "build:playground": "webpack --config playground.webpack.config.js --prod",
