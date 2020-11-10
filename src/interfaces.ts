@@ -1,4 +1,4 @@
-import { TableConstraint, CreateColumnDef, StatementLocation } from './parser/syntax/ast';
+import { TableConstraint, CreateColumnDef, StatementLocation } from 'pgsql-ast-parser';
 
 export type nil = undefined | null;
 

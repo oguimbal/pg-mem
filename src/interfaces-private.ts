@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from './parser/syntax/ast';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';

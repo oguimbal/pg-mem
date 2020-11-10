@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private';
-import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast';
+import { CreateColumnDef, ConstraintDef } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil } from '../interfaces';
 import { buildAlias } from '../transforms/alias';

@@ -1,6 +1,6 @@
 import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats } from '../interfaces-private';
-import { SelectedColumn, Expr } from '../parser/syntax/ast';
+import { SelectedColumn, Expr } from 'pgsql-ast-parser';
 import { buildValue } from '../predicate';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
 import { isSelectAllArgList, nullIsh } from '../utils';

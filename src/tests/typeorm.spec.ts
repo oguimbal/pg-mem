@@ -6,7 +6,6 @@ import { typeormSimpleSample } from '../../samples/typeorm/simple';
 import { typeormJoinsSample } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
 import { Entity, BaseEntity, PrimaryColumn, PrimaryGeneratedColumn, Column, Connection } from 'typeorm';
-import any from '*.ne';
 
 describe('Typeorm', () => {
 

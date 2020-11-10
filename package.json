@@ -1,19 +1,19 @@
 {
   "name": "pg-mem",
-  "version": "1.0.26",
+  "version": "1.1.0",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
     "start": "webpack --config webpack.config.js",
     "build": "rimraf lib && webpack --config webpack.config.js --prod",
-    "release": "npm run test && npm run build && cp -r src lib/src && npm publish lib",
+    "release": "git diff --exit-code && npm run test && npm run build && cp -r src lib/src && npm run build:deno && deno run deno-test.ts && npm publish lib &&  && npm run release-deno",
+    "release-deno": "git add -A && git commit -m \"Build deno\" && PACKAGE_VERSION=$(cat package.json | grep \\\"version\\\" | head -1 | awk -F: '{ print $2 }' | sed 's/[\",]//g' | tr -d '[[:space:]]') && git tag $PACKAGE_VERSION && git push --tags",
     "start:playground": "webpack-dev-server --hot --config playground.webpack.config.js",
     "build:playground": "webpack --config playground.webpack.config.js --prod",
     "release:playground": "npm run build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "mochapack src/**/*.spec.ts",
-    "deno:gen": "nearleyc src/parser/syntax/main.ne -o .deno/parser/syntax/main.ne.ts && nearleyc src/parser/literal-syntaxes/array.ne -o .deno/parser/literal-syntaxes/array.ne.ts",
-    "build:deno": "node ./deno-transpile.js --copy && npm run deno:gen && node ./deno-transpile.js --process",
+    "build:deno": "node ./deno-transpile.js --copy && node ./deno-transpile.js --process",
     "cover": "cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text npm run test"
   },
   "author": "Olivier Guimbal",
@@ -42,9 +42,8 @@
     "immutable": "^4.0.0-rc.12",
     "lru-cache": "^6.0.0",
     "moment": "^2.27.0",
-    "moo": "^0.5.1",
-    "nearley": "^2.19.5",
-    "object-hash": "^2.0.3"
+    "object-hash": "^2.0.3",
+    "pgsql-ast-parser": "^1.0.3"
   },
   "devDependencies": {
     "@babel/cli": "^7.10.5",
@@ -55,8 +54,6 @@
     "@types/chai": "^4.2.11",
     "@types/lru-cache": "^5.1.0",
     "@types/mocha": "^8.0.0",
-    "@types/moo": "^0.5.3",
-    "@types/nearley": "^2.11.1",
     "@types/node": "^14.0.23",
     "@types/object-hash": "^1.3.3",
     "@types/react": "^16.9.43",

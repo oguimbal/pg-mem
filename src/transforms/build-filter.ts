@@ -9,7 +9,7 @@ import { OrFilter } from './or-filter';
 import { SeqScanFilter } from './seq-scan';
 import { InFilter } from './in-filter';
 import { NotInFilter } from './not-in-filter';
-import { Expr, ExprBinary, ExprUnary, ExprTernary } from '../parser/syntax/ast';
+import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'pgsql-ast-parser';
 import { StartsWithFilter } from './startswith-filter';
 import { IneqFilter } from './ineq-filter';
 import { hasNullish, nullIsh } from '../utils';

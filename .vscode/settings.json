@@ -6,9 +6,6 @@
     "mochaExplorer.debuggerPort": 9239,
     "mochaExplorer.timeout": 30000,
     "mochaExplorer.require": "source-map-support/register",
-    "mochaExplorer.skipFrames": [
-        "src/parser/syntax/spec-utils.ts"
-    ],
     "files.exclude": {
         "**/.git": true,
         "**/.svn": true,

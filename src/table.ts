@@ -2,16 +2,15 @@ import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyErr
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
-import { Selection, columnEvaluator } from './transforms/selection';
-import { parse } from './parser/parser';
+import { columnEvaluator } from './transforms/selection';
+import { parse } from 'pgsql-ast-parser';
 import { nullIsh, deepCloneSimple, Optional } from './utils';
 import { Map as ImMap } from 'immutable';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from './parser/syntax/ast';
+import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'pgsql-ast-parser';
 import { fromNative } from './datatypes';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
-import { FilterBase, DataSourceBase } from './transforms/transform-base';
-import { Value } from './valuetypes';
+import {  DataSourceBase } from './transforms/transform-base';
 
 function indexHash(this: void, vals: IValue[]) {
     return vals.map(x => x.hash).sort().join('|');
@@ -535,7 +534,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 right: {
                     type: 'constant',
                     value: vals[i],
-                    dataType: fcols[i].expression.type,
+                    dataType: fcols[i].expression.type as any, // hack
                 },
             }));
             const expr = equals.slice(1).reduce<Expr>((a, b) => ({
@@ -569,7 +568,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 right: {
                     type: 'constant',
                     value: vals[i],
-                    dataType: cols[i].expression.type,
+                    dataType: cols[i].expression.type as any, // hack
                 },
             }));
             const expr = equals.slice(1).reduce<Expr>((a, b) => ({

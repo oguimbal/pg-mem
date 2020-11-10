@@ -4,7 +4,7 @@ import { QueryError, DataType, NotSupported } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 import moment from 'moment';
-import { parseArrayLiteral } from './parser/parser';
+import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
 
 export function buildCall(name: string, args: IValue[]) {

@@ -49,22 +49,6 @@ module.exports = {
                         options: { esModules: true }
                     }
                 }] : [],
-            // {
-            //     test: /\.pegjs$/,
-            //     loader: 'pegjs-loader'
-            // },
-            {
-                test: /\.ne$/,
-                use: [
-                    {
-                        loader: 'ts-loader',
-                        options: { appendTsSuffixTo: [/\.ne$/] }
-                    },
-                    {
-                        loader: path.resolve(__dirname, 'nearley-loader.js')
-                    }
-                ],
-            },
         ],
     },
     resolve: {

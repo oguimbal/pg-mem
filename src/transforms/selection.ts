@@ -3,7 +3,7 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../predicate';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr } from '../parser/syntax/ast';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr } from 'pgsql-ast-parser';
 import { aggregationFunctions, buildGroupBy } from './aggregation';
 import { AstVisitor } from '../ast-visitor';
 import { isSelectAllArgList } from '../utils';

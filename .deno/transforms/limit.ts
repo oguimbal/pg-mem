@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { LimitStatement } from '../parser/syntax/ast.ts';
+import { LimitStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
     return new LimitFilter(on, limit.limit!, limit.offset!);

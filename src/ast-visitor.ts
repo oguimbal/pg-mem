@@ -1,4 +1,4 @@
-import { Expr, ExprBinary, ExprUnary, ExprRef, ExprList, ExprCall, ExprCast, ExprCase, ExprMember, ExprArrayIndex, ExprTernary, SelectStatement } from './parser/syntax/ast';
+import { Expr, ExprBinary, ExprUnary, ExprRef, ExprList, ExprCall, ExprCast, ExprCase, ExprMember, ExprArrayIndex, ExprTernary, SelectStatement } from 'pgsql-ast-parser';
 import { nil, NotSupported } from './interfaces-private';
 
 export class AstVisitor {

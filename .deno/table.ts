@@ -2,16 +2,15 @@ import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyErr
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private.ts';
 import { buildValue } from './predicate.ts';
 import { BIndex } from './btree-index.ts';
-import { Selection, columnEvaluator } from './transforms/selection.ts';
-import { parse } from './parser/parser.ts';
+import { columnEvaluator } from './transforms/selection.ts';
+import { parse } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 import { nullIsh, deepCloneSimple, Optional } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from './parser/syntax/ast.ts';
+import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 import { fromNative } from './datatypes.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
-import { FilterBase, DataSourceBase } from './transforms/transform-base.ts';
-import { Value } from './valuetypes.ts';
+import {  DataSourceBase } from './transforms/transform-base.ts';
 
 function indexHash(this: void, vals: IValue[]) {
     return vals.map(x => x.hash).sort().join('|');
@@ -535,7 +534,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 right: {
                     type: 'constant',
                     value: vals[i],
-                    dataType: fcols[i].expression.type,
+                    dataType: fcols[i].expression.type as any, // hack
                 },
             }));
             const expr = equals.slice(1).reduce<Expr>((a, b) => ({
@@ -569,7 +568,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 right: {
                     type: 'constant',
                     value: vals[i],
-                    dataType: cols[i].expression.type,
+                    dataType: cols[i].expression.type as any, // hack
                 },
             }));
             const expr = equals.slice(1).reduce<Expr>((a, b) => ({

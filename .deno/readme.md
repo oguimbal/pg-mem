@@ -1,6 +1,6 @@
 # What is it ?
 
-`pg-node` is an **experimental** in-memory emulation of a postgres database.
+`pg-mem` is an experimental in-memory emulation of a postgres database.
 
 It works both in node or in browser.
 
@@ -8,7 +8,7 @@ It works both in node or in browser.
 
 ## DISCLAIMER
 
-The syntax parser is home-made. Which means that some features are not implemented, and will be considered as invalid syntaxes.
+The sql syntax parser is home-made. Which means that some features are not implemented, and will be considered as invalid syntaxes.
 
 This lib is quite new, so forgive it if some obivious pg syntax is not supported !
 
@@ -24,11 +24,11 @@ Finally, I invite you to read the below section to have an idea of you can or ca
 # Supported features
 
 It supports:
-- [x] Transactions
 - [x] Indices, somewhat (on "simple" requests)
 - [x] Basic data types (json, dates, ...)
 - [x] Joins, group bys, ...
 - [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
+- [x] Transactions (only one of multiple concurrent transactions can be commited, though)
 
 
 It does not (yet) support (this is kind-of a todo list):
@@ -39,8 +39,9 @@ It does not (yet) support (this is kind-of a todo list):
 - [ ] Stored procedures
 - [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
 - [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
+- [ ] Concurrent transaction commit
 
-... PR are open :)
+... PRs are open :)
 
 # Usage
 
@@ -66,7 +67,7 @@ db.public.many(/* put some sql here */)
 Pretty straightforward :)
 
 ```typescript
-import { newDb } from 'https://deno.land/x/pg-mem/mod.ts';
+import { newDb } from 'https://deno.land/x/pg_mem/mod.ts';
 
 const db = newDb();
 db.public.many(/* put some sql here */)
@@ -229,6 +230,7 @@ db.on('seq-scan', () => {});
 db.getTable('myTable').on('seq-scan', () = {});
 
 // will be called if pg-mem did not find any way to optimize a join
+// (which leads to a O(n*m) lookup with the current implementation)
 db.on('catastrophic-join-optimization', () => {});
 ```
 

@@ -6,7 +6,7 @@ import dedent from 'dedent'
 import { newDb, QueryResult } from '../src';
 import type monaco from 'monaco-editor';
 import type { editor } from 'monaco-editor';
-import { StatementLocation, Statement } from '../src/parser/syntax/ast';
+import { StatementLocation, Statement } from 'pgsql-ast-parser';
 import { ErrorDisplay } from './error';
 import { ValueDisplay } from './value';
 import { DataGrid } from './grid';

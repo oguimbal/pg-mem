@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private.ts';
-import { CreateColumnDef, ConstraintDef } from '../parser/syntax/ast.ts';
+import { CreateColumnDef, ConstraintDef } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';

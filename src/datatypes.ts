@@ -4,8 +4,8 @@ import moment from 'moment';
 import hash from 'object-hash';
 import { deepEqual, deepCompare, nullIsh } from './utils';
 import { Evaluator, Value } from './valuetypes';
-import { DataTypeDef } from './parser/syntax/ast';
-import { parseArrayLiteral } from './parser/parser';
+import { DataTypeDef } from 'pgsql-ast-parser';
+import { parseArrayLiteral } from 'pgsql-ast-parser';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 

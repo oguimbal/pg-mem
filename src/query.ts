@@ -4,8 +4,8 @@ import { watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from './parser/syntax/ast';
-import { parse } from './parser/parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from 'pgsql-ast-parser';
+import { parse } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -306,13 +306,13 @@ export class Query implements _ISchema, ISchema {
     }
     explainSelect(sql: string): _SelectExplanation {
         let parsed = parse(sql);
-        if (Array.isArray(parsed)) {
+        if (parsed.length !== 1) {
             throw new Error('Expecting a single statement');
         }
-        if (parsed.type !== 'select') {
+        if (parsed[0].type !== 'select') {
             throw new Error('Expecting a select statement');
         }
-        return this.buildSelect(parsed)
+        return this.buildSelect(parsed[0])
             .explain(new Explainer(this.db.data))
     }
 

@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
-import { OrderByStatement } from '../parser/syntax/ast';
+import { OrderByStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../predicate';
 import { nullIsh } from '../utils';
 

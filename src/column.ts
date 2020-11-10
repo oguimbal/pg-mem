@@ -1,7 +1,7 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil } from './interfaces-private';
 import type { MemoryTable } from './table';
 import { Evaluator } from './valuetypes';
-import { ColumnConstraint, AlterColumn } from './parser/syntax/ast';
+import { ColumnConstraint, AlterColumn } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
 import { buildValue } from './predicate';
 import { fromNative } from './datatypes';

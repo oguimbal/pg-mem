@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
 import { FilterBase } from './transform-base';
-import { LimitStatement } from '../parser/syntax/ast';
+import { LimitStatement } from 'pgsql-ast-parser';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
     return new LimitFilter(on, limit.limit!, limit.offset!);

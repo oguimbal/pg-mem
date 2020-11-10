@@ -2,7 +2,7 @@ import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchem
 import { buildValue, uncache } from '../predicate';
 import { QueryError, ColumnNotFound, DataType, NotSupported, nil } from '../interfaces';
 import { DataSourceBase } from './transform-base';
-import { Expr, ExprBinary } from '../parser/syntax/ast';
+import { Expr, ExprBinary } from 'pgsql-ast-parser';
 import { nullIsh } from '../utils';
 
 let jCnt = 0;

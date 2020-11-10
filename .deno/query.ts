@@ -4,8 +4,8 @@ import { watchUse } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { Types, fromNative } from './datatypes.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from './parser/syntax/ast.ts';
-import { parse } from './parser/parser.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { parse } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -306,13 +306,13 @@ export class Query implements _ISchema, ISchema {
     }
     explainSelect(sql: string): _SelectExplanation {
         let parsed = parse(sql);
-        if (Array.isArray(parsed)) {
+        if (parsed.length !== 1) {
             throw new Error('Expecting a single statement');
         }
-        if (parsed.type !== 'select') {
+        if (parsed[0].type !== 'select') {
             throw new Error('Expecting a select statement');
         }
-        return this.buildSelect(parsed)
+        return this.buildSelect(parsed[0])
             .explain(new Explainer(this.db.data))
     }
 

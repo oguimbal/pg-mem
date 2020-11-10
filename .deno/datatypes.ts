@@ -4,8 +4,8 @@ import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { deepEqual, deepCompare, nullIsh } from './utils.ts';
 import { Evaluator, Value } from './valuetypes.ts';
-import { DataTypeDef } from './parser/syntax/ast.ts';
-import { parseArrayLiteral } from './parser/parser.ts';
+import { DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 

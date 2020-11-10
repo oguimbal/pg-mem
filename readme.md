@@ -1,48 +1,17 @@
 # What is it ?
 
-`pg-node` is an **experimental** in-memory emulation of a postgres database.
+🏃‍♀️ `pg-mem` is an experimental in-memory emulation of a postgres database.
 
-It works both in node or in browser.
+❤ It works both in node or in browser.
 
-## See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
+👉 Dont forget to ⭐ this repo if you like this package :)
 
-## DISCLAIMER
-
-The syntax parser is home-made. Which means that some features are not implemented, and will be considered as invalid syntaxes.
-
-This lib is quite new, so forgive it if some obivious pg syntax is not supported !
-
-... And open an issue if you feel like a feature should be implemented :)
-
-Moreover, even if I wrote hundreds of tests, keep in mind that this implementation is a best effort to replicate PG.
-Keep an eye on your query results if you perform complex queries.
-Please file issues if some results seem incoherent with what should be returned.
-
-Finally, I invite you to read the below section to have an idea of you can or cannot do.
+👉 See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
 
 
-# Supported features
-
-It supports:
-- [x] Transactions
-- [x] Indices, somewhat (on "simple" requests)
-- [x] Basic data types (json, dates, ...)
-- [x] Joins, group bys, ...
-- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
 
 
-It does not (yet) support (this is kind-of a todo list):
-- [ ] Gin Indices
-- [ ] Cartesian Joins
-- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions.ts) !
-- [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
-- [ ] Stored procedures
-- [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
-- [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
-
-... PR are open :)
-
-# Usage
+# 📐 Usage
 
 
 ## Using NodeJS
@@ -66,13 +35,33 @@ db.public.many(/* put some sql here */)
 Pretty straightforward :)
 
 ```typescript
-import { newDb } from 'https://deno.land/x/pg-mem/mod.ts';
+import { newDb } from 'https://deno.land/x/pg_mem/mod.ts';
 
 const db = newDb();
 db.public.many(/* put some sql here */)
 ```
 
-# Features
+
+## Only use the SQL syntax parser
+
+❤ Head to the [pgsql-ast-parser](https://github.com/oguimbal/pgsql-ast-parser) repo
+
+
+## ⚠ Disclaimer
+
+The sql syntax parser is [home-made](https://github.com/oguimbal/pgsql-ast-parser). Which means that some features are not implemented, and will be considered as invalid syntaxes.
+
+This lib is quite new, so forgive it if some obivious pg syntax is not supported !
+
+... And open an issue if you feel like a feature should be implemented :)
+
+Moreover, even if I wrote hundreds of tests, keep in mind that this implementation is a best effort to replicate PG.
+Keep an eye on your query results if you perform complex queries.
+Please file issues if some results seem incoherent with what should be returned.
+
+Finally, I invite you to read the below section to have an idea of you can or cannot do.
+
+# 🔍 Features
 
 ## Rollback to a previous state
 
@@ -99,6 +88,10 @@ db.public.none(`update test set id='new value';`)
 backup.restore();
 db.public.many(`select * from test`) // => {test: 'value'}
 ```
+
+
+# 📃 Libraries adapters
+
 
 ## pg-native
 
@@ -199,7 +192,7 @@ note: You must install `typeorm` module first.
 
 # Inspection
 
-## Subscriptions
+## 💥 Subscriptions
 You can subscribe to some events, like:
 
 ```typescript
@@ -229,10 +222,33 @@ db.on('seq-scan', () => {});
 db.getTable('myTable').on('seq-scan', () = {});
 
 // will be called if pg-mem did not find any way to optimize a join
+// (which leads to a O(n*m) lookup with the current implementation)
 db.on('catastrophic-join-optimization', () => {});
 ```
 
-# Development
+# 📃 Supported features
+
+It supports:
+- [x] Indices, somewhat (on "simple" requests)
+- [x] Basic data types (json, dates, ...)
+- [x] Joins, group bys, ...
+- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
+- [x] Transactions (only one of multiple concurrent transactions can be commited, though)
+
+
+It does not (yet) support (this is kind-of a todo list):
+- [ ] Gin Indices
+- [ ] Cartesian Joins
+- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions.ts) !
+- [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
+- [ ] Stored procedures
+- [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
+- [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
+- [ ] Concurrent transaction commit
+
+... PRs are open :)
+
+# 🐜 Development
 
 Pull requests are welcome :)
 

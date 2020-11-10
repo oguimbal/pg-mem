@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from './parser/syntax/ast';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 

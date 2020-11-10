@@ -68,10 +68,12 @@ if (process.argv.includes('--copy')) {
     // ============= TRANSPILE
 
 
+    const package = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json')));
     const bindings = {
         'moo': 'https://deno.land/x/moo@0.5.1-deno.2/mod.ts',
         'nearley': 'https://deno.land/x/nearley@2.19.7-deno/mod.ts',
         'lru-cache': 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts',
+        'pgsql-ast-parser': 'https://deno.land/x/pgsql_ast_parser@' + package.dependencies['pgsql-ast-parser'].substr(1) + '/mod.ts',
         // 'lru-cache': {
         //     what: x => `{${x}}`,
         //     where: 'https://deno.land/x/lru_cache@6.0.0-deno.3/mod.ts',

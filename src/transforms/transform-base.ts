@@ -8,7 +8,7 @@ import type { buildGroupBy } from './aggregation';
 import type { buildLimit } from './limit';
 import type { buildOrderBy } from './order-by';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from '../parser/syntax/ast';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
 import { RestrictiveIndex } from './restrictive-index';
 
 interface Fns {

@@ -1,7 +1,7 @@
 import moment from 'moment';
 import { List } from 'immutable';
 import { IValue, NotSupported } from './interfaces-private';
-import { SelectedColumn, Expr } from './parser/syntax/ast';
+import { SelectedColumn, Expr } from 'pgsql-ast-parser';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;

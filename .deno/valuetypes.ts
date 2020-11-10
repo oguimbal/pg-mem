@@ -2,9 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprEx
 import { DataType, QueryError, CastError, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes.ts';
-import { Query } from './query.ts';
 import { buildCall } from './functions.ts';
-import { parseArrayLiteral } from './parser/parser.ts';
 import { nullIsh } from './utils.ts';
 
 

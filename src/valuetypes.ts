@@ -2,9 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprEx
 import { DataType, QueryError, CastError, nil } from './interfaces';
 import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
-import { Query } from './query';
 import { buildCall } from './functions';
-import { parseArrayLiteral } from './parser/parser';
 import { nullIsh } from './utils';
 
 
