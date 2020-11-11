@@ -3,7 +3,6 @@ import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndex
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
-import { parse } from 'pgsql-ast-parser';
 import { nullIsh, deepCloneSimple, Optional } from './utils';
 import { Map as ImMap } from 'immutable';
 import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'pgsql-ast-parser';
@@ -11,6 +10,7 @@ import { fromNative } from './datatypes';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
 import {  DataSourceBase } from './transforms/transform-base';
+import { parseSql } from './parse-cache';
 
 function indexHash(this: void, vals: IValue[]) {
     return vals.map(x => x.hash).sort().join('|');
@@ -408,7 +408,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
             for (const e of expressions) {
-                const parsed = parse(e, 'expr');
+                const parsed = parseSql(e, 'expr');
                 const getter = buildValue(this.selection, parsed);
                 keys.push({
                     value: getter,

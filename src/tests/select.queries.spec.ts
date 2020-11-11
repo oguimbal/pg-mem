@@ -2,12 +2,11 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { IMemoryDb } from '../interfaces';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
-import { parse } from 'pgsql-ast-parser';
 import { SelectStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../predicate';
+import { parseSql } from '../parse-cache';
 
 describe('[Queries] Selections', () => {
 
@@ -116,7 +115,7 @@ describe('[Queries] Selections', () => {
 
     it('has an index', () => {
         simpleDb();
-        const [{ where }] = parse(`select * from data where id='x'`) as SelectStatement[];
+        const [{ where }] = parseSql(`select * from data where id='x'`) as SelectStatement[];
         if (!where || where.type !== 'binary') {
             assert.fail('Should be a binary');
         }

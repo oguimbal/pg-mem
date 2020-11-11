@@ -5,11 +5,11 @@ import { buildValue } from './predicate';
 import { Types, fromNative } from './datatypes';
 import { JoinSelection } from './transforms/join';
 import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from 'pgsql-ast-parser';
-import { parse } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
+import { parseSql } from './parse-cache';
 
 export class Query implements _ISchema, ISchema {
 
@@ -77,7 +77,7 @@ export class Query implements _ISchema, ISchema {
     }
 
     private parse(query: string) {
-        return parse(query);
+        return parseSql(query);
     }
 
     *queries(query: string): Iterable<QueryResult> {
@@ -305,7 +305,7 @@ export class Query implements _ISchema, ISchema {
         return this.lastSelect?.explain(new Explainer(this.db.data));
     }
     explainSelect(sql: string): _SelectExplanation {
-        let parsed = parse(sql);
+        let parsed = this.parse(sql);
         if (parsed.length !== 1) {
             throw new Error('Expecting a single statement');
         }
