@@ -4,12 +4,12 @@ import { watchUse } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { Types, fromNative } from './datatypes.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
-import { parse } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
 import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema/index.ts';
+import { parseSql } from './parse-cache.ts';
 
 export class Query implements _ISchema, ISchema {
 
@@ -77,7 +77,7 @@ export class Query implements _ISchema, ISchema {
     }
 
     private parse(query: string) {
-        return parse(query);
+        return parseSql(query);
     }
 
     *queries(query: string): Iterable<QueryResult> {
@@ -305,7 +305,7 @@ export class Query implements _ISchema, ISchema {
         return this.lastSelect?.explain(new Explainer(this.db.data));
     }
     explainSelect(sql: string): _SelectExplanation {
-        let parsed = parse(sql);
+        let parsed = this.parse(sql);
         if (parsed.length !== 1) {
             throw new Error('Expecting a single statement');
         }

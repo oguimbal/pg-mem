@@ -1,7 +1,7 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './valuetypes.ts';
-import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
 import { nullIsh } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { fromNative } from './datatypes.ts';

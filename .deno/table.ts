@@ -3,14 +3,14 @@ import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndex
 import { buildValue } from './predicate.ts';
 import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
-import { parse } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
 import { nullIsh, deepCloneSimple, Optional } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
 import { fromNative } from './datatypes.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import {  DataSourceBase } from './transforms/transform-base.ts';
+import { parseSql } from './parse-cache.ts';
 
 function indexHash(this: void, vals: IValue[]) {
     return vals.map(x => x.hash).sort().join('|');
@@ -408,7 +408,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
             for (const e of expressions) {
-                const parsed = parse(e, 'expr');
+                const parsed = parseSql(e, 'expr');
                 const getter = buildValue(this.selection, parsed);
                 keys.push({
                     value: getter,

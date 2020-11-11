@@ -1,4 +1,4 @@
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
 
 export type nil = undefined | null;
 

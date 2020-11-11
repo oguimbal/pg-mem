@@ -1,4 +1,4 @@
-import { Expr, ExprBinary, ExprUnary, ExprRef, ExprList, ExprCall, ExprCast, ExprCase, ExprMember, ExprArrayIndex, ExprTernary, SelectStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.3/mod.ts';
+import { Expr, ExprBinary, ExprUnary, ExprRef, ExprList, ExprCall, ExprCast, ExprCase, ExprMember, ExprArrayIndex, ExprTernary, SelectStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
 import { nil, NotSupported } from './interfaces-private.ts';
 
 export class AstVisitor {
