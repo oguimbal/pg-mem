@@ -3,7 +3,6 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
-import { preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
 
 describe('[Queries] Updates', () => {

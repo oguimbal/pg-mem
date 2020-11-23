@@ -1,7 +1,7 @@
 {
     "extends": "./tsconfig.deno.json",
     "compilerOptions": {
-        "target": "es2019",
+        "target": "ES2019",
         "module": "commonjs",
         "sourceMap": true,
         "esModuleInterop": true,
@@ -13,16 +13,13 @@
         "jsx": "react",
         "declaration": true,
         "declarationMap": true,
-        "declarationDir": "lib",
-        "outDir": "lib",
+        "declarationDir": "lib-types",
+        "outDir": "lib-types"
     },
     "include": [
         "src/**/*.ts"
-        // "samples/**/*.ts"
     ],
     "exclude": [
-        "node_modules",
-        // "src/**/*.spec.ts",
-        // "src/**/spec-utils.ts",
+        "node_modules"
     ]
 }

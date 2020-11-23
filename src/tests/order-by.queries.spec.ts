@@ -3,7 +3,6 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
-import { preventSeqScan } from './test-utils';
 
 describe('[Queries] Order by', () => {
 

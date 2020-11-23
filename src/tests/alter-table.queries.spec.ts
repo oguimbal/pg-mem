@@ -2,9 +2,6 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { trimNullish } from '../utils';
-import { Types } from '../datatypes';
-import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
 describe('[Queries] Alter table', () => {

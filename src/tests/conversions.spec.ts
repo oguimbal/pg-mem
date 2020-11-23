@@ -2,8 +2,6 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { watchUse } from '../utils';
-import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces-private';
 
 describe('[Queries] Conversions', () => {

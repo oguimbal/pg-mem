@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
-import { IMemoryDb } from '../interfaces';
 import { _IDb } from '../interfaces-private';
 
 describe('[Queries] Operators', () => {
