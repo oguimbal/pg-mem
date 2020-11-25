@@ -8,7 +8,7 @@ import type { buildGroupBy } from './aggregation.ts';
 import type { buildLimit } from './limit.ts';
 import type { buildOrderBy } from './order-by.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
@@ -35,7 +35,11 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
 
-    constructor(readonly schema: _ISchema) {
+    get db() {
+        return this.ownerSchema.db;
+    }
+
+    constructor(readonly ownerSchema: _ISchema) {
     }
 
     select(select: SelectedColumn[] | nil): _ISelection<any> {
@@ -66,7 +70,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
     subquery(data: _ISelection<any>, op: SelectStatement): _ISelection {
         // todo: handle refs to 'data' in op statement.
-        return this.schema.buildSelect(op);
+        return this.ownerSchema.buildSelect(op);
     }
 
     limit(limit: LimitStatement): _ISelection {
@@ -88,7 +92,7 @@ export abstract class TransformBase<T> extends DataSourceBase<T> {
 
 
     constructor(protected base: _ISelection) {
-        super(base.schema);
+        super(base.ownerSchema);
     }
 
     entropy(t: _Transaction): number {

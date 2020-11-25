@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema } from './interfaces.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -38,11 +38,23 @@ export interface _ISchema extends ISchema {
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
     getTable(table: string): _ITable;
-    getTable(table: string, nullIfNotFound: false): _ITable;
-    getTable(table: string, nullIfNotFound?: boolean): _ITable | null;
+    getTable(table: string, nullIfNotFound: false, forceOwn?: boolean): _ITable;
+    getTable(table: string, nullIfNotFound?: boolean, forceOwn?: boolean): _ITable | null;
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
     _doRenTab(db: string, to: string): any;
+    declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
+    _settable(tname: string, table: _ITable): this;
+    /** Get functions matching this arrity */
+    getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
+}
+
+export interface _FunctionDefinition {
+    args: _IType[];
+    argsVariadic?: _IType;
+    returns: _IType;
+    impure?: boolean;
+    implementation: (...args: any[]) => any;
 }
 
 
@@ -69,7 +81,8 @@ export interface Stats {
 export interface _ISelection<T = any> {
     readonly debugId?: string;
 
-    readonly schema: _ISchema;
+    readonly ownerSchema: _ISchema;
+    readonly db: _IDb;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
     enumerate(t: _Transaction): Iterable<T>;
@@ -236,12 +249,16 @@ export interface _IDb extends IMemoryDb {
     readonly public: _ISchema;
     readonly data: _Transaction;
 
+    createSchema(db: string): _ISchema;
     getSchema(db?: string | null): _ISchema;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent, ...args: any[]): void;
     listSchemas(): _ISchema[];
     onSchemaChange(): void;
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
+    getExtension(name: string): (schema: ISchema) => void;
+    /** Get functions matching this arrity */
+    getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition>;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     onIndex: _IIndex;
@@ -250,11 +267,13 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
 export interface _ITable<T = any> extends IMemoryTable {
 
     readonly hidden: boolean;
-    readonly schema: _ISchema;
-    readonly name: string;
+    readonly db: _IDb;
+    readonly ownerSchema: _ISchema;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
     insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T;
+    setHidden(): this;
+    setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;

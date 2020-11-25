@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces.ts';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema } from './interfaces-private.ts';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition } from './interfaces-private.ts';
 import { Query } from './query.ts';
 import { initialize } from './transforms/transform-base.ts';
 import { buildSelection } from './transforms/selection.ts';
@@ -10,6 +10,8 @@ import { Transaction } from './transaction.ts';
 import { buildGroupBy } from './transforms/aggregation.ts';
 import { buildLimit } from './transforms/limit.ts';
 import { buildOrderBy } from './transforms/order-by.ts';
+import { setupPgCatalog } from './schema/pg-catalog/index.ts';
+import { setupInformationSchema } from './schema/information-schema/index.ts';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     initialize({
@@ -31,13 +33,16 @@ class MemoryDb implements _IDb {
     schemaVersion = 1;
 
     readonly adapters: Adapters = new Adapters(this);
+    private extensions: { [name: string]: (schema: ISchema) => void } = {};
+    private searchPath = ['pg_catalog', 'public'];
+
     get public() {
         return this.getSchema(null)
     }
 
     onSchemaChange() {
         this.schemaVersion++;
-        this.raiseGlobal('schema-change');
+        this.raiseGlobal('schema-change', this);
     }
 
     constructor(public data: Transaction, schemas?: Map<string, _ISchema>, readonly options: MemoryDbOptions = {}) {
@@ -46,15 +51,29 @@ class MemoryDb implements _IDb {
         } else {
             this.schemas = schemas;
         }
-        this.declareSchema('information_schema')
-            .informationSchma();
+        setupPgCatalog(this);
+        setupInformationSchema(this);
     }
 
     backup(): IBackup {
         return new Backup(this);
     }
 
-    declareSchema(name: string) {
+    registerExtension(name: string, install: (schema: ISchema) => void): this {
+        this.extensions[name] = install;
+        return this;
+    }
+
+    getExtension(name: string): (schema: ISchema) => void {
+        const ret = this.extensions[name];
+        if (!ret) {
+            throw new Error('Extension does not exist: ' + name);
+        }
+        return ret;
+    }
+
+
+    createSchema(name: string): Query {
         if (this.schemas.has(name)) {
             throw new Error('Schema exists: ' + name);
         }
@@ -64,15 +83,26 @@ class MemoryDb implements _IDb {
         return ret;
     }
 
-    createSchema(name: string) {
-        return this.declareSchema(name)
-            .pgSchema();
-    }
-
     getTable(name: string): _ITable;
     getTable(name: string, nullIfNotExists?: boolean): _ITable | null {
-        return this.public.getTable(name, nullIfNotExists);
+        for (const sp of this.searchPath) {
+            const tbl = this.getSchema(sp).getTable(name, true, true);
+            if (tbl) {
+                return tbl;
+            }
+        }
+        if (nullIfNotExists) {
+            return null;
+        }
+        throw new TableNotFound(name);
     }
+
+    *getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition> {
+        for (const sp of this.searchPath) {
+            yield* this.getSchema(sp).getFunctions(name, arrity, true);
+        }
+    }
+
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any): ISubscription {
         let lst = this.handlers.get(event);

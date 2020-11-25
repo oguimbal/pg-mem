@@ -1,4 +1,4 @@
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
 
 export type nil = undefined | null;
 
@@ -22,6 +22,7 @@ export interface IType {
 
 // todo support all types https://www.postgresql.org/docs/9.5/datatype.html
 export enum DataType {
+    uuid = 'uuid',
     text = 'text',
     array = 'array',
     long = 'long',
@@ -64,11 +65,14 @@ export interface IMemoryDb {
      */
     createSchema(name: string): ISchema;
     /**
-     * Get a table to inspect it
+     * Get a table to inspect it (in the public schema... this is a shortcut for db.public.getTable())
      */
     getTable(table: string): IMemoryTable;
+    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
+
     /** Subscribe to a global event */
     on(event: 'query', handler: (query: string) => any): ISubscription;
+    on(event: GlobalEvent, handler: () => any): ISubscription;
     on(event: GlobalEvent, handler: () => any): ISubscription;
     /** Subscribe to an event on all tables */
     on(event: TableEvent, handler: (table: string) => any): ISubscription;
@@ -78,6 +82,13 @@ export interface IMemoryDb {
      * 👉 This operation is O(1) (instantaneous, even with millions of records).
      * */
     backup(): IBackup;
+
+    /**
+     * Registers an extension (that can be installed using the 'create extension' statement)
+     * @param name Extension name
+     * @param install How to install this extension on a given schema
+     */
+    registerExtension(name: string, install: (schema: ISchema) => void): this;
 }
 
 export interface IBackup {
@@ -132,7 +143,38 @@ export interface ISchema {
     /**
      * Progressively executes a query, yielding results until the end of enumeration (or an exception)
      */
-    queries(text: string): Iterable<QueryResult>
+    queries(text: string): Iterable<QueryResult>;
+
+    /**
+     * Get a table to inspect it
+     */
+    getTable(table: string): IMemoryTable;
+    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
+
+    /** Register a function */
+    registerFunction(fn: FunctionDefinition): this;
+}
+
+export interface FunctionDefinition {
+    /** Function name (casing doesnt matter) */
+    name: string;
+
+    /** Expected arguments */
+    args?: (DataType | IType)[];
+
+    /** Other arguments type (variadic arguments) */
+    argsVariadic?: DataType | IType;
+
+    /** Returned data type */
+    returns: DataType | IType;
+
+    /**
+     * If the function is marked as impure, it will not be simplified
+     * (ex: "select myFn(1) from myTable" will call myFn() for each row in myTable, even if it does not depend on its result) */
+    impure?: boolean;
+
+    /** Actual implementation of the function */
+    implementation: (...args: any[]) => any;
 }
 
 export interface QueryResult {
@@ -155,9 +197,10 @@ export interface FieldInfo {
 
 
 export type TableEvent = 'seq-scan';
-export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change';
+export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
 export interface IMemoryTable {
+    readonly name: string;
     /** Subscribe to an event on this table */
     on(event: TableEvent, handler: () => any): ISubscription;
     /** List existing indices defined on this table */

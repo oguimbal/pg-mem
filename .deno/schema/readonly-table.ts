@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private.ts';
-import { CreateColumnDef, ConstraintDef } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
+import { CreateColumnDef, ConstraintDef } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
@@ -99,6 +99,9 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     createIndex(): this {
         throw new ReadOnlyError('information schema');
     }
+    setHidden(): this {
+        throw new ReadOnlyError('information schema');
+    }
 
     setReadonly(): this {
         return this;
@@ -116,4 +119,24 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         // nop
     }
 
+    make(table: _ITable, i: number, t: IValue<any>): any {
+        throw new Error('not implemented');
+    }
+
+
+    *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
+        if (typeof table === 'string') {
+            for (const s of this.db.listSchemas()) {
+                const got = s.getTable(table, true, true);
+                if (got) {
+                    yield* this.itemsByTable(got, t);
+                }
+            }
+        } else {
+            let i = 0;
+            for (const f of table.selection.columns) {
+                yield this.make(table, ++i, f);
+            }
+        }
+    }
 }

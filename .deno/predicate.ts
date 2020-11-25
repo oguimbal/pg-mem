@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './valuetypes.ts';
 import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 
@@ -75,7 +75,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
                 return data.getAggregation(val.function, val.args);
             }
             const args = val.args.map(x => _buildValue(data, x));
-            return Value.function(val.function, args);
+            const schema = data.db.getSchema(val.namespace);
+            return Value.function(schema, val.function, args);
         case 'cast':
             return _buildValue(data, val.operand)
                 .convert(fromNative(val.to))

@@ -1,7 +1,7 @@
 
 import LRUCache from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { Expr, parse, Statement } from 'https://deno.land/x/pgsql_ast_parser@1.0.7/mod.ts';
+import { Expr, parse, Statement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
 
 
 const astCache: LRUCache<any, any> = new LRUCache({

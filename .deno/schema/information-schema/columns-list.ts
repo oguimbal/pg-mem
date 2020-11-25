@@ -1,9 +1,8 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _Transaction, _ISchema } from '../interfaces-private.ts';
-import { Selection } from '../transforms/selection.ts';
-import { ReadOnlyError, NotSupported, Schema, nil } from '../interfaces.ts';
-import { Types } from '../datatypes.ts';
-import { TableIndex } from './table-index.ts';
-import { ReadOnlyTable } from './readonly-table.ts';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _Transaction, _ISchema } from '../../interfaces-private.ts';
+import { Schema, nil } from '../../interfaces.ts';
+import { Types } from '../../datatypes.ts';
+import { TableIndex } from '../table-index.ts';
+import { ReadOnlyTable } from '../readonly-table.ts';
 
 const IS_SCHEMA = Symbol('_is_colmun');
 export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
@@ -65,12 +64,12 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
 
 
     entropy(t: _Transaction): number {
-        return this.schema.db.listSchemas()
+        return this.db.listSchemas()
             .reduce((tot, s) => tot + s.tablesCount(t) * 10, 0);
     }
 
     *enumerate(t: _Transaction) {
-        for (const s of this.schema.db.listSchemas()) {
+        for (const s of this.db.listSchemas()) {
             for (const it of s.listTables(t)) {
                 yield* this.itemsByTable(it, t);
             }
@@ -115,7 +114,7 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
 
             [IS_SCHEMA]: true,
         };
-        setId(ret, `/schema/${table.schema.name}/table/${table.name}/${i}`);
+        setId(ret, `/schema/${table.ownerSchema.name}/table/${table.name}/${i}`);
         return ret;
     }
 
@@ -128,22 +127,6 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
             return new TableIndex(this, forValue);
         }
         return null;
-    }
-
-    *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
-        if (typeof table === 'string') {
-            for (const s of this.schema.db.listSchemas()) {
-                const got = s.getTable(table, true);
-                if (got) {
-                    yield* this.itemsByTable(got, t);
-                }
-            }
-        } else {
-            let i = 0;
-            for (const f of table.selection.columns) {
-                yield this.make(table, ++i, f);
-            }
-        }
     }
 
 }
