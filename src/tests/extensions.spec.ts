@@ -55,7 +55,7 @@ describe('Extensions', () => {
     it ('can recreate extension twice with "if not exists"', () => {
         db.registerExtension('ext', s => {});
 
-        many('create extension "ext"');
+        many('create extension if not exists "ext"');
         many('create extension if not exists "ext"');
     });
 });
