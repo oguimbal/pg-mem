@@ -1,4 +1,4 @@
-import { FunctionDefinition } from 'interfaces';
+import { FunctionDefinition } from '../interfaces';
 import moment from 'moment';
 import { DataType, QueryError } from '../interfaces-private';
 

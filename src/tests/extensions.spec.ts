@@ -30,7 +30,7 @@ describe('Extensions', () => {
     })
 
 
-    it ('can call function declared in another shcmea', () => {
+    it ('can call function declared in another schema', () => {
         db.getSchema('pg_catalog').registerFunction({
             name: 'col_description',
             args: [DataType.int, DataType.int],
