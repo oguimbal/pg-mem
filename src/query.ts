@@ -638,7 +638,10 @@ export class Query implements _ISchema, ISchema {
         return this;
     }
 
-    getFunctions(name: string, arrity: number): _FunctionDefinition[] {
+    getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition> {
+        if (!forceOwn) {
+            return this.db.getFunctions(name, arrity);
+        }
         const matches = this.fns.get(name);
         return !matches
             ? []

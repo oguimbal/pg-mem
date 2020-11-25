@@ -46,14 +46,14 @@ export interface _ISchema extends ISchema {
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     _settable(tname: string, table: _ITable): this;
     /** Get functions matching this arrity */
-    getFunctions(name: string, arrity: number): _FunctionDefinition[];
+    getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
 }
 
 export interface _FunctionDefinition {
     args: _IType[];
     argsVariadic?: _IType;
     returns: _IType;
-    impure: boolean;
+    impure?: boolean;
     implementation: (...args: any[]) => any;
 }
 
@@ -257,6 +257,8 @@ export interface _IDb extends IMemoryDb {
     onSchemaChange(): void;
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
     getExtension(name: string): (schema: ISchema) => void;
+    /** Get functions matching this arrity */
+    getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition>;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     onIndex: _IIndex;

@@ -3,7 +3,6 @@ import { Types, ArrayType, makeType } from './datatypes';
 import { QueryError, DataType, NotSupported, FunctionDefinition } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
-import moment from 'moment';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
 
@@ -12,52 +11,17 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     let get: (...args: any[]) => any;
 
     name = name.toLowerCase();
-    let unpure = false;
+    let impure = false;
     let acceptNulls = false;
+
+    // put your ugly hack here 😶 🏴‍☠️ ...
     switch (name) {
-        case 'lower':
-        case 'upper':
-            if (args.length !== 1) {
-                throw new QueryError(name + ' expects one argument');
-            }
-            args = args.map(x => x.convert(DataType.text));
-            type = args[0].type;
-            if (name === 'lower') {
-                get = (x: string) => x?.toLowerCase();
-            } else {
-                get = (x: string) => x?.toUpperCase();
-            }
-            break;
-        case 'concat':
-            acceptNulls = true;
-            args = args.map(x => x.convert(DataType.text));
-            type = Types.text();
-            get = (...x: string[]) => x.join('');
-            break;
-        case 'to_date':
-            if (args.length !== 2) {
-                throw new QueryError('to_date expects 2 arguments, given ' + args.length);
-            }
-            args = args.map(x => x.convert(DataType.text))
-            get = (data, format) => {
-                if ((data ?? null) === null || (format ?? null) === null) {
-                    return null; // if one argument is null => null
-                }
-                const ret = moment.utc(data, format);
-                if (!ret.isValid()) {
-                    throw new QueryError(`The text '${data}' does not match the date format ${format}`);
-                }
-                return ret.toDate();
-            };
-            type = Types.date;
-            break;
         case 'any':
             return buildAnyCall(args);
         case 'current_schema':
             type = Types.text();
             get = () => 'public';
             break;
-
         // a set of functions that are calledby Tyopeorm, but we dont needto support them yet
         // since there is not result (function never actually called)
         case 'pg_get_constraintdef':
@@ -80,14 +44,6 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
                 throw new NotSupported(name + ' is not supported');
             };
             break;
-        case 'now':
-            if (args.length) {
-                throw new QueryError('now expects no arguments, given ' + args.length);
-            }
-            type = Types.timestamp;
-            get = () => new Date();
-            unpure = true;
-            break;
         case 'coalesce':
             acceptNulls = true;
             args = args.map(x => x.convert(args[0].type));
@@ -97,9 +53,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
         default:
             // try to find a matching custom function overloads
             acceptNulls = true;
-            unpure = true;
-            const overloads = schema.getFunctions(name, args.length);
-            for (const o of overloads) {
+            for (const o of schema.getFunctions(name, args.length)) {
                 let ok = true;
                 for (let i = 0; i < args.length; i++) {
                     const t = o.args[i] ?? o.argsVariadic;
@@ -113,6 +67,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
                     args = args.map((x, i) => x.convert(o.args[i] ?? o.argsVariadic));
                     type = o.returns;
                     get = o.implementation;
+                    impure = !!o.impure;
                     break;
                 }
             }
@@ -134,7 +89,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
                 return null;
             }
             return get(...argRaw);
-        }, unpure ? { unpure } : undefined);
+        }, impure ? { unpure: impure } : undefined);
 }
 
 

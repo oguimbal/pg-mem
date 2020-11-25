@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema } from './interfaces-private';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition } from './interfaces-private';
 import { Query } from './query';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -96,6 +96,13 @@ class MemoryDb implements _IDb {
         }
         throw new TableNotFound(name);
     }
+
+    *getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition> {
+        for (const sp of this.searchPath) {
+            yield* this.getSchema(sp).getFunctions(name, arrity, true);
+        }
+    }
+
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any): ISubscription {
         let lst = this.handlers.get(event);
