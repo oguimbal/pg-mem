@@ -90,6 +90,40 @@ db.public.many(`select * from test`) // => {test: 'value'}
 ```
 
 
+## Custom functions
+
+You can declare custom functions like this:
+
+```typescript
+db.public.registerFunction({
+            name: 'say_hello',
+            args: [DataType.text],
+            returns: DataType.text,
+            implementation: x => 'hello ' + x,
+        })
+```
+
+And then use them like in SQL `select say_hello('world')`.
+
+Custom functions support overloading and variadic arguments.
+
+⚠ However, the value you return is not type checked. It MUST correspond to the datatype you provided as 'returns' (wont fail if not, but could lead to weird bugs).
+
+
+## Extensions
+
+No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:
+
+```typescript
+
+db.registerExtension('my-ext', schema => {
+    // install your ext in 'schema'
+    // ex:  schema.registerFunction(...)
+});
+```
+
+Statements like `create extension "my-ext"` will then be supported.
+
 # 📃 Libraries adapters
 
 
@@ -190,45 +224,9 @@ __NB: Restore points only work if the schema has not been changed after the rest
 
 note: You must install `typeorm` module first.
 
-# Other features
+# Inspection
 
-## Custom functions
-
-You can declare custom functions like this:
-
-```typescript
-db.public.registerFunction({
-            name: 'say_hello',
-            args: [DataType.text],
-            returns: DataType.text,
-            implementation: x => 'hello ' + x,
-        })
-```
-
-And then use them like in SQL `select say_hello('world')`.
-
-Custom functions support overloading and variadic arguments.
-
-⚠ However, the value you return is not type checked. It MUST correspond to the datatype you provided as 'returns' (wont fail if not, but could lead to weird bugs).
-
-
-## Extensions
-
-No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:
-
-```typescript
-
-db.registerExtension('my-ext', schema => {
-    // install your ext in 'schema'
-    // ex:  schema.registerFunction(...)
-});
-```
-
-Statements like `create extension "my-ext"` will then be supported.
-
-## Extensions
-
-## 💥 Inspection subscriptions
+## 💥 Subscribe to events
 You can subscribe to some events, like:
 
 ```typescript
@@ -244,7 +242,7 @@ db.on('schema-change', () => {});
 db.on('create-extension', ext => {});
 ```
 
-## Experimental inspection subscriptions
+## Experimental events
 
 `pg-mem` implements a basic support for indices.
 
@@ -277,7 +275,7 @@ It supports:
 It does not (yet) support (this is kind-of a todo list):
 - [ ] Gin Indices
 - [ ] Cartesian Joins
-- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions.ts) !
+- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions) !
 - [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
 - [ ] Stored procedures
 - [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
@@ -300,3 +298,5 @@ To start hacking this lib, you'll have to:
 This allows for ultra fast development cycles (running tests takes less than 1 sec).
 
 To debug tests: Just hit "run" (F5, or whatever)... vscode should attach the mocha worker. Then run the test you want to debug.
+
+Alternatively, you could just run `npm run test` wihtout installing anything, but this is a bit long.
