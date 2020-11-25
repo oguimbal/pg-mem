@@ -101,10 +101,22 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         }
 
         // build column ids
-        let anonymous = 0;
+        let anonymousBases = new Map<string, number>();
         for (let i = 0; i < this.columnIds.length; i++) {
             if (!this.columnIds[i]) {
-                this.columnIds[i] = 'column' + (anonymous++);
+                let id = 'column';
+                let col = columns[i];
+                switch (col.expr.type) {
+                    case 'call':
+                        id = col.expr.function;
+                        break;
+                    case 'ref':
+                        id = col.expr.name;
+                        break;
+                }
+                let cnt = anonymousBases.get(id);
+                this.columnIds[i] = id + (cnt ? cnt : '');
+                anonymousBases.set(id, (cnt ?? 0) + 1);
             }
         }
         // this.columnIds = buildColumnIds(this.columnIds);

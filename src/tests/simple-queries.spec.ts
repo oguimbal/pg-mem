@@ -126,7 +126,7 @@ describe('Simple queries', () => {
         simpleDb();
         none(`insert into data(id) values ('SOME STRING')`);
         const result = many(`select lower(id) from data`);
-        expect(result).to.deep.equal([{ column0: 'some string' }]);
+        expect(result).to.deep.equal([{ lower: 'some string' }]);
     });
 
     it('cannot select from table with function syntax', () => {
@@ -168,7 +168,7 @@ describe('Simple queries', () => {
 
     it('can select current_schema as const', () => {
         simpleDb();
-        expect(many('select current_schema')).to.deep.equal([{ current_schema: 'current_schema' }]);
+        expect(many('select current_schema')).to.deep.equal([{ current_schema: 'public' }]);
     });
 
 

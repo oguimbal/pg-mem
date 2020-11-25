@@ -99,6 +99,9 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     createIndex(): this {
         throw new ReadOnlyError('information schema');
     }
+    setHidden(): this {
+        throw new ReadOnlyError('information schema');
+    }
 
     setReadonly(): this {
         return this;

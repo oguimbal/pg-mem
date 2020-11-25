@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
@@ -43,6 +43,7 @@ export interface _ISchema extends ISchema {
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
     _doRenTab(db: string, to: string): any;
+    declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     _settable(tname: string, table: _ITable): this;
     /** Get functions matching this arrity */
     getFunctions(name: string, arrity: number): _FunctionDefinition[];
@@ -269,6 +270,8 @@ export interface _ITable<T = any> extends IMemoryTable {
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
     insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T;
+    setHidden(): this;
+    setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;

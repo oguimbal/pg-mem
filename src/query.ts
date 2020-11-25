@@ -19,15 +19,6 @@ export class Query implements _ISchema, ISchema {
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable.insert(this.db.data, {});
-
-        const tbl = this.declareTable({
-            name: 'current_schema',
-            fields: [
-                { name: 'current_schema', type: Types.text() },
-            ]
-        }, true);
-        tbl.insert(this.db.data, { current_schema: this.name });
-        tbl.setHidden().setReadonly();
     }
 
 
