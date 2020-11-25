@@ -90,6 +90,40 @@ db.public.many(`select * from test`) // => {test: 'value'}
 ```
 
 
+## Custom functions
+
+You can declare custom functions like this:
+
+```typescript
+db.public.registerFunction({
+            name: 'say_hello',
+            args: [DataType.text],
+            returns: DataType.text,
+            implementation: x => 'hello ' + x,
+        })
+```
+
+And then use them like in SQL `select say_hello('world')`.
+
+Custom functions support overloading and variadic arguments.
+
+⚠ However, the value you return is not type checked. It MUST correspond to the datatype you provided as 'returns' (wont fail if not, but could lead to weird bugs).
+
+
+## Extensions
+
+No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:
+
+```typescript
+
+db.registerExtension('my-ext', schema => {
+    // install your ext in 'schema'
+    // ex:  schema.registerFunction(...)
+});
+```
+
+Statements like `create extension "my-ext"` will then be supported.
+
 # 📃 Libraries adapters
 
 
@@ -190,45 +224,9 @@ __NB: Restore points only work if the schema has not been changed after the rest
 
 note: You must install `typeorm` module first.
 
-# Other features
+# Inspection
 
-## Custom functions
-
-You can declare custom functions like this:
-
-```typescript
-db.public.registerFunction({
-            name: 'say_hello',
-            args: [DataType.text],
-            returns: DataType.text,
-            implementation: x => 'hello ' + x,
-        })
-```
-
-And then use them like in SQL `select say_hello('world')`.
-
-Custom functions support overloading and variadic arguments.
-
-⚠ However, the value you return is not type checked. It MUST correspond to the datatype you provided as 'returns' (wont fail if not, but could lead to weird bugs).
-
-
-## Extensions
-
-No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:
-
-```typescript
-
-db.registerExtension('my-ext', schema => {
-    // install your ext in 'schema'
-    // ex:  schema.registerFunction(...)
-});
-```
-
-Statements like `create extension "my-ext"` will then be supported.
-
-## Extensions
-
-## 💥 Inspection subscriptions
+## 💥 Subscribe to events
 You can subscribe to some events, like:
 
 ```typescript
@@ -244,7 +242,7 @@ db.on('schema-change', () => {});
 db.on('create-extension', ext => {});
 ```
 
-## Experimental inspection subscriptions
+## Experimental events
 
 `pg-mem` implements a basic support for indices.
 
