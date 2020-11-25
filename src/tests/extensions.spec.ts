@@ -42,5 +42,20 @@ describe('Extensions', () => {
         .to.deep.equal([{
             msg: 'nothing',
         }])
-    })
+    });
+
+
+    it ('cannot create extension twice', () => {
+        db.registerExtension('ext', s => {});
+
+        many('create extension "ext"');
+        assert.throws(() => many('create extension "ext"'));
+    });
+
+    it ('can recreate extension twice with "if not exists"', () => {
+        db.registerExtension('ext', s => {});
+
+        many('create extension "ext"');
+        many('create extension if not exists "ext"');
+    });
 });

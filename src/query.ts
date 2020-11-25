@@ -16,6 +16,7 @@ export class Query implements _ISchema, ISchema {
     private tables = new Map<string, _ITable>();
     private lastSelect?: _ISelection<any>;
     private fns = new Map<string, _FunctionDefinition[]>();
+    private installedExtensions = new Set<string>();
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable.insert(this.db.data, {});
@@ -161,7 +162,15 @@ export class Query implements _ISchema, ISchema {
             ? this.db.getSchema(p.schema)
             : this;
         this.db.raiseGlobal('create-extension', p.extension, schema, p.version, p.from);
+        if (this.installedExtensions.has(p.extension)) {
+            if (p.ifNotExists) {
+                return;
+            }
+            throw new QueryError('Extension already created !');
+        }
+
         ext(schema);
+        this.installedExtensions.add(p.extension);
     }
 
     private locOf(p: Statement): StatementLocation {
