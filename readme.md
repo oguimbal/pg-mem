@@ -275,7 +275,7 @@ It supports:
 It does not (yet) support (this is kind-of a todo list):
 - [ ] Gin Indices
 - [ ] Cartesian Joins
-- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions.ts) !
+- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions) !
 - [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
 - [ ] Stored procedures
 - [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
@@ -298,3 +298,5 @@ To start hacking this lib, you'll have to:
 This allows for ultra fast development cycles (running tests takes less than 1 sec).
 
 To debug tests: Just hit "run" (F5, or whatever)... vscode should attach the mocha worker. Then run the test you want to debug.
+
+Alternatively, you could just run `npm run test` wihtout installing anything, but this is a bit long.
