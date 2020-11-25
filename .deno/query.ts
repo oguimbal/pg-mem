@@ -162,8 +162,9 @@ export class Query implements _ISchema, ISchema {
             ? this.db.getSchema(p.schema)
             : this;
         this.db.raiseGlobal('create-extension', p.extension, schema, p.version, p.from);
+        const ne = p.ifNotExists; // evaluate outside
         if (this.installedExtensions.has(p.extension)) {
-            if (p.ifNotExists) {
+            if (ne) {
                 return;
             }
             throw new QueryError('Extension already created !');
