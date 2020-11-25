@@ -1,8 +1,8 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction, _Explainer } from '../interfaces-private';
-import { ReadOnlyError, NotSupported, Schema, nil } from '../interfaces';
-import { Types } from '../datatypes';
-import { TableIndex } from './table-index';
-import { ReadOnlyTable } from './readonly-table';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction, _Explainer } from '../../interfaces-private';
+import { ReadOnlyError, NotSupported, Schema, nil } from '../../interfaces';
+import { Types } from '../../datatypes';
+import { TableIndex } from '../table-index';
+import { ReadOnlyTable } from '../readonly-table';
 
 const IS_SCHEMA = Symbol('_is_schema');
 export class TablesSchema extends ReadOnlyTable implements _ITable {
@@ -34,12 +34,12 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
     };
 
     entropy(t: _Transaction): number {
-        return this.schema.db.listSchemas()
+        return this.db.listSchemas()
             .reduce((tot, s) => tot + s.tablesCount(t), 0);
     }
 
     *enumerate(t: _Transaction) {
-        for (const s of this.schema.db.listSchemas()) {
+        for (const s of this.db.listSchemas()) {
             for (const it of s.listTables(t)) {
                 yield this.make(it);
             }
@@ -78,15 +78,6 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
             return new TableIndex(this, forValue);
         }
         return null;
-    }
-
-    *itemsByTable(table: string, t: _Transaction) {
-        for (const s of this.schema.db.listSchemas()) {
-            const got = s.getTable(table, true)
-            if (got) {
-                yield this.make(got);
-            }
-        }
     }
 
 }

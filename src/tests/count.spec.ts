@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 import { preventSeqScan } from './test-utils';
 
-describe('[Queries] Count', () => {
+describe('Count', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

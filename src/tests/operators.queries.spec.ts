@@ -7,7 +7,7 @@ import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
-describe('[Queries] Operators', () => {
+describe('Operators', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

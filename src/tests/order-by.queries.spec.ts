@@ -4,7 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 
-describe('[Queries] Order by', () => {
+describe('Order by', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 import { Types } from '../datatypes';
 
-describe('[Queries] Updates', () => {
+describe('Updates', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];

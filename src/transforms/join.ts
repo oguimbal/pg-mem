@@ -224,7 +224,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             }
         } else {
             // perform a seq scan
-            this.schema.db.raiseGlobal('catastrophic-join-optimization');
+            this.db.raiseGlobal('catastrophic-join-optimization');
             const others = [...this.joined.enumerate(t)];
             for (const l of this.restrictive.enumerate(t)) {
                 yield* this.iterateCatastrophicItem(l, others, 'restrictive', t);
@@ -408,7 +408,7 @@ export class JoinIndex<T> implements _IIndex<T> {
                 yield* this.owner.iterateStrategyItem(i, strategy, op.t);
             }
         } else {
-            this.owner.schema.db.raiseGlobal('catastrophic-join-optimization');
+            this.owner.db.raiseGlobal('catastrophic-join-optimization');
             const all = [...this.other.enumerate(op.t)];
 
             for (const i of this.base.enumerate(op)) {

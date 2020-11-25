@@ -8,7 +8,7 @@ import { SelectStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../predicate';
 import { parseSql } from '../parse-cache';
 
-describe('[Queries] Selections', () => {
+describe('Selections', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

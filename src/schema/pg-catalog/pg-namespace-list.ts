@@ -1,7 +1,7 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../interfaces-private';
-import { ReadOnlyError, NotSupported, Schema } from '../interfaces';
-import { Types } from '../datatypes';
-import { ReadOnlyTable } from './readonly-table';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../../interfaces-private';
+import { ReadOnlyError, NotSupported, Schema } from '../../interfaces';
+import { Types } from '../../datatypes';
+import { ReadOnlyTable } from '../readonly-table';
 
 export class PgNamespaceTable extends ReadOnlyTable implements _ITable {
 

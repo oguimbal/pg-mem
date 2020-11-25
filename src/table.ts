@@ -50,7 +50,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return a.origin === this.selection;
     }
 
-    constructor(readonly schema: _ISchema, t: _Transaction, _schema: Schema) {
+    constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
         this.selection = buildAlias(this, this.name) as Alias<T>;
@@ -88,9 +88,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return this;
         }
         this.name = name;
-        this.schema._doRenTab(on, name);
+        this.ownerSchema._doRenTab(on, name);
         (this.selection as Alias<T>).name = this.name.toLowerCase();
-        this.schema.db.onSchemaChange();
+        this.db.onSchemaChange();
         return this;
     }
 
@@ -157,7 +157,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // once constraints created, reference them. (constraint creation might have thrown)m
         this.columns.push(cref.expression);
-        this.schema.db.onSchemaChange();
+        this.db.onSchemaChange();
         this.selection.rebuild();
         return cref;
     }
@@ -200,7 +200,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         for (const h of got ?? []) {
             h();
         }
-        this.schema.db.raiseTable(this.name, event);
+        this.db.raiseTable(this.name, event);
     }
 
     setReadonly() {
@@ -483,7 +483,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     addForeignKey(cst: ConstraintForeignKeyDef, t: _Transaction, constraintName?: string) {
-        const ftable = this.schema.getTable(cst.foreignTable) as MemoryTable;
+        const ftable = this.ownerSchema.getTable(cst.foreignTable) as MemoryTable;
         const cols = cst.localColumns.map(x => this.getColumnRef(x));
         const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
         if (cols.length !== fcols.length) {
@@ -506,7 +506,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         // auto-create indices
-        if (this.schema.db.options.autoCreateForeignKeyIndices) {
+        if (this.db.options.autoCreateForeignKeyIndices) {
             this.createIndex(t, {
                 ifNotExists: true,
                 columns: cols.map<CreateIndexColDef>(x => ({

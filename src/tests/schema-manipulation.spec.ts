@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { preventSeqScan } from './test-utils';
 import moment from 'moment';
 
-describe('[Queries] Schema manipulation', () => {
+describe('Schema manipulation', () => {
 
     it('table with primary', () => {
         const db = newDb();

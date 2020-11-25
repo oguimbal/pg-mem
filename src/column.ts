@@ -43,7 +43,7 @@ export class ColRef implements _Column {
             default:
                 throw NotSupported.never(constraint, 'add constraint type');
         }
-        this.table.schema.db.onSchemaChange();
+        this.table.db.onSchemaChange();
         return this;
     }
 
@@ -60,7 +60,7 @@ export class ColRef implements _Column {
         this.notNull = true;
 
         // just amend schema (for cloning)
-        this.table.schema.db.onSchemaChange();
+        this.table.db.onSchemaChange();
     }
 
     rename(to: string, t: _Transaction): this {
@@ -82,7 +82,7 @@ export class ColRef implements _Column {
 
         // === do nasty things to rename column
         this.replaceExpression(to, this.expression.type);
-        this.table.schema.db.onSchemaChange();
+        this.table.db.onSchemaChange();
         return this;
     }
 
@@ -121,7 +121,7 @@ export class ColRef implements _Column {
             default:
                 throw NotSupported.never(alter, 'alter column type');
         }
-        this.table.schema.db.onSchemaChange();
+        this.table.db.onSchemaChange();
         return this;
     }
 
@@ -153,7 +153,7 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnsByName.delete(on);
         this.table.columnDefs.splice(i, 1);
-        this.table.schema.db.onSchemaChange();
+        this.table.db.onSchemaChange();
     }
 
     checkConstraints(toInsert: any, t: _Transaction) {

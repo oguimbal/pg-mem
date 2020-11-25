@@ -75,7 +75,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
                 return data.getAggregation(val.function, val.args);
             }
             const args = val.args.map(x => _buildValue(data, x));
-            return Value.function(val.function, args);
+            const schema = data.db.getSchema(val.namespace);
+            return Value.function(schema, val.function, args);
         case 'cast':
             return _buildValue(data, val.operand)
                 .convert(fromNative(val.to))

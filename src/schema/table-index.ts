@@ -28,7 +28,8 @@ export class TableIndex implements _IIndex {
     }
 
     entropy(op: IndexOp): number {
-        return this.onTable.schema.tablesCount(op.t);
+        return this.onTable.db.listSchemas()
+            .reduce((tot, s) => tot + s.tablesCount(op.t) * 10 * 3, 0);
     }
 
 

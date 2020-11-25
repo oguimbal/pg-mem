@@ -7,7 +7,7 @@ import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
-describe('[Queries] Simple queries', () => {
+describe('Simple queries', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];
@@ -129,15 +129,48 @@ describe('[Queries] Simple queries', () => {
         expect(result).to.deep.equal([{ column0: 'some string' }]);
     });
 
+    it('cannot select from table with function syntax', () => {
+        simpleDb();
+        assert.throws(() => many(`select * from data()`));
+    });
+
     it('aliases are case insensitive', () => {
         simpleDb();
         none(`select xx.ID from data as XX`);
     });
 
-    it('can select current_schema', () => {
+    it ('now() does not behave as dual table', () => {
+        assert.throws(() => none(`select * from now`));
+        assert.throws(() => none(`select * from now()`));
+    })
+
+    it ('can select now()', () => {
+        expect(many(`select now()`)[0])
+            .to.have.property('now');
+    })
+
+    it('can select current_schema as classic table', () => {
         simpleDb();
         expect(many('select * from current_schema')).to.deep.equal([{ current_schema: 'public' }]);
     });
+
+
+    it('can select current_schema as table function', () => {
+        simpleDb();
+        expect(many('select * from current_schema()')).to.deep.equal([{ current_schema: 'public' }]);
+    });
+
+
+    it('can select current_schema as function', () => {
+        simpleDb();
+        expect(many('select current_schema()')).to.deep.equal([{ current_schema: 'public' }]);
+    });
+
+    it('can select current_schema as const', () => {
+        simpleDb();
+        expect(many('select current_schema')).to.deep.equal([{ current_schema: 'current_schema' }]);
+    });
+
 
 
     it('can select info tables', () => {

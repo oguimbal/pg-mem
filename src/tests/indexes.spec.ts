@@ -7,7 +7,7 @@ import { preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
 
-describe('[Queries] Indices', () => {
+describe('Indices', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

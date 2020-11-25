@@ -1,13 +1,13 @@
-import { IValue, _IType, _ISelection } from './interfaces-private';
-import { Types, ArrayType } from './datatypes';
-import { QueryError, DataType, NotSupported } from './interfaces';
+import { IValue, _IType, _ISelection, _ISchema } from './interfaces-private';
+import { Types, ArrayType, makeType } from './datatypes';
+import { QueryError, DataType, NotSupported, FunctionDefinition } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 import moment from 'moment';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
 
-export function buildCall(name: string, args: IValue[]) {
+export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     let type: _IType;
     let get: (...args: any[]) => any;
 
@@ -95,10 +95,35 @@ export function buildCall(name: string, args: IValue[]) {
             get = (...args: any[]) => args.find(x => !nullIsh(x));
             break;
         default:
-            throw new NotSupported('Unsupported function: ' + name);
+            // try to find a matching custom function overloads
+            acceptNulls = true;
+            unpure = true;
+            const overloads = schema.getFunctions(name, args.length);
+            for (const o of overloads) {
+                let ok = true;
+                for (let i = 0; i < args.length; i++) {
+                    const t = o.args[i] ?? o.argsVariadic;
+                    if (!t || !args[i].canConvert(t)) {
+                        ok = false;
+                        break;
+                    }
+                }
+
+                if (ok) {
+                    args = args.map((x, i) => x.convert(o.args[i] ?? o.argsVariadic));
+                    type = o.returns;
+                    get = o.implementation;
+                    break;
+                }
+            }
+
+
+    }
+    if (!get! || !type!) {
+        throw new NotSupported('Unsupported function: ' + name);
     }
     return new Evaluator(
-        type
+        type!
         , null
         , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })

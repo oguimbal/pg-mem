@@ -242,6 +242,33 @@ class JSONBType extends TypeBase<any> {
     }
 }
 
+class UUIDtype extends TypeBase<Date> {
+
+    get regTypeName(): string {
+        return 'uuid';
+    }
+
+    get primary(): DataType {
+        return DataType.uuid;
+    }
+
+    doCanCast(to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+                return true;
+        }
+        return null;
+    }
+
+    doCast(value: Evaluator, to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+                return value;
+        }
+        throw new Error('Unexpected cast error');
+    }
+}
+
 class TimestampType extends TypeBase<Date> {
 
     get regTypeName(): string {
@@ -450,6 +477,7 @@ class TextType extends TypeBase<string> {
         switch (to.primary) {
             case DataType.text:
             case DataType.bool:
+            case DataType.uuid:
                 return true;
         }
         return false;
@@ -461,6 +489,7 @@ class TextType extends TypeBase<string> {
             case DataType.date:
                 return true;
             case DataType.text:
+            case DataType.uuid:
                 return true;
             case DataType.jsonb:
             case DataType.json:
@@ -523,6 +552,29 @@ class TextType extends TypeBase<string> {
                     }
                         , sql => `(${sql})::boolean`
                         , toBool => ({ toBool }));
+            case DataType.uuid:
+                return value
+                    .setConversion((_rawStr: string) => {
+                        let rawStr = _rawStr;
+                        if (nullIsh(rawStr)) {
+                            return null;
+                        }
+                        // check schema
+                        if (rawStr[0] === '{') {
+                            if (rawStr[rawStr.length - 1] !== '}') {
+                                throw new CastError(DataType.text, DataType.uuid, 'string ' + _rawStr);
+                            }
+                            rawStr = rawStr.substr(1, rawStr.length - 2);
+                        }
+                        rawStr = rawStr.toLowerCase();
+                        const [full, a, b, c, d, e] = /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/.exec(rawStr) ?? [];
+                        if (!full) {
+                            throw new CastError(DataType.text, DataType.uuid, 'string ' + _rawStr);
+                        }
+                        return `${a}-${b}-${c}-${d}-${e}`;
+                    }
+                        , sql => `(${sql})::uuid`
+                        , toUuid => ({ toUuid }));
             case DataType.json:
             case DataType.jsonb:
                 return value
@@ -690,7 +742,7 @@ export class ArrayType extends TypeBase<any[]> {
     }
 }
 
-export function makeType(to: DataType | _IType<any>): _IType<any> {
+export function makeType(to: DataType | IType | _IType<any>): _IType<any> {
     if (typeof to === 'string') {
         const ret = Types[to as keyof typeof Types];
         if (!ret) {
@@ -700,7 +752,7 @@ export function makeType(to: DataType | _IType<any>): _IType<any> {
             ? ret()
             : ret;
     }
-    return to;
+    return to as _IType;
 }
 
 
@@ -711,6 +763,7 @@ export const Types = { // : Ctors
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
+    [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
     [DataType.regtype]: new RegType() as _IType,
@@ -722,7 +775,7 @@ export const Types = { // : Ctors
 }
 
 
-const typeIndexes: {[key: string]: number} = {};
+const typeIndexes: { [key: string]: number } = {};
 const allTypes = Object.keys(DataType);
 for (let i = 0; i < allTypes.length; i++) {
     typeIndexes[DataType[allTypes[i] as keyof typeof Types]] = i + 1;
@@ -766,6 +819,8 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'character':
         case 'character varying':
             return Types.text(native.length);
+        case 'uuid':
+            return Types.uuid;
         case 'int':
         case 'integer':
         case 'serial':

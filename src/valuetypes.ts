@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation } from './interfaces-private';
+import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema } from './interfaces-private';
 import { DataType, QueryError, CastError, nil } from './interfaces';
 import hash from 'object-hash';
 import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes';
@@ -332,8 +332,8 @@ export const Value = {
             , null
             , value);
     },
-    function(value: string, args: IValue[]): IValue {
-        return buildCall(value, args);
+    function(schema: _ISchema, value: string, args: IValue[]): IValue {
+        return buildCall(schema, value, args);
     },
     bool(value: boolean): IValue {
         const str = value ? 'true' : 'false';

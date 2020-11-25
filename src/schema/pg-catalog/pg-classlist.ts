@@ -1,10 +1,7 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../interfaces-private';
-import { ReadOnlyError, NotSupported } from '../interfaces';
-import { Types, makeArray } from '../datatypes';
-import { MAIN_NAMESPACE, SCHEMA_NAMESPACE, parseOid } from './consts';
-import { MemoryTable } from '../table';
-import { CustomIndex } from './custom-index';
-import { ReadOnlyTable } from './readonly-table';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private';
+import { ReadOnlyError, NotSupported, Schema } from '../../interfaces';
+import { Types, makeArray } from '../../datatypes';
+import { ReadOnlyTable } from '../readonly-table';
 
 // https://www.postgresql.org/docs/12/catalog-pg-class.html
 
@@ -16,7 +13,7 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
     }
 
 
-    _schema = {
+    _schema: Schema = {
         name: 'pg_class',
         fields: [
             { name: 'oid', type: Types.int } // hidden oid column
@@ -79,26 +76,26 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
 
 
 
-    private byOid(oid: string, t: _Transaction) {
-        const { type, id } = parseOid(oid);
-        switch (type) {
-            case 'table':
-                return this.makeTable(this.schema.getTable(id, true)!);
-            case 'index':
-                return null;
-            // return this.makeTable(this.db.getIndex(id, true));
-            default:
-                throw NotSupported.never(type);
-        }
-    }
+    // private byOid(oid: string, t: _Transaction) {
+    //     const { type, id } = parseOid(oid);
+    //     switch (type) {
+    //         case 'table':
+    //             return this.makeTable(this.schema.getTable(id, true)!);
+    //         case 'index':
+    //             return null;
+    //         // return this.makeTable(this.db.getIndex(id, true));
+    //         default:
+    //             throw NotSupported.never(type);
+    //     }
+    // }
 
-    private byRelName(name: string, t: _Transaction) {
-        return this.schema.getTable(name, true);
-        // ?? this.db.getIndex(name, true);
-    }
+    // private byRelName(name: string, t: _Transaction) {
+    //     return this.schema.getTable(name, true);
+    //     // ?? this.db.getIndex(name, true);
+    // }
 
     entropy(t: _Transaction): number {
-        return this.schema.tablesCount(t);
+        return 0;
     }
 
     *enumerate() {

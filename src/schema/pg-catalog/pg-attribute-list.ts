@@ -1,12 +1,11 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../interfaces-private';
-import { Selection } from '../transforms/selection';
-import { ReadOnlyError, NotSupported, nil } from '../interfaces';
-import { Types, makeArray } from '../datatypes';
-import { ReadOnlyTable } from './readonly-table';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../../interfaces-private';
+import { ReadOnlyError, NotSupported, nil, Schema } from '../../interfaces';
+import { Types, makeArray } from '../../datatypes';
+import { ReadOnlyTable } from '../readonly-table';
 
 export class PgAttributeTable extends ReadOnlyTable implements _ITable {
 
-    _schema = {
+    _schema: Schema = {
         name: 'pg_attribute',
         fields: [
             { name: 'attrelid', type: Types.int } // oid

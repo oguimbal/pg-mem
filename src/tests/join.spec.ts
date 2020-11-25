@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
-describe('[Queries] Joins', () => {
+describe('Joins', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

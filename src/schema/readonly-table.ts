@@ -116,4 +116,24 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         // nop
     }
 
+    make(table: _ITable, i: number, t: IValue<any>): any {
+        throw new Error('not implemented');
+    }
+
+
+    *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
+        if (typeof table === 'string') {
+            for (const s of this.db.listSchemas()) {
+                const got = s.getTable(table, true, true);
+                if (got) {
+                    yield* this.itemsByTable(got, t);
+                }
+            }
+        } else {
+            let i = 0;
+            for (const f of table.selection.columns) {
+                yield this.make(table, ++i, f);
+            }
+        }
+    }
 }

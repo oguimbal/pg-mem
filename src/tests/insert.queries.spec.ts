@@ -4,7 +4,7 @@ import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
 import { assert, expect } from 'chai';
 
-describe('[Queries] Inserts', () => {
+describe('Inserts', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];

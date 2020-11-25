@@ -1,8 +1,8 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../interfaces-private';
-import {  nil, Schema } from '../interfaces';
-import { Types, makeArray } from '../datatypes';
-import { TableIndex } from './table-index';
-import { ReadOnlyTable } from './readonly-table';
+import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private';
+import {  nil, Schema } from '../../interfaces';
+import { Types, makeArray } from '../../datatypes';
+import { TableIndex } from '../table-index';
+import { ReadOnlyTable } from '../readonly-table';
 
 const IS_SCHEMA = Symbol('_is_pgconstraint');
 export class PgConstraintTable extends ReadOnlyTable implements _ITable {
@@ -45,16 +45,19 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
 
 
     entropy(t: _Transaction): number {
-        return this.schema.tablesCount(t) * 10 * 3;
+        return this.db.listSchemas()
+            .reduce((tot, s) => tot + s.tablesCount(t) * 10 * 3, 0);
     }
 
     *enumerate(t: _Transaction) {
-        for (const it of this.schema.listTables(t)) {
-            yield* this.itemsByTable(it, t);
+        for (const schema of this.db.listSchemas()) {
+            for (const it of schema.listTables(t)) {
+                yield* this.itemsByTable(it, t);
+            }
         }
     }
 
-    make(table: string, i: number, t: IValue<any>): any {
+    make(table: _ITable, i: number, t: IValue<any>): any {
         if (!t) {
             return null;
         }
@@ -69,7 +72,7 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
 
             [IS_SCHEMA]: true,
         };
-        setId(ret, '/pg_constraint/' + table + '/' + i);
+        setId(ret, `/schema/${table.ownerSchema.name}/pg_constraint/${table.name}/${i}`);
         return ret;
     }
 
@@ -82,18 +85,6 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
             return new TableIndex(this, forValue);
         }
         return null;
-    }
-
-    *itemsByTable(table: string | _ITable, t: _Transaction) {
-        const got = typeof table === 'string'
-            ? this.schema.getTable(table, true)
-            : table;
-        if (got) {
-            let i = 0;
-            for (const f of got.selection.columns) {
-                yield this.make(got.name, ++i, f);
-            }
-        }
     }
 
 }

@@ -1,14 +1,13 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField, nil } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler } from './interfaces-private';
+import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType } from './interfaces-private';
 import { watchUse } from './utils';
 import { buildValue } from './predicate';
-import { Types, fromNative } from './datatypes';
+import { Types, fromNative, makeType } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
-import { PgConstraintTable, PgClassListTable, PgNamespaceTable, PgAttributeTable, PgIndexTable, PgTypeTable, TablesSchema, ColumnsListSchema } from './schema';
 import { parseSql } from './parse-cache';
 
 export class Query implements _ISchema, ISchema {
@@ -16,20 +15,10 @@ export class Query implements _ISchema, ISchema {
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
     private tables = new Map<string, _ITable>();
     private lastSelect?: _ISelection<any>;
+    private fns = new Map<string, _FunctionDefinition[]>();
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable.insert(this.db.data, {});
-    }
-
-    pgSchema() {
-
-        this.tables.set('pg_constraint', new PgConstraintTable(this))
-        this.tables.set('pg_class', new PgClassListTable(this))
-        this.tables.set('pg_namespace', new PgNamespaceTable(this))
-        this.tables.set('pg_attribute', new PgAttributeTable(this))
-        this.tables.set('pg_index', new PgIndexTable(this))
-        this.tables.set('pg_type', new PgTypeTable(this));
-
 
         const tbl = this.declareTable({
             name: 'current_schema',
@@ -39,14 +28,8 @@ export class Query implements _ISchema, ISchema {
         }, true);
         tbl.insert(this.db.data, { current_schema: this.name });
         tbl.setHidden().setReadonly();
-        return this;
     }
 
-    informationSchma() {
-        // SELECT * FROM "information_schema"."tables" WHERE ("table_schema" = 'public' AND "table_name" = 'user')
-        this.tables.set('tables', new TablesSchema(this));
-        this.tables.set('columns', new ColumnsListSchema(this));
-    }
 
     none(query: string): void {
         this.query(query);
@@ -149,6 +132,9 @@ export class Query implements _ISchema, ISchema {
                             last = this.executeAlterRequest(t, p);
                             t = t.fork();
                             break;
+                        case 'create extension':
+                            this.executeCreateExtension(p);
+                            break;
                         default:
                             throw NotSupported.never(p, 'statement type');
                     }
@@ -178,13 +164,30 @@ export class Query implements _ISchema, ISchema {
         }
     }
 
+    executeCreateExtension(p: CreateExtensionStatement) {
+        const ext = this.db.getExtension(p.extension);
+        const schema = p.schema
+            ? this.db.getSchema(p.schema)
+            : this;
+        this.db.raiseGlobal('create-extension', p.extension, schema, p.version, p.from);
+        ext(schema);
+    }
+
     private locOf(p: Statement): StatementLocation {
         return p[LOCATION] ?? {};
     }
 
+    private _getTable(p: { table: string; db?: string }): _ITable;
+    private _getTable(p: { table: string; db?: string }, nullIfNotFound?: boolean): _ITable | null;
+    private _getTable(p: { table: string; db?: string }, nullIfNotFound?: boolean) {
+        return p.db
+            ? this.db.getSchema(p.db).getTable(p.table, nullIfNotFound, true)
+            : this.db.getTable(p.table, nullIfNotFound);
+    }
+
     executeAlterRequest(t: _Transaction, p: AlterTableStatement): QueryResult {
-        const table = this.db.getSchema(p.table.db)
-            .getTable(p.table.table, p.ifExists);
+        const table = this._getTable(p.table);
+
         const nop: QueryResult = {
             command: 'ALTER',
             fields: [],
@@ -244,7 +247,7 @@ export class Query implements _ISchema, ISchema {
 
     executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
         const indexName = p.indexName;
-        const onTable = this.getTable(p.table);
+        const onTable = this._getTable(p);
         const columns = p.expressions
             .map<CreateIndexColDef>(x => {
                 return {
@@ -277,7 +280,7 @@ export class Query implements _ISchema, ISchema {
         };
         // get creation parameters
         const table = p.name;
-        if (this.getTable(table, true)) {
+        if (this._getTable({ table }, true)) {
             if (p.ifNotExists) {
                 ret.ignored = true;
                 return ret;
@@ -317,8 +320,7 @@ export class Query implements _ISchema, ISchema {
     }
 
     executeDelete(t: _Transaction, p: DeleteStatement): QueryResult {
-        const table = this.db.getSchema(p.from.db)
-            .getTable(p.from.table);
+        const table = this._getTable(p.from);
         const toDelete = table
             .selection
             .filter(p.where);
@@ -356,8 +358,7 @@ export class Query implements _ISchema, ISchema {
             // find what to select
             let newT = from.type === 'statement'
                 ? this.buildSelect(from.statement)
-                : this.db.getSchema(from.db)
-                    .getTable(from.table)
+                : this._getTable(from)
                     .selection;
 
             // set its alias
@@ -403,9 +404,7 @@ export class Query implements _ISchema, ISchema {
     }
 
     executeUpdate(t: _Transaction, p: UpdateStatement): QueryResult {
-        const into = this.db
-            .getSchema(p.table.db)
-            .getTable(p.table.table);
+        const into = this._getTable(p.table);
 
         const items = into
             .selection
@@ -463,9 +462,7 @@ export class Query implements _ISchema, ISchema {
         }
 
         // get table to insert into
-        const table = this.db
-            .getSchema(p.into.db)
-            .getTable(p.into.table);
+        const table = this._getTable(p.into);
         const selection = table
             .selection
             .setAlias(p.into.alias);
@@ -571,10 +568,17 @@ export class Query implements _ISchema, ISchema {
 
 
     getTable(table: string): _ITable;
-    getTable(table: string, nullIfNotFound: false): _ITable;
-    getTable(name: string, nullIfNotFound?: boolean): _ITable | null;
-    getTable(name: string, nullIfNotFound?: boolean): _ITable | null {
+    getTable(table: string, nullIfNotFound: false, forceOwn?: boolean): _ITable;
+    getTable(name: string, nullIfNotFound?: boolean, forceOwn?: boolean): _ITable | null;
+    getTable(name: string, nullIfNotFound?: boolean, forceOwn?: boolean): _ITable | null {
         name = name.toLowerCase();
+        // check that has parent
+        if (!forceOwn) {
+            const got = this.db.getTable(name);
+            if (got) {
+                return got;
+            }
+        }
         const got = this.tables.get(name);
         if (!got && !nullIfNotFound) {
             throw new TableNotFound(name);
@@ -596,6 +600,11 @@ export class Query implements _ISchema, ISchema {
             this.db.onSchemaChange();
         }
         return ret;
+    }
+
+    _settable(tname: string, table: _ITable): this {
+        this.tables.set(tname.toLowerCase(), table);
+        return this;
     }
 
     _doRenTab(table: string, to: string) {
@@ -620,6 +629,30 @@ export class Query implements _ISchema, ISchema {
                 yield t;
             }
         }
+    }
+
+    registerFunction(fn: FunctionDefinition): this {
+        const nm = fn.name.toLowerCase().trim();
+        let fns = this.fns.get(nm);
+        if (!fns) {
+            this.fns.set(nm, fns = []);
+        }
+        fns.push({
+            args: fn.args?.map(x => makeType(x)) ?? [],
+            argsVariadic: fn.argsVariadic && makeType(fn.argsVariadic),
+            returns: makeType(fn.returns),
+            impure: !!fn.impure,
+            implementation: fn.implementation,
+        });
+        return this;
+    }
+
+    getFunctions(name: string, arrity: number): _FunctionDefinition[] {
+        const matches = this.fns.get(name);
+        return !matches
+            ? []
+            : matches.filter(m => m.args.length === arrity
+                || m.args.length < arrity && m.argsVariadic);
     }
 }
 

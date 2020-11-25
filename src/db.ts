@@ -10,6 +10,8 @@ import { Transaction } from './transaction';
 import { buildGroupBy } from './transforms/aggregation';
 import { buildLimit } from './transforms/limit';
 import { buildOrderBy } from './transforms/order-by';
+import { setupPgCatalog } from './schema/pg-catalog';
+import { setupInformationSchema } from './schema/information-schema';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     initialize({
@@ -31,13 +33,16 @@ class MemoryDb implements _IDb {
     schemaVersion = 1;
 
     readonly adapters: Adapters = new Adapters(this);
+    private extensions: { [name: string]: (schema: ISchema) => void } = {};
+    private searchPath = ['pg_catalog', 'public'];
+
     get public() {
         return this.getSchema(null)
     }
 
     onSchemaChange() {
         this.schemaVersion++;
-        this.raiseGlobal('schema-change');
+        this.raiseGlobal('schema-change', this);
     }
 
     constructor(public data: Transaction, schemas?: Map<string, _ISchema>, readonly options: MemoryDbOptions = {}) {
@@ -46,15 +51,29 @@ class MemoryDb implements _IDb {
         } else {
             this.schemas = schemas;
         }
-        this.declareSchema('information_schema')
-            .informationSchma();
+        setupPgCatalog(this);
+        setupInformationSchema(this);
     }
 
     backup(): IBackup {
         return new Backup(this);
     }
 
-    declareSchema(name: string) {
+    registerExtension(name: string, install: (schema: ISchema) => void): this {
+        this.extensions[name] = install;
+        return this;
+    }
+
+    getExtension(name: string): (schema: ISchema) => void {
+        const ret = this.extensions[name];
+        if (!ret) {
+            throw new Error('Extension does not exist: ' + name);
+        }
+        return ret;
+    }
+
+
+    createSchema(name: string): Query {
         if (this.schemas.has(name)) {
             throw new Error('Schema exists: ' + name);
         }
@@ -64,14 +83,18 @@ class MemoryDb implements _IDb {
         return ret;
     }
 
-    createSchema(name: string) {
-        return this.declareSchema(name)
-            .pgSchema();
-    }
-
     getTable(name: string): _ITable;
     getTable(name: string, nullIfNotExists?: boolean): _ITable | null {
-        return this.public.getTable(name, nullIfNotExists);
+        for (const sp of this.searchPath) {
+            const tbl = this.getSchema(sp).getTable(name, true, true);
+            if (tbl) {
+                return tbl;
+            }
+        }
+        if (nullIfNotExists) {
+            return null;
+        }
+        throw new TableNotFound(name);
     }
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any): ISubscription {
