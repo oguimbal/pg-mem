@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private';
-import { CreateColumnDef, ConstraintDef } from 'pgsql-ast-parser';
+import { CreateColumnDef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil } from '../interfaces';
 import { buildAlias } from '../transforms/alias';
@@ -87,7 +87,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
         throw new ReadOnlyError('information schema');
     }
-    addConstraint(constraint: ConstraintDef, t: _Transaction) {
+    addConstraint(constraint: TableConstraint, t: _Transaction) {
         throw new ReadOnlyError('information schema');
     }
     insert(toInsert: any): void {

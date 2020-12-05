@@ -251,7 +251,10 @@ export class RecordExists extends Error {
 
 export class NotSupported extends Error {
     constructor(what?: string) {
-        super('Not supported' + (what ? ': ' + what : ''));
+        super('🔨 Not supported 🔨 ' + (what ? ': ' + what : '') + `
+
+👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this issue (if you can), and  the stacktrace:
+`);
     }
 
     static never(value: never, msg?: string) {

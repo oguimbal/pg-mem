@@ -1,15 +1,15 @@
-import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil } from './interfaces';
+import { IMemoryTable, Schema, QueryError, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
 import { nullIsh, deepCloneSimple, Optional } from './utils';
 import { Map as ImMap } from 'immutable';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'pgsql-ast-parser';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, ExprBinary } from 'pgsql-ast-parser';
 import { fromNative } from './datatypes';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
-import {  DataSourceBase } from './transforms/transform-base';
+import { DataSourceBase } from './transforms/transform-base';
 import { parseSql } from './parse-cache';
 
 function indexHash(this: void, vals: IValue[]) {
@@ -21,6 +21,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
     private it = 0;
+    private cstGen = 0;
     hasPrimary = false;
     private readonly = false;
     hidden = false;
@@ -62,16 +63,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
-            switch (c.type) {
-                case 'primary key':
-                    this.createIndex(t, c.columns, 'primary', c.constraintName);
-                    break;
-                case 'unique':
-                    this.createIndex(t, c.columns, 'unique', c.constraintName);
-                    break;
-                default:
-                    throw NotSupported.never(c, 'constraint type');
-            }
+            this.addConstraint(c, t);
         }
     }
 
@@ -125,17 +117,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.columnsByName.has(low)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
-        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column);
+        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column, column.name);
 
-        if (column.default) {
-            cref.alter({
-                type: 'set default',
-                default: column.default,
-                updateExisting: true,
-            }, t)
-        } else {
-            this.remapData(t, x => (x as any)[column.name] = null);
-        }
 
         // auto increments
         if (column.serial) {
@@ -146,8 +129,12 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.columnsByName.set(low, cref);
 
         try {
-            if (column.constraint) {
-                cref.addConstraint(column.constraint, t);
+            if (column.constraints?.length) {
+                cref.addConstraints(column.constraints, t);
+            }
+            const hasDefault = column.constraints?.some(x => x.type === 'default');
+            if (!hasDefault) {
+                this.remapData(t, x => (x as any)[column.name] = (x as any)[column.name] ?? null);
             }
         } catch (e) {
             this.columnDefs.pop();
@@ -400,6 +387,36 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return got?.index ?? null;
     }
 
+    constraintNameGen(constraintName?: string) {
+        return constraintName
+            ?? (this.name + '_constraint_' + (++this.cstGen));
+    }
+
+    addCheck(_t: _Transaction, check: Expr, constraintName?: string) {
+        constraintName = this.constraintNameGen(constraintName);
+        const getter = buildValue(this.selection, check).convert(DataType.bool);
+
+        const checkVal = (t: _Transaction, v: any) => {
+            const value = getter.get(v, t);
+            if (value === false) {
+                throw new QueryError(`check constraint "${constraintName}" is violated by some row`)
+            }
+        }
+
+        // check that everything matches (before adding check)
+        for (const v of this.enumerate(_t)) {
+            checkVal(_t, v);
+        }
+
+        // add a check for future updates
+        this.onChange([], (old, neu, ct) => {
+            if (!neu) {
+                return;
+            }
+            checkVal(ct, neu);
+        });
+    }
+
 
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique', indexName?: string): this {
         if (this.readonly) {
@@ -482,7 +499,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    addForeignKey(cst: ConstraintForeignKeyDef, t: _Transaction, constraintName?: string) {
+    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction, constraintName?: string) {
         const ftable = this.ownerSchema.getTable(cst.foreignTable) as MemoryTable;
         const cols = cst.localColumns.map(x => this.getColumnRef(x));
         const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
@@ -589,15 +606,17 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         });
     }
 
-    addConstraint(cst: ConstraintDef, t: _Transaction, constraintName?: string) {
+    addConstraint(cst: TableConstraint, t: _Transaction) {
         // todo add constraint name
         switch (cst.type) {
             case 'foreign key':
-                this.addForeignKey(cst, t, constraintName);
-                return;
+                return this.addForeignKey(cst, t, cst.constraintName);
             case 'primary key':
-                this.createIndex(t, cst.columns, 'primary', constraintName);
-                return;
+                return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
+            case 'unique':
+                return this.createIndex(t, cst.columns, 'unique', cst.constraintName);
+            case 'check':
+                return this.addCheck(t, cst.expr, cst.constraintName);
             default:
                 throw NotSupported.never(cst, 'constraint type');
         }

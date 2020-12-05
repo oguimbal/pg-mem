@@ -238,7 +238,7 @@ export class Query implements _ISchema, ISchema {
             case 'rename constraint':
                 throw new NotSupported('rename constraint');
             case 'add constraint':
-                table.addConstraint(change.constraint, t, change.constraintName);
+                table.addConstraint(change.constraint, t, change.constraint.constraintName);
                 return nop;
             default:
                 throw NotSupported.never(change, 'alter request');

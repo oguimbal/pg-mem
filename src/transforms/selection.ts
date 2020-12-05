@@ -3,9 +3,9 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../predicate';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr } from 'pgsql-ast-parser';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'pgsql-ast-parser';
 import { aggregationFunctions, buildGroupBy } from './aggregation';
-import { AstVisitor } from '../ast-visitor';
+
 import { isSelectAllArgList } from '../utils';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
@@ -21,7 +21,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     // if there is any aggregation function
     // check if there is any aggregation
     for (const col of select) {
-        if (new HasAggregVisitor().check(col.expr)) {
+        if (hasAggreg(col.expr)) {
             // yea, there is an aggregation somewhere in selection
             return buildGroupBy(on, [], select);
         }
@@ -30,19 +30,23 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     return new Selection(on, select);
 }
 
-class HasAggregVisitor extends AstVisitor {
-    private aggreg?: boolean;
-    check(e: Expr) {
-        this.visit(e);
-        return this.aggreg;
-    }
-    visitCall(expr: ExprCall) {
-        if (aggregationFunctions.has(expr.function)) {
-            // yea, this is an aggregation
-            this.aggreg = true;
+
+function hasAggreg(e: Expr) {
+    let has = false;
+    astVisitor(visitor => ({
+        call: expr => {
+            if (typeof expr.function === 'string' && aggregationFunctions.has(expr.function)) {
+                // yea, this is an aggregation
+                has = true;
+                return;
+            }
+            visitor.super().call(expr);
         }
-    }
+    })).expr(e);
+    return has
 }
+
+
 
 export function columnEvaluator(this: void, on: _ISelection, id: string, type: _IType) {
     if (!id) {
@@ -108,10 +112,18 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                 let col = columns[i];
                 switch (col.expr.type) {
                     case 'call':
-                        id = col.expr.function;
+                        const fn = col.expr.function;
+                        if (typeof fn === 'string') {
+                            id = fn;
+                        } else {
+                            id = fn.keyword;
+                        }
                         break;
                     case 'ref':
                         id = col.expr.name;
+                        break;
+                    case 'keyword':
+                        id = col.expr.keyword;
                         break;
                 }
                 let cnt = anonymousBases.get(id);

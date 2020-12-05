@@ -7,6 +7,7 @@ import { buildValue } from './predicate';
 import { fromNative } from './datatypes';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './btree-index';
+import { PgConstraintTable } from 'schema/pg-catalog/pg-constraints-list';
 
 
 
@@ -19,29 +20,54 @@ export class ColRef implements _Column {
 
     constructor(private table: MemoryTable
         , public expression: Evaluator
-        , _schema: SchemaField) {
+        , _schema: SchemaField
+        , private name: string) {
     }
 
-    addConstraint(constraint: ColumnConstraint, t: _Transaction): this {
-        switch (constraint.type) {
-            case 'primary key':
-                this.table.createIndex(t, {
-                    columns: [{ value: this.expression }],
-                    primary: true,
-                });
-                break;
-            case 'unique':
-                this.table.createIndex(t, {
-                    columns: [{ value: this.expression }],
-                    notNull: constraint.notNull,
-                    unique: true,
-                });
-                break;
-            case 'not null':
-                this.addNotNullConstraint(t);
-                break;
-            default:
-                throw NotSupported.never(constraint, 'add constraint type');
+    addConstraints(clist: ColumnConstraint[], t: _Transaction): this {
+        const notNull = clist.some(x => x.type === 'not null');
+        const acceptNil = clist.some(x => x.type === 'null');
+        if (notNull && acceptNil) {
+            throw new QueryError(`conflicting NULL/NOT NULL declarations for column "${this.name}" of table "${this.table.name}"`)
+        }
+        for (const c of clist) {
+            const cname = c.constraintName;
+            switch (c.type) {
+                case 'not null':
+                case 'null':
+                    // dealt with that above.
+                    break;
+                case 'primary key':
+                    this.table.createIndex(t, {
+                        columns: [{ value: this.expression }],
+                        primary: true,
+                        indexName: cname,
+                    });
+                    break;
+                case 'unique':
+                    this.table.createIndex(t, {
+                        columns: [{ value: this.expression }],
+                        notNull: notNull,
+                        unique: true,
+                        indexName: cname,
+                    });
+                    break;
+                case 'default':
+                    this.alter({
+                        type: 'set default',
+                        default: c.default,
+                        updateExisting: true,
+                    }, t);
+                    break;
+                case 'check':
+                    this.table.addCheck(t, c.expr, cname);
+                    break;
+                default:
+                    throw NotSupported.never(c, 'add constraint type');
+            }
+        }
+        if (notNull) {
+            this.addNotNullConstraint(t);
         }
         this.table.db.onSchemaChange();
         return this;
@@ -83,6 +109,7 @@ export class ColRef implements _Column {
         // === do nasty things to rename column
         this.replaceExpression(to, this.expression.type);
         this.table.db.onSchemaChange();
+        this.name = to;
         return this;
     }
 

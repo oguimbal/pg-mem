@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
@@ -284,7 +284,7 @@ export interface _ITable<T = any> extends IMemoryTable {
     getColumnRef(column: string): _Column;
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
-    addConstraint(constraint: ConstraintDef, t: _Transaction, constraintName?: string): void;
+    addConstraint(constraint: TableConstraint, t: _Transaction, constraintName?: string): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
     onChange(columns: string[], check: ChangeHandler<T>): void;
     getIndex(...forValues: IValue[]): _IIndex | nil;

@@ -76,9 +76,12 @@ export function watchUse<T>(rootValue: T): T & { check?(): any; } {
 
     final['check'] = function () {
         if (toUse.size) {
-            throw new NotSupported('AST query parts have not been read by the query planner.\nPlease file an issue stating the incriminated request, and:\n- ' + [...toUse.entries()]
+            throw new NotSupported(`The query you ran generated an AST which parts have not been read by the query planner. \
+This means that those parts could be ignored:
+
+    ⇨ ` + [...toUse.entries()]
                 .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
-                .join('\n- '));
+                .join('\n   ⇨ '));
         }
     }
     return final;

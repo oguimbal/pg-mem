@@ -27,7 +27,7 @@ describe('Operators', () => {
             fields: [{
                 name: 'id',
                 type: Types.text(),
-                constraint: { type: 'primary key' },
+                constraints: [{ type: 'primary key' }],
             }, {
                 name: 'str',
                 type: Types.text(),
