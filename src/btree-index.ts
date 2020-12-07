@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex } from './interfaces-private';
 // @ts-ignore
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from './interfaces';
@@ -49,8 +49,11 @@ interface BIterator<T> {
 }
 
 type RawTree<T> = BTree<ImMap<string, T>>;;
-export class BIndex<T = any> implements _IIndex<T> {
+export class BIndex<T = any> implements _INamedIndex<T> {
 
+    get type(): 'index' {
+        return 'index';
+    }
 
     // private asBinary: RawTree;
     expressions: (IndexExpression & IValue)[];
@@ -59,10 +62,10 @@ export class BIndex<T = any> implements _IIndex<T> {
 
 
     constructor(t: _Transaction
+        , readonly name: string
         , private cols: CreateIndexColDef[]
         , readonly onTable: _ITable<T>
         , readonly hash: string
-        , public indexName: string
         , readonly unique: boolean
         , readonly notNull: boolean) {
         const asBinary = createTree((a: any, b: any) => {
@@ -123,10 +126,10 @@ export class BIndex<T = any> implements _IIndex<T> {
         const id = getId(raw);
         const key = this.buildKey(raw, t);
         if (this.notNull && key.some(x => x === null || x === undefined)) {
-            throw new QueryError('Cannot add a null record in index ' + this.indexName);
+            throw new QueryError('Cannot add a null record in index ' + this.name);
         }
         if (this.unique && this.hasKey(key, t)) {
-            throw new QueryError('Unique constraint violated while adding a record to index ' + this.indexName);
+            throw new QueryError('Unique constraint violated while adding a record to index ' + this.name);
         }
         // get tree
         let tree = this.bin(t);

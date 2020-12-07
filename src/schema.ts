@@ -1,5 +1,5 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex } from './interfaces-private';
 import { ignore, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType } from './datatypes';
@@ -23,6 +23,7 @@ export class DbSchema implements _ISchema, ISchema {
     private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' })
     private tables = new Map<string, _ITable>();
     private sequences = new Map<string, _ISequence>();
+    private indices = new Map<string, _INamedIndex>();
     private lastSelect?: _ISelection<any>;
     private fns = new Map<string, _FunctionDefinition[]>();
     private installedExtensions = new Set<string>();
@@ -229,12 +230,23 @@ export class DbSchema implements _ISchema, ISchema {
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
     getObject(p: QName, opts?: QueryObjOpts) {
+        function chk<T>(ret: T): T {
+            if (!ret && !opts?.nullIfNotFound) {
+                throw new TableNotFound(p.name);
+            }
+            return ret;
+        }
+        if (p.schema) {
+            if (p.schema === this.name) {
+                return chk(this.getOwnObject(p.name));
+            }
+        }
         if ((p.schema ?? 'public') !== this.name) {
-            return this.db.getSchema(p.schema)
-                .getObject(p, opts);
+            return chk(this.db.getSchema(p.schema)
+                .getObject(p, opts));
         }
         if (opts?.skipSearch) {
-            return this.getOwnObject(p.name);
+            return chk(this.getOwnObject(p.name));
         }
         for (const sp of this.db.searchPath) {
             const rel = this.db.getSchema(sp).getOwnObject(p.name);
@@ -242,12 +254,13 @@ export class DbSchema implements _ISchema, ISchema {
                 return rel;
             }
         }
-        return this.getOwnObject(p.name);
+        return chk(this.getOwnObject(p.name));
     }
 
     getOwnObject(name: string): _IRelation | null {
         return this.tables.get(name)
             ?? this.sequences.get(name)
+            ?? this.indices.get(name)
             ?? null;
     }
 
@@ -712,6 +725,13 @@ export class DbSchema implements _ISchema, ISchema {
         trans.commit();
         this.tables.set(nm, ret);
         ret.onDrop(() => this.tables.delete(ret.name));
+        ret.onIndex((c, idx) => {
+            if (c === 'create') {
+                this.indices.set(idx.name, idx)
+            } else {
+                this.indices.delete(idx.name);
+            }
+        })
         if (!noSchemaChange) {
             this.db.onSchemaChange();
         }

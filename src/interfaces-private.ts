@@ -280,6 +280,7 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
 }
 
 export type DropHandler = (t: _Transaction) => void;
+export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
 export interface _ITable<T = any> extends IMemoryTable {
     readonly name: string;
@@ -308,6 +309,7 @@ export interface _ITable<T = any> extends IMemoryTable {
     getIndex(...forValues: IValue[]): _IIndex | nil;
     drop(t: _Transaction): void;
     onDrop(sub: DropHandler): ISubscription;
+    onIndex(sub: IndexHandler): ISubscription;
 }
 
 export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;
@@ -413,6 +415,11 @@ export interface IndexExpression {
     readonly hash: string;
     readonly type: _IType;
 }
+
+export interface _INamedIndex<T = any> extends _IIndex<T> {
+    readonly name: string;
+    readonly type: 'index';
+}
 export interface _IIndex<T = any> {
     readonly unique?: boolean;
     readonly expressions: IndexExpression[];
@@ -491,7 +498,7 @@ export const NewColumn = Record<TableColumnRecordDef<any>>({
     name: null as any,
 });
 
-export type _IRelation = _ITable | _ISequence;
+export type _IRelation = _ITable | _ISequence | _INamedIndex;
 
 export function asSeq(o: _IRelation): _ISequence;
 export function asSeq(o: _IRelation | null): _ISequence | null;

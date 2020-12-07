@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -31,7 +31,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         index: BIndex<T>;
         expressions: IValue[];
     }>();
-    private indexByName = new Map<string, BIndex<T>>();
     columnDefs: ColRef[] = [];
     columnsByName = new Map<string, ColRef>();
     name: string;
@@ -39,6 +38,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     readonly columns: IValue[] = [];
     private changeHandlers = new Set<ChangeHandler<T>>();
     private drophandlers = new Set<DropHandler>();
+    private indexHandlers = new Set<IndexHandler>();
 
     get type() {
         return 'table' as const;
@@ -459,13 +459,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         const ihash = indexHash(expressions.columns.map(x => x.value));
-        const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, !!expressions.unique, !!expressions.notNull);
+        indexName = indexName ?? expressions.indexName ?? ihash;
+        const index = new BIndex(t, indexName, expressions.columns, this, ihash, !!expressions.unique, !!expressions.notNull);
 
-        if (this.indexByHash.has(ihash) || this.indexByName.has(index.indexName)) {
+        if (this.indexByHash.has(ihash) || indexName && this.ownerSchema.getOwnObject(indexName)) {
             if (expressions.ifNotExists) {
                 return this;
             }
-            throw new QueryError('Index already exists');
+            throw new QueryError(`relation "${indexName}" already exists`);
         }
 
         // fill index (might throw if constraint not respected)
@@ -475,6 +476,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // =========== reference index ============
+        this.indexHandlers.forEach(h => h('create', index));
         // ⚠⚠ This must be done LAST, to avoid throwing an execption if index population failed
         for (const col of index.expressions) {
             for (const used of col.usedColumns) {
@@ -482,7 +484,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
         }
         this.indexByHash.set(ihash, { index, expressions: index.expressions });
-        this.indexByName.set(index.indexName, index)
         if (expressions.primary) {
             this.hasPrimary = true;
         }
@@ -493,14 +494,22 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (!this.indexByHash.has(u.hash)) {
             throw new QueryError('Cannot drop index that does not belong to this table: ' + u.hash);
         }
+        this.indexHandlers.forEach(h => h('drop', u));
         this.indexByHash.delete(u.hash);
-        this.indexByName.delete(u.indexName);
+    }
+
+
+    onIndex(sub: IndexHandler): ISubscription {
+        this.indexHandlers.add(sub);
+        return {
+            unsubscribe: () => this.indexHandlers.delete(sub),
+        };
     }
 
     listIndices(): IndexDef[] {
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
-                name: x.index.indexName,
+                name: x.index.name!,
                 expressions: x.expressions.map(x => x.sql!),
             }));
     }
