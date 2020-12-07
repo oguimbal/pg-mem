@@ -37,6 +37,10 @@ export class Transaction implements _Transaction {
         return this.parent;
     }
 
+    delete(identity: symbol): void {
+        this.data = this.data.delete(identity);
+    }
+
     set<T>(identity: symbol, data: T): T {
         this.data = this.data.set(identity, data);
         return data;

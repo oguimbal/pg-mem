@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -38,6 +38,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     readonly columns: IValue[] = [];
     private changeHandlers = new Set<ChangeHandler<T>>();
+    private drophandlers = new Set<DropHandler>();
+
+    get type() {
+        return 'table' as const;
+    }
 
     get debugId() {
         return this.name;
@@ -53,7 +58,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
-        this.name = _schema.name;
+        this.name = _schema.name.toLowerCase();
         this.selection = buildAlias(this, this.name) as Alias<T>;
 
         // fields
@@ -75,13 +80,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     rename(name: string) {
+        name = name.toLowerCase();
         const on = this.name;
         if (on === name) {
             return this;
         }
         this.name = name;
         this.ownerSchema._doRenTab(on, name);
-        (this.selection as Alias<T>).name = this.name.toLowerCase();
+        (this.selection as Alias<T>).name = this.name;
         this.db.onSchemaChange();
         return this;
     }
@@ -629,4 +635,19 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
+    drop(t: _Transaction) {
+        t.delete(this.dataId);
+        this.drophandlers.forEach(d => d(t));
+        // todo should also check foreign keys, cascade, ...
+        throw new Error('Not implemented');
+    }
+
+    onDrop(sub: DropHandler): ISubscription {
+        this.drophandlers.add(sub);
+        return {
+            unsubscribe: () => {
+                this.drophandlers.delete(sub);
+            }
+        }
+    }
 }

@@ -1,7 +1,7 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler } from '../interfaces-private';
 import { CreateColumnDef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
-import { Schema, ColumnNotFound, nil } from '../interfaces';
+import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
 import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 
@@ -18,6 +18,11 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
 
     isOriginOf(v: IValue): boolean {
         return v.origin === this || v.origin === this.selection;
+    }
+
+
+    get type() {
+        return 'table' as const;
     }
 
     constructor(schema: _ISchema) {
@@ -102,6 +107,9 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     setHidden(): this {
         throw new ReadOnlyError('information schema');
     }
+    drop(t: _Transaction): void {
+        throw new ReadOnlyError('information schema');
+    }
 
     setReadonly(): this {
         return this;
@@ -119,6 +127,12 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         // nop
     }
 
+    onDrop(sub: DropHandler): ISubscription {
+        // nop
+        return { unsubscribe() { } }
+    }
+
+
     make(table: _ITable, i: number, t: IValue<any>): any {
         throw new Error('not implemented');
     }
@@ -127,7 +141,8 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
         if (typeof table === 'string') {
             for (const s of this.db.listSchemas()) {
-                const got = s.getTable(table, true, true);
+                debugger;
+                const got = s.getTable(table, true);
                 if (got) {
                     yield* this.itemsByTable(got, t);
                 }

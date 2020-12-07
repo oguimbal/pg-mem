@@ -1,25 +1,35 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType } from './interfaces-private';
-import { watchUse } from './utils';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable } from './interfaces-private';
+import { ignore, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { parseSql } from './parse-cache';
+import { Sequence } from './sequence';
 
-export class Query implements _ISchema, ISchema {
+function lower(nm: QName): QName {
+    return {
+        name: nm.name.toLowerCase(),
+        schema: nm.schema?.toLowerCase(),
+    }
+}
 
-    private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
+export class DbSchema implements _ISchema, ISchema {
+
+    private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' })
     private tables = new Map<string, _ITable>();
+    private sequences = new Map<string, _ISequence>();
     private lastSelect?: _ISelection<any>;
     private fns = new Map<string, _FunctionDefinition[]>();
     private installedExtensions = new Set<string>();
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable.insert(this.db.data, {});
+        this.dualTable.setReadonly();
     }
 
 
@@ -127,6 +137,23 @@ export class Query implements _ISchema, ISchema {
                         case 'create extension':
                             this.executeCreateExtension(p);
                             break;
+                        case 'create sequence':
+                            t = t.fullCommit();
+                            last = this.executeCreateSequence(t, p);
+                            t = t.fork();
+                            break;
+                        case 'alter sequence':
+                            t = t.fullCommit();
+                            last = this.executeAlterSequence(t, p);
+                            t = t.fork();
+                            break;
+                        case 'set':
+                            // todo handle set statements ?
+                            // They are just ignored as of today (in order to handle pg_dump exports)
+                            ignore(p);
+                            break;
+                        case 'tablespace':
+                            throw new NotSupported('"TABLESPACE" statement');
                         default:
                             throw NotSupported.never(p, 'statement type');
                     }
@@ -156,6 +183,26 @@ export class Query implements _ISchema, ISchema {
         }
     }
 
+    private checkExistence(command: QueryResult, name: QName, ifNotExists: boolean | undefined, act: () => QueryResult | null | void): QueryResult {
+        // check if object exists
+        const exists = this.getObject(name, {
+            skipSearch: true,
+            nullIfNotFound: true
+        });
+        if (exists) {
+            if (ifNotExists) {
+                return {
+                    ...command,
+                    ignored: true,
+                };
+            }
+            throw new QueryError(`relation "${name.name}" already exists`);
+        }
+
+        // else, perform operation
+        return act() || command;
+    }
+
     executeCreateExtension(p: CreateExtensionStatement) {
         const ext = this.db.getExtension(p.extension);
         const schema = p.schema
@@ -178,16 +225,36 @@ export class Query implements _ISchema, ISchema {
         return p[LOCATION] ?? {};
     }
 
-    private _getTable(p: { table: string; db?: string }): _ITable;
-    private _getTable(p: { table: string; db?: string }, nullIfNotFound?: boolean): _ITable | null;
-    private _getTable(p: { table: string; db?: string }, nullIfNotFound?: boolean) {
-        return p.db
-            ? this.db.getSchema(p.db).getTable(p.table, nullIfNotFound, true)
-            : this.db.getTable(p.table, nullIfNotFound);
+
+    getObject(p: QName): _IRelation;
+    getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
+    getObject(p: QName, opts?: QueryObjOpts) {
+        if ((p.schema ?? 'public') !== this.name) {
+            return this.db.getSchema(p.schema)
+                .getObject(p, opts);
+        }
+        if (opts?.skipSearch) {
+            return this.getOwnObject(p.name);
+        }
+        for (const sp of this.db.searchPath) {
+            const rel = this.db.getSchema(sp).getOwnObject(p.name);
+            if (rel) {
+                return rel;
+            }
+        }
+        return this.getOwnObject(p.name);
     }
 
+    getOwnObject(name: string): _IRelation | null {
+        return this.tables.get(name)
+            ?? this.sequences.get(name)
+            ?? null;
+    }
+
+
+
     executeAlterRequest(t: _Transaction, p: AlterTableStatement): QueryResult {
-        const table = this._getTable(p.table);
+        const table = asTable(this.getObject(p.table));
 
         const nop: QueryResult = {
             command: 'ALTER',
@@ -240,6 +307,10 @@ export class Query implements _ISchema, ISchema {
             case 'add constraint':
                 table.addConstraint(change.constraint, t, change.constraint.constraintName);
                 return nop;
+            case 'owner':
+                // owner change statements are not supported.
+                // however, in order to support, pg_dump, we're just ignoring them.
+                return ignore();
             default:
                 throw NotSupported.never(change, 'alter request');
 
@@ -248,7 +319,7 @@ export class Query implements _ISchema, ISchema {
 
     executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
         const indexName = p.indexName;
-        const onTable = this._getTable(p);
+        const onTable = asTable(this.getObject(p.table));
         const columns = p.expressions
             .map<CreateIndexColDef>(x => {
                 return {
@@ -271,7 +342,14 @@ export class Query implements _ISchema, ISchema {
         };
     }
 
-    executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
+
+    executeCreateSequence(t: _Transaction, p: CreateSequenceStatement): QueryResult {
+        const name = lower(p);
+        if ((name.schema ?? 'public') !== this.name) {
+            const sch = this.db.getSchema(p.schema) as DbSchema;
+            return sch.executeCreateSequence(t, p);
+        }
+
         const ret: QueryResult = {
             command: 'CREATE',
             fields: [],
@@ -279,30 +357,72 @@ export class Query implements _ISchema, ISchema {
             rows: [],
             location: this.locOf(p),
         };
-        // get creation parameters
-        const table = p.name;
-        if (this._getTable({ table }, true)) {
-            if (p.ifNotExists) {
-                ret.ignored = true;
-                return ret;
+
+        // check existence
+        return this.checkExistence(ret, name, p.ifNotExists, () => {
+            if (p.temp) {
+                throw new NotSupported('temp sequences');
             }
-            throw new QueryError('Table exists: ' + table);
+            this.sequences.set(name.name, new Sequence(name.name, this).alter(t, p.options));
+            this.db.onSchemaChange();
+        });
+    }
+
+    executeAlterSequence(t: _Transaction, p: AlterSequenceStatement): QueryResult {
+
+        const nop: QueryResult = {
+            command: 'ALTER',
+            fields: [],
+            rowCount: 0,
+            rows: [],
+            location: this.locOf(p),
+        };
+
+        const got = asSeq(this.getObject(p, {
+            nullIfNotFound: p.ifExists,
+        }));
+
+        if (!got) {
+            nop.ignored = true;
+            return nop;
         }
 
-        // perform creation
-        this.declareTable({
-            name: table,
-            constraints: p.constraints,
-            fields: p.columns
-                .map<SchemaField>(f => {
-                    return {
-                        ...f,
-                        type: fromNative(f.dataType),
-                        serial: f.dataType.type === 'serial',
-                    }
-                })
+        got.alter(t, p.change);
+
+        return nop;
+    }
+
+    executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
+        const name = lower(p);
+        if ((name.schema ?? 'public') !== this.name) {
+            const sch = this.db.getSchema(p.schema) as DbSchema;
+            return sch.executeCreateTable(t, p);
+        }
+        const ret: QueryResult = {
+            command: 'CREATE',
+            fields: [],
+            rowCount: 0,
+            rows: [],
+            location: this.locOf(p),
+        };
+
+        return this.checkExistence(ret, name, p.ifNotExists, () => {
+            // perform creation
+            this.declareTable({
+                name: name.name,
+                constraints: p.constraints,
+                fields: p.columns
+                    .map<SchemaField>(f => {
+                        // TODO: #collation
+                        ignore(f.collate);
+                        return {
+                            ...f,
+                            type: fromNative(f.dataType),
+                            serial: f.dataType.type === 'serial',
+                        }
+                    })
+            });
         });
-        return ret;
     }
 
     explainLastSelect(): _SelectExplanation | undefined {
@@ -321,7 +441,7 @@ export class Query implements _ISchema, ISchema {
     }
 
     executeDelete(t: _Transaction, p: DeleteStatement): QueryResult {
-        const table = this._getTable(p.from);
+        const table = asTable(this.getObject(p.from));
         const toDelete = table
             .selection
             .filter(p.where);
@@ -348,7 +468,7 @@ export class Query implements _ISchema, ISchema {
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
             const alias = from.type === 'table'
-                ? from.alias ?? from.table
+                ? from.alias ?? from.name
                 : from.alias;
             if (!alias) {
                 throw new Error('No alias provided');
@@ -359,7 +479,7 @@ export class Query implements _ISchema, ISchema {
             // find what to select
             let newT = from.type === 'statement'
                 ? this.buildSelect(from.statement)
-                : this._getTable(from)
+                : asTable(this.getObject(from))
                     .selection;
 
             // set its alias
@@ -405,7 +525,7 @@ export class Query implements _ISchema, ISchema {
     }
 
     executeUpdate(t: _Transaction, p: UpdateStatement): QueryResult {
-        const into = this._getTable(p.table);
+        const into = asTable(this.getObject(p.table));
 
         const items = into
             .selection
@@ -463,7 +583,7 @@ export class Query implements _ISchema, ISchema {
         }
 
         // get table to insert into
-        const table = this._getTable(p.into);
+        const table = asTable(this.getObject(p.into));
         const selection = table
             .selection
             .setAlias(p.into.alias);
@@ -568,23 +688,17 @@ export class Query implements _ISchema, ISchema {
     }
 
 
-    getTable(table: string): _ITable;
-    getTable(table: string, nullIfNotFound: false, forceOwn?: boolean): _ITable;
-    getTable(name: string, nullIfNotFound?: boolean, forceOwn?: boolean): _ITable | null;
-    getTable(name: string, nullIfNotFound?: boolean, forceOwn?: boolean): _ITable | null {
-        name = name.toLowerCase();
-        // check that has parent
-        if (!forceOwn) {
-            const got = this.db.getTable(name);
-            if (got) {
-                return got;
+    getTable(name: string): _ITable;
+    getTable(name: string, nullIfNotFound?: boolean): _ITable | null;
+    getTable(name: string, nullIfNotFound?: boolean): _ITable | null {
+        const ret = this.getOwnObject(name);
+        if ((!ret || ret.type !== 'table')) {
+            if (nullIfNotFound) {
+                return null;
             }
-        }
-        const got = this.tables.get(name);
-        if (!got && !nullIfNotFound) {
             throw new TableNotFound(name);
         }
-        return got ?? null;
+        return ret;
     }
 
 
@@ -597,6 +711,7 @@ export class Query implements _ISchema, ISchema {
         const ret = new MemoryTable(this, trans, table);
         trans.commit();
         this.tables.set(nm, ret);
+        ret.onDrop(() => this.tables.delete(ret.name));
         if (!noSchemaChange) {
             this.db.onSchemaChange();
         }
@@ -608,8 +723,24 @@ export class Query implements _ISchema, ISchema {
         return this;
     }
 
+    _doRenSeq(old: string, to: string): any {
+        const seq = this.sequences.get(old);
+        if (!seq) {
+            throw new Error('Invalid usage');
+        }
+        this.sequences.set(to, seq);
+        this.sequences.delete(old);
+    }
+
+    _dropSeq(old: string): any {
+        this.sequences.delete(old);
+    }
+
     _doRenTab(table: string, to: string) {
-        const t = this.getTable(table);
+        const t = asTable(this.getOwnObject(table));
+        if (!t) {
+            throw new TableNotFound(table);
+        }
         const nm = to.toLowerCase();
         if (this.tables.has(nm)) {
             throw new Error('Table exists: ' + nm);

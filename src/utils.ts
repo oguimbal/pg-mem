@@ -81,7 +81,7 @@ This means that those parts could be ignored:
 
     ⇨ ` + [...toUse.entries()]
                 .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
-                .join('\n   ⇨ '));
+                .join('\n    ⇨ '));
         }
     }
     return final;
@@ -327,4 +327,21 @@ export function isSelectAllArgList(select: Expr[]) {
         && first.type === 'ref'
         && first.name === '*'
         // && !first.table
+}
+
+
+export function ignore(...val: any[]): void {
+    for (const v of val) {
+        if (!v) {
+            continue;
+        }
+        if (Array.isArray(v)) {
+            ignore(...v);
+            continue;
+        }
+        if (typeof v !== 'object') {
+            continue;
+        }
+        ignore(...Object.values(v));
+    }
 }

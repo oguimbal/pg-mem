@@ -1,4 +1,4 @@
-import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil } from './interfaces-private';
+import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private';
 import type { MemoryTable } from './table';
 import { Evaluator } from './valuetypes';
 import { ColumnConstraint, AlterColumn } from 'pgsql-ast-parser';
@@ -17,6 +17,7 @@ export class ColRef implements _Column {
     notNull = false;
     usedInIndexes = new Set<BIndex>();
     changeHandlers = new Set<ChangeHandler<any>>();
+    private drophandlers = new Set<DropHandler>();
 
     constructor(private table: MemoryTable
         , public expression: Evaluator
@@ -180,6 +181,7 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnsByName.delete(on);
         this.table.columnDefs.splice(i, 1);
+        this.drophandlers.forEach(d => d(t));
         this.table.db.onSchemaChange();
     }
 
@@ -202,6 +204,16 @@ export class ColRef implements _Column {
             toInsert[this.expression.id!] = null
         } else {
             toInsert[this.expression.id!] = this.default.get();
+        }
+    }
+
+
+    onDrop(sub: DropHandler): ISubscription {
+        this.drophandlers.add(sub);
+        return {
+            unsubscribe: () => {
+                this.drophandlers.delete(sub);
+            }
         }
     }
 }

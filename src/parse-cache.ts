@@ -41,15 +41,14 @@ export function parseSql(sql: string, entry?: string): any {
 
         // throw a nice parsing error.
         throw new QueryError(`💔 Your query failed to parse.
-
-👉 This is most likely due to a SQL syntax error. However, you might also have hit a bug, or an unimplemented feature of pg-mem.
+This is most likely due to a SQL syntax error. However, you might also have hit a bug, or an unimplemented feature of pg-mem.
 If this is the case, please file an issue at https://github.com/oguimbal/pg-mem along with a query that reproduces this syntax error.
 
-👉 For the record, the failed query was:
+👉 Failed query:
 
     ${sql}
 
-👉 ${e.message}`);
+💀 ${e.message}`);
     }
 
 }

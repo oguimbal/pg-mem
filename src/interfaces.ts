@@ -146,7 +146,7 @@ export interface ISchema {
     queries(text: string): Iterable<QueryResult>;
 
     /**
-     * Get a table to inspect it
+     * Get a table in this db to inspect it
      */
     getTable(table: string): IMemoryTable;
     getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
@@ -200,12 +200,12 @@ export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
 export interface IMemoryTable {
-    readonly name: string;
     /** Subscribe to an event on this table */
     on(event: TableEvent, handler: () => any): ISubscription;
     /** List existing indices defined on this table */
     listIndices(): IndexDef[];
 }
+
 
 export interface ISubscription {
     unsubscribe(): void;
