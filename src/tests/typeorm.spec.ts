@@ -3,7 +3,7 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { typeormSimpleSample } from '../../samples/typeorm/simple';
-import { typeormJoinsSample } from '../../samples/typeorm/joins';
+import { Photo, typeormJoinsSample, User } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
 import { Entity, BaseEntity, PrimaryColumn, PrimaryGeneratedColumn, Column, Connection } from 'typeorm';
 
@@ -168,11 +168,15 @@ describe('Typeorm', () => {
         return expl.of;
     }
 
-    it('can perform full join queries', () => {
-        const got = many(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
+    function createPhotosUsers() {
+        none(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
         CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
-        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-        INSERT INTO "photo"("url", "userId") VALUES ('photo-of-me-1.jpg', DEFAULT) RETURNING "id";
+        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;`)
+    }
+
+    it('can perform full join queries', () => {
+        createPhotosUsers();
+        const got = many(`INSERT INTO "photo"("url", "userId") VALUES ('photo-of-me-1.jpg', DEFAULT) RETURNING "id";
         INSERT INTO "photo"("url", "userId") VALUES ('photo-of-me-2.jpg', DEFAULT) RETURNING "id";
         INSERT INTO "user"("name") VALUES ('me') RETURNING "id";
         UPDATE "photo" SET "userId" = 1 WHERE "id" = 1;
@@ -250,6 +254,22 @@ describe('Typeorm', () => {
     it('can perform join sample', async () => {
         await typeormJoinsSample();
     });
+
+
+
+    it ('can perform photo join', () => {
+        createPhotosUsers();
+        many(`SELECT "Photo"."id" AS "Photo_id", "Photo"."url" AS "Photo_url", "Photo"."userId" AS "Photo_userId", "Photo__user"."id" AS "Photo__user_id", "Photo__user"."name" AS "Photo__user_name" FROM "photo" "Photo" LEFT JOIN "user" "Photo__user" ON "Photo__user"."id"="Photo"."userId" WHERE "Photo"."id" = 42`)
+    })
+
+    it('can query relations', () => typeOrm([Photo, User], async db => {
+        const photos = db.getRepository(Photo);
+
+        const photo = await photos.find({
+            where: { id: 42 },
+            relations: ['user']
+        });
+    }));
 });
 
 @Entity()

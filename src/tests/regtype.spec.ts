@@ -4,7 +4,8 @@ import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
 import { _ITable } from 'interfaces-private';
 
-describe('regtype', () => {
+// todo
+describe.skip('regtype', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];
