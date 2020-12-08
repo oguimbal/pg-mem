@@ -1,9 +1,9 @@
 import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported, nil } from './interfaces';
 import moment from 'moment';
-import { deepEqual, deepCompare, nullIsh, getContext, parseRegClass, lower } from './utils';
+import { deepEqual, deepCompare, nullIsh, getContext, lower } from './utils';
 import { Evaluator, Value } from './valuetypes';
-import { DataTypeDef } from 'pgsql-ast-parser';
+import { DataTypeDef, parse, QName } from 'pgsql-ast-parser';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
@@ -881,6 +881,25 @@ export function makeArray(of: _IType): _IType {
     }
     arrays.set(of, got = new ArrayType(of));
     return got;
+}
+
+
+
+export function parseRegClass(_reg: RegClass): QName | number {
+    let reg = _reg;
+    if (typeof reg === 'string' && /^\d+$/.test(reg)) {
+        reg = parseInt(reg);
+    }
+    if (typeof reg === 'number') {
+        return reg;
+    }
+    // todo remove casts after next pgsql-ast-parser release
+    try {
+        const ret = parse(reg, 'qualified_name' as any) as QName;
+        return ret;
+    } catch (e) {
+        return { name: reg };
+    }
 }
 
 

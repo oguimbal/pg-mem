@@ -378,31 +378,6 @@ export function pushContext<T>(ctx: Ctx, act: () => T): T {
 }
 
 
-
-export function parseRegType(_reg: RegType): QName | number {
-    return _parseRegClass(_reg, 'type');
-}
-export function parseRegClass(_reg: RegClass): QName | number {
-    return _parseRegClass(_reg, 'class');
-}
-
-function _parseRegClass(_reg: RegClass | RegType, t: string): QName | number {
-    let reg = _reg;
-    if (typeof reg === 'string' && /^\d+$/.test(reg)) {
-        reg = parseInt(reg);
-    }
-    if (typeof reg === 'number') {
-        return reg;
-    }
-    // todo remove casts after next pgsql-ast-parser release
-    try {
-        const ret = parse(reg, 'qualified_name' as any) as QName;
-        return ret;
-    } catch (e) {
-        return { name: reg };
-    }
-}
-
 export function lower(nm: QName): QName {
     return {
         name: nm.name.toLowerCase(),

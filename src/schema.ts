@@ -1,8 +1,8 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg } from './interfaces-private';
-import { ignore, lower, parseRegClass, pushContext, watchUse } from './utils';
+import { ignore, lower, pushContext, watchUse } from './utils';
 import { buildValue } from './predicate';
-import { Types, fromNative, makeType } from './datatypes';
+import { Types, fromNative, makeType, parseRegClass } from './datatypes';
 import { JoinSelection } from './transforms/join';
 import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
