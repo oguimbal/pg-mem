@@ -32,6 +32,7 @@ describe('regclass', () => {
     it ('fails on non existing type', () => {
         assert.throws(() => none(`select 'xxx'::regclass;`), /relation "xxx" does not exist/);
         assert.throws(() => none(`select 'text'::regclass;`), /relation "text" does not exist/);
+        assert.throws(() => many(`select '25abc'::regclass`), /relation "25abc" does not exist/)
     });
 
 
@@ -59,7 +60,7 @@ describe('regclass', () => {
         assert.isNumber(rt);
         expect(many(`select ${rt}::regclass as asint, '${rt}'::regclass as asstr`))
             .to.deep.equal([{
-                asint: 'test',
+                asint: rt,
                 asstr: 'test',
             }])
     });
@@ -69,10 +70,5 @@ describe('regclass', () => {
             .to.deep.equal([{
                 regclass: 42424242,
             }]);;
-    })
-
-
-    it('cannot cast from invalid type name', () => {
-        assert.throws(() => many(`select 25abc::regclass`), /invalid type name "25s"/)
     })
 });

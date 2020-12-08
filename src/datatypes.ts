@@ -222,13 +222,13 @@ class RegClassImpl extends TypeBase<RegClass> {
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
-                            return schema.getObjectByRegClass(cls)
+                            return schema.getObjectByRegOrName(cls)
                                 ?.reg.classId
                                 ?? cls;
                         }
 
                         // get the object or throw
-                        return schema.getObjectByRegClass(raw)
+                        return schema.getObjectByRegOrName(raw)
                             .reg.classId;
                     }
                         , s => `(${s})::INT`
@@ -492,7 +492,7 @@ class NumberType extends TypeBase<number> {
                 .setConversion((int: number) => {
                     // === int -> regclass
                     const { schema } = getContext();
-                    const obj = schema.getObjectByRegClass(int, true);
+                    const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
                     return obj?.reg.classId ?? int;
                 }
                     , sql => `(${sql})::regclass`
@@ -678,7 +678,7 @@ class TextType extends TypeBase<string> {
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
-                            return schema.getObjectByRegClass(cls)
+                            return schema.getObjectByRegOrName(cls)
                                 ?.name
                                 ?? cls;
                         }

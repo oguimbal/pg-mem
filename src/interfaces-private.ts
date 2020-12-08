@@ -46,11 +46,21 @@ export interface _ISchema extends ISchema {
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     /** Get functions matching this arrity */
     getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
+
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
+
     getOwnObject(name: string): _IRelation | null;
-    getObjectByRegClass(reg: RegClass): _IRelation;
-    getObjectByRegClass(reg: RegClass, nullIfNotFound?: boolean): _IRelation | null;
+
+
+    getObjectByRegClassId(reg: number): _IRelation;
+    getObjectByRegClassId(reg: number, opts?: QueryObjOpts): _IRelation | null;
+
+    getOwnObjectByRegClassId(reg: number): _IRelation | null;
+
+    getObjectByRegOrName(reg: RegClass): _IRelation;
+    getObjectByRegOrName(reg: RegClass, opts?: QueryObjOpts): _IRelation | null;
+
     setReadonly(): void;
 
 

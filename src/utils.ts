@@ -8,7 +8,7 @@ export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
 }
 
-export type Optional<T> = {[key in keyof T]?: T[key]};
+export type Optional<T> = { [key in keyof T]?: T[key] };
 
 
 
@@ -81,8 +81,8 @@ export function watchUse<T>(rootValue: T): T & { check?(): any; } {
 This means that those parts could be ignored:
 
     ⇨ ` + [...toUse.entries()]
-                .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
-                .join('\n    ⇨ '));
+                    .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
+                    .join('\n    ⇨ '));
         }
     }
     return final;
@@ -327,7 +327,7 @@ export function isSelectAllArgList(select: Expr[]) {
     return select.length === 1
         && first.type === 'ref'
         && first.name === '*'
-        // && !first.table
+    // && !first.table
 }
 
 
@@ -388,18 +388,19 @@ export function parseRegClass(_reg: RegClass): QName | number {
 
 function _parseRegClass(_reg: RegClass | RegType, t: string): QName | number {
     let reg = _reg;
-    if (typeof reg === 'string' && /\d/.test(reg[0])) {
+    if (typeof reg === 'string' && /^\d+$/.test(reg)) {
         reg = parseInt(reg);
-        if (!Number.isInteger(reg)) {
-            throw new QueryError(`invalid ${t} name "${_reg}"`);
-        }
     }
     if (typeof reg === 'number') {
         return reg;
     }
     // todo remove casts after next pgsql-ast-parser release
-    const ret = parse(reg, 'qualified_name' as any) as QName;
-    return ret;
+    try {
+        const ret = parse(reg, 'qualified_name' as any) as QName;
+        return ret;
+    } catch (e) {
+        return { name: reg };
+    }
 }
 
 export function lower(nm: QName): QName {

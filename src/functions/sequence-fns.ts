@@ -12,7 +12,7 @@ function getSeq(id: RegClass) {
     }
     return {
         t: transaction,
-        seq: asSeq(schema.getObjectByRegClass(id)),
+        seq: asSeq(schema.getObjectByRegOrName(id)),
     };
 }
 const lastVal = Symbol();

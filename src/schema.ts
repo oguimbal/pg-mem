@@ -287,22 +287,43 @@ export class DbSchema implements _ISchema, ISchema {
             ?? null;
     }
 
-    getObjectByRegClass(reg: RegClass): _IRelation;
-    getObjectByRegClass(reg: RegClass, nullIfNotFound?: boolean): _IRelation | null;
-    getObjectByRegClass(_reg: RegClass, nullIfNotFound?: boolean): _IRelation | null {
+    getObjectByRegOrName(reg: RegClass): _IRelation;
+    getObjectByRegOrName(reg: RegClass, opts?: QueryObjOpts): _IRelation | null;
+    getObjectByRegOrName(_reg: RegClass, opts?: QueryObjOpts): _IRelation | null {
         const reg = parseRegClass(_reg);
 
         if (typeof reg === 'number') {
-            // must return something if corresponds to an object, else, returns the number.
-            throw new Error('Not implemented');
+            return this.getObjectByRegClassId(reg, opts);
         }
 
-        return this.getObject(reg, {
-            nullIfNotFound
-        });
+        return this.getObject(reg, opts);
     }
 
+    getObjectByRegClassId(reg: number): _IRelation;
+    getObjectByRegClassId(reg: number, opts?: QueryObjOpts): _IRelation | null;
+    getObjectByRegClassId(reg: number, opts?: QueryObjOpts) {
+        function chk<T>(ret: T): T {
+            if (!ret && !opts?.nullIfNotFound) {
+                throw new RelationNotFound(reg.toString());
+            }
+            return ret;
+        }
+        if (opts?.skipSearch) {
+            return chk(this.getOwnObjectByRegClassId(reg));
+        }
+        for (const sp of this.db.searchPath) {
+            const rel = this.db.getSchema(sp).getOwnObjectByRegClassId(reg);
+            if (rel) {
+                return rel;
+            }
+        }
+        return chk(this.getOwnObjectByRegClassId(reg));
+    }
 
+    getOwnObjectByRegClassId(reg: number): _IRelation | null {
+        return this.relsByCls.get(reg)
+            ?? null;
+    }
 
     executeAlterRequest(t: _Transaction, p: AlterTableStatement): QueryResult {
         const table = asTable(this.getObject(p.table));
