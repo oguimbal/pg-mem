@@ -1,5 +1,5 @@
 import { AlterSequenceChange, AlterSequenceSetOptions, CreateSequenceOptions } from 'pgsql-ast-parser';
-import { ignore } from './utils';
+import { combineSubs, ignore } from './utils';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction } from './interfaces-private';
 import { DataType, ISubscription, QueryError } from './interfaces';
 import { fromNative, makeType, Types } from './datatypes';
@@ -145,12 +145,17 @@ export class Sequence implements _ISequence {
         } else if (opts.ownedBy) {
             this.owner?.unsubscribe();
 
-            const owner = asTable(this.db.getObject({
+            const tbl = asTable(this.db.getObject({
                 name: opts.ownedBy.table,
                 schema: opts.ownedBy.schema
-            })).getColumnRef(opts.ownedBy.column);
+            }));
 
-            this.owner = owner.onDrop(dt => this.drop(dt));
+            const owner = tbl.getColumnRef(opts.ownedBy.column);
+
+            this.owner = combineSubs(
+                owner.onDrop(dt => this.drop(dt)),
+                tbl.onDrop(dt => this.drop(dt)),
+            );
         }
 
         // === validate

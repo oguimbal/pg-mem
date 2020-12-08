@@ -172,7 +172,7 @@ export class ColRef implements _Column {
 
         // remove indices
         for (const u of this.usedInIndexes) {
-            this.table.dropIndex(u);
+            this.table.dropIndex(t, u.name);
         }
 
         // remove associated data

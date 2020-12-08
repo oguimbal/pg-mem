@@ -1,15 +1,13 @@
 import { Types } from '../../datatypes';
-import { _IDb, _ISchema } from '../../interfaces-private';
+import { FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private';
 import { PgAttributeTable } from './pg-attribute-list';
 import { PgClassListTable } from './pg-classlist';
 import { PgConstraintTable } from './pg-constraints-list';
 import { PgIndexTable } from './pg-index-list';
 import { PgNamespaceTable } from './pg-namespace-list';
 import { PgTypeTable } from './pg-type-list';
-import { stringFunctions } from '../../functions/string';
-import { dateFunctions } from '../../functions/date';
-import { systemFunctions } from '../../functions/system';
-import { FunctionDefinition } from '../../interfaces';
+import { allFunctions } from '../../functions';
+
 
 export function setupPgCatalog(db: _IDb) {
     const catalog: _ISchema = db.createSchema('pg_catalog');
@@ -32,9 +30,7 @@ export function setupPgCatalog(db: _IDb) {
         tbl.insert(db.data, { current_schema: 'public' });
         tbl.setHidden().setReadonly();
 
-        addFns(catalog, stringFunctions);
-        addFns(catalog, dateFunctions);
-        addFns(catalog, systemFunctions);
+        addFns(catalog, allFunctions);
     }
 
     function addFns(catalog: _ISchema, fns: FunctionDefinition[]) {

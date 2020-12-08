@@ -1,5 +1,5 @@
-import { IMemoryTable, Schema, QueryError, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler } from './interfaces-private';
+import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -227,7 +227,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T {
         if (this.readonly) {
-            throw new ReadOnlyError(this.name);
+            throw new PermissionDeniedError(this.name);
         }
 
         // get ID of this item
@@ -297,7 +297,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     update(t: _Transaction, toUpdate: T): T {
         if (this.readonly) {
-            throw new ReadOnlyError(this.name);
+            throw new PermissionDeniedError(this.name);
         }
         const bin = this.bin(t);
         const id = getId(toUpdate);
@@ -426,7 +426,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique', indexName?: string): this {
         if (this.readonly) {
-            throw new ReadOnlyError(this.name);
+            throw new PermissionDeniedError(this.name);
         }
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
@@ -490,12 +490,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this;
     }
 
-    dropIndex(u: BIndex<any>) {
-        if (!this.indexByHash.has(u.hash)) {
-            throw new QueryError('Cannot drop index that does not belong to this table: ' + u.hash);
+    dropIndex(t: _Transaction, uName: string) {
+        const u = asIndex(this.ownerSchema.getOwnObject(uName)) as BIndex;
+        if (!u || !this.indexByHash.has(u.hash)) {
+            throw new QueryError('Cannot drop index that does not belong to this table: ' + uName);
         }
         this.indexHandlers.forEach(h => h('drop', u));
         this.indexByHash.delete(u.hash);
+        u.dropFromData(t);
     }
 
 
@@ -583,7 +585,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         });
 
         // when changing something in this table, then there must be a key match in the foreign table
-        this.onChange(cst.localColumns, (_, neu, dt) => {
+        const thisSub = this.onChange(cst.localColumns, (_, neu, dt) => {
             if (!neu) {
                 return;
             }
@@ -619,6 +621,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
             }
         });
+
+
+        ftable.onDrop(() => {
+            thisSub.unsubscribe()
+        });
     }
 
     addConstraint(cst: TableConstraint, t: _Transaction) {
@@ -637,18 +644,30 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onChange(columns: string[], check: ChangeHandler<T>) {
+    onChange(columns: string[], check: ChangeHandler<T>): ISubscription {
         this.changeHandlers.add(check);
+        const reset: (() => void)[] = [];
         for (const c of columns) {
-            this.getColumnRef(c).changeHandlers.add(check);
+            const hs = this.getColumnRef(c).changeHandlers;
+            hs.add(check);
+            reset.push(() => hs.delete(check));
+        }
+        return {
+            unsubscribe: () => {
+                this.changeHandlers.delete(check);
+                reset.forEach(d => d());
+            }
         }
     }
 
     drop(t: _Transaction) {
         t.delete(this.dataId);
         this.drophandlers.forEach(d => d(t));
+        for (const i of this.indexByHash.values()) {
+            i.index.dropFromData(t);
+        }
         // todo should also check foreign keys, cascade, ...
-        throw new Error('Not implemented');
+        return this.ownerSchema._dropTab(this.name);
     }
 
     onDrop(sub: DropHandler): ISubscription {

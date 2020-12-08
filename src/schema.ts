@@ -1,10 +1,10 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, TableNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex } from './interfaces-private';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex } from './interfaces-private';
 import { ignore, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -148,6 +148,21 @@ export class DbSchema implements _ISchema, ISchema {
                             last = this.executeAlterSequence(t, p);
                             t = t.fork();
                             break;
+                        case 'drop index':
+                            t = t.fullCommit();
+                            last = this.executeDropIndex(t, p);
+                            t = t.fork();
+                            break;
+                        case 'drop table':
+                            t = t.fullCommit();
+                            last = this.executeDropTable(t, p);
+                            t = t.fork();
+                            break;
+                        case 'drop sequence':
+                            t = t.fullCommit();
+                            last = this.executeDropSequence(t, p);
+                            t = t.fork();
+                            break;
                         case 'set':
                             // todo handle set statements ?
                             // They are just ignored as of today (in order to handle pg_dump exports)
@@ -158,13 +173,7 @@ export class DbSchema implements _ISchema, ISchema {
                         default:
                             throw NotSupported.never(p, 'statement type');
                     }
-                    last = last ?? {
-                        command: p.type.toUpperCase(),
-                        rowCount: 0,
-                        fields: [],
-                        location: this.locOf(p),
-                        rows: [],
-                    };
+                    last = last ?? this.simple(p.type.toUpperCase(),p);
                     if (!last.ignored) {
                         p.check?.();
                     }
@@ -232,7 +241,7 @@ export class DbSchema implements _ISchema, ISchema {
     getObject(p: QName, opts?: QueryObjOpts) {
         function chk<T>(ret: T): T {
             if (!ret && !opts?.nullIfNotFound) {
-                throw new TableNotFound(p.name);
+                throw new RelationNotFound(p.name);
             }
             return ret;
         }
@@ -269,13 +278,8 @@ export class DbSchema implements _ISchema, ISchema {
     executeAlterRequest(t: _Transaction, p: AlterTableStatement): QueryResult {
         const table = asTable(this.getObject(p.table));
 
-        const nop: QueryResult = {
-            command: 'ALTER',
-            fields: [],
-            rowCount: 0,
-            rows: [],
-            location: this.locOf(p),
-        };
+        const nop = this.simple('ALTER', p);
+
         function ignore() {
             nop.ignored = true;
             return nop;
@@ -346,15 +350,19 @@ export class DbSchema implements _ISchema, ISchema {
                 columns,
                 indexName,
             });
+        return this.simple('CREATE', p);
+    }
+
+
+    private simple(op: string, p: Statement): QueryResult {
         return {
-            command: 'CREATE',
+            command: op,
             fields: [],
             rowCount: 0,
             rows: [],
             location: this.locOf(p),
         };
     }
-
 
     executeCreateSequence(t: _Transaction, p: CreateSequenceStatement): QueryResult {
         const name = lower(p);
@@ -363,13 +371,7 @@ export class DbSchema implements _ISchema, ISchema {
             return sch.executeCreateSequence(t, p);
         }
 
-        const ret: QueryResult = {
-            command: 'CREATE',
-            fields: [],
-            rowCount: 0,
-            rows: [],
-            location: this.locOf(p),
-        };
+        const ret = this.simple('CREATE', p);
 
         // check existence
         return this.checkExistence(ret, name, p.ifNotExists, () => {
@@ -383,13 +385,7 @@ export class DbSchema implements _ISchema, ISchema {
 
     executeAlterSequence(t: _Transaction, p: AlterSequenceStatement): QueryResult {
 
-        const nop: QueryResult = {
-            command: 'ALTER',
-            fields: [],
-            rowCount: 0,
-            rows: [],
-            location: this.locOf(p),
-        };
+        const nop = this.simple('ALTER', p);
 
         const got = asSeq(this.getObject(p, {
             nullIfNotFound: p.ifExists,
@@ -405,19 +401,69 @@ export class DbSchema implements _ISchema, ISchema {
         return nop;
     }
 
+
+    executeDropIndex(t: _Transaction, p: DropIndexStatement): QueryResult {
+
+        const nop = this.simple('DROP', p);
+
+
+        const got = asIndex(this.getObject(p, {
+            nullIfNotFound: p.ifExists,
+        }));
+
+        ignore(p.concurrently);
+        if (!got) {
+            nop.ignored = true;
+            return nop;
+        }
+
+        got.onTable.dropIndex(t, got.name);
+        return nop;
+    }
+
+    executeDropTable(t: _Transaction, p: DropTableStatement): QueryResult {
+
+        const nop = this.simple('DROP', p);
+
+        const got = asTable(this.getObject(p, {
+            nullIfNotFound: p.ifExists,
+        }));
+
+        if (!got) {
+            nop.ignored = true;
+            return nop;
+        }
+
+        got.drop(t);
+        return nop;
+    }
+
+
+    executeDropSequence(t: _Transaction, p: DropSequenceStatement): QueryResult {
+
+        const nop = this.simple('DROP', p);
+
+        const got = asSeq(this.getObject(p, {
+            nullIfNotFound: p.ifExists,
+        }));
+
+        if (!got) {
+            nop.ignored = true;
+            return nop;
+        }
+
+        got.drop(t);
+        return nop;
+    }
+
+
     executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
         const name = lower(p);
         if ((name.schema ?? 'public') !== this.name) {
             const sch = this.db.getSchema(p.schema) as DbSchema;
             return sch.executeCreateTable(t, p);
         }
-        const ret: QueryResult = {
-            command: 'CREATE',
-            fields: [],
-            rowCount: 0,
-            rows: [],
-            location: this.locOf(p),
-        };
+        const ret = this.simple('CREATE', p);
 
         return this.checkExistence(ret, name, p.ifNotExists, () => {
             // perform creation
@@ -709,7 +755,7 @@ export class DbSchema implements _ISchema, ISchema {
             if (nullIfNotFound) {
                 return null;
             }
-            throw new TableNotFound(name);
+            throw new RelationNotFound(name);
         }
         return ret;
     }
@@ -759,7 +805,7 @@ export class DbSchema implements _ISchema, ISchema {
     _doRenTab(table: string, to: string) {
         const t = asTable(this.getOwnObject(table));
         if (!t) {
-            throw new TableNotFound(table);
+            throw new RelationNotFound(table);
         }
         const nm = to.toLowerCase();
         if (this.tables.has(nm)) {
@@ -769,6 +815,12 @@ export class DbSchema implements _ISchema, ISchema {
         this.tables.delete(onm);
         this.tables.set(nm, t);
     }
+
+    _dropTab(table: string): void {
+        this.tables.delete(table.toLowerCase());
+    }
+
+
 
     tablesCount(t: _Transaction): number {
         return this.tables.size;

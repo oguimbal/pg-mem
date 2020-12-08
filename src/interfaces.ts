@@ -233,9 +233,9 @@ export class AmbiguousColumn extends Error {
     }
 }
 
-export class TableNotFound extends Error {
+export class RelationNotFound extends Error {
     constructor(tableName: string) {
-        super('Table not found: ' + tableName);
+        super(`relation "${tableName}" does not exist`);
     }
 }
 
@@ -261,8 +261,10 @@ export class NotSupported extends Error {
         return new NotSupported(`${msg ?? ''} ${JSON.stringify(value)}`);
     }
 }
-export class ReadOnlyError extends Error {
+export class PermissionDeniedError extends Error {
     constructor(what?: string) {
-        super('You cannot modify ' + (what ? ': ' + what : 'this'));
+        super(what
+                ? `permission denied: "${what}" is a system catalog`
+                : 'permission denied');
     }
 }

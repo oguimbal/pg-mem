@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private';
-import { ReadOnlyError, NotSupported, Schema } from '../../interfaces';
+import { Schema } from '../../interfaces';
 import { Types, makeArray } from '../../datatypes';
 import { ReadOnlyTable } from '../readonly-table';
 

@@ -7,7 +7,6 @@ import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, 
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
-import { buildCall } from 'functions';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({

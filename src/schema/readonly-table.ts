@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler } from '../interfaces-private';
 import { CreateColumnDef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
@@ -65,7 +65,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     explain(e: _Explainer): _SelectExplanation {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
 
     listIndices(): IndexDef[] {
@@ -77,38 +77,41 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     get columnDefs(): _Column[] {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
 
     rename(to: string): this {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     update(t: _Transaction, toUpdate: any) {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     addColumn(column: SchemaField | CreateColumnDef): _Column {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     addConstraint(constraint: TableConstraint, t: _Transaction) {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     insert(toInsert: any): void {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     delete(t: _Transaction, toDelete: T): void {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     createIndex(): this {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
+    }
+    dropIndex(t: _Transaction, name: string): void {
+        throw new PermissionDeniedError(this.name);
     }
     setHidden(): this {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     drop(t: _Transaction): void {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
 
     setReadonly(): this {
@@ -125,6 +128,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
 
     onChange(columns: string[], check: ChangeHandler<T>) {
         // nop
+        return { unsubscribe() { } }
     }
 
     onDrop(sub: DropHandler): ISubscription {

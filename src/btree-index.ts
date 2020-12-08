@@ -75,6 +75,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         this.expressions = cols.map(x => x.value);
     }
 
+
     compare(_a: any, _b: any) {
         for (let i = 0; i < this.expressions.length; i++) {
             const k = this.cols[i];
@@ -100,6 +101,10 @@ export class BIndex<T = any> implements _INamedIndex<T> {
 
     buildKey(raw: any, t: _Transaction) {
         return this.expressions.map(k => k.get(raw, t));
+    }
+
+    dropFromData(t: _Transaction) {
+        t.delete(this.treeBinId);
     }
 
     private bin(t: _Transaction) {

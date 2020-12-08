@@ -2,6 +2,7 @@ import moment from 'moment';
 import { List } from 'immutable';
 import { IValue, NotSupported } from './interfaces-private';
 import { SelectedColumn, Expr } from 'pgsql-ast-parser';
+import { ISubscription } from './interfaces';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -344,4 +345,12 @@ export function ignore(...val: any[]): void {
         }
         ignore(...Object.values(v));
     }
+}
+
+export function combineSubs(...vals: ISubscription[]): ISubscription {
+    return {
+        unsubscribe: () => {
+            vals.forEach(u => u?.unsubscribe());
+        },
+    };
 }

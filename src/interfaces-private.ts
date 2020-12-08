@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, TableNotFound } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
@@ -48,9 +48,10 @@ export interface _ISchema extends ISchema {
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
     getOwnObject(name: string): _IRelation | null;
 
-    _doRenTab(old: string, to: string): any;
-    _doRenSeq(old: string, to: string): any;
-    _dropSeq(old: string): any;
+    _doRenTab(old: string, to: string): void;
+    _dropTab(table: string): void;
+    _doRenSeq(old: string, to: string): void;
+    _dropSeq(old: string): void;
     _settable(tname: string, table: _ITable): this;
 }
 
@@ -304,10 +305,11 @@ export interface _ITable<T = any> extends IMemoryTable {
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
     addConstraint(constraint: TableConstraint, t: _Transaction, constraintName?: string): void;
-    /** Will be executed when one of the given columns is affected (update/delete) */
-    onChange(columns: string[], check: ChangeHandler<T>): void;
     getIndex(...forValues: IValue[]): _IIndex | nil;
+    dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction): void;
+    /** Will be executed when one of the given columns is affected (update/delete) */
+    onChange(columns: string[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
 }
@@ -419,6 +421,7 @@ export interface IndexExpression {
 export interface _INamedIndex<T = any> extends _IIndex<T> {
     readonly name: string;
     readonly type: 'index';
+    readonly onTable: _ITable<T>;
 }
 export interface _IIndex<T = any> {
     readonly unique?: boolean;
@@ -500,6 +503,17 @@ export const NewColumn = Record<TableColumnRecordDef<any>>({
 
 export type _IRelation = _ITable | _ISequence | _INamedIndex;
 
+export function asIndex(o: _IRelation): _INamedIndex;
+export function asIndex(o: _IRelation | null): _INamedIndex | null;
+export function asIndex(o: _IRelation | null) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'index') {
+        return o;
+    }
+    throw new QueryError(`"${o.name}" is not an index`);
+}
 export function asSeq(o: _IRelation): _ISequence;
 export function asSeq(o: _IRelation | null): _ISequence | null;
 export function asSeq(o: _IRelation | null) {
@@ -509,7 +523,7 @@ export function asSeq(o: _IRelation | null) {
     if (o.type === 'sequence') {
         return o;
     }
-    throw new QueryError(`No sequence named "${o.name}"`);
+    throw new QueryError(`"${o.name}" is not a sequence`);
 }
 export function asTable(o: _IRelation): _ITable;
 export function asTable(o: _IRelation | null): _ITable | null;
@@ -524,7 +538,7 @@ export function asTable(o: _IRelation | null, nullIfNotType?: boolean) {
     if (nullIfNotType) {
         return null;
     }
-    throw new TableNotFound(`No table named "${o.name}"`);
+    throw new QueryError(`"${o.name}" is not a table`);
 }
 
 export interface _ISequence {
