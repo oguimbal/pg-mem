@@ -1,5 +1,5 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass } from './interfaces-private';
 import { ignore, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType } from './datatypes';
@@ -271,6 +271,10 @@ export class DbSchema implements _ISchema, ISchema {
             ?? this.sequences.get(name)
             ?? this.indices.get(name)
             ?? null;
+    }
+
+    getObjectByReg(reg: RegClass): _IRelation {
+        throw new Error('Not implemented');
     }
 
 

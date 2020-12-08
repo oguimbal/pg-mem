@@ -97,8 +97,12 @@ export class Sequence implements _ISequence {
     }
 
     nextValue(t: _Transaction): number {
-        let ret = t.get<number>(this.symbol) ?? this.start;
-        const value = ret + this.inc;
+        let ret = this.currentValue(t);
+        this.setValue(t, ret + this.inc);
+        return ret;
+    }
+
+    setValue(t: _Transaction, value: number) {
         if (value > this.max) {
             throw new QueryError(`Sequence ${this.name} reached its maximum value`);
         }
@@ -106,8 +110,12 @@ export class Sequence implements _ISequence {
             throw new QueryError(`Sequence ${this.name} reached its minimum value`);
         }
         t.set(this.symbol, value);
-        return ret;
     }
+
+    currentValue(t: _Transaction): number {
+        return t.get<number>(this.symbol) ?? this.start;
+    }
+
 
     private alterOpts(t: _Transaction, opts: CreateSequenceOptions) {
         if (opts.as) {

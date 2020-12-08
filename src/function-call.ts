@@ -1,10 +1,11 @@
-import { IValue, _IType, _ISelection, _ISchema } from './interfaces-private';
+import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private';
 import { Types, ArrayType, makeType } from './datatypes';
-import { QueryError, DataType, NotSupported, FunctionDefinition } from './interfaces';
+import { QueryError, DataType, NotSupported, FunctionDefinition, nil } from './interfaces';
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
-import { nullIsh } from './utils';
+import { nullIsh, pushContext } from './utils';
+
 
 export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     let type: _IType;
@@ -88,7 +89,11 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
             if (!acceptNulls && argRaw.some(nullIsh)) {
                 return null;
             }
-            return get(...argRaw);
+
+            return pushContext({
+                schema,
+                transaction: t,
+            }, () => get(...argRaw));
         }, impure ? { unpure: impure } : undefined);
 }
 

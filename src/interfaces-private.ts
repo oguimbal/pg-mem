@@ -30,6 +30,8 @@ export function setId<T = any>(item: T, id: string): T {
     return item;
 }
 
+export type RegClass = number;
+
 export interface _ISchema extends ISchema {
 
     readonly name: string;
@@ -47,6 +49,7 @@ export interface _ISchema extends ISchema {
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
     getOwnObject(name: string): _IRelation | null;
+    getObjectByReg(reg: RegClass): _IRelation;
 
     _doRenTab(old: string, to: string): void;
     _dropTab(table: string): void;
@@ -547,5 +550,7 @@ export interface _ISequence {
     readonly name: string;
     alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this;
     nextValue(t: _Transaction): number;
+    setValue(t: _Transaction, value: number): void;
+    currentValue(t: _Transaction): number;
     drop(t: _Transaction): void;
 }

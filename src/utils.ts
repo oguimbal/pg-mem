@@ -1,8 +1,8 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { IValue, NotSupported } from './interfaces-private';
+import { IValue, NotSupported, _ISchema, _Transaction } from './interfaces-private';
 import { SelectedColumn, Expr } from 'pgsql-ast-parser';
-import { ISubscription } from './interfaces';
+import { ISubscription, nil } from './interfaces';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -353,4 +353,26 @@ export function combineSubs(...vals: ISubscription[]): ISubscription {
             vals.forEach(u => u?.unsubscribe());
         },
     };
+}
+
+
+export interface FnCallContext {
+    schema: _ISchema;
+    transaction: _Transaction | nil;
+}
+const curCtx: FnCallContext[] = [];
+export function getFunctionContext(): FnCallContext {
+    if (!curCtx.length) {
+        throw new Error('Cannot call getFunctionContext() in this context');
+    }
+    return curCtx[curCtx.length - 1];
+}
+
+export function pushContext<T>(ctx: FnCallContext, act: () => T): T {
+    try {
+        curCtx.push(ctx)
+        return act();
+    } finally {
+        curCtx.pop();
+    }
 }
