@@ -1,8 +1,8 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { IValue, NotSupported, _ISchema, _Transaction } from './interfaces-private';
-import { SelectedColumn, Expr } from 'pgsql-ast-parser';
-import { ISubscription, nil } from './interfaces';
+import { IValue, NotSupported, RegClass, RegType, _ISchema, _Transaction } from './interfaces-private';
+import { SelectedColumn, Expr, QName, parse } from 'pgsql-ast-parser';
+import { ISubscription, nil, QueryError } from './interfaces';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -375,4 +375,48 @@ export function pushContext<T>(ctx: FnCallContext, act: () => T): T {
     } finally {
         curCtx.pop();
     }
+}
+
+
+export interface ConversionCtx {
+    schema: _ISchema;
+}
+const curCtxConv: ConversionCtx[] = [];
+export function getConversionContext(): ConversionCtx {
+    if (!curCtxConv.length) {
+        throw new Error('Cannot call getFunctionContext() in this context');
+    }
+    return curCtxConv[curCtxConv.length - 1];
+}
+
+export function pushConversionContext<T>(ctx: ConversionCtx, act: () => T): T {
+    try {
+        curCtxConv.push(ctx)
+        return act();
+    } finally {
+        curCtxConv.pop();
+    }
+}
+
+export function parseRegType(_reg: RegType): QName | number {
+    return _parseRegClass(_reg, 'type');
+}
+export function parseRegClass(_reg: RegClass): QName | number {
+    return _parseRegClass(_reg, 'class');
+}
+
+function _parseRegClass(_reg: RegClass | RegType, t: string): QName | number {
+    let reg = _reg;
+    if (typeof reg === 'string' && /\d/.test(reg[0])) {
+        reg = parseInt(reg);
+        if (!Number.isInteger(reg)) {
+            throw new QueryError(`invalid ${t} name "${_reg}"`);
+        }
+    }
+    if (typeof reg === 'number') {
+        return reg;
+    }
+    // todo remove casts after next pgsql-ast-parser release
+    const ret = parse(reg, 'qualified_name' as any) as QName;
+    return ret;
 }

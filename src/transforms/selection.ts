@@ -110,6 +110,8 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             if (!this.columnIds[i]) {
                 let id = 'column';
                 let col = columns[i];
+
+                // suggest a column result name
                 switch (col.expr.type) {
                     case 'call':
                         const fn = col.expr.function;
@@ -125,7 +127,12 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                     case 'keyword':
                         id = col.expr.keyword;
                         break;
+                    case 'cast':
+                        id = col.expr.to.type;
+                        break;
                 }
+
+                // check no collision with an existing column
                 let cnt = anonymousBases.get(id);
                 this.columnIds[i] = id + (cnt ? cnt : '');
                 anonymousBases.set(id, (cnt ?? 0) + 1);

@@ -12,29 +12,30 @@ import { allFunctions } from '../../functions';
 export function setupPgCatalog(db: _IDb) {
     const catalog: _ISchema = db.createSchema('pg_catalog');
 
-        catalog._settable('pg_constraint', new PgConstraintTable(catalog))
-        catalog._settable('pg_class', new PgClassListTable(catalog))
-        catalog._settable('pg_namespace', new PgNamespaceTable(catalog))
-        catalog._settable('pg_attribute', new PgAttributeTable(catalog))
-        catalog._settable('pg_index', new PgIndexTable(catalog))
-        catalog._settable('pg_type', new PgTypeTable(catalog));
+    new PgConstraintTable(catalog).register();
+    new PgClassListTable(catalog).register();
+    new PgNamespaceTable(catalog).register();
+    new PgAttributeTable(catalog).register();
+    new PgIndexTable(catalog).register();
+    new PgTypeTable(catalog).register();
 
 
-        // this is an ugly hack...
-        const tbl = catalog.declareTable({
-            name: 'current_schema',
-            fields: [
-                { name: 'current_schema', type: Types.text() },
-            ]
-        }, true);
-        tbl.insert(db.data, { current_schema: 'public' });
-        tbl.setHidden().setReadonly();
+    // this is an ugly hack...
+    const tbl = catalog.declareTable({
+        name: 'current_schema',
+        fields: [
+            { name: 'current_schema', type: Types.text() },
+        ]
+    }, true);
+    tbl.insert(db.data, { current_schema: 'public' });
+    tbl.setHidden().setReadonly();
 
-        addFns(catalog, allFunctions);
+    addFns(catalog, allFunctions);
+    catalog.setReadonly()
+}
+
+function addFns(catalog: _ISchema, fns: FunctionDefinition[]) {
+    for (const f of fns) {
+        catalog.registerFunction(f);
     }
-
-    function addFns(catalog: _ISchema, fns: FunctionDefinition[]) {
-        for (const f of fns) {
-            catalog.registerFunction(f);
-        }
-    }
+}

@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg } from '../interfaces-private';
 import { CreateColumnDef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
@@ -13,8 +13,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     abstract hasItem(value: T, t: _Transaction): boolean;
     abstract readonly _schema: Schema;
 
+    reg!: Reg;
+
     readonly selection: _ISelection = buildAlias(this);
-    hidden = true;
+    readonly hidden = true;
 
     isOriginOf(v: IValue): boolean {
         return v.origin === this || v.origin === this.selection;
@@ -25,16 +27,21 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return 'table' as const;
     }
 
-    constructor(schema: _ISchema) {
+    constructor(private schema: _ISchema) {
         super(schema);
+    }
+
+    get name(): string {
+        return this._schema.name;
+    }
+
+    register() {
+        this.reg = this.schema._reg_register(this);
     }
 
     private columnsById = new Map<string, IValue>();
     private _columns?: IValue[];
 
-    get name(): string {
-        return this._schema.name;
-    }
 
     private build() {
         if (this._columns) {

@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -20,6 +20,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
+    readonly reg: Reg;
     private it = 0;
     private cstGen = 0;
     hasPrimary = false;
@@ -59,6 +60,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name.toLowerCase();
+        this.reg = schema._reg_register(this);
         this.selection = buildAlias(this, this.name) as Alias<T>;
 
         // fields
@@ -86,7 +88,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return this;
         }
         this.name = name;
-        this.ownerSchema._doRenTab(on, name);
+        this.ownerSchema._reg_rename(this, on, name);
         (this.selection as Alias<T>).name = this.name;
         this.db.onSchemaChange();
         return this;
@@ -424,7 +426,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
 
-    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique', indexName?: string): this {
+    createIndex(t: _Transaction, expressions: CreateIndexDef): this;
+    createIndex(t: _Transaction, expressions: string[], type: 'primary' | 'unique', indexName?: string): this;
+    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): this {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -439,9 +443,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
             return this.createIndex(t, {
                 columns: keys,
-                primary: type === 'primary',
-                notNull: type === 'primary',
-                unique: !!type,
+                primary: _type === 'primary',
+                notNull: _type === 'primary',
+                unique: !!_type,
+                indexName: _indexName,
             });
         }
 
@@ -459,8 +464,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         const ihash = indexHash(expressions.columns.map(x => x.value));
-        indexName = indexName ?? expressions.indexName ?? ihash;
-        const index = new BIndex(t, indexName, expressions.columns, this, ihash, !!expressions.unique, !!expressions.notNull);
+        const indexName = expressions.indexName ?? `${this.name}_${ihash}_idx`;
 
         if (this.indexByHash.has(ihash) || indexName && this.ownerSchema.getOwnObject(indexName)) {
             if (expressions.ifNotExists) {
@@ -468,6 +472,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
             throw new QueryError(`relation "${indexName}" already exists`);
         }
+
+        const index = new BIndex(t, indexName, expressions.columns, this, ihash, !!expressions.unique, !!expressions.notNull);
 
         // fill index (might throw if constraint not respected)
         const bin = this.bin(t);
@@ -498,6 +504,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.indexHandlers.forEach(h => h('drop', u));
         this.indexByHash.delete(u.hash);
         u.dropFromData(t);
+        this.ownerSchema._reg_unregister(u);
     }
 
 
@@ -636,7 +643,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             case 'primary key':
                 return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
             case 'unique':
-                return this.createIndex(t, cst.columns, 'unique', cst.constraintName);
+                return this.createIndex(t,  cst.columns, 'unique', cst.constraintName);
             case 'check':
                 return this.addCheck(t, cst.expr, cst.constraintName);
             default:
@@ -667,7 +674,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             i.index.dropFromData(t);
         }
         // todo should also check foreign keys, cascade, ...
-        return this.ownerSchema._dropTab(this.name);
+        return this.ownerSchema._reg_unregister(this);
     }
 
     onDrop(sub: DropHandler): ISubscription {

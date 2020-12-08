@@ -9,9 +9,6 @@ describe('Alter table', () => {
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
-    function all(table = 'data') {
-        return many(`select * from ${table}`);
-    }
     beforeEach(() => {
         db = newDb();
         many = db.public.many.bind(db.public);

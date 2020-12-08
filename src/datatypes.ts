@@ -1,8 +1,7 @@
-import { IValue, _IIndex, _ISelection, _IType, TR } from './interfaces-private';
+import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported, nil } from './interfaces';
 import moment from 'moment';
-import hash from 'object-hash';
-import { deepEqual, deepCompare, nullIsh } from './utils';
+import { deepEqual, deepCompare, nullIsh, getConversionContext, parseRegClass } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { DataTypeDef } from 'pgsql-ast-parser';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
@@ -27,15 +26,15 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
     /** Perform conversion */
     doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any> | nil;
 
-    doEquals(a: any, b: any): boolean {
+    doEquals(a: TRaw, b: TRaw): boolean {
         return a === b;
     }
 
-    doGt(a: any, b: any): boolean {
+    doGt(a: TRaw, b: TRaw): boolean {
         return a > b;
     }
 
-    doLt(a: any, b: any): boolean {
+    doLt(a: TRaw, b: TRaw): boolean {
         return a < b;
     }
     toString(): string {
@@ -139,7 +138,7 @@ abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 }
 
 
-class RegType extends TypeBase<_IType> {
+class RegTypeImpl extends TypeBase<RegType> {
 
     get regTypeName(): string {
         return 'regtype';
@@ -175,25 +174,69 @@ class RegType extends TypeBase<_IType> {
                         const got = parseRegType(raw);
                         return typeIndexes[got.primary]
                     }
-                        , s => `(${s})::TEXT`
+                        , s => `(${s})::INT`
                         , toText => ({ toText }))
         }
         throw new Error('failed to cast');
     }
-
-    doEquals(a: _IType, b: _IType): boolean {
-        return a.primary === b.primary;
-    }
-
-    doGt(a: _IType, b: _IType): boolean {
-        return a.primary > b.primary;
-    }
-
-    doLt(a: _IType, b: _IType): boolean {
-        return a.primary < b.primary;
-    }
 }
 
+class RegClassImpl extends TypeBase<RegClass> {
+
+    get regTypeName(): string {
+        return 'regclass';
+    }
+
+    get primary(): DataType {
+        return DataType.regclass;
+    }
+
+    doCanCast(_to: _IType): boolean | nil {
+        switch (_to.primary) {
+            case DataType.text:
+            case DataType.int:
+                return true;
+        }
+        return null;
+    }
+
+    doCast(a: Evaluator, to: _IType): Evaluator {
+        switch (to.primary) {
+            case DataType.text:
+                return a
+                    .setType(Types.text())
+                    .setConversion((raw: RegClass) => {
+                        return raw?.toString();
+                    }
+                        , s => `(${s})::TEXT`
+                        , toText => ({ toText }))
+            case DataType.int:
+                return a
+                    .setType(Types.text())
+                    .setConversion((raw: RegClass) => {
+
+                        // === regclass -> int
+
+                        const cls = parseRegClass(raw);
+                        const { schema } = getConversionContext();
+
+                        // if its a number, then try to get it.
+                        if (typeof cls === 'number') {
+                            return schema.getObjectByRegClass(cls)
+                                ?.reg.classId
+                                ?? cls;
+                        }
+
+                        // get the object or throw
+                        return schema.getObjectByRegClass(raw)
+                            .reg.classId;
+                    }
+                        , s => `(${s})::INT`
+                        , toText => ({ toText }))
+        }
+        throw new Error('failed to cast');
+    }
+}
 
 class JSONBType extends TypeBase<any> {
 
@@ -383,6 +426,7 @@ class NumberType extends TypeBase<number> {
             case DataType.float:
             case DataType.decimal:
             case DataType.regtype:
+            case DataType.regclass:
                 return true;
             default:
                 return false;
@@ -408,6 +452,7 @@ class NumberType extends TypeBase<number> {
             case DataType.float:
             case DataType.decimal:
             case DataType.regtype:
+            case DataType.regclass:
                 return true;
             default:
                 return false;
@@ -440,6 +485,18 @@ class NumberType extends TypeBase<number> {
                 }
                     , sql => `(${sql})::regtype`
                     , intToRegType => ({ intToRegType }));
+        }
+        if (to.primary === DataType.regclass) {
+            return value
+                .setType(Types.regclass)
+                .setConversion((int: number) => {
+                    // === int -> regclass
+                    const { schema } = getConversionContext();
+                    const obj = schema.getObjectByRegClass(int, true);
+                    return obj?.reg.classId ?? int;
+                }
+                    , sql => `(${sql})::regclass`
+                    , intToRegClass => ({ intToRegClass }));
         }
         return new Evaluator(to
             , value.id
@@ -495,6 +552,7 @@ class TextType extends TypeBase<string> {
             case DataType.json:
                 return true;
             case DataType.regtype:
+            case DataType.regclass:
                 return true;
             case DataType.bool:
                 return true;
@@ -609,6 +667,28 @@ class TextType extends TypeBase<string> {
                     }
                         , sql => `(${sql})::regtype`
                         , strToRegType => ({ strToRegType }));
+            case DataType.regclass:
+                return value
+                    .setType(Types.regclass)
+                    .setConversion((str: string) => {
+                        // === text -> regclass
+
+                        const cls = parseRegClass(str);
+                        const { schema } = getConversionContext();
+
+                        // if its a number, then try to get it.
+                        if (typeof cls === 'number') {
+                            return schema.getObjectByRegClass(cls)
+                                ?.name
+                                ?? cls;
+                        }
+
+                        // else, get or throw.
+                        return schema.getObject(cls)
+                            .name;
+                    }
+                        , sql => `(${sql})::regclass`
+                        , strToRegClass => ({ strToRegClass }));
             case DataType.array:
                 return value
                     .setType(to)
@@ -766,7 +846,8 @@ export const Types = { // : Ctors
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
-    [DataType.regtype]: new RegType() as _IType,
+    [DataType.regtype]: new RegTypeImpl() as _IType,
+    [DataType.regclass]: new RegClassImpl() as _IType,
     [DataType.json]: new JSONBType(DataType.json) as _IType,
     [DataType.null]: new NullType() as _IType,
     [DataType.float]: new NumberType(DataType.float) as _IType,

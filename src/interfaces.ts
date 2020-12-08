@@ -31,6 +31,7 @@ export enum DataType {
     int = 'int',
     jsonb = 'jsonb',
     regtype = 'regtype',
+    regclass = 'regclass',
     json = 'json',
     blob = 'blob',
     timestamp = 'timestamp',

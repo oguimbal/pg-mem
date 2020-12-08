@@ -1,6 +1,6 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass } from './interfaces-private';
-import { ignore, watchUse } from './utils';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg } from './interfaces-private';
+import { ignore, parseRegClass, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -10,6 +10,7 @@ import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { parseSql } from './parse-cache';
 import { Sequence } from './sequence';
+import { ReadOnlyTable } from 'schema/readonly-table';
 
 function lower(nm: QName): QName {
     return {
@@ -18,19 +19,30 @@ function lower(nm: QName): QName {
     }
 }
 
+let clsCnt =  0;
+
 export class DbSchema implements _ISchema, ISchema {
 
-    private dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' })
-    private tables = new Map<string, _ITable>();
-    private sequences = new Map<string, _ISequence>();
-    private indices = new Map<string, _INamedIndex>();
+    private dualTable: _ITable;
+    private relsByName = new Map<string, _IRelation>();
+    private relsByCls = new Map<number, _IRelation>();
+    private relsByTyp = new Map<number, _IRelation>();
+    private _tables = new Set<_ITable>();
+
     private lastSelect?: _ISelection<any>;
     private fns = new Map<string, _FunctionDefinition[]>();
     private installedExtensions = new Set<string>();
+    private readonly: any;
 
     constructor(readonly name: string, readonly db: _IDb) {
+        this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
         this.dualTable.insert(this.db.data, {});
         this.dualTable.setReadonly();
+    }
+
+    setReadonly() {
+        this.readonly = true;
+        return this;
     }
 
 
@@ -173,7 +185,7 @@ export class DbSchema implements _ISchema, ISchema {
                         default:
                             throw NotSupported.never(p, 'statement type');
                     }
-                    last = last ?? this.simple(p.type.toUpperCase(),p);
+                    last = last ?? this.simple(p.type.toUpperCase(), p);
                     if (!last.ignored) {
                         p.check?.();
                     }
@@ -267,14 +279,23 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     getOwnObject(name: string): _IRelation | null {
-        return this.tables.get(name)
-            ?? this.sequences.get(name)
-            ?? this.indices.get(name)
+        return this.relsByName.get(name)
             ?? null;
     }
 
-    getObjectByReg(reg: RegClass): _IRelation {
-        throw new Error('Not implemented');
+    getObjectByRegClass(reg: RegClass): _IRelation;
+    getObjectByRegClass(reg: RegClass, nullIfNotFound?: boolean): _IRelation | null;
+    getObjectByRegClass(_reg: RegClass, nullIfNotFound?: boolean): _IRelation | null {
+        const reg = parseRegClass(_reg);
+
+        if (typeof reg === 'number') {
+            // must return something if corresponds to an object, else, returns the number.
+            throw new Error('Not implemented');
+        }
+
+        return this.getObject(reg, {
+            nullIfNotFound
+        });
     }
 
 
@@ -382,7 +403,8 @@ export class DbSchema implements _ISchema, ISchema {
             if (p.temp) {
                 throw new NotSupported('temp sequences');
             }
-            this.sequences.set(name.name, new Sequence(name.name, this).alter(t, p.options));
+            new Sequence(name.name, this)
+                .alter(t, p.options);
             this.db.onSchemaChange();
         });
     }
@@ -767,72 +789,77 @@ export class DbSchema implements _ISchema, ISchema {
 
     declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
         const nm = table.name.toLowerCase();
-        if (this.tables.has(nm)) {
+        if (this.relsByName.has(nm)) {
             throw new Error('Table exists: ' + nm);
         }
         const trans = this.db.data.fork();
         const ret = new MemoryTable(this, trans, table);
         trans.commit();
-        this.tables.set(nm, ret);
-        ret.onDrop(() => this.tables.delete(ret.name));
-        ret.onIndex((c, idx) => {
-            if (c === 'create') {
-                this.indices.set(idx.name, idx)
-            } else {
-                this.indices.delete(idx.name);
-            }
-        })
         if (!noSchemaChange) {
             this.db.onSchemaChange();
         }
         return ret;
     }
 
-    _settable(tname: string, table: _ITable): this {
-        this.tables.set(tname.toLowerCase(), table);
-        return this;
-    }
 
-    _doRenSeq(old: string, to: string): any {
-        const seq = this.sequences.get(old);
-        if (!seq) {
-            throw new Error('Invalid usage');
+    _reg_register(rel: _IRelation): Reg {
+        if (this.readonly) {
+            throw new PermissionDeniedError()
         }
-        this.sequences.set(to, seq);
-        this.sequences.delete(old);
-    }
-
-    _dropSeq(old: string): any {
-        this.sequences.delete(old);
-    }
-
-    _doRenTab(table: string, to: string) {
-        const t = asTable(this.getOwnObject(table));
-        if (!t) {
-            throw new RelationNotFound(table);
+        const newName = rel.name.toLowerCase();
+        if (this.relsByName.has(newName)) {
+            throw new Error('relation exists: ' + newName);
         }
-        const nm = to.toLowerCase();
-        if (this.tables.has(nm)) {
-            throw new Error('Table exists: ' + nm);
+        const ret: Reg = {
+            classId: clsCnt++,
+            typeId: clsCnt++,
+        };
+        this.relsByName.set(newName, rel);
+        this.relsByCls.set(ret.classId, rel);
+        this.relsByTyp.set(ret.typeId, rel);
+        if (rel.type ==='table') {
+            this._tables.add(rel);
         }
-        const onm = table.toLowerCase();
-        this.tables.delete(onm);
-        this.tables.set(nm, t);
+        return ret;
     }
 
-    _dropTab(table: string): void {
-        this.tables.delete(table.toLowerCase());
+    _reg_unregister(rel: _IRelation): void {
+        if (this.readonly) {
+            throw new PermissionDeniedError()
+        }
+        this.relsByName.delete(rel.name.toLowerCase());
+        this.relsByCls.delete(rel.reg.classId);
+        this.relsByTyp.delete(rel.reg.typeId);
+        if (rel.type ==='table') {
+            this._tables.delete(rel);
+        }
+    }
+
+    _reg_rename(rel: _IRelation, oldName: string, newName: string): void {
+        if (this.readonly) {
+            throw new PermissionDeniedError()
+        }
+        oldName = oldName.toLowerCase();
+        newName = newName.toLowerCase();
+        if (this.relsByName.has(newName)) {
+            throw new Error('relation exists: ' + newName);
+        }
+        if (this.relsByName.get(oldName) !== rel) {
+            throw new Error('consistency error while renaming relation');
+        }
+        this.relsByName.delete(oldName);
+        this.relsByName.set(newName, rel);
     }
 
 
 
     tablesCount(t: _Transaction): number {
-        return this.tables.size;
+        return this._tables.size;
     }
 
 
     *listTables(): Iterable<_ITable> {
-        for (const t of this.tables.values()) {
+        for (const t of this._tables.values()) {
             if (!t.hidden) {
                 yield t;
             }

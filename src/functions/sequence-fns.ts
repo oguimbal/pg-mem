@@ -12,7 +12,7 @@ function getSeq(id: RegClass) {
     }
     return {
         t: transaction,
-        seq: asSeq(schema.getObjectByReg(id)),
+        seq: asSeq(schema.getObjectByRegClass(id)),
     };
 }
 const lastVal = Symbol();
@@ -20,7 +20,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
 
     {
         name: 'nextval',
-        args: [Types.regtype],
+        args: [Types.regclass],
         returns: Types.int,
         implementation: (seqId: RegClass) => {
             const { seq, t } = getSeq(seqId);
@@ -32,7 +32,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
     },
     {
         name: 'currval',
-        args: [Types.regtype],
+        args: [Types.regclass],
         returns: Types.int,
         implementation: (seqId: RegClass) => {
             const { seq, t } = getSeq(seqId);
@@ -54,7 +54,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
     },
     {
         name: 'setval',
-        args: [Types.regtype, Types.int],
+        args: [Types.regclass, Types.int],
         returns: Types.int,
         implementation: (seqId: RegClass, val: number) => {
             const { seq, t } = getSeq(seqId);

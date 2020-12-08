@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg } from './interfaces-private';
 // @ts-ignore
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from './interfaces';
@@ -55,6 +55,8 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return 'index';
     }
 
+    readonly reg: Reg;
+
     // private asBinary: RawTree;
     expressions: (IndexExpression & IValue)[];
     private treeBinId = Symbol();
@@ -68,6 +70,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         , readonly hash: string
         , readonly unique: boolean
         , readonly notNull: boolean) {
+        this.reg = onTable.ownerSchema._reg_register(this);
         const asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });

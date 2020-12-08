@@ -1,6 +1,6 @@
 import { AlterSequenceChange, AlterSequenceSetOptions, CreateSequenceOptions } from 'pgsql-ast-parser';
 import { combineSubs, ignore } from './utils';
-import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction } from './interfaces-private';
+import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private';
 import { DataType, ISubscription, QueryError } from './interfaces';
 import { fromNative, makeType, Types } from './datatypes';
 
@@ -21,6 +21,7 @@ export class Sequence implements _ISequence {
         dataType?: _IType;
     } = {};
 
+    readonly reg: Reg;
 
 
     get cycle() {
@@ -37,8 +38,9 @@ export class Sequence implements _ISequence {
 
 
     constructor(public name: string, private db: _ISchema) {
-
+        this.reg = db._reg_register(this);
     }
+
 
     get start() {
         return this.cfg.start ?? (this.inc > 0
@@ -80,7 +82,7 @@ export class Sequence implements _ISequence {
                     throw new NotSupported('Sequence schema change');
                 case 'rename':
                     const to = opts.newName.toLowerCase();
-                    this.db._doRenSeq(this.name, to);
+                    this.db._reg_rename(this, this.name, to);
                     this.name = to;
                     return this;
                 case 'owner to':
@@ -184,7 +186,7 @@ export class Sequence implements _ISequence {
     drop(t: _Transaction) {
         this.owner?.unsubscribe();
         this.owner = undefined;
-        this.db._dropSeq(this.name);
         t.delete(this.symbol);
+        this.db._reg_unregister(this);
     }
 }

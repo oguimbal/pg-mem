@@ -30,10 +30,10 @@ export function setId<T = any>(item: T, id: string): T {
     return item;
 }
 
-export type RegClass = number;
+export type RegClass = string | number;
+export type RegType = string | number;
 
 export interface _ISchema extends ISchema {
-
     readonly name: string;
     readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
@@ -49,13 +49,14 @@ export interface _ISchema extends ISchema {
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
     getOwnObject(name: string): _IRelation | null;
-    getObjectByReg(reg: RegClass): _IRelation;
+    getObjectByRegClass(reg: RegClass): _IRelation;
+    getObjectByRegClass(reg: RegClass, nullIfNotFound?: boolean): _IRelation | null;
+    setReadonly(): void;
 
-    _doRenTab(old: string, to: string): void;
-    _dropTab(table: string): void;
-    _doRenSeq(old: string, to: string): void;
-    _dropSeq(old: string): void;
-    _settable(tname: string, table: _ITable): this;
+
+    _reg_register(rel: _IRelation): Reg;
+    _reg_unregister(rel: _IRelation): void;
+    _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
 }
 
 export interface QueryObjOpts {
@@ -286,8 +287,17 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
 export type DropHandler = (t: _Transaction) => void;
 export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
-export interface _ITable<T = any> extends IMemoryTable {
+interface _RelationBase {
     readonly name: string;
+    readonly reg: Reg;
+}
+
+export interface Reg {
+    readonly typeId: number;
+    readonly classId: number;
+}
+
+export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
     readonly db: _IDb;
@@ -421,8 +431,7 @@ export interface IndexExpression {
     readonly type: _IType;
 }
 
-export interface _INamedIndex<T = any> extends _IIndex<T> {
-    readonly name: string;
+export interface _INamedIndex<T = any> extends _IIndex<T>, _RelationBase {
     readonly type: 'index';
     readonly onTable: _ITable<T>;
 }
@@ -544,10 +553,9 @@ export function asTable(o: _IRelation | null, nullIfNotType?: boolean) {
     throw new QueryError(`"${o.name}" is not a table`);
 }
 
-export interface _ISequence {
+export interface _ISequence extends _RelationBase {
 
     readonly type: 'sequence';
-    readonly name: string;
     alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this;
     nextValue(t: _Transaction): number;
     setValue(t: _Transaction, value: number): void;
