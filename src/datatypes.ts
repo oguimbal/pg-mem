@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported, nil } from './interfaces';
 import moment from 'moment';
-import { deepEqual, deepCompare, nullIsh, getConversionContext, parseRegClass } from './utils';
+import { deepEqual, deepCompare, nullIsh, getContext, parseRegClass, lower } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { DataTypeDef } from 'pgsql-ast-parser';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
@@ -218,7 +218,7 @@ class RegClassImpl extends TypeBase<RegClass> {
                         // === regclass -> int
 
                         const cls = parseRegClass(raw);
-                        const { schema } = getConversionContext();
+                        const { schema } = getContext();
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
@@ -491,7 +491,7 @@ class NumberType extends TypeBase<number> {
                 .setType(Types.regclass)
                 .setConversion((int: number) => {
                     // === int -> regclass
-                    const { schema } = getConversionContext();
+                    const { schema } = getContext();
                     const obj = schema.getObjectByRegClass(int, true);
                     return obj?.reg.classId ?? int;
                 }
@@ -674,7 +674,7 @@ class TextType extends TypeBase<string> {
                         // === text -> regclass
 
                         const cls = parseRegClass(str);
-                        const { schema } = getConversionContext();
+                        const { schema } = getContext();
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
@@ -684,7 +684,7 @@ class TextType extends TypeBase<string> {
                         }
 
                         // else, get or throw.
-                        return schema.getObject(cls)
+                        return schema.getObject(lower(cls))
                             .name;
                     }
                         , sql => `(${sql})::regclass`
@@ -930,6 +930,8 @@ export function fromNative(native: DataTypeDef): _IType {
             return Types.jsonb;
         case 'regtype':
             return Types.regtype;
+        case 'regclass':
+            return Types.regclass;
         case 'array':
             return makeArray(fromNative(native.arrayOf!));
         case 'boolean':

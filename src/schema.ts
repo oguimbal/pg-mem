@@ -1,6 +1,6 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg } from './interfaces-private';
-import { ignore, parseRegClass, watchUse } from './utils';
+import { ignore, lower, parseRegClass, pushContext, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -10,16 +10,9 @@ import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { parseSql } from './parse-cache';
 import { Sequence } from './sequence';
-import { ReadOnlyTable } from 'schema/readonly-table';
 
-function lower(nm: QName): QName {
-    return {
-        name: nm.name.toLowerCase(),
-        schema: nm.schema?.toLowerCase(),
-    }
-}
 
-let clsCnt =  0;
+let clsCnt = 0;
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -38,6 +31,7 @@ export class DbSchema implements _ISchema, ISchema {
         this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
         this.dualTable.insert(this.db.data, {});
         this.dualTable.setReadonly();
+        this._reg_unregister(this.dualTable);
     }
 
     setReadonly() {
@@ -93,107 +87,12 @@ export class DbSchema implements _ISchema, ISchema {
                     continue;
                 }
 
-                // query execution
-                let last: QueryResult | undefined = undefined;
-                try {
-                    const p = watchUse(_p);
-                    p[LOCATION] = _p[LOCATION];
-                    switch (p.type) {
-                        case 'start transaction':
-                            t = t.fork();
-                            break;
-                        case 'commit':
-                            t = t.commit();
-                            if (!t.isChild) {
-                                t = t.fork(); // recreate an implicit transaction
-                            }
-                            break;
-                        case 'rollback':
-                            t = t.rollback();
-                            break;
-                        case 'insert':
-                            last = this.executeInsert(t, p);
-                            break;
-                        case 'update':
-                            last = this.executeUpdate(t, p);
-                            break;
-                        case 'select':
-                            const subj = this.buildSelect(p);
-                            this.lastSelect = subj;
-                            const rows = [...subj.enumerate(t)];
-                            last = {
-                                rows,
-                                rowCount: rows.length,
-                                command: 'SELECT',
-                                fields: [],
-                                location: this.locOf(p),
-                            };
-                            break;
-                        case 'delete':
-                            last = this.executeDelete(t, p);
-                            break;
-                        case 'create table':
-                            t = t.fullCommit();
-                            last = this.executeCreateTable(t, p);
-                            t = t.fork();
-                            break;
-                        case 'create index':
-                            t = t.fullCommit();
-                            last = this.executeCreateIndex(t, p);
-                            t = t.fork();
-                            break;
-                        case 'alter table':
-                            t = t.fullCommit();
-                            last = this.executeAlterRequest(t, p);
-                            t = t.fork();
-                            break;
-                        case 'create extension':
-                            this.executeCreateExtension(p);
-                            break;
-                        case 'create sequence':
-                            t = t.fullCommit();
-                            last = this.executeCreateSequence(t, p);
-                            t = t.fork();
-                            break;
-                        case 'alter sequence':
-                            t = t.fullCommit();
-                            last = this.executeAlterSequence(t, p);
-                            t = t.fork();
-                            break;
-                        case 'drop index':
-                            t = t.fullCommit();
-                            last = this.executeDropIndex(t, p);
-                            t = t.fork();
-                            break;
-                        case 'drop table':
-                            t = t.fullCommit();
-                            last = this.executeDropTable(t, p);
-                            t = t.fork();
-                            break;
-                        case 'drop sequence':
-                            t = t.fullCommit();
-                            last = this.executeDropSequence(t, p);
-                            t = t.fork();
-                            break;
-                        case 'set':
-                            // todo handle set statements ?
-                            // They are just ignored as of today (in order to handle pg_dump exports)
-                            ignore(p);
-                            break;
-                        case 'tablespace':
-                            throw new NotSupported('"TABLESPACE" statement');
-                        default:
-                            throw NotSupported.never(p, 'statement type');
-                    }
-                    last = last ?? this.simple(p.type.toUpperCase(), p);
-                    if (!last.ignored) {
-                        p.check?.();
-                    }
-                    yield last;
-                } catch (e) {
-                    e.location = this.locOf(_p);
-                    throw e;
-                }
+                const {transaction, last} = pushContext({
+                    transaction: t,
+                    schema: this
+                }, () => this._execOne(t, _p));
+                yield last;
+                t = transaction;
             }
 
             // implicit final commit
@@ -201,6 +100,111 @@ export class DbSchema implements _ISchema, ISchema {
             this.db.raiseGlobal('query', query);
         } catch (e) {
             this.db.raiseGlobal('query-failed', query);
+            throw e;
+        }
+    }
+
+
+    private _execOne(t: _Transaction, _p: Statement) {
+        try {
+            // query execution
+            let last: QueryResult | undefined = undefined;
+            const p = watchUse(_p);
+            p[LOCATION] = _p[LOCATION];
+            switch (p.type) {
+                case 'start transaction':
+                    t = t.fork();
+                    break;
+                case 'commit':
+                    t = t.commit();
+                    if (!t.isChild) {
+                        t = t.fork(); // recreate an implicit transaction
+                    }
+                    break;
+                case 'rollback':
+                    t = t.rollback();
+                    break;
+                case 'insert':
+                    last = this.executeInsert(t, p);
+                    break;
+                case 'update':
+                    last = this.executeUpdate(t, p);
+                    break;
+                case 'select':
+                    const subj = this.buildSelect(p);
+                    this.lastSelect = subj;
+                    const rows = [...subj.enumerate(t)];
+                    last = {
+                        rows,
+                        rowCount: rows.length,
+                        command: 'SELECT',
+                        fields: [],
+                        location: this.locOf(p),
+                    };
+                    break;
+                case 'delete':
+                    last = this.executeDelete(t, p);
+                    break;
+                case 'create table':
+                    t = t.fullCommit();
+                    last = this.executeCreateTable(t, p);
+                    t = t.fork();
+                    break;
+                case 'create index':
+                    t = t.fullCommit();
+                    last = this.executeCreateIndex(t, p);
+                    t = t.fork();
+                    break;
+                case 'alter table':
+                    t = t.fullCommit();
+                    last = this.executeAlterRequest(t, p);
+                    t = t.fork();
+                    break;
+                case 'create extension':
+                    this.executeCreateExtension(p);
+                    break;
+                case 'create sequence':
+                    t = t.fullCommit();
+                    last = this.executeCreateSequence(t, p);
+                    t = t.fork();
+                    break;
+                case 'alter sequence':
+                    t = t.fullCommit();
+                    last = this.executeAlterSequence(t, p);
+                    t = t.fork();
+                    break;
+                case 'drop index':
+                    t = t.fullCommit();
+                    last = this.executeDropIndex(t, p);
+                    t = t.fork();
+                    break;
+                case 'drop table':
+                    t = t.fullCommit();
+                    last = this.executeDropTable(t, p);
+                    t = t.fork();
+                    break;
+                case 'drop sequence':
+                    t = t.fullCommit();
+                    last = this.executeDropSequence(t, p);
+                    t = t.fork();
+                    break;
+                case 'set':
+                    // todo handle set statements ?
+                    // They are just ignored as of today (in order to handle pg_dump exports)
+                    ignore(p);
+                    break;
+                case 'tablespace':
+                    throw new NotSupported('"TABLESPACE" statement');
+                default:
+                    throw NotSupported.never(p, 'statement type');
+            }
+            last = last ?? this.simple(p.type.toUpperCase(), p);
+            if (!last.ignored) {
+                p.check?.();
+            }
+            return {last, transaction: t};
+        } catch (e) {
+            e.location = this.locOf(_p);
             throw e;
         }
     }
@@ -817,7 +821,7 @@ export class DbSchema implements _ISchema, ISchema {
         this.relsByName.set(newName, rel);
         this.relsByCls.set(ret.classId, rel);
         this.relsByTyp.set(ret.typeId, rel);
-        if (rel.type ==='table') {
+        if (rel.type === 'table') {
             this._tables.add(rel);
         }
         return ret;
@@ -830,7 +834,7 @@ export class DbSchema implements _ISchema, ISchema {
         this.relsByName.delete(rel.name.toLowerCase());
         this.relsByCls.delete(rel.reg.classId);
         this.relsByTyp.delete(rel.reg.typeId);
-        if (rel.type ==='table') {
+        if (rel.type === 'table') {
             this._tables.delete(rel);
         }
     }

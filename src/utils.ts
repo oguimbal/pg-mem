@@ -356,19 +356,19 @@ export function combineSubs(...vals: ISubscription[]): ISubscription {
 }
 
 
-export interface FnCallContext {
+interface Ctx {
     schema: _ISchema;
-    transaction: _Transaction | nil;
+    transaction: _Transaction;
 }
-const curCtx: FnCallContext[] = [];
-export function getFunctionContext(): FnCallContext {
+const curCtx: Ctx[] = [];
+export function getContext(): Ctx {
     if (!curCtx.length) {
         throw new Error('Cannot call getFunctionContext() in this context');
     }
     return curCtx[curCtx.length - 1];
 }
 
-export function pushContext<T>(ctx: FnCallContext, act: () => T): T {
+export function pushContext<T>(ctx: Ctx, act: () => T): T {
     try {
         curCtx.push(ctx)
         return act();
@@ -378,25 +378,6 @@ export function pushContext<T>(ctx: FnCallContext, act: () => T): T {
 }
 
 
-export interface ConversionCtx {
-    schema: _ISchema;
-}
-const curCtxConv: ConversionCtx[] = [];
-export function getConversionContext(): ConversionCtx {
-    if (!curCtxConv.length) {
-        throw new Error('Cannot call getFunctionContext() in this context');
-    }
-    return curCtxConv[curCtxConv.length - 1];
-}
-
-export function pushConversionContext<T>(ctx: ConversionCtx, act: () => T): T {
-    try {
-        curCtxConv.push(ctx)
-        return act();
-    } finally {
-        curCtxConv.pop();
-    }
-}
 
 export function parseRegType(_reg: RegType): QName | number {
     return _parseRegClass(_reg, 'type');
@@ -419,4 +400,11 @@ function _parseRegClass(_reg: RegClass | RegType, t: string): QName | number {
     // todo remove casts after next pgsql-ast-parser release
     const ret = parse(reg, 'qualified_name' as any) as QName;
     return ret;
+}
+
+export function lower(nm: QName): QName {
+    return {
+        name: nm.name.toLowerCase(),
+        schema: nm.schema?.toLowerCase(),
+    }
 }

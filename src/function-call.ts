@@ -4,7 +4,7 @@ import { QueryError, DataType, NotSupported, FunctionDefinition, nil } from './i
 import { Evaluator } from './valuetypes';
 import hash from 'object-hash';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
-import { nullIsh, pushContext } from './utils';
+import { nullIsh } from './utils';
 
 
 export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
@@ -89,11 +89,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
             if (!acceptNulls && argRaw.some(nullIsh)) {
                 return null;
             }
-
-            return pushContext({
-                schema,
-                transaction: t,
-            }, () => get(...argRaw));
+            return get(...argRaw);
         }, impure ? { unpure: impure } : undefined);
 }
 

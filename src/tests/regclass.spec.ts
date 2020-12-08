@@ -16,12 +16,12 @@ describe('regclass', () => {
     });
 
 
-    it('can select native type as regclass', () => {
-        expect(many(`select 'text'::regclass`))
-            .to.deep.equal([{ regclass: 'text' }])
+    it('can select pg_catalog tables as regclass', () => {
+        expect(many(`select 'pg_class'::regclass`))
+            .to.deep.equal([{ regclass: 'pg_class' }])
     })
 
-    it('can table as regclass', () => {
+    it('can select local table as regclass', () => {
         expect(many(`create table test (a text);
                 select 'TeSt'::regclass`))
             .to.deep.equal([{

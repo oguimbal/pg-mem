@@ -1,5 +1,5 @@
 import 'mocha';
-import { expect } from 'chai';
+import { assert, expect } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
 
@@ -18,11 +18,41 @@ describe('Sequences', () => {
     });
 
 
-    it('can query next value non qualified', () => {
+    it('can query next value non qualified default', () => {
         const res = many(`create sequence test;
                     select nextval('test')`);
         expect(res).to.deep.equal([{
             nextval: 1
+        }])
+    });
+
+    it('can query next value non qualified inc', () => {
+        const res = many(`create sequence test increment 5;
+                            select nextval('test');`);
+        expect(res).to.deep.equal([{
+            nextval: 1
+        }])
+    });
+
+    it('can query next value non qualified start', () => {
+        const res = many(`create sequence test start 5 increment 2;
+                            select nextval('test');`);
+        expect(res).to.deep.equal([{
+            nextval: 5
+        }])
+    });
+
+
+    it('handles multiple increments', () => {
+        let res = many(`create sequence test start 5 increment 2;
+                        select nextval('test');
+                        select nextval('test');`);
+        expect(res).to.deep.equal([{
+            nextval: 7
+        }]);
+        res = many(`select nextval('test');`);
+        expect(res).to.deep.equal([{
+            nextval: 9
         }])
     });
 
@@ -38,8 +68,8 @@ describe('Sequences', () => {
 
     it('can query set value', () => {
         const res = many(`create sequence test;
-                    select setval('test', 41)
-                    select nextval('test')`);
+                    select setval('test', 41);
+                    select nextval('test');`);
         expect(res).to.deep.equal([{
             nextval: 42
         }])
@@ -50,18 +80,35 @@ describe('Sequences', () => {
                     select setval('test', 42);
                     select CURRval('test');`);
         expect(res).to.deep.equal([{
-            nextval: 42
+            currval: 42
         }])
     });
 
+    it('fails to get currval without initialization', () => {
+        many(`create sequence test start 5 increment 2;`);
 
-    it ('can define custom sequences', () => {
+        assert.throws(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
+    });
+
+
+
+    it('can define custom sequences', () => {
         none(`CREATE SEQUENCE if not exists public.test START WITH 40 INCREMENT BY 2 NO MINVALUE NO MAXVALUE CACHE 1 as bigint cycle`);
 
         const res = many(`select nextval('test');`);
         expect(res).to.deep.equal([{
-            nextval: 42
+            nextval: 40
         }])
     });
+
+
+    it('cannot reach its maximum', () => {
+        expect(many(`create sequence test maxvalue 3;
+                select nextval('test');
+                select nextval('test');
+                select nextval('test');`))
+            .to.deep.equal([{ nextval: 3 }]);
+        assert.throws(() => none(`select nextval('test');`), /reached maximum value of sequence "test"/)
+    })
 
 });

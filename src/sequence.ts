@@ -99,23 +99,32 @@ export class Sequence implements _ISequence {
     }
 
     nextValue(t: _Transaction): number {
-        let ret = this.currentValue(t);
-        this.setValue(t, ret + this.inc);
-        return ret;
+        let v = t.get<number>(this.symbol);
+        if (v === undefined) {
+            v = this.start;
+        } else {
+            v += this.inc;
+        }
+        this.setValue(t, v);
+        return v;
     }
 
     setValue(t: _Transaction, value: number) {
         if (value > this.max) {
-            throw new QueryError(`Sequence ${this.name} reached its maximum value`);
+            throw new QueryError(`reached maximum value of sequence "${this.name}"`);
         }
         if (value < this.min) {
-            throw new QueryError(`Sequence ${this.name} reached its minimum value`);
+            throw new QueryError(`reached minimum value of sequence "${this.name}"`);
         }
         t.set(this.symbol, value);
     }
 
     currentValue(t: _Transaction): number {
-        return t.get<number>(this.symbol) ?? this.start;
+        const v = t.get<number>(this.symbol);
+        if (v === undefined) {
+            throw new QueryError(`currval of sequence "${this.name}" is not yet defined in this session`);
+        }
+        return v;
     }
 
 
