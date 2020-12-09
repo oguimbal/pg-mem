@@ -33,7 +33,7 @@ describe('Indices', () => {
                 name: 'str',
                 type: Types.text(),
             }, {
-                name: 'otherStr',
+                name: 'otherstr',
                 type: Types.text(),
             }],
         });
@@ -56,13 +56,13 @@ describe('Indices', () => {
         const db = setupNulls();
         preventSeqScan(db);
         const got = many('select * from data where str is null');
-        expect(got).to.deep.equal([{ id: 'id1', str: null, otherStr: null }, { id: 'id3', str: null, otherStr: null }]);
+        expect(got).to.deep.equal([{ id: 'id1', str: null, otherstr: null }, { id: 'id3', str: null, otherstr: null }]);
     });
 
     it('returns something on seqscan for is null', () => {
         const db = setupNulls(false);
         const got = many('select * from data where str is null');
-        expect(got).to.deep.equal([{ id: 'id1', str: null, otherStr: null }, { id: 'id3', str: null, otherStr: null }]);
+        expect(got).to.deep.equal([{ id: 'id1', str: null, otherstr: null }, { id: 'id3', str: null, otherstr: null }]);
     });
 
 

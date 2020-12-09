@@ -55,9 +55,9 @@ describe('Count', () => {
                         insert into test values (1, null), (null, 1), (1, 1), (2, 3), (null, null);
                         select count(val2) as val2cnt, count(val) as valCnt,val from test group by val;`))
             .to.deep.equal([
-                { val2cnt: 1, valCnt: 2, val: 1 }
-                , { val2cnt: 1, valCnt: 0, val: null }
-                , { val2cnt: 1, valCnt: 1, val: 2 }
+                { val2cnt: 1, valcnt: 2, val: 1 }
+                , { val2cnt: 1, valcnt: 0, val: null }
+                , { val2cnt: 1, valcnt: 1, val: 2 }
             ])
     })
 

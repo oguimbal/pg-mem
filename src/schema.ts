@@ -110,7 +110,9 @@ export class DbSchema implements _ISchema, ISchema {
         try {
             // query execution
             let last: QueryResult | undefined = undefined;
-            const p = watchUse(_p);
+            const p = this.db.options.noAstCoverageCheck
+                ? _p
+                : watchUse(_p);
             p[LOCATION] = _p[LOCATION];
             switch (p.type) {
                 case 'start transaction':

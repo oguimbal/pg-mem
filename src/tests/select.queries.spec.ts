@@ -30,7 +30,7 @@ describe('Selections', () => {
                 name: 'str',
                 type: Types.text(),
             }, {
-                name: 'otherStr',
+                name: 'otherstr',
                 type: Types.text(),
             }],
         });
@@ -68,7 +68,7 @@ describe('Selections', () => {
                         col: 'val',
                         on: 'test',
                     },
-                    as: 'valAlias',
+                    as: 'valalias',
                 }],
                 of: {
                     id: 3,

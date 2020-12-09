@@ -32,7 +32,7 @@ describe('Operators', () => {
                 name: 'str',
                 type: Types.text(),
             }, {
-                name: 'otherStr',
+                name: 'otherstr',
                 type: Types.text(),
             }],
         });
@@ -150,15 +150,15 @@ describe('Operators', () => {
 
         it('"IN" clause with no constant', () => {
             simpleDb();
-            none(`insert into data(id, str, otherStr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')`);
-            const got = many(`select * from data where id in (str, otherStr)`);
+            none(`insert into data(id, str, otherstr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')`);
+            const got = many(`select * from data where id in (str, otherstr)`);
             expect(got.map(x => x.id)).to.deep.equal(['A', 'C']);
         });
 
         it('"IN" clause with constant value', () => {
             simpleDb();
-            none("insert into data(id, str, otherStr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')");
-            const got = many(`select * from data where 'A' in (str, otherStr)`);
+            none("insert into data(id, str, otherstr) values ('A', 'A', 'B'), ('B', 'C', 'D'), ('C', 'A', 'C')");
+            const got = many(`select * from data where 'A' in (str, otherstr)`);
             expect(got.map(x => x.id)).to.deep.equal(['A', 'C']);
         });
 

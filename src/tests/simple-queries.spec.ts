@@ -32,7 +32,7 @@ describe('Simple queries', () => {
                 name: 'str',
                 type: Types.text(),
             }, {
-                name: 'otherStr',
+                name: 'otherstr',
                 type: Types.text(),
             }],
         });
@@ -81,13 +81,13 @@ describe('Simple queries', () => {
 
     it('does not equate null values on seq scan', () => {
         simpleDb();
-        none(`insert into data(id, str, otherStr) values ('id1', null, null)`);
-        none(`insert into data(id, str, otherStr) values ('id2', 'A', 'A')`);
-        none(`insert into data(id, str, otherStr) values ('id3', 'A', 'B')`);
-        none(`insert into data(id, str, otherStr) values ('id4', null, 'B')`);
-        none(`insert into data(id, str, otherStr) values ('id5', 'A', null)`);
-        const got = many('select * from data where str = otherStr');
-        expect(got).to.deep.equal([{ id: 'id2', str: 'A', otherStr: 'A' }]);
+        none(`insert into data(id, str, otherstr) values ('id1', null, null)`);
+        none(`insert into data(id, str, otherstr) values ('id2', 'A', 'A')`);
+        none(`insert into data(id, str, otherstr) values ('id3', 'A', 'B')`);
+        none(`insert into data(id, str, otherstr) values ('id4', null, 'B')`);
+        none(`insert into data(id, str, otherstr) values ('id5', 'A', null)`);
+        const got = many('select * from data where str = otherstr');
+        expect(got).to.deep.equal([{ id: 'id2', str: 'A', otherstr: 'A' }]);
     });
 
 
@@ -184,7 +184,7 @@ describe('Simple queries', () => {
         expect(many(`select column_name from information_schema.columns where table_name='data'`))
             .to.deep.equal([{ column_name: 'id' }
                 , { column_name: 'str' }
-                , { column_name: 'otherStr' }]);
+                , { column_name: 'otherstr' }]);
     });
 
 

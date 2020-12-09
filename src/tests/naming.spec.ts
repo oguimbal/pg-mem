@@ -86,5 +86,13 @@ describe('Naming & collisions', () => {
                     insert into "a""b" values ('42');
                     select * from "a""b";`))
             .to.deep.equal([{ a: '42' }]);
+    });
+
+
+    it('selects lowercased version when not quoted', () => {
+        expect(many(`create table test(mycol text);
+                insert into test values ('test');
+                select MYCOL from test;`))
+            .to.deep.equal([{ mycol: 'test' }])
     })
 });

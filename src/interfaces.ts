@@ -43,6 +43,15 @@ export enum DataType {
 
 export interface MemoryDbOptions {
     /**
+     * If set to true, then the query runner will not check that no AST part
+     * has been left behind when parsing the request.
+     *
+     * ... so setting it to true could lead to unnoticed ignored query parts.
+     *
+     * (advice: only set it to true as a workaround while an issue on https://github.com/oguimbal/pg-mem is being fixed... )
+     */
+    noAstCoverageCheck?: boolean;
+    /**
      *  If set to true, this will throw an exception if
      * you try to use an unsupported index type
      * (only BTREE is supported at time of writing)
