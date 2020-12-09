@@ -2,19 +2,13 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { typeormSimpleSample } from '../../samples/typeorm/simple';
-import { Photo, typeormJoinsSample, User } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
-import { Entity, BaseEntity, PrimaryColumn, PrimaryGeneratedColumn, Column, Connection } from 'typeorm';
 
-describe('Typeorm', () => {
+describe('Typeorm - requests', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
-    function all(table = 'data') {
-        return many(`select * from ${table}`);
-    }
     beforeEach(() => {
         db = newDb({
             autoCreateForeignKeyIndices: true,
@@ -219,64 +213,9 @@ describe('Typeorm', () => {
         ])
     })
 
-    async function typeOrm(entities: any[], fn: (db: Connection) => Promise<any>) {
-        const got: Connection = await db.adapters.createTypeormConnection({
-            type: 'postgres',
-            entities,
-        });
-        try {
-            await got.synchronize();
-            await fn(got);
-        } finally {
-            await got.close()
-        }
-    }
-
-
-    it('handles jsonb update', () => typeOrm([WithJsonb], async db => {
-        const repo = db.getRepository(WithJsonb);
-        const got = repo.create({
-            data: [{ someData: true }]
-        });
-        await got.save();
-        let all = await repo.findByIds([1]);
-        expect(all.map(x => x.data)).to.deep.equal([[{ someData: true }]]);
-        got.data = { other: true };
-        await got.save();
-        all = await repo.find();
-        expect(all.map(x => x.data)).to.deep.equal([{other: true}]);
-    }));
-
-    it('can perform simple sample', async () => {
-        await typeormSimpleSample();
-    })
-
-    it('can perform join sample', async () => {
-        await typeormJoinsSample();
-    });
-
-
 
     it ('can perform photo join', () => {
         createPhotosUsers();
         many(`SELECT "Photo"."id" AS "Photo_id", "Photo"."url" AS "Photo_url", "Photo"."userId" AS "Photo_userId", "Photo__user"."id" AS "Photo__user_id", "Photo__user"."name" AS "Photo__user_name" FROM "photo" "Photo" LEFT JOIN "user" "Photo__user" ON "Photo__user"."id"="Photo"."userId" WHERE "Photo"."id" = 42`)
     })
-
-    it('can query relations', () => typeOrm([Photo, User], async db => {
-        const photos = db.getRepository(Photo);
-
-        const photo = await photos.find({
-            where: { id: 42 },
-            relations: ['user']
-        });
-    }));
 });
-
-@Entity()
-class WithJsonb extends BaseEntity {
-    @PrimaryGeneratedColumn({ type: 'integer' })
-    id!: number;
-
-    @Column({ type: 'jsonb' })
-    data: any;
-}

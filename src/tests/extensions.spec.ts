@@ -33,7 +33,7 @@ describe('Extensions', () => {
     it ('can call function declared in another schema', () => {
         expect(many(`select pg_catalog.col_description(1,2) as msg`))
         .to.deep.equal([{
-            msg: 'nothing',
+            msg: 'Fake description provided by pg-mem',
         }])
     });
 

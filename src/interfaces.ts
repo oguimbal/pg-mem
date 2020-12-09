@@ -24,6 +24,7 @@ export interface IType {
 export enum DataType {
     uuid = 'uuid',
     text = 'text',
+    citext = 'citext',
     array = 'array',
     long = 'long',
     float = 'float',

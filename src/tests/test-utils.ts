@@ -1,6 +1,10 @@
 /* istanbul ignore file */
 import { IMemoryDb, ISubscription } from '../interfaces';
 import { assert, expect } from 'chai';
+import { BaseEntity, Connection } from 'typeorm';
+import { _IDb } from 'interfaces-private';
+import { newDb } from '../index';
+import { Ctor } from '../utils';
 
 export function preventSeqScan(db: IMemoryDb, table?: string): ISubscription {
     if (table) {
@@ -21,7 +25,7 @@ export function preventCataJoin(db: IMemoryDb) {
 }
 
 export function watchCataJoins(db: IMemoryDb) {
-    let got =0;
+    let got = 0;
     db.on('catastrophic-join-optimization', () => {
         got++;
     });
@@ -30,4 +34,38 @@ export function watchCataJoins(db: IMemoryDb) {
             expect(got).to.equal(0, 'Should have used index when performing join');
         }
     }
+}
+
+
+interface TypeOrmTest {
+    db: Connection;
+    mem: _IDb;
+    many: (sql: string) => any[];
+    one: (sql: string) => any;
+    none: (sql: string) => void;
+}
+export async function typeOrm(title: string
+    , entities: () => Ctor<BaseEntity>[]
+    , setup: ((mem: TypeOrmTest) => any) | null
+    , fn: (data: TypeOrmTest) => Promise<any>) {
+    it(title, async () => {
+        const mem = newDb({
+            autoCreateForeignKeyIndices: true,
+        }) as _IDb;
+        const many = mem.public.many.bind(mem.public);
+        const none = mem.public.none.bind(mem.public);
+        const one = mem.public.one.bind(mem.public);
+        const db: Connection = await mem.adapters.createTypeormConnection({
+            type: 'postgres',
+            entities: entities(),
+        });
+        const key = { db, mem, many, none, one };
+        setup?.(key);
+        try {
+            await db.synchronize();
+            await fn(key);
+        } finally {
+            await db.close()
+        }
+    });
 }
