@@ -110,8 +110,8 @@ export class DbSchema implements _ISchema, ISchema {
         try {
             // query execution
             let last: QueryResult | undefined = undefined;
-            const p = this.db.options.noAstCoverageCheck
-                ? _p
+            const { checked: p, check } = this.db.options.noAstCoverageCheck
+                ? { checked: _p, check: null }
                 : watchUse(_p);
             p[LOCATION] = _p[LOCATION];
             switch (p.type) {
@@ -202,8 +202,8 @@ export class DbSchema implements _ISchema, ISchema {
                     throw NotSupported.never(p, 'statement type');
             }
             last = last ?? this.simple(p.type.toUpperCase(), p);
-            if (!last.ignored) {
-                const ret = p.check?.();
+            if (!last.ignored && check) {
+                const ret = check();
                 if (ret) {
                     let st: string;
                     try {

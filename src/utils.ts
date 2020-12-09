@@ -37,9 +37,9 @@ export function trimNullish<T>(value: T, depth = 5): T {
 }
 
 
-export function watchUse<T>(rootValue: T): T & { check?(): string | null; } {
+export function watchUse<T>(rootValue: T): { checked: T; check?: () => string | null; } {
     if (!rootValue || typeof globalThis !== 'undefined' && (globalThis as any)?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
-        return rootValue;
+        return { checked: rootValue };
     }
     if (typeof rootValue !== 'object') {
         throw new NotSupported();
@@ -76,7 +76,7 @@ export function watchUse<T>(rootValue: T): T & { check?(): string | null; } {
 
     const final = recurse(rootValue);
 
-    final['check'] = function () {
+    const check = function () {
         if (toUse.size) {
             return `The query you ran generated an AST which parts have not been read by the query planner. \
 This means that those parts could be ignored:
@@ -87,7 +87,7 @@ This means that those parts could be ignored:
         }
         return null;
     }
-    return final;
+    return { checked: final, check };
 }
 
 

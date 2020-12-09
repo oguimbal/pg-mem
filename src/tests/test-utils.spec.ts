@@ -9,27 +9,27 @@ describe('Test utils', () => {
         delete globalThis.process.env['NOCHECKFULLQUERYUSAGE'];
         try {
             {
-                const data = watchUse({ a: 1, b: [{ c: 1 }] });
-                data.a;
-                data.b[0].c;
-                assert.notExists(data.check!());
+                const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }] });
+                checked.a;
+                checked.b[0].c;
+                assert.notExists(check!());
             }
             {
-                const data = watchUse({ a: 1, b: [{ c: 1 }] });
-                data.a;
-                assert.exists(data.check!());
+                const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }] });
+                checked.a;
+                assert.exists(check!());
             }
             {
-                const data = watchUse({ a: 1, b: [{ c: 1 }, { d: 1 }] });
-                data.a;
-                data.b[1].c;
-                assert.exists(data.check!());
+                const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }, { d: 1 }] });
+                checked.a;
+                checked.b[1].c;
+                assert.exists(check!());
             }
             {
-                const data = watchUse({ a: 1, b: [{ c: 1 }, 5] });
-                data.a;
-                (data.b[0] as any).c;
-                assert.notExists(data.check!());
+                const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }, 5] });
+                checked.a;
+                (checked.b[0] as any).c;
+                assert.notExists(check!());
             }
         } finally {
             globalThis.process.env['NOCHECKFULLQUERYUSAGE'] = old;

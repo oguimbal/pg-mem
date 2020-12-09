@@ -178,6 +178,16 @@ db.getTable('myTable').on('seq-scan', () = {});
 db.on('catastrophic-join-optimization', () => {});
 ```
 
+
+# 🙋‍♂️ FAQ
+
+- [Why this instead of Docker ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#why-use-pg-mem-instead-of-an-instance-of-postgres-in-docker-) _TLDR : It's faster. Docker is overkill._
+- [What if I need an extension like uuid-ossp ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#what-if-i-need-an-extension-like-uuid-ossp-) _TLDR: You can mock those_
+- [How to import my production schema in pg-mem ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#how-to-import-my-production-schema-in-pg-mem-) _TLDR: pg\_dump with the right args_
+
+
+Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
+
 # 📃 Supported features
 
 It supports:
