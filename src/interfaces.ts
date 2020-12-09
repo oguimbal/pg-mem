@@ -43,6 +43,11 @@ export enum DataType {
 
 export interface MemoryDbOptions {
     /**
+     * If set to true, pg-mem will stop embbeding info about the SQL statement
+     * that has failed in exception messages.
+     */
+    noErrorDiagnostic?: boolean;
+    /**
      * If set to true, then the query runner will not check that no AST part
      * has been left behind when parsing the request.
      *
@@ -233,26 +238,13 @@ export interface IndexDef {
     expressions: string[];
 }
 
-export class CastError extends Error {
-    constructor(from: DataType, to: DataType, inWhat?: string) {
-        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
+export class NotSupported extends Error {
+    constructor(what?: string) {
+        super('🔨 Not supported 🔨 ' + (what ? ': ' + what : ''));
     }
-}
-export class ColumnNotFound extends Error {
-    constructor(columnName: string) {
-        super(`column "${columnName}" does not exist`);
-    }
-}
 
-export class AmbiguousColumn extends Error {
-    constructor(columnName: string) {
-        super(`column "${columnName}" is ambiguous`);
-    }
-}
-
-export class RelationNotFound extends Error {
-    constructor(tableName: string) {
-        super(`relation "${tableName}" does not exist`);
+    static never(value: never, msg?: string) {
+        return new NotSupported(`${msg ?? ''} ${JSON.stringify(value)}`);
     }
 }
 
@@ -260,25 +252,37 @@ export class QueryError extends Error {
 }
 
 
-export class RecordExists extends Error {
+export class CastError extends QueryError {
+    constructor(from: DataType, to: DataType, inWhat?: string) {
+        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
+    }
+}
+export class ColumnNotFound extends QueryError {
+    constructor(columnName: string) {
+        super(`column "${columnName}" does not exist`);
+    }
+}
+
+export class AmbiguousColumn extends QueryError {
+    constructor(columnName: string) {
+        super(`column "${columnName}" is ambiguous`);
+    }
+}
+
+export class RelationNotFound extends QueryError {
+    constructor(tableName: string) {
+        super(`relation "${tableName}" does not exist`);
+    }
+}
+
+export class RecordExists extends QueryError {
     constructor() {
         super('Records already exists');
     }
 }
 
-export class NotSupported extends Error {
-    constructor(what?: string) {
-        super('🔨 Not supported 🔨 ' + (what ? ': ' + what : '') + `
 
-👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this issue (if you can), and  the stacktrace:
-`);
-    }
-
-    static never(value: never, msg?: string) {
-        return new NotSupported(`${msg ?? ''} ${JSON.stringify(value)}`);
-    }
-}
-export class PermissionDeniedError extends Error {
+export class PermissionDeniedError extends QueryError {
     constructor(what?: string) {
         super(what
                 ? `permission denied: "${what}" is a system catalog`

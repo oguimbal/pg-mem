@@ -91,7 +91,7 @@ export class DbSchema implements _ISchema, ISchema {
                 const { transaction, last } = pushContext({
                     transaction: t,
                     schema: this
-                }, () => this._execOne(t, _p));
+                }, () => this._execOne(t, _p, parsed.length === 1 ? query : undefined));
                 yield last;
                 t = transaction;
             }
@@ -106,7 +106,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
 
-    private _execOne(t: _Transaction, _p: Statement) {
+    private _execOne(t: _Transaction, _p: Statement, pAsSql?: string) {
         try {
             // query execution
             let last: QueryResult | undefined = undefined;
@@ -205,19 +205,41 @@ export class DbSchema implements _ISchema, ISchema {
             if (!last.ignored && check) {
                 const ret = check();
                 if (ret) {
-                    let st: string;
-                    try {
-                        st = toSql.statement(p)
-                    } catch (e) {
-                        st = `<Failed to reconsitute SQL - ${e?.message}>`;
-                    }
-                    throw new NotSupported(ret + `
-
-The failing request looks like: ${st}`);
+                    throw new NotSupported(ret);
                 }
             }
             return { last, transaction: t };
         } catch (e) {
+
+            if (!this.db.options.noErrorDiagnostic && (e instanceof Error) || e instanceof NotSupported) {
+
+                // compute SQL
+                const msgs = [e.message];
+
+
+                if (e instanceof QueryError) {
+                    msgs.push(`🐜 This seems to be an execution error, which means that your request syntax seems okay,
+but the resulting statement cannot be executed → Probably not a pg-mem error.`);
+                } else if (e instanceof NotSupported) {
+                    msgs.push(`👉 pg-mem is work-in-progress, and it would seem that you've hit one of its limits.`);
+                } else {
+                    msgs.push('💥 This is a nasty error, which was unexpected by pg-mem. Also known "a bug" 😁 Please file an issue !')
+                }
+
+                if (!this.db.options.noErrorDiagnostic) {
+                    if (pAsSql) {
+                        msgs.push(`*️⃣ Failed SQL statement: ${pAsSql}`);
+                    } else {
+                        try {
+                            msgs.push(`*️⃣ Reconsituted failed SQL statement: ${toSql.statement(_p)}`);
+                        } catch (f) {
+                            msgs.push(`*️⃣ <Failed to reconsitute SQL - ${f?.message}>`);
+                        }
+                    }
+                }
+                msgs.push('👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this error (if you can), and  the stacktrace:')
+                e.message = msgs.join('\n\n') + '\n\n';
+            }
             e.location = this.locOf(_p);
             throw e;
         }
