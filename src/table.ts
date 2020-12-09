@@ -463,14 +463,24 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         const ihash = indexHash(expressions.columns.map(x => x.value));
-        const indexName = expressions.indexName ?? `${this.name}_${ihash}_idx`;
 
-        if (this.indexByHash.has(ihash) || indexName && this.ownerSchema.getOwnObject(indexName)) {
-            if (expressions.ifNotExists) {
-                return this;
+        let indexName: string;
+        if (expressions.indexName) {
+            indexName = expressions.indexName;
+            if (this.ownerSchema.getOwnObject(indexName)) {
+                if (expressions.ifNotExists) {
+                    return this;
+                }
+                throw new QueryError(`relation "${indexName}" already exists`);
             }
-            throw new QueryError(`relation "${indexName}" already exists`);
+        } else {
+            const baseName = indexName = expressions.indexName ?? `${this.name}_${ihash}_idx`;
+            let i = 1;
+            while (this.ownerSchema.getOwnObject(indexName)) {
+                indexName = baseName + (i++);
+            }
         }
+
 
         const index = new BIndex(t, indexName, expressions.columns, this, ihash, !!expressions.unique, !!expressions.notNull);
 
@@ -642,7 +652,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             case 'primary key':
                 return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
             case 'unique':
-                return this.createIndex(t,  cst.columns, 'unique', cst.constraintName);
+                return this.createIndex(t, cst.columns, 'unique', cst.constraintName);
             case 'check':
                 return this.addCheck(t, cst.expr, cst.constraintName);
             default:

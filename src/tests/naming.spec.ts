@@ -76,8 +76,15 @@ describe('Naming & collisions', () => {
     });
 
 
-    it ('accepts alter tables with cased names', () => {
+    it('accepts alter tables with cased names', () => {
         none(`create table "TeSt" (a text);
                 alter table "TeSt" add b text;`)
+    })
+
+    it('accepts " in names', () => {
+        expect(many(`create table "a""b"(a text);
+                    insert into "a""b" values ('42');
+                    select * from "a""b";`))
+            .to.deep.equal([{ a: '42' }]);
     })
 });

@@ -4,7 +4,7 @@ import { ignore, pushContext, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType, parseRegClass } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -201,7 +201,18 @@ export class DbSchema implements _ISchema, ISchema {
             }
             last = last ?? this.simple(p.type.toUpperCase(), p);
             if (!last.ignored) {
-                p.check?.();
+                const ret = p.check?.();
+                if (ret) {
+                    let st: string;
+                    try {
+                        st = toSql.statement(p)
+                    } catch (e) {
+                        st = `<Failed to reconsitute SQL - ${e?.message}>`;
+                    }
+                    throw new NotSupported(ret + `
+
+The failing request looks like: ${st}`);
+                }
             }
             return { last, transaction: t };
         } catch (e) {
@@ -390,8 +401,12 @@ export class DbSchema implements _ISchema, ISchema {
     executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
         const indexName = p.indexName;
         const onTable = asTable(this.getObject(p.table));
-        if (p.using && p.using !== 'btree' && this.db.options.noIgnoreUnsupportedIndices) {
-            throw new NotSupported('index type: ' + p.using);
+        if (p.using && p.using.toLowerCase() !== 'btree') {
+            if (this.db.options.noIgnoreUnsupportedIndices) {
+                throw new NotSupported('index type: ' + p.using);
+            }
+            ignore(p);
+            return this.simple('CREATE', p);
         }
         const columns = p.expressions
             .map<CreateIndexColDef>(x => {

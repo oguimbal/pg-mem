@@ -12,24 +12,24 @@ describe('Test utils', () => {
                 const data = watchUse({ a: 1, b: [{ c: 1 }] });
                 data.a;
                 data.b[0].c;
-                data.check!();
+                assert.notExists(data.check!());
             }
-            assert.throws(() => {
+            {
                 const data = watchUse({ a: 1, b: [{ c: 1 }] });
                 data.a;
-                data.check!();
-            });
-            assert.throws(() => {
+                assert.exists(data.check!());
+            }
+            {
                 const data = watchUse({ a: 1, b: [{ c: 1 }, { d: 1 }] });
                 data.a;
                 data.b[1].c;
-                data.check!();
-            }); {
-
+                assert.exists(data.check!());
+            }
+            {
                 const data = watchUse({ a: 1, b: [{ c: 1 }, 5] });
                 data.a;
                 (data.b[0] as any).c;
-                data.check!();
+                assert.notExists(data.check!());
             }
         } finally {
             globalThis.process.env['NOCHECKFULLQUERYUSAGE'] = old;
