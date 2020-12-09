@@ -1,10 +1,11 @@
 import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from './interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported, nil } from './interfaces';
 import moment from 'moment';
-import { deepEqual, deepCompare, nullIsh, getContext, lower } from './utils';
+import { deepEqual, deepCompare, nullIsh, getContext } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { DataTypeDef, parse, QName } from 'pgsql-ast-parser';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
+import { bufCompare, bufFromString, bufToString, TBuffer } from './node-buffer';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
@@ -326,6 +327,7 @@ class TimestampType extends TypeBase<Date> {
         switch (to.primary) {
             case DataType.timestamp:
             case DataType.date:
+            case DataType.time:
                 return true;
         }
         return null;
@@ -338,6 +340,11 @@ class TimestampType extends TypeBase<Date> {
             case DataType.date:
                 return value
                     .setConversion(raw => moment(raw).startOf('day').toDate()
+                        , sql => `(${sql})::date`
+                        , toDate => ({ toDate }));
+            case DataType.time:
+                return value
+                    .setConversion(raw => moment(raw).format('HH:mm:ss') + '.000000'
                         , sql => `(${sql})::date`
                         , toDate => ({ toDate }));
         }
@@ -508,6 +515,77 @@ class NumberType extends TypeBase<number> {
     }
 }
 
+class TimeType extends TypeBase<string> {
+    get regTypeName() {
+        return 'time';
+    }
+
+    get primary(): DataType {
+        return DataType.time;
+    }
+
+
+    doCanCast(to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+                return true;
+        }
+        return null;
+    }
+
+    doCast(value: Evaluator, to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+                return value
+                    .setType(Types.text())
+        }
+        throw new Error('Unexpected cast error');
+    }
+}
+
+class ByteArrayType extends TypeBase<TBuffer> {
+    get regTypeName() {
+        return 'bytea';
+    }
+
+    get primary(): DataType {
+        return DataType.bytea;
+    }
+
+
+    doCanCast(to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+                return true;
+        }
+        return null;
+    }
+
+    doCast(value: Evaluator, to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+                return value
+                    .setConversion(raw => bufToString(raw)
+                        , sql => `(${sql})::text`
+                        , toStr => ({ toStr }));
+        }
+        throw new Error('Unexpected cast error');
+    }
+
+    doEquals(a: TBuffer, b: TBuffer): boolean {
+        return bufCompare(a, b) === 0;
+    }
+
+    doGt(a: TBuffer, b: TBuffer): boolean {
+        return bufCompare(a, b) > 0;
+    }
+
+    doLt(a: TBuffer, b: TBuffer): boolean {
+        return bufCompare(a, b) < 0;
+    }
+}
+
+
 class TextType extends TypeBase<string> {
 
     get regTypeName(): string {
@@ -535,6 +613,7 @@ class TextType extends TypeBase<string> {
             case DataType.text:
             case DataType.bool:
             case DataType.uuid:
+            case DataType.bytea:
                 return true;
         }
         return false;
@@ -544,6 +623,7 @@ class TextType extends TypeBase<string> {
         switch (to.primary) {
             case DataType.timestamp:
             case DataType.date:
+            case DataType.time:
                 return true;
             case DataType.text:
             case DataType.uuid:
@@ -558,6 +638,8 @@ class TextType extends TypeBase<string> {
                 return true;
             case DataType.array:
                 return this.canConvert((to as ArrayType).of);
+            case DataType.bytea:
+                return true;
         }
         if (numbers.has(to.primary)) {
             return true;
@@ -589,6 +671,17 @@ class TextType extends TypeBase<string> {
                     }
                         , sql => `(${sql})::date`
                         , toDate => ({ toDate }));
+            case DataType.time:
+                return value
+                    .setConversion(str => {
+                        const conv = moment.utc(str, 'HH:mm:ss');
+                        if (!conv.isValid()) {
+                            throw new QueryError(`Invalid time format: ` + str);
+                        }
+                        return conv.format('HH:mm:ss.000000');
+                    }
+                        , sql => `(${sql})::time`
+                        , toTime => ({ toTime }));
             case DataType.bool:
                 return value
                     .setConversion(rawStr => {
@@ -684,7 +777,7 @@ class TextType extends TypeBase<string> {
                         }
 
                         // else, get or throw.
-                        return schema.getObject(lower(cls))
+                        return schema.getObject(cls)
                             .name;
                     }
                         , sql => `(${sql})::regclass`
@@ -699,6 +792,13 @@ class TextType extends TypeBase<string> {
                     }
                         , sql => `(${sql})::${to.regTypeName}`
                         , parseArray => ({ parseArray }));
+            case DataType.bytea:
+                return value
+                    .setConversion(str => {
+                        return bufFromString(str);
+                    }
+                        , sql => `(${sql})::bytea`
+                        , toBytea => ({ toBytea }));
 
         }
         if (numbers.has(to.primary)) {
@@ -845,6 +945,7 @@ export const Types = { // : Ctors
     [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
+    [DataType.time]: new TimeType() as _IType,
     [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
     [DataType.regtype]: new RegTypeImpl() as _IType,
     [DataType.regclass]: new RegClassImpl() as _IType,
@@ -853,6 +954,7 @@ export const Types = { // : Ctors
     [DataType.float]: new NumberType(DataType.float) as _IType,
     [DataType.int]: new NumberType(DataType.int) as _IType,
     [DataType.long]: new NumberType(DataType.long) as _IType,
+    [DataType.bytea]: new ByteArrayType() as _IType,
 }
 
 
@@ -956,6 +1058,12 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'boolean':
         case 'bool':
             return Types.bool;
+        case 'bytea':
+            return Types.bytea;
+        case 'time':
+        case 'time with time zone':
+        case 'time without time zone':
+            return Types.time;
         default:
             throw new NotSupported('Type ' + JSON.stringify(native.type));
     }

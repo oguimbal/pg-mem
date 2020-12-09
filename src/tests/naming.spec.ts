@@ -74,4 +74,10 @@ describe('Naming & collisions', () => {
         // allows it when fully qualified
         expect(many(`select * from public.pg_class`)).to.deep.equal([{ a: 'a' }]);
     });
+
+
+    it ('accepts alter tables with cased names', () => {
+        none(`create table "TeSt" (a text);
+                alter table "TeSt" add b text;`)
+    })
 });

@@ -1,8 +1,9 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { IValue, NotSupported, RegClass, RegType, _ISchema, _Transaction } from './interfaces-private';
-import { SelectedColumn, Expr, QName, parse } from 'pgsql-ast-parser';
-import { ISubscription, nil, QueryError } from './interfaces';
+import { NotSupported, _ISchema, _Transaction } from './interfaces-private';
+import { Expr, QName } from 'pgsql-ast-parser';
+import { ISubscription } from './interfaces';
+import { bufClone, bufCompare, isBuf } from './node-buffer';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -122,6 +123,16 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
                 return inner;
         }
         return 0;
+    }
+
+    if (isBuf(a) || isBuf(b)) {
+        if (!isBuf(a)) {
+            return 1;
+        }
+        if (!isBuf(b)) {
+            return -1;
+        }
+        return bufCompare(a, b);
     }
 
     // handle dates
@@ -310,6 +321,9 @@ export function deepCloneSimple<T>(v: T): T {
     if (Array.isArray(v)) {
         return v.map(x => deepCloneSimple(x)) as any;
     }
+    if (isBuf(v)) {
+        return bufClone(v) as any;
+    }
 
     const ret: any = {};
     for (const k of Object.keys(v)) {
@@ -374,13 +388,5 @@ export function pushContext<T>(ctx: Ctx, act: () => T): T {
         return act();
     } finally {
         curCtx.pop();
-    }
-}
-
-
-export function lower(nm: QName): QName {
-    return {
-        name: nm.name.toLowerCase(),
-        schema: nm.schema?.toLowerCase(),
     }
 }

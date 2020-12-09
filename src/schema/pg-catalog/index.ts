@@ -31,6 +31,20 @@ export function setupPgCatalog(db: _IDb) {
     tbl.setHidden().setReadonly();
 
     addFns(catalog, allFunctions);
+
+    catalog.registerFunction({
+        name: 'set_config',
+        args: [Types.text(), Types.text(), Types.bool],
+        returns: Types.text(),
+        impure: true,
+        implementation: (cfg: string, val: string, is_local: boolean) => {
+            // todo - implement this... used to override search_path in dumps.
+            //       => have a dynamic search_path.
+            //       => not trivial du to the "is_local" arg
+            //  https://www.postgresql.org/docs/9.3/functions-admin.html
+            return val;
+        }
+    });
     catalog.setReadonly()
 }
 

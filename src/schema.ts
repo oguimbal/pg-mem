@@ -1,6 +1,6 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg } from './interfaces-private';
-import { ignore, lower, pushContext, watchUse } from './utils';
+import { ignore, pushContext, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType, parseRegClass } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -17,7 +17,8 @@ let clsCnt = 0;
 export class DbSchema implements _ISchema, ISchema {
 
     private dualTable: _ITable;
-    private relsByName = new Map<string, _IRelation>();
+    private relsByNameCas = new Map<string, _IRelation>();
+    private relsByNameLow = new Map<string, _IRelation>();
     private relsByCls = new Map<number, _IRelation>();
     private relsByTyp = new Map<number, _IRelation>();
     private _tables = new Set<_ITable>();
@@ -87,7 +88,7 @@ export class DbSchema implements _ISchema, ISchema {
                     continue;
                 }
 
-                const {transaction, last} = pushContext({
+                const { transaction, last } = pushContext({
                     transaction: t,
                     schema: this
                 }, () => this._execOne(t, _p));
@@ -202,7 +203,7 @@ export class DbSchema implements _ISchema, ISchema {
             if (!last.ignored) {
                 p.check?.();
             }
-            return {last, transaction: t};
+            return { last, transaction: t };
         } catch (e) {
             e.location = this.locOf(_p);
             throw e;
@@ -283,7 +284,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     getOwnObject(name: string): _IRelation | null {
-        return this.relsByName.get(name)
+        return this.relsByNameCas.get(name)
             ?? null;
     }
 
@@ -330,13 +331,15 @@ export class DbSchema implements _ISchema, ISchema {
 
         const nop = this.simple('ALTER', p);
 
-        function ignore() {
+        function _ignore() {
             nop.ignored = true;
             return nop;
         }
         if (!table) {
             return nop;
         }
+
+        ignore(p.only);
         const change = p.change;
         switch (change.type) {
             case 'rename':
@@ -346,7 +349,7 @@ export class DbSchema implements _ISchema, ISchema {
                 const col = table.selection.getColumn(change.column.name, true);
                 if (col) {
                     if (change.ifNotExists) {
-                        return ignore();
+                        return _ignore();
                     } else {
                         throw new QueryError('Column already exists: ' + col.sql);
                     }
@@ -357,7 +360,7 @@ export class DbSchema implements _ISchema, ISchema {
             case 'drop column':
                 const col = table.getColumnRef(change.column, change.ifExists);
                 if (!col) {
-                    return ignore();
+                    return _ignore();
                 }
                 col.drop(t);
                 return nop;
@@ -377,7 +380,7 @@ export class DbSchema implements _ISchema, ISchema {
             case 'owner':
                 // owner change statements are not supported.
                 // however, in order to support, pg_dump, we're just ignoring them.
-                return ignore();
+                return _ignore();
             default:
                 throw NotSupported.never(change, 'alter request');
 
@@ -387,6 +390,9 @@ export class DbSchema implements _ISchema, ISchema {
     executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
         const indexName = p.indexName;
         const onTable = asTable(this.getObject(p.table));
+        if (p.using && p.using !== 'btree' && this.db.options.noIgnoreUnsupportedIndices) {
+            throw new NotSupported('index type: ' + p.using);
+        }
         const columns = p.expressions
             .map<CreateIndexColDef>(x => {
                 return {
@@ -415,7 +421,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     executeCreateSequence(t: _Transaction, p: CreateSequenceStatement): QueryResult {
-        const name = lower(p);
+        const name: QName = p;
         if ((name.schema ?? 'public') !== this.name) {
             const sch = this.db.getSchema(p.schema) as DbSchema;
             return sch.executeCreateSequence(t, p);
@@ -509,7 +515,7 @@ export class DbSchema implements _ISchema, ISchema {
 
 
     executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
-        const name = lower(p);
+        const name: QName = p;
         if ((name.schema ?? 'public') !== this.name) {
             const sch = this.db.getSchema(p.schema) as DbSchema;
             return sch.executeCreateTable(t, p);
@@ -813,8 +819,8 @@ export class DbSchema implements _ISchema, ISchema {
 
 
     declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
-        const nm = table.name.toLowerCase();
-        if (this.relsByName.has(nm)) {
+        const nm = table.name;
+        if (this.relsByNameLow.has(nm.toLowerCase())) {
             throw new Error('Table exists: ' + nm);
         }
         const trans = this.db.data.fork();
@@ -831,15 +837,16 @@ export class DbSchema implements _ISchema, ISchema {
         if (this.readonly) {
             throw new PermissionDeniedError()
         }
-        const newName = rel.name.toLowerCase();
-        if (this.relsByName.has(newName)) {
-            throw new Error('relation exists: ' + newName);
+        const nameLow = rel.name.toLowerCase();
+        if (this.relsByNameLow.has(nameLow)) {
+            throw new Error('relation exists: ' + rel.name.toLowerCase());
         }
         const ret: Reg = {
             classId: clsCnt++,
             typeId: clsCnt++,
         };
-        this.relsByName.set(newName, rel);
+        this.relsByNameLow.set(nameLow, rel);
+        this.relsByNameCas.set(rel.name, rel);
         this.relsByCls.set(ret.classId, rel);
         this.relsByTyp.set(ret.typeId, rel);
         if (rel.type === 'table') {
@@ -852,7 +859,8 @@ export class DbSchema implements _ISchema, ISchema {
         if (this.readonly) {
             throw new PermissionDeniedError()
         }
-        this.relsByName.delete(rel.name.toLowerCase());
+        this.relsByNameCas.delete(rel.name);
+        this.relsByNameLow.delete(rel.name.toLowerCase());
         this.relsByCls.delete(rel.reg.classId);
         this.relsByTyp.delete(rel.reg.typeId);
         if (rel.type === 'table') {
@@ -864,16 +872,18 @@ export class DbSchema implements _ISchema, ISchema {
         if (this.readonly) {
             throw new PermissionDeniedError()
         }
-        oldName = oldName.toLowerCase();
-        newName = newName.toLowerCase();
-        if (this.relsByName.has(newName)) {
-            throw new Error('relation exists: ' + newName);
+        const oldNameLow = oldName.toLowerCase();
+        const newNameLow = newName.toLowerCase();
+        if (this.relsByNameLow.has(newNameLow)) {
+            throw new Error('relation exists: ' + newNameLow);
         }
-        if (this.relsByName.get(oldName) !== rel) {
+        if (this.relsByNameLow.get(oldNameLow) !== rel) {
             throw new Error('consistency error while renaming relation');
         }
-        this.relsByName.delete(oldName);
-        this.relsByName.set(newName, rel);
+        this.relsByNameLow.delete(oldNameLow);
+        this.relsByNameCas.delete(oldName);
+        this.relsByNameLow.set(newNameLow, rel);
+        this.relsByNameCas.set(newName, rel);
     }
 
 

@@ -33,14 +33,21 @@ export enum DataType {
     regtype = 'regtype',
     regclass = 'regclass',
     json = 'json',
-    blob = 'blob',
+    bytea = 'bytea',
     timestamp = 'timestamp',
     date = 'date',
+    time = 'time',
     null = 'null',
     bool = 'bool',
 }
 
 export interface MemoryDbOptions {
+    /**
+     *  If set to true, this will throw an exception if
+     * you try to use an unsupported index type
+     * (only BTREE is supported at time of writing)
+     */
+    noIgnoreUnsupportedIndices?: boolean;
     /**
      * When set to true, this will auto create an index on foreign table when adding a foreign key.
      * 👉 Recommanded when using Typeorm .synchronize(), which creates foreign keys but not indices !

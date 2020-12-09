@@ -59,7 +59,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
-        this.name = _schema.name.toLowerCase();
+        this.name = _schema.name;
         this.reg = schema._reg_register(this);
         this.selection = buildAlias(this, this.name) as Alias<T>;
 
@@ -82,7 +82,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     rename(name: string) {
-        name = name.toLowerCase();
         const on = this.name;
         if (on === name) {
             return this;

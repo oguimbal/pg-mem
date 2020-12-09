@@ -4,10 +4,9 @@ import { Evaluator } from './valuetypes';
 import { ColumnConstraint, AlterColumn } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
 import { buildValue } from './predicate';
-import { fromNative } from './datatypes';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './btree-index';
-import { PgConstraintTable } from 'schema/pg-catalog/pg-constraints-list';
+import { fromNative } from './datatypes';
 
 
 
