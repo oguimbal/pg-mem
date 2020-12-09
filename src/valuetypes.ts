@@ -137,7 +137,7 @@ export class Evaluator<T = any> implements IValue<T> {
                 if (!Array.isArray(got)) {
                     throw new QueryError('Unexpected use of ANY()');
                 }
-                return got.map(x => converter(x, convDepth === 1));
+                return (got as any[]).map(x => converter(x, convDepth === 1));
             }
             , this.opts
         );

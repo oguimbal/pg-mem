@@ -12,7 +12,7 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
     }
 
     _schema: Schema = {
-        name: 'columns',
+        name: 'pg_constraint',
         fields: [
             { name: 'oid', type: Types.int } // hidden oid column
             , { name: 'conname', type: Types.text() } // <== 'name' type

@@ -1,12 +1,12 @@
-import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil } from './interfaces-private.ts';
+import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './valuetypes.ts';
-import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import { nullIsh } from './utils.ts';
 import { buildValue } from './predicate.ts';
-import { fromNative } from './datatypes.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './btree-index.ts';
+import { fromNative } from './datatypes.ts';
 
 
 
@@ -16,32 +16,58 @@ export class ColRef implements _Column {
     notNull = false;
     usedInIndexes = new Set<BIndex>();
     changeHandlers = new Set<ChangeHandler<any>>();
+    private drophandlers = new Set<DropHandler>();
 
     constructor(private table: MemoryTable
         , public expression: Evaluator
-        , _schema: SchemaField) {
+        , _schema: SchemaField
+        , private name: string) {
     }
 
-    addConstraint(constraint: ColumnConstraint, t: _Transaction): this {
-        switch (constraint.type) {
-            case 'primary key':
-                this.table.createIndex(t, {
-                    columns: [{ value: this.expression }],
-                    primary: true,
-                });
-                break;
-            case 'unique':
-                this.table.createIndex(t, {
-                    columns: [{ value: this.expression }],
-                    notNull: constraint.notNull,
-                    unique: true,
-                });
-                break;
-            case 'not null':
-                this.addNotNullConstraint(t);
-                break;
-            default:
-                throw NotSupported.never(constraint, 'add constraint type');
+    addConstraints(clist: ColumnConstraint[], t: _Transaction): this {
+        const notNull = clist.some(x => x.type === 'not null');
+        const acceptNil = clist.some(x => x.type === 'null');
+        if (notNull && acceptNil) {
+            throw new QueryError(`conflicting NULL/NOT NULL declarations for column "${this.name}" of table "${this.table.name}"`)
+        }
+        for (const c of clist) {
+            const cname = c.constraintName;
+            switch (c.type) {
+                case 'not null':
+                case 'null':
+                    // dealt with that above.
+                    break;
+                case 'primary key':
+                    this.table.createIndex(t, {
+                        columns: [{ value: this.expression }],
+                        primary: true,
+                        indexName: cname,
+                    });
+                    break;
+                case 'unique':
+                    this.table.createIndex(t, {
+                        columns: [{ value: this.expression }],
+                        notNull: notNull,
+                        unique: true,
+                        indexName: cname,
+                    });
+                    break;
+                case 'default':
+                    this.alter({
+                        type: 'set default',
+                        default: c.default,
+                        updateExisting: true,
+                    }, t);
+                    break;
+                case 'check':
+                    this.table.addCheck(t, c.expr, cname);
+                    break;
+                default:
+                    throw NotSupported.never(c, 'add constraint type');
+            }
+        }
+        if (notNull) {
+            this.addNotNullConstraint(t);
         }
         this.table.db.onSchemaChange();
         return this;
@@ -83,6 +109,7 @@ export class ColRef implements _Column {
         // === do nasty things to rename column
         this.replaceExpression(to, this.expression.type);
         this.table.db.onSchemaChange();
+        this.name = to;
         return this;
     }
 
@@ -144,7 +171,7 @@ export class ColRef implements _Column {
 
         // remove indices
         for (const u of this.usedInIndexes) {
-            this.table.dropIndex(u);
+            this.table.dropIndex(t, u.name);
         }
 
         // remove associated data
@@ -153,6 +180,7 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnsByName.delete(on);
         this.table.columnDefs.splice(i, 1);
+        this.drophandlers.forEach(d => d(t));
         this.table.db.onSchemaChange();
     }
 
@@ -175,6 +203,16 @@ export class ColRef implements _Column {
             toInsert[this.expression.id!] = null
         } else {
             toInsert[this.expression.id!] = this.default.get();
+        }
+    }
+
+
+    onDrop(sub: DropHandler): ISubscription {
+        this.drophandlers.add(sub);
+        return {
+            unsubscribe: () => {
+                this.drophandlers.delete(sub);
+            }
         }
     }
 }

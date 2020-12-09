@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, DataTypeDef, ConstraintDef, TableRef, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -30,23 +30,50 @@ export function setId<T = any>(item: T, id: string): T {
     return item;
 }
 
-export interface _ISchema extends ISchema {
+export type RegClass = string | number;
+export type RegType = string | number;
 
+export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
     buildSelect(p: SelectStatement): _ISelection;
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
     getTable(table: string): _ITable;
-    getTable(table: string, nullIfNotFound: false, forceOwn?: boolean): _ITable;
-    getTable(table: string, nullIfNotFound?: boolean, forceOwn?: boolean): _ITable | null;
+    getTable(table: string, nullIfNotFound?: boolean): _ITable;
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
-    _doRenTab(db: string, to: string): any;
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
-    _settable(tname: string, table: _ITable): this;
     /** Get functions matching this arrity */
     getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
+
+    getObject(p: QName): _IRelation;
+    getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
+
+    getOwnObject(name: string): _IRelation | null;
+
+
+    getObjectByRegClassId(reg: number): _IRelation;
+    getObjectByRegClassId(reg: number, opts?: QueryObjOpts): _IRelation | null;
+
+    getOwnObjectByRegClassId(reg: number): _IRelation | null;
+
+    getObjectByRegOrName(reg: RegClass): _IRelation;
+    getObjectByRegOrName(reg: RegClass, opts?: QueryObjOpts): _IRelation | null;
+
+    setReadonly(): void;
+
+
+    _reg_register(rel: _IRelation): Reg;
+    _reg_unregister(rel: _IRelation): void;
+    _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
+}
+
+export interface QueryObjOpts {
+    /** Returns null instead of throwing error if not found */
+    nullIfNotFound?: boolean;
+    /** Will only search in the current schema, or in the targeted schema (not in search path) */
+    skipSearch?: boolean;
 }
 
 export interface _FunctionDefinition {
@@ -67,6 +94,7 @@ export interface _Transaction {
     /** Commits this transaction and all underlying transactions */
     fullCommit(): _Transaction;
     rollback(): _Transaction;
+    delete(identity: symbol): void;
     set<T>(identity: symbol, data: T): T;
     get<T>(identity: symbol): T;
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
@@ -248,6 +276,7 @@ export interface _IDb extends IMemoryDb {
     readonly options: MemoryDbOptions;
     readonly public: _ISchema;
     readonly data: _Transaction;
+    readonly searchPath: ReadonlyArray<string>;
 
     createSchema(db: string): _ISchema;
     getSchema(db?: string | null): _ISchema;
@@ -264,8 +293,22 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     onIndex: _IIndex;
     update: (item: any, excluded: any) => void;
 }
-export interface _ITable<T = any> extends IMemoryTable {
 
+export type DropHandler = (t: _Transaction) => void;
+export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
+
+interface _RelationBase {
+    readonly name: string;
+    readonly reg: Reg;
+}
+
+export interface Reg {
+    readonly typeId: number;
+    readonly classId: number;
+}
+
+export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
+    readonly type: 'table';
     readonly hidden: boolean;
     readonly db: _IDb;
     readonly ownerSchema: _ISchema;
@@ -284,10 +327,14 @@ export interface _ITable<T = any> extends IMemoryTable {
     getColumnRef(column: string): _Column;
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
-    addConstraint(constraint: ConstraintDef, t: _Transaction, constraintName?: string): void;
-    /** Will be executed when one of the given columns is affected (update/delete) */
-    onChange(columns: string[], check: ChangeHandler<T>): void;
+    addConstraint(constraint: TableConstraint, t: _Transaction, constraintName?: string): void;
     getIndex(...forValues: IValue[]): _IIndex | nil;
+    dropIndex(t: _Transaction, name: string): void;
+    drop(t: _Transaction): void;
+    /** Will be executed when one of the given columns is affected (update/delete) */
+    onChange(columns: string[], check: ChangeHandler<T>): ISubscription;
+    onDrop(sub: DropHandler): ISubscription;
+    onIndex(sub: IndexHandler): ISubscription;
 }
 
 export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;
@@ -299,7 +346,7 @@ export interface _Column {
     alter(alter: AlterColumn, t: _Transaction): this;
     rename(to: string, t: _Transaction): this;
     drop(t: _Transaction): void;
-
+    onDrop(sub: DropHandler): ISubscription;
 }
 
 export interface CreateIndexDef {
@@ -393,6 +440,11 @@ export interface IndexExpression {
     readonly hash: string;
     readonly type: _IType;
 }
+
+export interface _INamedIndex<T = any> extends _IIndex<T>, _RelationBase {
+    readonly type: 'index';
+    readonly onTable: _ITable<T>;
+}
 export interface _IIndex<T = any> {
     readonly unique?: boolean;
     readonly expressions: IndexExpression[];
@@ -470,3 +522,53 @@ export const NewColumn = Record<TableColumnRecordDef<any>>({
     type: null as any,
     name: null as any,
 });
+
+export type _IRelation = _ITable | _ISequence | _INamedIndex;
+
+export function asIndex(o: _IRelation): _INamedIndex;
+export function asIndex(o: _IRelation | null): _INamedIndex | null;
+export function asIndex(o: _IRelation | null) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'index') {
+        return o;
+    }
+    throw new QueryError(`"${o.name}" is not an index`);
+}
+export function asSeq(o: _IRelation): _ISequence;
+export function asSeq(o: _IRelation | null): _ISequence | null;
+export function asSeq(o: _IRelation | null) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'sequence') {
+        return o;
+    }
+    throw new QueryError(`"${o.name}" is not a sequence`);
+}
+export function asTable(o: _IRelation): _ITable;
+export function asTable(o: _IRelation | null): _ITable | null;
+export function asTable(o: _IRelation | null, nullIfNotType?: boolean): _ITable | null;
+export function asTable(o: _IRelation | null, nullIfNotType?: boolean) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'table') {
+        return o;
+    }
+    if (nullIfNotType) {
+        return null;
+    }
+    throw new QueryError(`"${o.name}" is not a table`);
+}
+
+export interface _ISequence extends _RelationBase {
+
+    readonly type: 'sequence';
+    alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this;
+    nextValue(t: _Transaction): number;
+    setValue(t: _Transaction, value: number): void;
+    currentValue(t: _Transaction): number;
+    drop(t: _Transaction): void;
+}

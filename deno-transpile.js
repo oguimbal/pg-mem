@@ -83,10 +83,16 @@ if (process.argv.includes('--copy')) {
         'moment': 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts',
         'functional-red-black-tree': 'https://deno.land/x/functional_red_black_tree@1.0.1-deno/mod.ts',
     }
+    const localBindings = {
+        './buffer-node': './buffer-deno'
+    }
     function handleTs(ipath, rpath) {
         const content = fs.readFileSync(ipath, 'utf-8');
         const newContent = content.replace(/^(import|export)\s+([^\n]+)\s+from\s+['"]([^'"]+)['"];?$/mg, (_, op, what, where) => {
             if (/^\./.test(where)) {
+                if (localBindings[where]) {
+                    where = localBindings[where];
+                }
                 const asDir = path.join(path.dirname(ipath), where, 'index.ts');
                 if (fs.existsSync(asDir)) {
                     where = where + '/index';

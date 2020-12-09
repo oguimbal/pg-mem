@@ -1,14 +1,18 @@
-# What is it ?
-
-🏃‍♀️ `pg-mem` is an experimental in-memory emulation of a postgres database.
+> `pg-mem` is an experimental in-memory emulation of a postgres database.
 
 ❤ It works both in node or in browser.
 
-👉 Dont forget to ⭐ this repo if you like this package :)
+⭐ this repo if you like this package, it helps to motivate me :)
 
 👉 See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
 
 
+* [Usage](#-usage)
+* [Features](#-features)
+* [Libraries adapters](#-libraries-adapters)
+* [Inspection](#inspection)
+* [Supported features](#-supported-features)
+* [Development](#-development)
 
 
 # 📐 Usage
@@ -126,103 +130,15 @@ Statements like `create extension "my-ext"` will then be supported.
 
 # 📃 Libraries adapters
 
+pg-mem provides handy shortcuts to create instances of popuplar libraries that will be bound to pg-mem instead of a real postgres db.
 
-## pg-native
+- pg-native
+- node-postgres (pg)
+- pg-promise (pgp)
+- slonik
+- typeorm
 
-You can ask `pg-mem` to get you an object wich implements the same behaviour as [pg-native](https://github.com/brianc/node-pg-native).
-
-
-```typescript
-// instead of
-import Client from 'pg-native';
-
-// use:
-import {newDb} from 'pg-mem';
-const Client = newDb.adapters.createPgNative();
-```
-
-
-## node-postgres (pg)
-
-You can use `pg-mem` to get a memory version of the [node-postgres (pg)](https://github.com/brianc/node-postgres) module.
-
-```typescript
-// instead of
-import {Client} from 'pg';
-
-// use:
-import {newDb} from 'pg-mem';
-const {Client} = newDb.adapters.createPg();
-```
-
-
-## pg-promise (pgp)
-
-You can ask `pg-mem` to get you a [pg-promise](https://github.com/vitaly-t/pg-promise) instance bound to this db.
-
-Given that pg-promise [does not provide](https://github.com/vitaly-t/pg-promise/issues/743) any way to be hooked, [I had to fork it](https://github.com/oguimbal/pg-promise).
-You must install this fork in order to use this  (not necessarily use it in production):
-
-```bash
-npm i @oguimbal/pg-promise -D
-```
-
-Then:
-
-```typescript
-// instead of
-import pgp from 'pg-promise';
-const pg = pgp(opts)
-
-// use:
-import {newDb} from 'pg-mem';
-const pg = await newDb.adapters.createPgPromise();
-
-// then use it like you would with pg-promise
-await pg.connect();
-```
-
-
-## slonik
-
-You can use `pg-mem` to get a memory version of a [slonik](https://github.com/gajus/slonik) pool.
-
-```typescript
-// instead of
-import {createPool} from 'slonik';
-const pool = createPool(/* args */);
-
-// use:
-import {newDb} from 'pg-mem';
-const pool = newDb.adapters.createSlonik();
-```
-
-
-## Typeorm
-
-You can use `pg-mem` as a backend database for [Typeorm](https://github.com/typeorm/typeorm), [node-postgres (pg)](https://github.com/brianc/node-postgres).
-
-Usage:
-```typescript
-const db = newDb();
-const connection = await db.adapters.createTypeormConnection({
-    type: 'postgres',
-    entities: [/* your entities here ! */]
-})
-
-// create schema
-await connection.synchronize();
-
-// => you now can user your typeorm connection !
-```
-
-See detailed examples [here](samples/typeorm/simple.ts) and [here](samples/typeorm/joins.ts).
-
-See restore points (section above) to avoid running schema creation  (`.synchronize()`) on each test.
-
-__NB: Restore points only work if the schema has not been changed after the restore point has been created__
-
-note: You must install `typeorm` module first.
+[See the wiki for more details](https://github.com/oguimbal/pg-mem/wiki/Libraries-adapters)
 
 # Inspection
 
@@ -262,6 +178,16 @@ db.getTable('myTable').on('seq-scan', () = {});
 db.on('catastrophic-join-optimization', () => {});
 ```
 
+
+# 🙋‍♂️ FAQ
+
+- [Why this instead of Docker ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-why-use-pg-mem-instead-of-an-instance-of-postgres-in-docker-) _TLDR : It's faster. Docker is overkill._
+- [What if I need an extension like uuid-ossp ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-what-if-i-need-an-extension-like-uuid-ossp-) _TLDR: You can mock those_
+- [How to import my production schema in pg-mem ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-how-to-import-my-production-schema-in-pg-mem-) _TLDR: pg\_dump with the right args_
+
+
+Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
+
 # 📃 Supported features
 
 It supports:
@@ -281,6 +207,7 @@ It does not (yet) support (this is kind-of a todo list):
 - [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
 - [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
 - [ ] Concurrent transaction commit
+- [ ] Collation (see #collation tag in code if you want to implement it)
 
 ... PRs are open :)
 

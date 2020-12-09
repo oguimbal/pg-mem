@@ -3,7 +3,7 @@ import { List } from 'immutable';
 import { NotSupported, _ISchema, _Transaction } from './interfaces-private';
 import { Expr, QName } from 'pgsql-ast-parser';
 import { ISubscription } from './interfaces';
-import { bufClone, bufCompare, isBuf } from './node-buffer';
+import { bufClone, bufCompare, isBuf } from './buffer-node';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
@@ -320,7 +320,7 @@ export function deepCloneSimple<T>(v: T): T {
         return v;
     }
     if (Array.isArray(v)) {
-        return v.map(x => deepCloneSimple(x)) as any;
+        return (v as any[]).map(x => deepCloneSimple(x)) as any;
     }
     if (isBuf(v)) {
         return bufClone(v) as any;

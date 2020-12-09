@@ -1,5 +1,5 @@
 import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats } from '../interfaces-private.ts';
-import { ReadOnlyError, NotSupported } from '../interfaces.ts';
+import { PermissionDeniedError, NotSupported } from '../interfaces.ts';
 
 export class TableIndex implements _IIndex {
     readonly expressions: IValue<any>[];
@@ -34,7 +34,7 @@ export class TableIndex implements _IIndex {
 
 
     add(raw: any): void {
-        throw new ReadOnlyError('tables');
+        throw new PermissionDeniedError('tables');
     }
 
     eqFirst([key]: any, t: _Transaction) {

@@ -1,15 +1,15 @@
-import { IMemoryTable, Schema, QueryError, RecordExists, TableEvent, ReadOnlyError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil } from './interfaces.ts';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler } from './interfaces-private.ts';
+import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces.ts';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg } from './interfaces-private.ts';
 import { buildValue } from './predicate.ts';
 import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, AlterColumn, ColumnConstraint, ConstraintDef, Expr, ExprBinary, ConstraintForeignKeyDef } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, ExprBinary } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import { fromNative } from './datatypes.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
-import {  DataSourceBase } from './transforms/transform-base.ts';
+import { DataSourceBase } from './transforms/transform-base.ts';
 import { parseSql } from './parse-cache.ts';
 
 function indexHash(this: void, vals: IValue[]) {
@@ -20,7 +20,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
+    readonly reg: Reg;
     private it = 0;
+    private cstGen = 0;
     hasPrimary = false;
     private readonly = false;
     hidden = false;
@@ -30,13 +32,18 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         index: BIndex<T>;
         expressions: IValue[];
     }>();
-    private indexByName = new Map<string, BIndex<T>>();
     columnDefs: ColRef[] = [];
     columnsByName = new Map<string, ColRef>();
     name: string;
 
     readonly columns: IValue[] = [];
     private changeHandlers = new Set<ChangeHandler<T>>();
+    private drophandlers = new Set<DropHandler>();
+    private indexHandlers = new Set<IndexHandler>();
+
+    get type() {
+        return 'table' as const;
+    }
 
     get debugId() {
         return this.name;
@@ -53,6 +60,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
+        this.reg = schema._reg_register(this);
         this.selection = buildAlias(this, this.name) as Alias<T>;
 
         // fields
@@ -62,16 +70,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
-            switch (c.type) {
-                case 'primary key':
-                    this.createIndex(t, c.columns, 'primary', c.constraintName);
-                    break;
-                case 'unique':
-                    this.createIndex(t, c.columns, 'unique', c.constraintName);
-                    break;
-                default:
-                    throw NotSupported.never(c, 'constraint type');
-            }
+            this.addConstraint(c, t);
         }
     }
 
@@ -88,8 +87,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return this;
         }
         this.name = name;
-        this.ownerSchema._doRenTab(on, name);
-        (this.selection as Alias<T>).name = this.name.toLowerCase();
+        this.ownerSchema._reg_rename(this, on, name);
+        (this.selection as Alias<T>).name = this.name;
         this.db.onSchemaChange();
         return this;
     }
@@ -125,17 +124,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.columnsByName.has(low)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
-        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column);
+        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column, column.name);
 
-        if (column.default) {
-            cref.alter({
-                type: 'set default',
-                default: column.default,
-                updateExisting: true,
-            }, t)
-        } else {
-            this.remapData(t, x => (x as any)[column.name] = null);
-        }
 
         // auto increments
         if (column.serial) {
@@ -146,8 +136,12 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.columnsByName.set(low, cref);
 
         try {
-            if (column.constraint) {
-                cref.addConstraint(column.constraint, t);
+            if (column.constraints?.length) {
+                cref.addConstraints(column.constraints, t);
+            }
+            const hasDefault = column.constraints?.some(x => x.type === 'default');
+            if (!hasDefault) {
+                this.remapData(t, x => (x as any)[column.name] = (x as any)[column.name] ?? null);
             }
         } catch (e) {
             this.columnDefs.pop();
@@ -234,7 +228,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T {
         if (this.readonly) {
-            throw new ReadOnlyError(this.name);
+            throw new PermissionDeniedError(this.name);
         }
 
         // get ID of this item
@@ -304,7 +298,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     update(t: _Transaction, toUpdate: T): T {
         if (this.readonly) {
-            throw new ReadOnlyError(this.name);
+            throw new PermissionDeniedError(this.name);
         }
         const bin = this.bin(t);
         const id = getId(toUpdate);
@@ -400,10 +394,42 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return got?.index ?? null;
     }
 
+    constraintNameGen(constraintName?: string) {
+        return constraintName
+            ?? (this.name + '_constraint_' + (++this.cstGen));
+    }
 
-    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, type?: 'primary' | 'unique', indexName?: string): this {
+    addCheck(_t: _Transaction, check: Expr, constraintName?: string) {
+        constraintName = this.constraintNameGen(constraintName);
+        const getter = buildValue(this.selection, check).convert(DataType.bool);
+
+        const checkVal = (t: _Transaction, v: any) => {
+            const value = getter.get(v, t);
+            if (value === false) {
+                throw new QueryError(`check constraint "${constraintName}" is violated by some row`)
+            }
+        }
+
+        // check that everything matches (before adding check)
+        for (const v of this.enumerate(_t)) {
+            checkVal(_t, v);
+        }
+
+        // add a check for future updates
+        this.onChange([], (old, neu, ct) => {
+            if (!neu) {
+                return;
+            }
+            checkVal(ct, neu);
+        });
+    }
+
+
+    createIndex(t: _Transaction, expressions: CreateIndexDef): this;
+    createIndex(t: _Transaction, expressions: string[], type: 'primary' | 'unique', indexName?: string): this;
+    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): this {
         if (this.readonly) {
-            throw new ReadOnlyError(this.name);
+            throw new PermissionDeniedError(this.name);
         }
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
@@ -416,9 +442,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
             return this.createIndex(t, {
                 columns: keys,
-                primary: type === 'primary',
-                notNull: type === 'primary',
-                unique: !!type,
+                primary: _type === 'primary',
+                notNull: _type === 'primary',
+                unique: !!_type,
+                indexName: _indexName,
             });
         }
 
@@ -436,14 +463,26 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         const ihash = indexHash(expressions.columns.map(x => x.value));
-        const index = new BIndex(t, expressions.columns, this, ihash, indexName ?? expressions.indexName ?? ihash, !!expressions.unique, !!expressions.notNull);
 
-        if (this.indexByHash.has(ihash) || this.indexByName.has(index.indexName)) {
-            if (expressions.ifNotExists) {
-                return this;
+        let indexName: string;
+        if (expressions.indexName) {
+            indexName = expressions.indexName;
+            if (this.ownerSchema.getOwnObject(indexName)) {
+                if (expressions.ifNotExists) {
+                    return this;
+                }
+                throw new QueryError(`relation "${indexName}" already exists`);
             }
-            throw new QueryError('Index already exists');
+        } else {
+            const baseName = indexName = expressions.indexName ?? `${this.name}_${ihash}_idx`;
+            let i = 1;
+            while (this.ownerSchema.getOwnObject(indexName)) {
+                indexName = baseName + (i++);
+            }
         }
+
+
+        const index = new BIndex(t, indexName, expressions.columns, this, ihash, !!expressions.unique, !!expressions.notNull);
 
         // fill index (might throw if constraint not respected)
         const bin = this.bin(t);
@@ -452,6 +491,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // =========== reference index ============
+        this.indexHandlers.forEach(h => h('create', index));
         // ⚠⚠ This must be done LAST, to avoid throwing an execption if index population failed
         for (const col of index.expressions) {
             for (const used of col.usedColumns) {
@@ -459,30 +499,40 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
         }
         this.indexByHash.set(ihash, { index, expressions: index.expressions });
-        this.indexByName.set(index.indexName, index)
         if (expressions.primary) {
             this.hasPrimary = true;
         }
         return this;
     }
 
-    dropIndex(u: BIndex<any>) {
-        if (!this.indexByHash.has(u.hash)) {
-            throw new QueryError('Cannot drop index that does not belong to this table: ' + u.hash);
+    dropIndex(t: _Transaction, uName: string) {
+        const u = asIndex(this.ownerSchema.getOwnObject(uName)) as BIndex;
+        if (!u || !this.indexByHash.has(u.hash)) {
+            throw new QueryError('Cannot drop index that does not belong to this table: ' + uName);
         }
+        this.indexHandlers.forEach(h => h('drop', u));
         this.indexByHash.delete(u.hash);
-        this.indexByName.delete(u.indexName);
+        u.dropFromData(t);
+        this.ownerSchema._reg_unregister(u);
+    }
+
+
+    onIndex(sub: IndexHandler): ISubscription {
+        this.indexHandlers.add(sub);
+        return {
+            unsubscribe: () => this.indexHandlers.delete(sub),
+        };
     }
 
     listIndices(): IndexDef[] {
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
-                name: x.index.indexName,
+                name: x.index.name!,
                 expressions: x.expressions.map(x => x.sql!),
             }));
     }
 
-    addForeignKey(cst: ConstraintForeignKeyDef, t: _Transaction, constraintName?: string) {
+    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction, constraintName?: string) {
         const ftable = this.ownerSchema.getTable(cst.foreignTable) as MemoryTable;
         const cols = cst.localColumns.map(x => this.getColumnRef(x));
         const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
@@ -551,7 +601,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         });
 
         // when changing something in this table, then there must be a key match in the foreign table
-        this.onChange(cst.localColumns, (_, neu, dt) => {
+        const thisSub = this.onChange(cst.localColumns, (_, neu, dt) => {
             if (!neu) {
                 return;
             }
@@ -587,27 +637,61 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
             }
         });
+
+
+        ftable.onDrop(() => {
+            thisSub.unsubscribe()
+        });
     }
 
-    addConstraint(cst: ConstraintDef, t: _Transaction, constraintName?: string) {
+    addConstraint(cst: TableConstraint, t: _Transaction) {
         // todo add constraint name
         switch (cst.type) {
             case 'foreign key':
-                this.addForeignKey(cst, t, constraintName);
-                return;
+                return this.addForeignKey(cst, t, cst.constraintName);
             case 'primary key':
-                this.createIndex(t, cst.columns, 'primary', constraintName);
-                return;
+                return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
+            case 'unique':
+                return this.createIndex(t, cst.columns, 'unique', cst.constraintName);
+            case 'check':
+                return this.addCheck(t, cst.expr, cst.constraintName);
             default:
                 throw NotSupported.never(cst, 'constraint type');
         }
     }
 
-    onChange(columns: string[], check: ChangeHandler<T>) {
+    onChange(columns: string[], check: ChangeHandler<T>): ISubscription {
         this.changeHandlers.add(check);
+        const reset: (() => void)[] = [];
         for (const c of columns) {
-            this.getColumnRef(c).changeHandlers.add(check);
+            const hs = this.getColumnRef(c).changeHandlers;
+            hs.add(check);
+            reset.push(() => hs.delete(check));
+        }
+        return {
+            unsubscribe: () => {
+                this.changeHandlers.delete(check);
+                reset.forEach(d => d());
+            }
         }
     }
 
+    drop(t: _Transaction) {
+        t.delete(this.dataId);
+        this.drophandlers.forEach(d => d(t));
+        for (const i of this.indexByHash.values()) {
+            i.index.dropFromData(t);
+        }
+        // todo should also check foreign keys, cascade, ...
+        return this.ownerSchema._reg_unregister(this);
+    }
+
+    onDrop(sub: DropHandler): ISubscription {
+        this.drophandlers.add(sub);
+        return {
+            unsubscribe: () => {
+                this.drophandlers.delete(sub);
+            }
+        }
+    }
 }

@@ -5,7 +5,7 @@ import { deepEqual, deepCompare, nullIsh, getContext } from './utils';
 import { Evaluator, Value } from './valuetypes';
 import { DataTypeDef, parse, QName } from 'pgsql-ast-parser';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
-import { bufCompare, bufFromString, bufToString, TBuffer } from './node-buffer';
+import { bufCompare, bufFromString, bufToString, TBuffer } from './buffer-node';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 

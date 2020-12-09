@@ -1,44 +1,55 @@
 import { Types } from '../../datatypes.ts';
-import { _IDb, _ISchema } from '../../interfaces-private.ts';
+import { FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private.ts';
 import { PgAttributeTable } from './pg-attribute-list.ts';
 import { PgClassListTable } from './pg-classlist.ts';
 import { PgConstraintTable } from './pg-constraints-list.ts';
 import { PgIndexTable } from './pg-index-list.ts';
 import { PgNamespaceTable } from './pg-namespace-list.ts';
 import { PgTypeTable } from './pg-type-list.ts';
-import { stringFunctions } from '../../functions/string.ts';
-import { dateFunctions } from '../../functions/date.ts';
-import { systemFunctions } from '../../functions/system.ts';
-import { FunctionDefinition } from '../../interfaces.ts';
+import { allFunctions } from '../../functions/index.ts';
+
 
 export function setupPgCatalog(db: _IDb) {
     const catalog: _ISchema = db.createSchema('pg_catalog');
 
-        catalog._settable('pg_constraint', new PgConstraintTable(catalog))
-        catalog._settable('pg_class', new PgClassListTable(catalog))
-        catalog._settable('pg_namespace', new PgNamespaceTable(catalog))
-        catalog._settable('pg_attribute', new PgAttributeTable(catalog))
-        catalog._settable('pg_index', new PgIndexTable(catalog))
-        catalog._settable('pg_type', new PgTypeTable(catalog));
+    new PgConstraintTable(catalog).register();
+    new PgClassListTable(catalog).register();
+    new PgNamespaceTable(catalog).register();
+    new PgAttributeTable(catalog).register();
+    new PgIndexTable(catalog).register();
+    new PgTypeTable(catalog).register();
 
 
-        // this is an ugly hack...
-        const tbl = catalog.declareTable({
-            name: 'current_schema',
-            fields: [
-                { name: 'current_schema', type: Types.text() },
-            ]
-        }, true);
-        tbl.insert(db.data, { current_schema: 'public' });
-        tbl.setHidden().setReadonly();
+    // this is an ugly hack...
+    const tbl = catalog.declareTable({
+        name: 'current_schema',
+        fields: [
+            { name: 'current_schema', type: Types.text() },
+        ]
+    }, true);
+    tbl.insert(db.data, { current_schema: 'public' });
+    tbl.setHidden().setReadonly();
 
-        addFns(catalog, stringFunctions);
-        addFns(catalog, dateFunctions);
-        addFns(catalog, systemFunctions);
-    }
+    addFns(catalog, allFunctions);
 
-    function addFns(catalog: _ISchema, fns: FunctionDefinition[]) {
-        for (const f of fns) {
-            catalog.registerFunction(f);
+    catalog.registerFunction({
+        name: 'set_config',
+        args: [Types.text(), Types.text(), Types.bool],
+        returns: Types.text(),
+        impure: true,
+        implementation: (cfg: string, val: string, is_local: boolean) => {
+            // todo - implement this... used to override search_path in dumps.
+            //       => have a dynamic search_path.
+            //       => not trivial du to the "is_local" arg
+            //  https://www.postgresql.org/docs/9.3/functions-admin.html
+            return val;
         }
+    });
+    catalog.setReadonly()
+}
+
+function addFns(catalog: _ISchema, fns: FunctionDefinition[]) {
+    for (const f of fns) {
+        catalog.registerFunction(f);
     }
+}

@@ -9,7 +9,7 @@ export function bufCompare(a: TBuffer, b: TBuffer) {
     return Buffer.compare(a, b);
 }
 
-export function bufFromString(str: TBuffer) {
+export function bufFromString(str: string) {
     return Buffer.from(str);
 }
 

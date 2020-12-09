@@ -2,7 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprEx
 import { DataType, QueryError, CastError, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes.ts';
-import { buildCall } from './functions.ts';
+import { buildCall } from './function-call.ts';
 import { nullIsh } from './utils.ts';
 
 
@@ -137,7 +137,7 @@ export class Evaluator<T = any> implements IValue<T> {
                 if (!Array.isArray(got)) {
                     throw new QueryError('Unexpected use of ANY()');
                 }
-                return got.map(x => converter(x, convDepth === 1));
+                return (got as any[]).map(x => converter(x, convDepth === 1));
             }
             , this.opts
         );

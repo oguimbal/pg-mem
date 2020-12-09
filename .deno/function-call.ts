@@ -1,10 +1,11 @@
-import { IValue, _IType, _ISelection, _ISchema } from './interfaces-private.ts';
+import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private.ts';
 import { Types, ArrayType, makeType } from './datatypes.ts';
-import { QueryError, DataType, NotSupported, FunctionDefinition } from './interfaces.ts';
+import { QueryError, DataType, NotSupported, FunctionDefinition, nil } from './interfaces.ts';
 import { Evaluator } from './valuetypes.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import { nullIsh } from './utils.ts';
+
 
 export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     let type: _IType;

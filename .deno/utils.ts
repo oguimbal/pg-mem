@@ -1,13 +1,15 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { IValue, NotSupported } from './interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { NotSupported, _ISchema, _Transaction } from './interfaces-private.ts';
+import { Expr, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { ISubscription } from './interfaces.ts';
+import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
 }
 
-export type Optional<T> = {[key in keyof T]?: T[key]};
+export type Optional<T> = { [key in keyof T]?: T[key] };
 
 
 
@@ -35,9 +37,9 @@ export function trimNullish<T>(value: T, depth = 5): T {
 }
 
 
-export function watchUse<T>(rootValue: T): T & { check?(): any; } {
+export function watchUse<T>(rootValue: T): { checked: T; check?: () => string | null; } {
     if (!rootValue || typeof globalThis !== 'undefined' && (globalThis as any)?.process?.env?.['NOCHECKFULLQUERYUSAGE'] === 'true') {
-        return rootValue;
+        return { checked: rootValue };
     }
     if (typeof rootValue !== 'object') {
         throw new NotSupported();
@@ -74,14 +76,18 @@ export function watchUse<T>(rootValue: T): T & { check?(): any; } {
 
     const final = recurse(rootValue);
 
-    final['check'] = function () {
+    const check = function () {
         if (toUse.size) {
-            throw new NotSupported('AST query parts have not been read by the query planner.\nPlease file an issue stating the incriminated request, and:\n- ' + [...toUse.entries()]
-                .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
-                .join('\n- '));
+            return `The query you ran generated an AST which parts have not been read by the query planner. \
+This means that those parts could be ignored:
+
+    ⇨ ` + [...toUse.entries()]
+                    .map(([k, v]) => k + ' (' + JSON.stringify(v) + ')')
+                    .join('\n    ⇨ ');
         }
+        return null;
     }
-    return final;
+    return { checked: final, check };
 }
 
 
@@ -118,6 +124,16 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
                 return inner;
         }
         return 0;
+    }
+
+    if (isBuf(a) || isBuf(b)) {
+        if (!isBuf(a)) {
+            return 1;
+        }
+        if (!isBuf(b)) {
+            return -1;
+        }
+        return bufCompare(a, b);
     }
 
     // handle dates
@@ -304,7 +320,10 @@ export function deepCloneSimple<T>(v: T): T {
         return v;
     }
     if (Array.isArray(v)) {
-        return v.map(x => deepCloneSimple(x)) as any;
+        return (v as any[]).map(x => deepCloneSimple(x)) as any;
+    }
+    if (isBuf(v)) {
+        return bufClone(v) as any;
     }
 
     const ret: any = {};
@@ -323,5 +342,52 @@ export function isSelectAllArgList(select: Expr[]) {
     return select.length === 1
         && first.type === 'ref'
         && first.name === '*'
-        // && !first.table
+    // && !first.table
+}
+
+
+export function ignore(...val: any[]): void {
+    for (const v of val) {
+        if (!v) {
+            continue;
+        }
+        if (Array.isArray(v)) {
+            ignore(...v);
+            continue;
+        }
+        if (typeof v !== 'object') {
+            continue;
+        }
+        ignore(...Object.values(v));
+    }
+}
+
+export function combineSubs(...vals: ISubscription[]): ISubscription {
+    return {
+        unsubscribe: () => {
+            vals.forEach(u => u?.unsubscribe());
+        },
+    };
+}
+
+
+interface Ctx {
+    schema: _ISchema;
+    transaction: _Transaction;
+}
+const curCtx: Ctx[] = [];
+export function getContext(): Ctx {
+    if (!curCtx.length) {
+        throw new Error('Cannot call getFunctionContext() in this context');
+    }
+    return curCtx[curCtx.length - 1];
+}
+
+export function pushContext<T>(ctx: Ctx, act: () => T): T {
+    try {
+        curCtx.push(ctx)
+        return act();
+    } finally {
+        curCtx.pop();
+    }
 }

@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './valuetypes.ts';
 import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 
@@ -68,6 +68,9 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'integer':
             return Value.number(val.value, Types.int);
         case 'call':
+            if (typeof val.function !== 'string') {
+                return buildKeyword(val.function, val.args);
+            }
             if (aggregationFunctions.has(val.function)) {
                 if (!(data instanceof Aggregation)) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
@@ -94,8 +97,39 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildSelectAsArray(data, val);
         case 'constant':
             return Value.constant(val.dataType as any, val.value);
+        case 'keyword':
+            return buildKeyword(val, []);
         default:
             throw NotSupported.never(val);
+    }
+}
+
+function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
+    if (args.length) {
+        throw new NotSupported(`usage of "${kw.keyword}" keyword with arguments, please file an issue in https://github.com/oguimbal/pg-mem if you need it !`);
+    }
+    if (kw.type !== 'keyword') {
+        throw new Error('Invalid AST');
+    }
+    switch (kw.keyword) {
+        case 'current_catalog':
+        case 'current_role':
+        case 'current_user':
+        case 'session_user':
+        case 'user':
+            return Value.constant(DataType.text, 'pg_mem');
+        case 'current_schema':
+            return Value.constant(DataType.text, 'public');
+        case 'current_date':
+            return Value.constant(DataType.date, new Date());
+        case 'current_timestamp':
+        case 'localtimestamp':
+            return Value.constant(DataType.timestamp, new Date());
+        case 'localtime':
+        case 'current_time':
+            throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
+        default:
+            throw NotSupported.never(kw.keyword);
     }
 }
 

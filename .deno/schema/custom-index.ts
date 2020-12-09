@@ -1,5 +1,5 @@
 import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats } from '../interfaces-private.ts';
-import { ReadOnlyError, NotSupported } from '../interfaces.ts';
+import { PermissionDeniedError, NotSupported } from '../interfaces.ts';
 
 interface IndexSubject<T> {
     readonly size: number;
@@ -36,7 +36,7 @@ export class CustomIndex<T> implements _IIndex<T> {
     }
 
     add(raw: any): void {
-        throw new ReadOnlyError();
+        throw new PermissionDeniedError();
     }
 
     eqFirst([key]: any, t: _Transaction) {

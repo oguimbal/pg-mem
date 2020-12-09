@@ -1,7 +1,7 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, ReadOnlyError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats } from '../interfaces-private.ts';
-import { CreateColumnDef, ConstraintDef } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg } from '../interfaces-private.ts';
+import { CreateColumnDef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
-import { Schema, ColumnNotFound, nil } from '../interfaces.ts';
+import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
 import { columnEvaluator } from '../transforms/selection.ts';
 
@@ -13,23 +13,35 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     abstract hasItem(value: T, t: _Transaction): boolean;
     abstract readonly _schema: Schema;
 
+    reg!: Reg;
+
     readonly selection: _ISelection = buildAlias(this);
-    hidden = true;
+    readonly hidden = true;
 
     isOriginOf(v: IValue): boolean {
         return v.origin === this || v.origin === this.selection;
     }
 
-    constructor(schema: _ISchema) {
+
+    get type() {
+        return 'table' as const;
+    }
+
+    constructor(private schema: _ISchema) {
         super(schema);
+    }
+
+    get name(): string {
+        return this._schema.name;
+    }
+
+    register() {
+        this.reg = this.schema._reg_register(this);
     }
 
     private columnsById = new Map<string, IValue>();
     private _columns?: IValue[];
 
-    get name(): string {
-        return this._schema.name;
-    }
 
     private build() {
         if (this._columns) {
@@ -60,7 +72,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     explain(e: _Explainer): _SelectExplanation {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
 
     listIndices(): IndexDef[] {
@@ -72,35 +84,41 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     get columnDefs(): _Column[] {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
 
     rename(to: string): this {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     update(t: _Transaction, toUpdate: any) {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     addColumn(column: SchemaField | CreateColumnDef): _Column {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
-    addConstraint(constraint: ConstraintDef, t: _Transaction) {
-        throw new ReadOnlyError('information schema');
+    addConstraint(constraint: TableConstraint, t: _Transaction) {
+        throw new PermissionDeniedError(this.name);
     }
     insert(toInsert: any): void {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     delete(t: _Transaction, toDelete: T): void {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
     }
     createIndex(): this {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
+    }
+    dropIndex(t: _Transaction, name: string): void {
+        throw new PermissionDeniedError(this.name);
     }
     setHidden(): this {
-        throw new ReadOnlyError('information schema');
+        throw new PermissionDeniedError(this.name);
+    }
+    drop(t: _Transaction): void {
+        throw new PermissionDeniedError(this.name);
     }
 
     setReadonly(): this {
@@ -117,7 +135,19 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
 
     onChange(columns: string[], check: ChangeHandler<T>) {
         // nop
+        return { unsubscribe() { } }
     }
+
+    onDrop(sub: DropHandler): ISubscription {
+        // nop
+        return { unsubscribe() { } }
+    }
+
+    onIndex(sub: IndexHandler): ISubscription {
+        // nop
+        return { unsubscribe() { } }
+    }
+
 
     make(table: _ITable, i: number, t: IValue<any>): any {
         throw new Error('not implemented');
@@ -127,7 +157,8 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
         if (typeof table === 'string') {
             for (const s of this.db.listSchemas()) {
-                const got = s.getTable(table, true, true);
+                debugger;
+                const got = s.getTable(table, true);
                 if (got) {
                     yield* this.itemsByTable(got, t);
                 }

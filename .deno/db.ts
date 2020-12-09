@@ -1,6 +1,6 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, TableNotFound, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces.ts';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces.ts';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition } from './interfaces-private.ts';
-import { Query } from './query.ts';
+import { DbSchema } from './schema.ts';
 import { initialize } from './transforms/transform-base.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { buildAlias } from './transforms/alias.ts';
@@ -34,7 +34,7 @@ class MemoryDb implements _IDb {
 
     readonly adapters: Adapters = new Adapters(this);
     private extensions: { [name: string]: (schema: ISchema) => void } = {};
-    private searchPath = ['pg_catalog', 'public'];
+    readonly searchPath = ['pg_catalog', 'public'];
 
     get public() {
         return this.getSchema(null)
@@ -73,28 +73,19 @@ class MemoryDb implements _IDb {
     }
 
 
-    createSchema(name: string): Query {
+    createSchema(name: string): DbSchema {
         if (this.schemas.has(name)) {
             throw new Error('Schema exists: ' + name);
         }
         this.onSchemaChange();
-        const ret = new Query(name, this);
+        const ret = new DbSchema(name, this);
         this.schemas.set(name, ret);
         return ret;
     }
 
     getTable(name: string): _ITable;
     getTable(name: string, nullIfNotExists?: boolean): _ITable | null {
-        for (const sp of this.searchPath) {
-            const tbl = this.getSchema(sp).getTable(name, true, true);
-            if (tbl) {
-                return tbl;
-            }
-        }
-        if (nullIfNotExists) {
-            return null;
-        }
-        throw new TableNotFound(name);
+        return this.public.getTable(name, nullIfNotExists);
     }
 
     *getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition> {

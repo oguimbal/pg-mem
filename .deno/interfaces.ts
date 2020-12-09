@@ -1,4 +1,4 @@
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 
 export type nil = undefined | null;
 
@@ -31,15 +31,32 @@ export enum DataType {
     int = 'int',
     jsonb = 'jsonb',
     regtype = 'regtype',
+    regclass = 'regclass',
     json = 'json',
-    blob = 'blob',
+    bytea = 'bytea',
     timestamp = 'timestamp',
     date = 'date',
+    time = 'time',
     null = 'null',
     bool = 'bool',
 }
 
 export interface MemoryDbOptions {
+    /**
+     * If set to true, then the query runner will not check that no AST part
+     * has been left behind when parsing the request.
+     *
+     * ... so setting it to true could lead to unnoticed ignored query parts.
+     *
+     * (advice: only set it to true as a workaround while an issue on https://github.com/oguimbal/pg-mem is being fixed... )
+     */
+    noAstCoverageCheck?: boolean;
+    /**
+     *  If set to true, this will throw an exception if
+     * you try to use an unsupported index type
+     * (only BTREE is supported at time of writing)
+     */
+    noIgnoreUnsupportedIndices?: boolean;
     /**
      * When set to true, this will auto create an index on foreign table when adding a foreign key.
      * 👉 Recommanded when using Typeorm .synchronize(), which creates foreign keys but not indices !
@@ -146,7 +163,7 @@ export interface ISchema {
     queries(text: string): Iterable<QueryResult>;
 
     /**
-     * Get a table to inspect it
+     * Get a table in this db to inspect it
      */
     getTable(table: string): IMemoryTable;
     getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
@@ -200,12 +217,12 @@ export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
 export interface IMemoryTable {
-    readonly name: string;
     /** Subscribe to an event on this table */
     on(event: TableEvent, handler: () => any): ISubscription;
     /** List existing indices defined on this table */
     listIndices(): IndexDef[];
 }
+
 
 export interface ISubscription {
     unsubscribe(): void;
@@ -233,9 +250,9 @@ export class AmbiguousColumn extends Error {
     }
 }
 
-export class TableNotFound extends Error {
+export class RelationNotFound extends Error {
     constructor(tableName: string) {
-        super('Table not found: ' + tableName);
+        super(`relation "${tableName}" does not exist`);
     }
 }
 
@@ -251,15 +268,20 @@ export class RecordExists extends Error {
 
 export class NotSupported extends Error {
     constructor(what?: string) {
-        super('Not supported' + (what ? ': ' + what : ''));
+        super('🔨 Not supported 🔨 ' + (what ? ': ' + what : '') + `
+
+👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this issue (if you can), and  the stacktrace:
+`);
     }
 
     static never(value: never, msg?: string) {
         return new NotSupported(`${msg ?? ''} ${JSON.stringify(value)}`);
     }
 }
-export class ReadOnlyError extends Error {
+export class PermissionDeniedError extends Error {
     constructor(what?: string) {
-        super('You cannot modify ' + (what ? ': ' + what : 'this'));
+        super(what
+                ? `permission denied: "${what}" is a system catalog`
+                : 'permission denied');
     }
 }

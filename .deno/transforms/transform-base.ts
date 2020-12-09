@@ -8,7 +8,7 @@ import type { buildGroupBy } from './aggregation.ts';
 import type { buildLimit } from './limit.ts';
 import type { buildOrderBy } from './order-by.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.1.1/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
