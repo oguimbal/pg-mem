@@ -31,13 +31,6 @@ describe('Extensions', () => {
 
 
     it ('can call function declared in another schema', () => {
-        db.getSchema('pg_catalog').registerFunction({
-            name: 'col_description',
-            args: [DataType.int, DataType.int],
-            returns: DataType.text,
-            implementation: x => 'nothing',
-        });
-
         expect(many(`select pg_catalog.col_description(1,2) as msg`))
         .to.deep.equal([{
             msg: 'nothing',

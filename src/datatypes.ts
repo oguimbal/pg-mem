@@ -1030,6 +1030,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'smallserial':
         case 'smallint':
         case 'bigint':
+        case 'oid':
             return Types.int;
         case 'decimal':
         case 'float':
@@ -1065,7 +1066,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'time without time zone':
             return Types.time;
         default:
-            throw new NotSupported('Type ' + JSON.stringify(native.type));
+            throw new NotSupported('Data type ' + JSON.stringify(native.type));
     }
 }
 
