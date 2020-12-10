@@ -621,7 +621,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
     executeTruncateTable(t: _Transaction, p: TruncateTableStatement): QueryResult {
-        const table = asTable(this.getObject(p));
+        if (p.tables.length !== 1) {
+            throw new NotSupported('Multiple truncations');
+        }
+        const table = asTable(this.getObject(p.tables[0]));
         table.truncate(t);
         return this.simple('TRUNCATE', p);
     }

@@ -1,6 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces';
 import { TableConstraint, CreateColumnDef, StatementLocation } from 'pgsql-ast-parser';
-import { strict } from 'assert';
 
 export type nil = undefined | null;
 

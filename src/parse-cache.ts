@@ -39,21 +39,6 @@ export function parseSql(sql: string, entry?: string): any {
             throw e;
         }
 
-        let msg: string = e.message;
-        // remove all the stack crap of nearley parser
-
-        let begin: string | null = null;
-        const parts: string[] = [];
-        const reg = /A (.+) token based on:/g;
-        let m: RegExpExecArray | null;
-        while (m = reg.exec(msg)) {
-            begin = begin ?? msg.substr(0, m.index);
-            parts.push(`    - A "${m[1]}" token`);
-        }
-        if (begin) {
-            msg = begin + parts.join('\n') + '\n\n';
-        }
-
 
         // throw a nice parsing error.
         throw new QueryError(`💔 Your query failed to parse.
@@ -64,7 +49,7 @@ If this is the case, please file an issue at https://github.com/oguimbal/pg-mem 
 
     ${sql}
 
-💀 ${msg}`);
+💀 ${e.message}`);
     }
 
 }

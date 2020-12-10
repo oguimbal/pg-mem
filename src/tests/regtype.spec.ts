@@ -2,7 +2,7 @@ import 'mocha';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
-import { _ITable } from 'interfaces-private';
+import { _ITable } from '../interfaces-private';
 
 // todo
 describe.skip('regtype', () => {

@@ -3,8 +3,6 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
-import { DataType } from '../interfaces';
-import { equal } from 'assert';
 
 describe('Data types', () => {
 

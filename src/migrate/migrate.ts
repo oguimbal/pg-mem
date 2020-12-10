@@ -8,6 +8,7 @@ import MigrationData = IMigrate.MigrationData
 import { literal } from '../pg-escape'
 
 declare var __non_webpack_require__: any;
+declare var process: any;
 
 export async function readMigrations (migrationPath?: string) {
   const path = __non_webpack_require__('path');

@@ -2,7 +2,7 @@
 import { IMemoryDb, ISubscription } from '../interfaces';
 import { assert, expect } from 'chai';
 import { BaseEntity, Connection } from 'typeorm';
-import { _IDb } from 'interfaces-private';
+import { _IDb } from '../interfaces-private';
 import { newDb } from '../index';
 import { Ctor } from '../utils';
 

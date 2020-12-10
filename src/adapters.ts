@@ -2,6 +2,7 @@ import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces'
 import { literal } from './pg-escape';
 import moment from 'moment';
 import lru from 'lru-cache';
+import { bufToString, isBuf } from './buffer-node';
 declare var __non_webpack_require__: any;
 
 const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
@@ -27,8 +28,8 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
                 if (val instanceof Date) {
                     return `'${moment(val).toISOString()}'`;
                 }
-                if (val instanceof Buffer) {
-                    return literal(val.toString('utf-8'));
+                if (isBuf(val)) {
+                    return literal(bufToString(val));
                 }
                 if (typeof val === 'object') {
                     return literal(JSON.stringify(val));

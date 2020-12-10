@@ -136,17 +136,18 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     on(): any {
         throw new NotSupported('subscribing information schema');
     }
-
     onChange(columns: string[], check: ChangeHandler<T>) {
         // nop
         return { unsubscribe() { } }
     }
-
+    onTruncate(sub: DropHandler): ISubscription {
+        // nop
+        return { unsubscribe() { } }
+    }
     onDrop(sub: DropHandler): ISubscription {
         // nop
         return { unsubscribe() { } }
     }
-
     onIndex(sub: IndexHandler): ISubscription {
         // nop
         return { unsubscribe() { } }
