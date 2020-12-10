@@ -10,6 +10,8 @@ import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
 import { parseSql } from './parse-cache';
 import { Sequence } from './sequence';
+import { IMigrate } from './migrate/migrate-interfaces';
+import { migrate } from './migrate/migrate';
 
 
 let clsCnt = 0;
@@ -965,6 +967,11 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             ? []
             : matches.filter(m => m.args.length === arrity
                 || m.args.length < arrity && m.argsVariadic);
+    }
+
+
+    async migrate(config?: IMigrate.MigrationParams) {
+        await migrate(this, config);
     }
 }
 

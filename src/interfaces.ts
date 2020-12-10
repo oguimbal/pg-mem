@@ -1,3 +1,4 @@
+import { IMigrate } from './migrate/migrate-interfaces';
 import { TableConstraint, CreateColumnDef, StatementLocation } from 'pgsql-ast-parser';
 
 export type nil = undefined | null;
@@ -176,6 +177,12 @@ export interface ISchema {
 
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
+
+    /**
+     * Database migration, node-sqlite flavor
+     * ⚠ Only working when runnin nodejs !
+     */
+    migrate (config?: IMigrate.MigrationParams): Promise<void>;
 }
 
 export interface FunctionDefinition {
