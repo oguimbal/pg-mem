@@ -10,9 +10,10 @@ import {
     ManyToOne,
     OneToMany,
 } from 'typeorm';
-import { typeOrm } from '../test-utils';
+import { typeOrm, TypeormSetup } from '../test-utils';
 import { DataType } from '../../interfaces';
 import { v4 } from 'uuid';
+import { typeormJoinsSample } from '../../../samples/typeorm/joins';
 export abstract class External extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     readonly id!: string;
@@ -73,24 +74,27 @@ export class Submission extends External {
 
 
 describe('IRL tests', () => {
-    typeOrm('mirrobytes x typeorm', () => [User, Form, Submission], ({ mem }) => {
-          mem.registerExtension('uuid-ossp', (schema) => {
-            schema.registerFunction({
-              name: 'uuid_generate_v4',
-              returns: DataType.uuid,
-              implementation: v4,
-            });
-          });
 
-          mem.registerExtension('citext', (schema) => {
+    const setup: TypeormSetup = ({ mem }) => {
+        mem.registerExtension('uuid-ossp', (schema) => {
             schema.registerFunction({
-              name: 'citext',
-              args: [DataType.text],
-              returns: DataType.text,
-              implementation: (arg: string) => arg.toLocaleLowerCase(),
+                name: 'uuid_generate_v4',
+                returns: DataType.uuid,
+                implementation: v4,
             });
-          });
-    }, async () => {
+        });
+
+        mem.registerExtension('citext', (schema) => {
+            schema.registerFunction({
+                name: 'citext',
+                args: [DataType.text],
+                returns: DataType.text,
+                implementation: (arg: string) => arg.toLocaleLowerCase(),
+            });
+        });
+    };
+
+    typeOrm('mirrobytes x typeorm', () => [User, Form, Submission], setup, async () => {
 
         // test creations
         const user = await User.create({
@@ -127,4 +131,34 @@ describe('IRL tests', () => {
         assert.exists(loaded_form);
         expect(loaded.length).to.equal(1);
     });
+
+
+
+    typeOrm('does not warns unhandled rejections', () => [User, Form, Submission], setup, async () => {
+        let unhandled = false;
+        const check = () => {
+            unhandled = true;
+        };
+        process.on('unhandledRejection', check);
+        try {
+            let threw = false;
+            try {
+                await User.find({ id: '' });
+            } catch (e) {
+                // nop
+                threw = true;
+            }
+
+            assert.isTrue(threw, 'Was expecting to throw...')
+
+            // just wait a bit until the unhandled exception has been logged
+            await new Promise(d => setTimeout(d, 1));
+
+            // this used to throw :(
+            assert.isFalse(unhandled, 'Unhandled exception raised !');
+
+        } finally {
+            process.off('unhandledRejection', check);
+        }
+    })
 });

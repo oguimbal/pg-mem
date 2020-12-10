@@ -44,9 +44,12 @@ interface TypeOrmTest {
     one: (sql: string) => any;
     none: (sql: string) => void;
 }
+
+export type TypeormSetup = ((mem: Omit<TypeOrmTest, 'db'>) => any) | null;
+
 export async function typeOrm(title: string
     , entities: () => Ctor<BaseEntity>[]
-    , setup: ((mem: Omit<TypeOrmTest, 'db'>) => any) | null
+    , setup: TypeormSetup
     , fn: (data: TypeOrmTest) => Promise<any>) {
     it(title, async () => {
         const mem = newDb({

@@ -79,17 +79,22 @@ export class Adapters implements LibAdapters {
                     : valuesOrCallback;
 
                 const pgquery = this.adaptQuery(query, values);
-
-                return new Promise((done, err) => setTimeout(() => {
-                    try {
-                        const result = this.adaptResults(query, that.db.public.query(pgquery.text));
-                        callback?.(null, result)
-                        done(result);
-                    } catch (e) {
-                        callback(e);
-                        err(e);
+                try {
+                    const result = this.adaptResults(query, that.db.public.query(pgquery.text));
+                    if (callback) {
+                        setTimeout(() => callback(null, result), queryLatency ?? 0);
+                        return null;
+                    } else {
+                        return new Promise(res => setTimeout(() => res(result), queryLatency ?? 0));
                     }
-                }, queryLatency ?? 0));
+                } catch (e) {
+                    if (callback) {
+                        setTimeout(() => callback(e), queryLatency ?? 0);
+                        return null;
+                    } else {
+                        return new Promise((_, rej) => setTimeout(() => rej(e), queryLatency ?? 0));
+                    }
+                }
             }
 
             private adaptResults(query: PgQuery, rows: QueryResult) {
