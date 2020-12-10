@@ -46,7 +46,7 @@ interface TypeOrmTest {
 }
 export async function typeOrm(title: string
     , entities: () => Ctor<BaseEntity>[]
-    , setup: ((mem: TypeOrmTest) => any) | null
+    , setup: ((mem: Omit<TypeOrmTest, 'db'>) => any) | null
     , fn: (data: TypeOrmTest) => Promise<any>) {
     it(title, async () => {
         const mem = newDb({
@@ -55,15 +55,15 @@ export async function typeOrm(title: string
         const many = mem.public.many.bind(mem.public);
         const none = mem.public.none.bind(mem.public);
         const one = mem.public.one.bind(mem.public);
+        setup?.({ mem, many, none, one });
+
         const db: Connection = await mem.adapters.createTypeormConnection({
             type: 'postgres',
             entities: entities(),
         });
-        const key = { db, mem, many, none, one };
-        setup?.(key);
         try {
             await db.synchronize();
-            await fn(key);
+            await fn({ db, mem, many, none, one });
         } finally {
             await db.close()
         }

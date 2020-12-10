@@ -74,11 +74,22 @@ export class Submission extends External {
 
 describe('IRL tests', () => {
     typeOrm('mirrobytes x typeorm', () => [User, Form, Submission], ({ mem }) => {
-        mem.public.registerFunction({
-            name: 'uuid_generate_v4',
-            returns: DataType.uuid,
-            implementation: v4,
-        });
+          mem.registerExtension('uuid-ossp', (schema) => {
+            schema.registerFunction({
+              name: 'uuid_generate_v4',
+              returns: DataType.uuid,
+              implementation: v4,
+            });
+          });
+
+          mem.registerExtension('citext', (schema) => {
+            schema.registerFunction({
+              name: 'citext',
+              args: [DataType.text],
+              returns: DataType.text,
+              implementation: (arg: string) => arg.toLocaleLowerCase(),
+            });
+          });
     }, async () => {
 
         // test creations
@@ -97,7 +108,7 @@ describe('IRL tests', () => {
         }).save();
 
 
-        // test query result
+        // test user query result
         const loaded = await User.find({
             where: {
                 email: 'me@me.com'
@@ -109,5 +120,11 @@ describe('IRL tests', () => {
         const buf = loaded[0].password;
         assert.instanceOf(buf, Buffer);
         expect(buf.toString('utf-8')).to.equal('pwd');
+
+
+        // test form query result
+        const loaded_form = await Form.find({ user });
+        assert.exists(loaded_form);
+        expect(loaded.length).to.equal(1);
     });
 });

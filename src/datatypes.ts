@@ -723,14 +723,14 @@ class TextType extends TypeBase<string> {
                         // check schema
                         if (rawStr[0] === '{') {
                             if (rawStr[rawStr.length - 1] !== '}') {
-                                throw new CastError(DataType.text, DataType.uuid, 'string ' + _rawStr);
+                                throw new CastError(DataType.text, DataType.uuid, 'string: ' + JSON.stringify(_rawStr));
                             }
                             rawStr = rawStr.substr(1, rawStr.length - 2);
                         }
                         rawStr = rawStr.toLowerCase();
                         const [full, a, b, c, d, e] = /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/.exec(rawStr) ?? [];
                         if (!full) {
-                            throw new CastError(DataType.text, DataType.uuid, 'string ' + _rawStr);
+                            throw new CastError(DataType.text, DataType.uuid, 'string: ' + JSON.stringify(_rawStr));
                         }
                         return `${a}-${b}-${c}-${d}-${e}`;
                     }
