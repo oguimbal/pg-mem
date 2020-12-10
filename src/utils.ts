@@ -1,6 +1,6 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { NotSupported, _ISchema, _Transaction } from './interfaces-private';
+import { IValue, NotSupported, _ISchema, _Transaction } from './interfaces-private';
 import { Expr, QName } from 'pgsql-ast-parser';
 import { ISubscription } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './buffer-node';
@@ -390,4 +390,8 @@ export function pushContext<T>(ctx: Ctx, act: () => T): T {
     } finally {
         curCtx.pop();
     }
+}
+
+export function indexHash(this: void, vals: (IValue | string)[]) {
+    return vals.map(x => typeof x === 'string' ? x : x.hash).sort().join('|');
 }

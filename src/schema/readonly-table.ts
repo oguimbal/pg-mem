@@ -108,6 +108,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     delete(t: _Transaction, toDelete: T): void {
         throw new PermissionDeniedError(this.name);
     }
+    truncate(t: _Transaction): void {
+        throw new PermissionDeniedError(this.name);
+    }
+
     createIndex(): this {
         throw new PermissionDeniedError(this.name);
     }

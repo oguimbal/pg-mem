@@ -15,26 +15,69 @@ describe('Foreign keys', () => {
         none = db.public.none.bind(db.public);
     });
 
-    it ('cannot delete line if foreign key exists', () => {
+    function usr(onDelete = 'NO ACTION') {
         none(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
         CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
-        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE ${onDelete} ON UPDATE NO ACTION;
         INSERT INTO "user"("id","name") VALUES (1, 'me');
         INSERT INTO "photo"("id", "url", "userId") VALUES (1, 'me-1.jpg', 1);`);
+    }
 
-        assert.throws(() => none('delete from "user" where id = 1'));
+    const violates = /update or delete on table "user" violates foreign key constraint/
+    const locked = /cannot truncate a table referenced in a foreign key constraint/;
+
+    it('cannot delete line if foreign key exists', () => {
+        usr('NO ACTION');
+
+        assert.throws(() => none('delete from "user" where id = 1'), violates);
 
         // check works if user is deleted
         many('truncate photo; delete from "user" where id = 1;')
     });
 
-    it ('cannot create a foreign key if no unique constraint', () => {
+
+
+    it('cannot truncate if foreign key exists when no action', () => {
+        usr('NO ACTION');
+        assert.throws(() => none('truncate "user"'), locked);
+    });
+
+    it('cannot truncate if foreign key exists even if cascade', () => {
+        usr('CASCADE');
+        assert.throws(() => none('truncate "user"'), locked);
+    });
+
+
+    it('cannot drop if foreign key exists even if cascade', () => {
+        usr('CASCADE');
+        assert.throws(() => none('drop table "user"'), /cannot drop table "user" because other objects depend on it/);
+    });
+
+    it('can drop if foreign table dropped first', () => {
+        usr('CASCADE');
+        none(`drop table "photo";
+                drop table "user";`);
+    });
+
+    it('can delete line when on delete cascade', () => {
+        usr('CASCADE');
+
+        expect(many('select * from photo').length).to.equal(1);
+
+        none(`delete from "user" where id = 1;`);
+
+        expect(many('select * from "user"').length).to.equal(0);
+        expect(many('select * from photo').length).to.equal(0);
+    });
+
+
+    it('cannot create a foreign key if no unique constraint', () => {
         none(`CREATE TABLE "user" ("id" integer primary key, "name" text);
         CREATE TABLE "photo" ("id" integer primary key, "userName" text);`)
         assert.throws(() => none(`ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;`))
     })
 
-    it ('does not check foreign key on null values', () => {
+    it('does not check foreign key on null values', () => {
         none(`CREATE TABLE "user" ("id" integer primary key, "name" text unique);
         CREATE TABLE "photo" ("id" integer primary key, "userName" text);
         ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -51,7 +94,7 @@ describe('Foreign keys', () => {
     });
 
 
-    it ('prevents updating foreign key', () => {
+    it('prevents updating foreign key', () => {
         none(`CREATE TABLE "user" ("id" integer primary key, "name" text unique);
         CREATE TABLE "photo" ("id" integer primary key, "userName" text);
         ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -68,7 +111,7 @@ describe('Foreign keys', () => {
     })
 
 
-    it ('cannot insert wrong foreign key', () => {
+    it('cannot insert wrong foreign key', () => {
         none(`CREATE TABLE "user" ("id" integer primary key, "name" text unique);
         CREATE TABLE "photo" ("id" integer primary key, "userName" text);
         ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;`);
@@ -79,7 +122,7 @@ describe('Foreign keys', () => {
 
 
 
-    it ('can alter table add foreign key', () => {
+    it('can alter table add foreign key', () => {
         none(`create table test(t bool);
         alter table test add constraint "testkey" primary key (t);`);
     })

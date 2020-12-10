@@ -11,6 +11,7 @@
 * [Features](#-features)
 * [Libraries adapters](#-libraries-adapters)
 * [Inspection](#inspection)
+* [FAQ](#-faq)
 * [Supported features](#-supported-features)
 * [Development](#-development)
 

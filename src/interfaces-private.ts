@@ -335,6 +335,14 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     onChange(columns: string[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
+    onTruncate(sub: DropHandler): ISubscription;
+    truncate(t: _Transaction): void;
+}
+
+
+export interface _IConstraint {
+    readonly name: string;
+    uninstall(t: _Transaction): void;
 }
 
 export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;

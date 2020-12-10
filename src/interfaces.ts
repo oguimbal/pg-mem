@@ -1,5 +1,6 @@
 import { IMigrate } from './migrate/migrate-interfaces';
 import { TableConstraint, CreateColumnDef, StatementLocation } from 'pgsql-ast-parser';
+import { strict } from 'assert';
 
 export type nil = undefined | null;
 
@@ -256,7 +257,31 @@ export class NotSupported extends Error {
     }
 }
 
+
+interface ErrorData {
+    readonly error: string;
+    readonly details?: string;
+    readonly hint?: string;
+}
 export class QueryError extends Error {
+    readonly data: ErrorData;
+    constructor(err: string | ErrorData) {
+        super(typeof err === 'string' ? err : errDataToStr(err));
+        this.data = typeof err === 'string'
+            ? { error: err }
+            : err;
+    }
+}
+
+function errDataToStr(data: ErrorData) {
+    const ret = ['ERROR: ' + data.error];
+    if (data.details) {
+        ret.push('DETAIL: ' + data.details);
+    }
+    if (data.hint) {
+        ret.push('HINT: ' + data.hint)
+    }
+    return ret.join('\n');
 }
 
 

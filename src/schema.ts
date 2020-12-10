@@ -4,7 +4,7 @@ import { ignore, pushContext, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType, parseRegClass } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -149,6 +149,9 @@ export class DbSchema implements _ISchema, ISchema {
                     break;
                 case 'delete':
                     last = this.executeDelete(t, p);
+                    break;
+                case 'truncate table':
+                    last = this.executeTruncateTable(t, p);
                     break;
                 case 'create table':
                     t = t.fullCommit();
@@ -615,6 +618,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             fields: [],
             location: this.locOf(p),
         }
+    }
+
+    executeTruncateTable(t: _Transaction, p: TruncateTableStatement): QueryResult {
+        const table = asTable(this.getObject(p));
+        table.truncate(t);
+        return this.simple('TRUNCATE', p);
     }
 
     buildSelect(p: SelectStatement): _ISelection {

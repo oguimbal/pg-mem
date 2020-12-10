@@ -657,7 +657,6 @@ class TextType extends TypeBase<string> {
 
     doCast(value: Evaluator<string>, to: _IType) {
         switch (to.primary) {
-            case DataType.text:
             case DataType.citext:
                 return value.setType(to);
             case DataType.timestamp:

@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { assert, expect } from 'chai';
 import {
     BaseEntity,
     PrimaryGeneratedColumn,
@@ -81,11 +81,14 @@ describe('IRL tests', () => {
         });
     }, async () => {
 
+        // test creations
         const user = await User.create({
             name: 'me',
             email: 'me@me.com',
+            password: Buffer.from('pwd'),
         }).save();
         const form = await Form.create({
+            name: 'form name',
             user,
         }).save();
 
@@ -94,6 +97,7 @@ describe('IRL tests', () => {
         }).save();
 
 
+        // test query result
         const loaded = await User.find({
             where: {
                 email: 'me@me.com'
@@ -102,5 +106,8 @@ describe('IRL tests', () => {
         });
 
         expect(loaded.length).to.equal(1);
+        const buf = loaded[0].password;
+        assert.instanceOf(buf, Buffer);
+        expect(buf.toString('utf-8')).to.equal('pwd');
     });
 });

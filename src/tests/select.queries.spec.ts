@@ -47,6 +47,13 @@ describe('Selections', () => {
     }
 
 
+
+    it('can select nothing', () => {
+        // yea... thats a valid query. Try it oO'
+        expect(many(`select;`))
+            .to.deep.equal([{}]);
+    });
+
     it('can use transformations', () => {
         stuff();
         expect(many(`select * from (select val as xx from test where txt = 'A') x where x.xx >= 1`))
