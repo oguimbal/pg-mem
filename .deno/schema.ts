@@ -4,12 +4,14 @@ import { ignore, pushContext, watchUse } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { Types, fromNative, makeType, parseRegClass } from './datatypes.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
 import { parseSql } from './parse-cache.ts';
 import { Sequence } from './sequence.ts';
+import { IMigrate } from './migrate/migrate-interfaces.ts';
+import { migrate } from './migrate/migrate.ts';
 
 
 let clsCnt = 0;
@@ -91,7 +93,7 @@ export class DbSchema implements _ISchema, ISchema {
                 const { transaction, last } = pushContext({
                     transaction: t,
                     schema: this
-                }, () => this._execOne(t, _p));
+                }, () => this._execOne(t, _p, parsed.length === 1 ? query : undefined));
                 yield last;
                 t = transaction;
             }
@@ -106,7 +108,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
 
-    private _execOne(t: _Transaction, _p: Statement) {
+    private _execOne(t: _Transaction, _p: Statement, pAsSql?: string) {
         try {
             // query execution
             let last: QueryResult | undefined = undefined;
@@ -147,6 +149,9 @@ export class DbSchema implements _ISchema, ISchema {
                     break;
                 case 'delete':
                     last = this.executeDelete(t, p);
+                    break;
+                case 'truncate table':
+                    last = this.executeTruncateTable(t, p);
                     break;
                 case 'create table':
                     t = t.fullCommit();
@@ -205,19 +210,41 @@ export class DbSchema implements _ISchema, ISchema {
             if (!last.ignored && check) {
                 const ret = check();
                 if (ret) {
-                    let st: string;
-                    try {
-                        st = toSql.statement(p)
-                    } catch (e) {
-                        st = `<Failed to reconsitute SQL - ${e?.message}>`;
-                    }
-                    throw new NotSupported(ret + `
-
-The failing request looks like: ${st}`);
+                    throw new NotSupported(ret);
                 }
             }
             return { last, transaction: t };
         } catch (e) {
+
+            if (!this.db.options.noErrorDiagnostic && (e instanceof Error) || e instanceof NotSupported) {
+
+                // compute SQL
+                const msgs = [e.message];
+
+
+                if (e instanceof QueryError) {
+                    msgs.push(`🐜 This seems to be an execution error, which means that your request syntax seems okay,
+but the resulting statement cannot be executed → Probably not a pg-mem error.`);
+                } else if (e instanceof NotSupported) {
+                    msgs.push(`👉 pg-mem is work-in-progress, and it would seem that you've hit one of its limits.`);
+                } else {
+                    msgs.push('💥 This is a nasty error, which was unexpected by pg-mem. Also known "a bug" 😁 Please file an issue !')
+                }
+
+                if (!this.db.options.noErrorDiagnostic) {
+                    if (pAsSql) {
+                        msgs.push(`*️⃣ Failed SQL statement: ${pAsSql}`);
+                    } else {
+                        try {
+                            msgs.push(`*️⃣ Reconsituted failed SQL statement: ${toSql.statement(_p)}`);
+                        } catch (f) {
+                            msgs.push(`*️⃣ <Failed to reconsitute SQL - ${f?.message}>`);
+                        }
+                    }
+                }
+                msgs.push('👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this error (if you can), and  the stacktrace:')
+                e.message = msgs.join('\n\n') + '\n\n';
+            }
             e.location = this.locOf(_p);
             throw e;
         }
@@ -593,6 +620,15 @@ The failing request looks like: ${st}`);
         }
     }
 
+    executeTruncateTable(t: _Transaction, p: TruncateTableStatement): QueryResult {
+        if (p.tables.length !== 1) {
+            throw new NotSupported('Multiple truncations');
+        }
+        const table = asTable(this.getObject(p.tables[0]));
+        table.truncate(t);
+        return this.simple('TRUNCATE', p);
+    }
+
     buildSelect(p: SelectStatement): _ISelection {
         if (p.type !== 'select') {
             throw new NotSupported(p.type);
@@ -943,6 +979,11 @@ The failing request looks like: ${st}`);
             ? []
             : matches.filter(m => m.args.length === arrity
                 || m.args.length < arrity && m.argsVariadic);
+    }
+
+
+    async migrate(config?: IMigrate.MigrationParams) {
+        await migrate(this, config);
     }
 }
 

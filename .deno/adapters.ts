@@ -2,6 +2,7 @@ import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces.
 import { literal } from './pg-escape.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
+import { bufToString, isBuf } from './buffer-deno.ts';
 declare var __non_webpack_require__: any;
 
 const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
@@ -26,6 +27,9 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
                 }
                 if (val instanceof Date) {
                     return `'${moment(val).toISOString()}'`;
+                }
+                if (isBuf(val)) {
+                    return literal(bufToString(val));
                 }
                 if (typeof val === 'object') {
                     return literal(JSON.stringify(val));

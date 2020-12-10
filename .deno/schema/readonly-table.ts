@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg } from '../interfaces-private.ts';
-import { CreateColumnDef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { CreateColumnDef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
@@ -108,6 +108,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     delete(t: _Transaction, toDelete: T): void {
         throw new PermissionDeniedError(this.name);
     }
+    truncate(t: _Transaction): void {
+        throw new PermissionDeniedError(this.name);
+    }
+
     createIndex(): this {
         throw new PermissionDeniedError(this.name);
     }
@@ -132,17 +136,18 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     on(): any {
         throw new NotSupported('subscribing information schema');
     }
-
     onChange(columns: string[], check: ChangeHandler<T>) {
         // nop
         return { unsubscribe() { } }
     }
-
+    onTruncate(sub: DropHandler): ISubscription {
+        // nop
+        return { unsubscribe() { } }
+    }
     onDrop(sub: DropHandler): ISubscription {
         // nop
         return { unsubscribe() { } }
     }
-
     onIndex(sub: IndexHandler): ISubscription {
         // nop
         return { unsubscribe() { } }

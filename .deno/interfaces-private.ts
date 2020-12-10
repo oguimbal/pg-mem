@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -335,6 +335,14 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     onChange(columns: string[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
+    onTruncate(sub: DropHandler): ISubscription;
+    truncate(t: _Transaction): void;
+}
+
+
+export interface _IConstraint {
+    readonly name: string;
+    uninstall(t: _Transaction): void;
 }
 
 export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;

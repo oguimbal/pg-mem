@@ -3,15 +3,16 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../predicate.ts';
 import { Evaluator } from '../valuetypes.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 import { aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
 import { isSelectAllArgList } from '../utils.ts';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
+    select = select ?? [];
 
     // if this is a "SELECT *" => just ignore
-    if (!select || isSelectAllArgList(select.map(x => x.expr))) {
+    if (isSelectAllArgList(select.map(x => x.expr))) {
         if (!on.columns.length) {
             throw new QueryError('SELECT * with no tables specified is not valid');
         }
@@ -20,7 +21,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
 
     // if there is any aggregation function
     // check if there is any aggregation
-    for (const col of select) {
+    for (const col of select ?? []) {
         if (hasAggreg(col.expr)) {
             // yea, there is an aggregation somewhere in selection
             return buildGroupBy(on, [], select);
@@ -80,10 +81,6 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
 
     constructor(base: _ISelection<any>, columns: SelectedColumn[]) {
         super(base);
-
-        if (!columns.length) {
-            throw new QueryError('Invalid selection');
-        }
 
         // build non-conflicting column ids based on existing ones
         this.columnIds = [];

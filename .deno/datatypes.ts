@@ -3,8 +3,8 @@ import { DataType, CastError, IType, QueryError, NotSupported, nil } from './int
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { deepEqual, deepCompare, nullIsh, getContext } from './utils.ts';
 import { Evaluator, Value } from './valuetypes.ts';
-import { DataTypeDef, parse, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { DataTypeDef, parse, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from './buffer-deno.ts';
 
 abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
@@ -589,14 +589,19 @@ class ByteArrayType extends TypeBase<TBuffer> {
 class TextType extends TypeBase<string> {
 
     get regTypeName(): string {
+        if (this.citext) {
+            return 'citext';
+        }
         return this.len ? 'character varying' : 'text';
     }
 
     get primary(): DataType {
-        return DataType.text;
+        return this.citext
+            ? DataType.citext
+            : DataType.text;
     }
 
-    constructor(readonly len: number | null) {
+    constructor(readonly len: number | null, private citext?: boolean) {
         super();
     }
 
@@ -621,6 +626,9 @@ class TextType extends TypeBase<string> {
 
     doCanCast(to: _IType): boolean | nil {
         switch (to.primary) {
+            case DataType.text:
+            case DataType.citext:
+                return true;
             case DataType.timestamp:
             case DataType.date:
             case DataType.time:
@@ -649,6 +657,8 @@ class TextType extends TypeBase<string> {
 
     doCast(value: Evaluator<string>, to: _IType) {
         switch (to.primary) {
+            case DataType.citext:
+                return value.setType(to);
             case DataType.timestamp:
                 return value
                     .setConversion(str => {
@@ -819,6 +829,14 @@ class TextType extends TypeBase<string> {
         }
         return undefined;
     }
+
+    doEquals(a: string, b: string) {
+        if (this.citext) {
+            return a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
+        }
+
+        return super.doEquals(a, b);
+    }
 }
 
 class BoolType extends TypeBase<boolean> {
@@ -942,6 +960,7 @@ export function makeType(to: DataType | IType | _IType<any>): _IType<any> {
 export const Types = { // : Ctors
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
+    [DataType.citext]: new TextType(null, true),
     [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
@@ -1021,6 +1040,8 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'character':
         case 'character varying':
             return Types.text(native.length);
+        case 'citext':
+            return Types.citext;
         case 'uuid':
             return Types.uuid;
         case 'int':
@@ -1030,6 +1051,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'smallserial':
         case 'smallint':
         case 'bigint':
+        case 'oid':
             return Types.int;
         case 'decimal':
         case 'float':
@@ -1065,7 +1087,7 @@ export function fromNative(native: DataTypeDef): _IType {
         case 'time without time zone':
             return Types.time;
         default:
-            throw new NotSupported('Type ' + JSON.stringify(native.type));
+            throw new NotSupported('Data type ' + JSON.stringify(native.type));
     }
 }
 

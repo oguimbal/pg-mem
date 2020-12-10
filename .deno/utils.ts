@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { NotSupported, _ISchema, _Transaction } from './interfaces-private.ts';
-import { Expr, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { IValue, NotSupported, _ISchema, _Transaction } from './interfaces-private.ts';
+import { Expr, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 import { ISubscription } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
@@ -390,4 +390,8 @@ export function pushContext<T>(ctx: Ctx, act: () => T): T {
     } finally {
         curCtx.pop();
     }
+}
+
+export function indexHash(this: void, vals: (IValue | string)[]) {
+    return vals.map(x => typeof x === 'string' ? x : x.hash).sort().join('|');
 }

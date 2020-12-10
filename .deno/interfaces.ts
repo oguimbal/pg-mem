@@ -1,4 +1,5 @@
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.3.5/mod.ts';
+import { IMigrate } from './migrate/migrate-interfaces.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
 
 export type nil = undefined | null;
 
@@ -24,6 +25,7 @@ export interface IType {
 export enum DataType {
     uuid = 'uuid',
     text = 'text',
+    citext = 'citext',
     array = 'array',
     long = 'long',
     float = 'float',
@@ -42,6 +44,11 @@ export enum DataType {
 }
 
 export interface MemoryDbOptions {
+    /**
+     * If set to true, pg-mem will stop embbeding info about the SQL statement
+     * that has failed in exception messages.
+     */
+    noErrorDiagnostic?: boolean;
     /**
      * If set to true, then the query runner will not check that no AST part
      * has been left behind when parsing the request.
@@ -170,6 +177,12 @@ export interface ISchema {
 
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
+
+    /**
+     * Database migration, node-sqlite flavor
+     * ⚠ Only working when runnin nodejs !
+     */
+    migrate (config?: IMigrate.MigrationParams): Promise<void>;
 }
 
 export interface FunctionDefinition {
@@ -233,52 +246,75 @@ export interface IndexDef {
     expressions: string[];
 }
 
-export class CastError extends Error {
-    constructor(from: DataType, to: DataType, inWhat?: string) {
-        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
-    }
-}
-export class ColumnNotFound extends Error {
-    constructor(columnName: string) {
-        super(`column "${columnName}" does not exist`);
-    }
-}
-
-export class AmbiguousColumn extends Error {
-    constructor(columnName: string) {
-        super(`column "${columnName}" is ambiguous`);
-    }
-}
-
-export class RelationNotFound extends Error {
-    constructor(tableName: string) {
-        super(`relation "${tableName}" does not exist`);
-    }
-}
-
-export class QueryError extends Error {
-}
-
-
-export class RecordExists extends Error {
-    constructor() {
-        super('Records already exists');
-    }
-}
-
 export class NotSupported extends Error {
     constructor(what?: string) {
-        super('🔨 Not supported 🔨 ' + (what ? ': ' + what : '') + `
-
-👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this issue (if you can), and  the stacktrace:
-`);
+        super('🔨 Not supported 🔨 ' + (what ? ': ' + what : ''));
     }
 
     static never(value: never, msg?: string) {
         return new NotSupported(`${msg ?? ''} ${JSON.stringify(value)}`);
     }
 }
-export class PermissionDeniedError extends Error {
+
+
+interface ErrorData {
+    readonly error: string;
+    readonly details?: string;
+    readonly hint?: string;
+}
+export class QueryError extends Error {
+    readonly data: ErrorData;
+    constructor(err: string | ErrorData) {
+        super(typeof err === 'string' ? err : errDataToStr(err));
+        this.data = typeof err === 'string'
+            ? { error: err }
+            : err;
+    }
+}
+
+function errDataToStr(data: ErrorData) {
+    const ret = ['ERROR: ' + data.error];
+    if (data.details) {
+        ret.push('DETAIL: ' + data.details);
+    }
+    if (data.hint) {
+        ret.push('HINT: ' + data.hint)
+    }
+    return ret.join('\n');
+}
+
+
+export class CastError extends QueryError {
+    constructor(from: DataType, to: DataType, inWhat?: string) {
+        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
+    }
+}
+export class ColumnNotFound extends QueryError {
+    constructor(columnName: string) {
+        super(`column "${columnName}" does not exist`);
+    }
+}
+
+export class AmbiguousColumn extends QueryError {
+    constructor(columnName: string) {
+        super(`column "${columnName}" is ambiguous`);
+    }
+}
+
+export class RelationNotFound extends QueryError {
+    constructor(tableName: string) {
+        super(`relation "${tableName}" does not exist`);
+    }
+}
+
+export class RecordExists extends QueryError {
+    constructor() {
+        super('Records already exists');
+    }
+}
+
+
+export class PermissionDeniedError extends QueryError {
     constructor(what?: string) {
         super(what
                 ? `permission denied: "${what}" is a system catalog`

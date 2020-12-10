@@ -1,5 +1,5 @@
 import { Types } from '../../datatypes.ts';
-import { FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private.ts';
+import { DataType, FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private.ts';
 import { PgAttributeTable } from './pg-attribute-list.ts';
 import { PgClassListTable } from './pg-classlist.ts';
 import { PgConstraintTable } from './pg-constraints-list.ts';
@@ -44,6 +44,13 @@ export function setupPgCatalog(db: _IDb) {
             //  https://www.postgresql.org/docs/9.3/functions-admin.html
             return val;
         }
+    });
+
+    db.getSchema('pg_catalog').registerFunction({
+        name: 'col_description',
+        args: [DataType.int, DataType.int],
+        returns: DataType.text,
+        implementation: x => 'Fake description provided by pg-mem',
     });
     catalog.setReadonly()
 }
