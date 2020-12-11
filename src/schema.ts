@@ -12,6 +12,7 @@ import { parseSql } from './parse-cache';
 import { Sequence } from './sequence';
 import { IMigrate } from './migrate/migrate-interfaces';
 import { migrate } from './migrate/migrate';
+import { CustomEnumType } from './custom-enum';
 
 
 let clsCnt = 0;
@@ -203,6 +204,12 @@ export class DbSchema implements _ISchema, ISchema {
                     break;
                 case 'tablespace':
                     throw new NotSupported('"TABLESPACE" statement');
+                case 'create enum':
+                    t = t.fullCommit();
+                    (p.name.schema ? this.db.getSchema(p.name.schema) : this)
+                        .registerEnum(p.name.name, p.values);
+                    t = t.fork();
+                    break;
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
@@ -248,6 +255,11 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             e.location = this.locOf(_p);
             throw e;
         }
+    }
+
+
+    registerEnum(name: string, values: string[]) {
+        new CustomEnumType(this, name, values).install();
     }
 
     private checkExistence<T>(command: T, name: QName, ifNotExists: boolean | undefined, act: () => T | null | void): T {
@@ -890,11 +902,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
 
+
     declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
-        const nm = table.name;
-        if (this.relsByNameLow.has(nm.toLowerCase())) {
-            throw new Error('Table exists: ' + nm);
-        }
         const trans = this.db.data.fork();
         const ret = new MemoryTable(this, trans, table);
         trans.commit();

@@ -23,6 +23,7 @@ export interface IType {
 
 // todo support all types https://www.postgresql.org/docs/9.5/datatype.html
 export enum DataType {
+
     uuid = 'uuid',
     text = 'text',
     citext = 'citext',
@@ -185,6 +186,14 @@ export interface ISchema {
 
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
+
+
+    /**
+     * Registers an enum type on this schema
+     * @param name Enum name
+     * @param values Possible values
+     */
+    registerEnum(name: string, values: string[]): void;
 
     /**
      * Database migration, node-sqlite flavor

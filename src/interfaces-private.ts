@@ -460,6 +460,10 @@ export interface _INamedIndex<T = any> extends _IIndex<T>, _RelationBase {
     readonly type: 'index';
     readonly onTable: _ITable<T>;
 }
+
+export interface _ICustomType extends _IType, _RelationBase {
+    readonly type: 'type';
+}
 export interface _IIndex<T = any> {
     readonly unique?: boolean;
     readonly expressions: IndexExpression[];
@@ -538,7 +542,7 @@ export const NewColumn = Record<TableColumnRecordDef<any>>({
     name: null as any,
 });
 
-export type _IRelation = _ITable | _ISequence | _INamedIndex;
+export type _IRelation = _ITable | _ISequence | _INamedIndex | _ICustomType;
 
 export function asIndex(o: _IRelation): _INamedIndex;
 export function asIndex(o: _IRelation | null): _INamedIndex | null;
@@ -550,6 +554,17 @@ export function asIndex(o: _IRelation | null) {
         return o;
     }
     throw new QueryError(`"${o.name}" is not an index`);
+}
+export function asType(o: _IRelation): _ICustomType;
+export function asType(o: _IRelation | null): _ICustomType | null;
+export function asType(o: _IRelation | null) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'type') {
+        return o;
+    }
+    throw new QueryError(`"${o.name}" is not a type`);
 }
 export function asSeq(o: _IRelation): _ISequence;
 export function asSeq(o: _IRelation | null): _ISequence | null;

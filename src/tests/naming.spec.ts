@@ -35,6 +35,11 @@ describe('Naming & collisions', () => {
         assert.throws(() => none('create table test(a text);'), /relation "test" already exists/);
     });
 
+    it('prevents "enum <-> table" collisions', () => {
+        none(`create table test(a text);`);
+        assert.throws(() => none(`create type test as enum ('a');`), /type "test" already exists/);
+    });
+
     it('prevents "table <-> sequence" collisions', () => {
         none('create table test(a text);');
         assert.throws(() => none('create sequence test'), /relation "test" already exists/);
@@ -94,5 +99,5 @@ describe('Naming & collisions', () => {
                 insert into test values ('test');
                 select MYCOL from test;`))
             .to.deep.equal([{ mycol: 'test' }])
-    })
+    });
 });
