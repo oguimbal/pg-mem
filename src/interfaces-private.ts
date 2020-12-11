@@ -65,7 +65,7 @@ export interface _ISchema extends ISchema {
     setReadonly(): void;
 
 
-    _reg_register(rel: _IRelation): Reg;
+    _reg_register(rel: _IRelation, t: 'relation' | 'type'): Reg;
     _reg_unregister(rel: _IRelation): void;
     _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
 }

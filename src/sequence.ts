@@ -38,7 +38,7 @@ export class Sequence implements _ISequence {
 
 
     constructor(public name: string, private db: _ISchema) {
-        this.reg = db._reg_register(this);
+        this.reg = db._reg_register(this, 'relation');
     }
 
 

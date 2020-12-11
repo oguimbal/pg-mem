@@ -24,7 +24,7 @@ export class CustomEnumType extends TypeBase<string> implements _ICustomType {
     }
 
     install() {
-        this.reg = this.schema._reg_register(this);
+        this.reg = this.schema._reg_register(this, 'type');
     }
 
     doCanCast(to: _IType) {

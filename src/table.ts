@@ -82,7 +82,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // once fields registered,
         //  then register the table
         //  (column registrations need it not to be registered yet)
-        this.reg = schema._reg_register(this);
+        this.reg = schema._reg_register(this, 'relation');
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {

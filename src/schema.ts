@@ -914,13 +914,13 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
 
-    _reg_register(rel: _IRelation): Reg {
+    _reg_register(rel: _IRelation, t: 'relation' | 'type'): Reg {
         if (this.readonly) {
             throw new PermissionDeniedError()
         }
         const nameLow = rel.name.toLowerCase();
         if (this.relsByNameLow.has(nameLow)) {
-            throw new Error('relation exists: ' + rel.name.toLowerCase());
+            throw new Error(`${t} "${rel.name.toLowerCase()}" already exists`);
         }
         const ret: Reg = {
             classId: clsCnt++,

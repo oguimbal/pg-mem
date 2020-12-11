@@ -70,7 +70,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         , readonly hash: string
         , readonly unique: boolean
         , readonly notNull: boolean) {
-        this.reg = onTable.ownerSchema._reg_register(this);
+        this.reg = onTable.ownerSchema._reg_register(this, 'relation');
         const asBinary = createTree((a: any, b: any) => {
             return this.compare(a, b);
         });
