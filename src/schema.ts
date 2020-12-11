@@ -1,10 +1,10 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg } from './interfaces-private';
-import { ignore, pushContext, watchUse } from './utils';
+import { ignore, pushContext, randomString, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { Types, fromNative, makeType, parseRegClass } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -250,7 +250,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
     }
 
-    private checkExistence(command: QueryResult, name: QName, ifNotExists: boolean | undefined, act: () => QueryResult | null | void): QueryResult {
+    private checkExistence<T>(command: T, name: QName, ifNotExists: boolean | undefined, act: () => T | null | void): T {
         // check if object exists
         const exists = this.getObject(name, {
             skipSearch: true,
@@ -307,7 +307,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 return chk(this.getOwnObject(p.name));
             }
         }
-        if ((p.schema ?? 'public') !== this.name) {
+        if ((p.schema ?? this.name) !== this.name) {
             return chk(this.db.getSchema(p.schema)
                 .getObject(p, opts));
         }
@@ -466,7 +466,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     executeCreateSequence(t: _Transaction, p: CreateSequenceStatement): QueryResult {
         const name: QName = p;
-        if ((name.schema ?? 'public') !== this.name) {
+        if ((name.schema ?? this.name) !== this.name) {
             const sch = this.db.getSchema(p.schema) as DbSchema;
             return sch.executeCreateSequence(t, p);
         }
@@ -482,6 +482,25 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 .alter(t, p.options);
             this.db.onSchemaChange();
         });
+    }
+
+    createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, _name: QName | nil): _ISequence {
+        _name = _name ?? {
+            name: randomString(),
+        };
+        if ((_name.schema ?? this.name) !== this.name) {
+            return this.db.getSchema(_name.schema)
+                .createSequence(t, opts, _name);
+        }
+        const name = _name.name;
+
+        let ret: _ISequence;
+        this.checkExistence(null, _name, false, () => {
+            ret = new Sequence(name, this)
+                .alter(t, opts);
+            this.db.onSchemaChange();
+        });
+        return ret!;
     }
 
     executeAlterSequence(t: _Transaction, p: AlterSequenceStatement): QueryResult {
@@ -560,7 +579,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     executeCreateTable(t: _Transaction, p: CreateTableStatement): QueryResult {
         const name: QName = p;
-        if ((name.schema ?? 'public') !== this.name) {
+        if ((name.schema ?? this.name) !== this.name) {
             const sch = this.db.getSchema(p.schema) as DbSchema;
             return sch.executeCreateTable(t, p);
         }

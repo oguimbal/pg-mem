@@ -139,4 +139,30 @@ describe('Alter table', () => {
         expect(db.getTable('test').listIndices())
             .to.deep.equal([]);
     });
+
+    it ('cannot add generated on a nullable column', () => {
+        assert.throws(() => none(`create table city(name text, city_id int);
+            ALTER TABLE public.city ALTER COLUMN city_id ADD GENERATED ALWAYS AS IDENTITY;`)
+            , /column "city_id" of relation "city" must be declared NOT NULL before identity can be added/);
+    })
+
+    it ('can add generated column', () => {
+        // https://github.com/oguimbal/pg-mem/issues/9
+        const data = many(`create table city(name text, city_id int not null);
+                ALTER TABLE public.city ALTER COLUMN city_id ADD GENERATED ALWAYS AS IDENTITY (
+                    SEQUENCE NAME public.city_city_id_seq
+                    START WITH 0
+                    INCREMENT BY 1
+                    MINVALUE 0
+                    NO MAXVALUE
+                    CACHE 1
+                );
+                insert into city(name) values ('Paris'), ('London');
+                select * from city;`);
+
+        expect(data).to.deep.equal([
+            { name: 'Paris', city_id: 0 },
+            { name: 'London', city_id: 1 },
+        ])
+    })
 });

@@ -395,3 +395,9 @@ export function pushContext<T>(ctx: Ctx, act: () => T): T {
 export function indexHash(this: void, vals: (IValue | string)[]) {
     return vals.map(x => typeof x === 'string' ? x : x.hash).sort().join('|');
 }
+
+export function randomString(length = 8, chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'): string {
+    var result = '';
+    for (var i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
+    return result;
+}

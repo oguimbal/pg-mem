@@ -44,6 +44,7 @@ export interface _ISchema extends ISchema {
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
+    createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this arrity */
     getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
 
@@ -332,7 +333,9 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
-    onChange(columns: string[], check: ChangeHandler<T>): ISubscription;
+    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
+    /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
+    onCheckChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
     onTruncate(sub: DropHandler): ISubscription;
@@ -341,16 +344,19 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
 
 
 export interface _IConstraint {
-    readonly name: string;
+    readonly name: string | nil;
     uninstall(t: _Transaction): void;
 }
 
-export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;
+export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction) => void;
 
 export interface _Column {
+    readonly notNull: boolean;
     readonly default: IValue | nil;
     readonly expression: IValue;
     readonly usedInIndexes: ReadonlySet<_IIndex>;
+    readonly table: _ITable;
+    readonly name: string;
     alter(alter: AlterColumn, t: _Transaction): this;
     rename(to: string, t: _Transaction): this;
     drop(t: _Transaction): void;

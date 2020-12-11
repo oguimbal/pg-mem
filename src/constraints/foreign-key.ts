@@ -1,7 +1,7 @@
-import { ISubscription, NotSupported, QueryError } from './interfaces';
+import { ISubscription, NotSupported, QueryError } from '../interfaces';
 import { Expr, ExprBinary, TableConstraintForeignKey } from 'pgsql-ast-parser';
-import { CreateIndexColDef, _IConstraint, _ITable, _Transaction } from './interfaces-private';
-import { nullIsh } from './utils';
+import { asTable, CreateIndexColDef, _IConstraint, _ITable, _Transaction } from '../interfaces-private';
+import { nullIsh } from '../utils';
 
 export class ForeignKey implements _IConstraint {
 
@@ -25,7 +25,7 @@ export class ForeignKey implements _IConstraint {
     }
 
     install(_t: _Transaction, cst: TableConstraintForeignKey, table: _ITable) {
-        const ftable = table.ownerSchema.getTable(cst.foreignTable);
+        const ftable = asTable(table.ownerSchema.getObject(cst.foreignTable));
         const cols = cst.localColumns.map(x => table.getColumnRef(x));
         const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
         this.table = table;
@@ -39,10 +39,14 @@ export class ForeignKey implements _IConstraint {
             }
         });
 
+        if ((cst.match ?? 'simple') !== 'simple' && cols.length !== 1) {
+            throw new NotSupported(`matching mode '${cst.match}' on mutliple columns foreign keys`);
+        }
+
         // check that there is an unique index on this table for the given expressions
         const findex = ftable.getIndex(...fcols.map(x => x.expression));
         if (!findex?.unique) {
-            throw new QueryError(`there is no unique constraint matching given keys for referenced table "${table.name}"`);
+            throw new QueryError(`there is no unique constraint matching given keys for referenced table "${ftable.name}"`);
         }
 
 
@@ -61,7 +65,7 @@ export class ForeignKey implements _IConstraint {
         // ========================
         const onUpdate = cst.onUpdate ?? 'no action';
         const onDelete = cst.onDelete ?? 'no action';
-        this.unsubs.push(ftable.onChange(cst.foreignColumns, (old, neu, dt) => {
+        this.unsubs.push(ftable.onBeforeChange(cst.foreignColumns, (old, neu, dt) => {
             if (!old) {
                 return;
             }
@@ -120,7 +124,7 @@ export class ForeignKey implements _IConstraint {
         //  when changing something in this table,
         //  then there must be a key match in the foreign table
         // =====================
-        table.onChange(cst.localColumns, (_, neu, dt) => {
+        table.onBeforeChange(cst.localColumns, (_, neu, dt) => {
             if (!neu) {
                 return;
             }

@@ -1,7 +1,7 @@
 import { AlterSequenceChange, AlterSequenceSetOptions, CreateSequenceOptions } from 'pgsql-ast-parser';
 import { combineSubs, ignore } from './utils';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private';
-import { DataType, ISubscription, QueryError } from './interfaces';
+import { DataType, ISubscription, nil, QueryError } from './interfaces';
 import { fromNative, makeType, Types } from './datatypes';
 
 export class Sequence implements _ISequence {
@@ -62,7 +62,10 @@ export class Sequence implements _ISequence {
                 : Number.MIN_SAFE_INTEGER + 1);
     }
 
-    alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this {
+    alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange | nil): this {
+        if (!opts) {
+            return this;
+        }
         const oldCfg = { ...this.cfg };
         try {
             if (!('type' in opts)) {

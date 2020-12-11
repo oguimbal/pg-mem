@@ -126,4 +126,25 @@ describe('Foreign keys', () => {
         none(`create table test(t bool);
         alter table test add constraint "testkey" primary key (t);`);
     })
+
+
+
+    it ('can add a "match full" reference', () => {
+        // https://github.com/oguimbal/pg-mem/issues/9
+        none(`create table location(city_id int);
+                create table city(city_id int primary key);
+                ALTER TABLE ONLY public.location
+                    ADD CONSTRAINT city_id_fk FOREIGN KEY (city_id) REFERENCES public.city(city_id) MATCH FULL;`);
+    });
+
+
+
+    it ('cannot create a foreign key when no unique constraint on foreign table', () => {
+        // https://github.com/oguimbal/pg-mem/issues/9
+        none(`create table location(city_id int);
+                create table city(city_id int);`);
+        assert.throws(() => none(`ALTER TABLE ONLY public.location ADD CONSTRAINT city_id_fk FOREIGN KEY (city_id) REFERENCES public.city(city_id) MATCH FULL;`)
+        , /there is no unique constraint matching given keys for referenced table "city"/)
+    });
+
 });
