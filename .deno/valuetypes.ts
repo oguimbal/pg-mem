@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema } from './interfaces-private.ts';
 import { DataType, QueryError, CastError, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes.ts';
+import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes/index.ts';
 import { buildCall } from './function-call.ts';
 import { nullIsh } from './utils.ts';
 

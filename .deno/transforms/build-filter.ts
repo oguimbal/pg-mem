@@ -1,6 +1,6 @@
 import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private.ts';
 import { buildValue } from '../predicate.ts';
-import { Types, makeArray, ArrayType } from '../datatypes.ts';
+import { Types, makeArray, ArrayType } from '../datatypes/index.ts';
 import { EqFilter } from './eq-filter.ts';
 import { Value } from '../valuetypes.ts';
 import { FalseFilter } from './false-filter.ts';
@@ -9,7 +9,7 @@ import { OrFilter } from './or-filter.ts';
 import { SeqScanFilter } from './seq-scan.ts';
 import { InFilter } from './in-filter.ts';
 import { NotInFilter } from './not-in-filter.ts';
-import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
 import { StartsWithFilter } from './startswith-filter.ts';
 import { IneqFilter } from './ineq-filter.ts';
 import { hasNullish, nullIsh } from '../utils.ts';

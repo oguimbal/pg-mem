@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
 
 export type nil = undefined | null;
 
@@ -41,6 +41,14 @@ export enum DataType {
     time = 'time',
     null = 'null',
     bool = 'bool',
+
+    point = 'point',
+    line = 'line',
+    lseg = 'lseg',
+    box = 'box',
+    path = 'path',
+    polygon = 'polygon',
+    circle = 'circle',
 }
 
 export interface MemoryDbOptions {

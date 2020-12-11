@@ -1,9 +1,9 @@
 import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private.ts';
-import { Types, ArrayType, makeType } from './datatypes.ts';
+import { Types, ArrayType, makeType } from './datatypes/index.ts';
 import { QueryError, DataType, NotSupported, FunctionDefinition, nil } from './interfaces.ts';
 import { Evaluator } from './valuetypes.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
 import { nullIsh } from './utils.ts';
 
 

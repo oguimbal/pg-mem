@@ -1,5 +1,5 @@
 import { getContext } from '../utils.ts';
-import { Types } from '../datatypes.ts';
+import { Types } from '../datatypes/index.ts';
 import { FunctionDefinition, QueryError } from '../interfaces.ts';
 import { asSeq, RegClass, _ISequence } from '../interfaces-private.ts';
 

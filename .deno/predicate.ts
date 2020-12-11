@@ -3,8 +3,8 @@ import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from '.
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './valuetypes.ts';
-import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes/index.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 

@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema } from '../../interfaces-private.ts';
 import { Schema } from '../../interfaces.ts';
-import { Types, makeArray } from '../../datatypes.ts';
+import { Types, makeArray } from '../../datatypes/index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
 
 export class PgIndexTable extends ReadOnlyTable implements _ITable {

@@ -1,12 +1,12 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats } from '../interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
 import { buildValue } from '../predicate.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { isSelectAllArgList, nullIsh } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../valuetypes.ts';
-import { Types } from '../datatypes.ts';
+import { Types } from '../datatypes/index.ts';
 
 export const aggregationFunctions = new Set([
     'array_agg',

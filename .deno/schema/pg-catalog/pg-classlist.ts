@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private.ts';
 import { Schema } from '../../interfaces.ts';
-import { Types, makeArray } from '../../datatypes.ts';
+import { Types, makeArray } from '../../datatypes/index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
 
 // https://www.postgresql.org/docs/12/catalog-pg-class.html

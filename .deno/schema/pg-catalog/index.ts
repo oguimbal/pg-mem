@@ -1,4 +1,4 @@
-import { Types } from '../../datatypes.ts';
+import { Types } from '../../datatypes/index.ts';
 import { DataType, FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private.ts';
 import { PgAttributeTable } from './pg-attribute-list.ts';
 import { PgClassListTable } from './pg-classlist.ts';

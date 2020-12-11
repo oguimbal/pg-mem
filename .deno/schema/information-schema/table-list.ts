@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction, _Explainer } from '../../interfaces-private.ts';
 import { Schema, nil } from '../../interfaces.ts';
-import { Types } from '../../datatypes.ts';
+import { Types } from '../../datatypes/index.ts';
 import { TableIndex } from '../table-index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
 

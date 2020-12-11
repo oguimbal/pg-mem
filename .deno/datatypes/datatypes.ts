@@ -1,142 +1,15 @@
-import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from './interfaces-private.ts';
-import { DataType, CastError, IType, QueryError, NotSupported, nil } from './interfaces.ts';
+import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from '../interfaces-private.ts';
+import { DataType, CastError, IType, QueryError, NotSupported, nil } from '../interfaces.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
-import { deepEqual, deepCompare, nullIsh, getContext } from './utils.ts';
-import { Evaluator, Value } from './valuetypes.ts';
-import { DataTypeDef, parse, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
-import { bufCompare, bufFromString, bufToString, TBuffer } from './buffer-deno.ts';
+import { deepEqual, deepCompare, nullIsh, getContext } from '../utils.ts';
+import { Evaluator, Value } from '../valuetypes.ts';
+import { DataTypeDef, parse, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { parseArrayLiteral, parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-deno.ts';
+import { TypeBase } from './datatype-base.ts';
+import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
 
-abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
 
-    abstract primary: DataType;
-    abstract regTypeName: string | null;
-    /** Can be casted to */
-    doCanCast?(to: _IType<TRaw>): boolean | nil;
-
-    /**
-     * @see this.prefer() doc
-      */
-    doPrefer?(type: _IType<TRaw>): _IType | null;
-
-    /**
-     * @see this.canConvertImplicit() doc
-     */
-    doCanConvertImplicit?(to: _IType<TRaw>): boolean;
-
-    /** Perform conversion */
-    doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any> | nil;
-
-    doEquals(a: TRaw, b: TRaw): boolean {
-        return a === b;
-    }
-
-    doGt(a: TRaw, b: TRaw): boolean {
-        return a > b;
-    }
-
-    doLt(a: TRaw, b: TRaw): boolean {
-        return a < b;
-    }
-    toString(): string {
-        throw new Error('Method not implemented.');
-    }
-
-    equals(a: TRaw, b: TRaw): boolean | null {
-        if (a === null || b === null) {
-            return null;
-        }
-        return this.doEquals(a, b);
-    }
-
-    gt(a: TRaw, b: TRaw): boolean | null {
-        if (a === null || b === null) {
-            return null;
-        }
-        return this.doGt(a, b);
-    }
-    lt(a: TRaw, b: TRaw): boolean | null {
-        if (a === null || b === null) {
-            return null;
-        }
-        return this.doLt(a, b);
-    }
-
-    ge(a: TRaw, b: TRaw): boolean | null {
-        return this.gt(a, b) || this.equals(a, b);
-    }
-
-    le(a: TRaw, b: TRaw): boolean | null {
-        return this.lt(a, b) || this.equals(a, b);
-    }
-
-    /**
-     * When performing 'a+b', will be given 'b' type,
-     * this returns the prefered resulting type, or null if they are not compatible
-      */
-    prefer(type: DataType | _IType<TRaw>): _IType | nil {
-        const to = makeType(type) as TypeBase;
-        if (to === this) {
-            return this;
-        }
-        if (this.doPrefer) {
-            const ret = this.doPrefer(to);
-            if (ret) {
-                return ret;
-            }
-        }
-        return to.doPrefer?.(this);
-    }
-
-    /**
-     * Can constant literals be converted implicitely
-     * (without a cast... i.e. you can use both values as different values of a case expression, for instance)
-     **/
-    canConvertImplicit(_to: DataType | _IType<TRaw>): boolean | nil {
-        const to = makeType(_to);
-        if (to === this) {
-            return true;
-        }
-        return this.doCanConvertImplicit?.(to);
-    }
-
-    /** Can be explicitely casted to */
-    canConvert(_to: DataType | _IType<TRaw>): boolean | nil {
-        const to = makeType(_to);
-        if (to === this) {
-            return true;
-        }
-        return this.doCanCast?.(to);
-    }
-
-    /** Perform conversion */
-    convert(a: IValue<TRaw>, _to: DataType | _IType<any>): IValue<any> {
-        const to = makeType(_to);
-        if (to === this) {
-            return a;
-        }
-        if (!this.canConvert(to) || !this.doCast || !(a instanceof Evaluator)) {
-            throw new CastError(this.primary, to.primary);
-        }
-        const converted = this.doCast(a, to);
-        if (!converted) {
-            throw new CastError(this.primary, to.primary);
-        }
-        return converted.setType(to);
-    }
-
-    constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget) {
-        let current: TRaw;
-        const ev = new Evaluator(this, null, null, null as any, null, () => current, {
-            unpure: true,
-        });
-        const converted = this.convert(ev, _to);
-        return (source: TRaw) => {
-            current = source;
-            return converted.get()
-        };
-    }
-}
 
 
 class RegTypeImpl extends TypeBase<RegType> {
@@ -652,6 +525,9 @@ class TextType extends TypeBase<string> {
         if (numbers.has(to.primary)) {
             return true;
         }
+        if (isGeometric(to.primary)) {
+            return true;
+        }
         return undefined;
     }
 
@@ -827,6 +703,15 @@ class TextType extends TypeBase<string> {
                     , sql => `(${sql})::${to.primary}`
                     , castNum => ({ castNum, to: to.primary }));
         }
+        if (isGeometric(to.primary)) {
+            return value
+                .setConversion(str => {
+                    const ret = parseGeometricLiteral(str, to.primary as any);
+                    return ret;
+                }
+                    , sql => `(${sql})::${to.primary}`
+                    , castGeo => ({ castGeo, to: to.primary }));
+        }
         return undefined;
     }
 
@@ -974,6 +859,27 @@ export const Types = { // : Ctors
     [DataType.int]: new NumberType(DataType.int) as _IType,
     [DataType.long]: new NumberType(DataType.long) as _IType,
     [DataType.bytea]: new ByteArrayType() as _IType,
+    [DataType.point]: new PointType() as _IType,
+    [DataType.line]: new LineType() as _IType,
+    [DataType.lseg]: new LsegType() as _IType,
+    [DataType.box]: new BoxType() as _IType,
+    [DataType.path]: new PathType() as _IType,
+    [DataType.polygon]: new PolygonType() as _IType,
+    [DataType.circle]: new CircleType() as _IType,
+}
+
+export function isGeometric(dt: DataType) {
+    switch (dt) {
+        case DataType.point:
+        case DataType.line:
+        case DataType.lseg:
+        case DataType.box:
+        case DataType.path:
+        case DataType.polygon:
+        case DataType.circle:
+            return true;
+    }
+    return false;
 }
 
 
@@ -1033,6 +939,10 @@ export function parseRegType(native: string): _IType {
 }
 
 export function fromNative(native: DataTypeDef): _IType {
+    const nt = (Types as any)[native.type];
+    if (nt && nt instanceof TypeBase) {
+        return nt;
+    }
     switch (native.type) {
         case 'text':
         case 'varchar':

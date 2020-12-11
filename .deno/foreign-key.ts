@@ -1,5 +1,5 @@
 import { ISubscription, NotSupported, QueryError } from './interfaces.ts';
-import { Expr, ExprBinary, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@1.3.7/mod.ts';
+import { Expr, ExprBinary, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
 import { CreateIndexColDef, _IConstraint, _ITable, _Transaction } from './interfaces-private.ts';
 import { nullIsh } from './utils.ts';
 

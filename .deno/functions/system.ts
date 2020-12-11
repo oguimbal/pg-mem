@@ -1,4 +1,4 @@
-import { Types } from '../datatypes.ts';
+import { Types } from '../datatypes/index.ts';
 import { FunctionDefinition } from '../interfaces.ts';
 
 export const systemFunctions: FunctionDefinition[] = [
