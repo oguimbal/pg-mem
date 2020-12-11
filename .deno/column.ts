@@ -1,12 +1,13 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './valuetypes.ts';
-import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
 import { nullIsh } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './btree-index.ts';
 import { fromNative } from './datatypes/index.ts';
+import { GeneratedIdentityConstraint } from './constraints/generated.ts';
 
 
 
@@ -15,13 +16,12 @@ export class ColRef implements _Column {
     default: IValue | nil;
     notNull = false;
     usedInIndexes = new Set<BIndex>();
-    changeHandlers = new Set<ChangeHandler<any>>();
     private drophandlers = new Set<DropHandler>();
 
-    constructor(private table: MemoryTable
+    constructor(readonly table: MemoryTable
         , public expression: Evaluator
         , _schema: SchemaField
-        , private name: string) {
+        , public name: string) {
     }
 
     addConstraints(clist: ColumnConstraint[], t: _Transaction): this {
@@ -61,6 +61,10 @@ export class ColRef implements _Column {
                     break;
                 case 'check':
                     this.table.addCheck(t, c.expr, cname);
+                    break;
+                case 'add generated':
+                    new GeneratedIdentityConstraint(c.constraintName, this)
+                        .install(t, c);
                     break;
                 default:
                     throw NotSupported.never(c, 'add constraint type');
@@ -145,6 +149,10 @@ export class ColRef implements _Column {
                 // once converted, do nasty things to change expression
                 this.replaceExpression(eid!, newType);
                 break;
+            case 'add generated':
+                new GeneratedIdentityConstraint(alter.constraintName, this)
+                    .install(t, alter);
+                break;
             default:
                 throw NotSupported.never(alter, 'alter column type');
         }
@@ -215,4 +223,5 @@ export class ColRef implements _Column {
             }
         }
     }
+
 }

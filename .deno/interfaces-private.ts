@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -44,6 +44,7 @@ export interface _ISchema extends ISchema {
     tablesCount(t: _Transaction): number;
     listTables(t: _Transaction): Iterable<_ITable>;
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
+    createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this arrity */
     getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
 
@@ -319,7 +320,8 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
-    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
+    createIndex(t: _Transaction, expressions: CreateIndexDef): this;
+    createIndex(t: _Transaction, expressions: string[], type: 'primary' | 'unique', indexName?: string): this;
     setReadonly(): this;
     /** Create a column */
     addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column;
@@ -327,12 +329,14 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     getColumnRef(column: string): _Column;
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
-    addConstraint(constraint: TableConstraint, t: _Transaction, constraintName?: string): void;
+    addConstraint(constraint: TableConstraint, t: _Transaction): void;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
-    onChange(columns: string[], check: ChangeHandler<T>): ISubscription;
+    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
+    /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
+    onCheckChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
     onTruncate(sub: DropHandler): ISubscription;
@@ -341,16 +345,19 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
 
 
 export interface _IConstraint {
-    readonly name: string;
+    readonly name: string | nil;
     uninstall(t: _Transaction): void;
 }
 
-export type ChangeHandler<T> = (old: T | null, neu: T | null, t: _Transaction) => void;
+export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction) => void;
 
 export interface _Column {
+    readonly notNull: boolean;
     readonly default: IValue | nil;
     readonly expression: IValue;
     readonly usedInIndexes: ReadonlySet<_IIndex>;
+    readonly table: _ITable;
+    readonly name: string;
     alter(alter: AlterColumn, t: _Transaction): this;
     rename(to: string, t: _Transaction): this;
     drop(t: _Transaction): void;

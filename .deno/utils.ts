@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, _ISchema, _Transaction } from './interfaces-private.ts';
-import { Expr, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { Expr, QName } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
 import { ISubscription } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
@@ -394,4 +394,10 @@ export function pushContext<T>(ctx: Ctx, act: () => T): T {
 
 export function indexHash(this: void, vals: (IValue | string)[]) {
     return vals.map(x => typeof x === 'string' ? x : x.hash).sort().join('|');
+}
+
+export function randomString(length = 8, chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'): string {
+    var result = '';
+    for (var i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
+    return result;
 }

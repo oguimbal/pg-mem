@@ -1,6 +1,6 @@
 import { DataType, QueryError } from '../interfaces.ts';
 import { _IType } from '../interfaces-private.ts';
-import { Box, Circle, Line, Path, Point, Polygon, Segment } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { Box, Circle, Line, Path, Point, Polygon, Segment } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
 import { Evaluator } from '../valuetypes.ts';
 import { TypeBase } from './datatype-base.ts';
 

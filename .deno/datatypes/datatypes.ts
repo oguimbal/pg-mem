@@ -3,8 +3,8 @@ import { DataType, CastError, IType, QueryError, NotSupported, nil } from '../in
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { deepEqual, deepCompare, nullIsh, getContext } from '../utils.ts';
 import { Evaluator, Value } from '../valuetypes.ts';
-import { DataTypeDef, parse, QName } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
-import { parseArrayLiteral, parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { DataTypeDef, parse, QName } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { parseArrayLiteral, parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';

@@ -5,17 +5,29 @@ import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, ExprBinary } from 'https://deno.land/x/pgsql_ast_parser@1.3.8/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, ExprBinary, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
 import { fromNative } from './datatypes/index.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
 import { parseSql } from './parse-cache.ts';
-import { ForeignKey } from './foreign-key.ts';
+import { ForeignKey } from './constraints/foreign-key.ts';
 
 
 type Raw<T> = ImMap<string, T>;
+
+
+interface ChangeSub<T> {
+    before: Set<ChangeHandler<T>>;
+    after: Set<ChangeHandler<T>>;
+}
+
+interface ChangePlan<T> {
+    before(): void
+    after(): void;
+}
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
+
 
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
@@ -36,7 +48,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     name: string;
 
     readonly columns: IValue[] = [];
-    private changeHandlers = new Set<ChangeHandler<T>>();
+    private changeHandlers = new Map<_Column | null, ChangeSub<T>>();
     private truncateHandlers = new Set<DropHandler>();
     private drophandlers = new Set<DropHandler>();
     private indexHandlers = new Set<IndexHandler>();
@@ -60,13 +72,17 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
-        this.reg = schema._reg_register(this);
         this.selection = buildAlias(this, this.name) as Alias<T>;
 
         // fields
         for (const s of _schema.fields) {
             this.addColumn(s, t);
         }
+
+        // once fields registered,
+        //  then register the table
+        //  (column registrations need it not to be registered yet)
+        this.reg = schema._reg_register(this);
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
@@ -251,10 +267,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             c.setDefaults(toInsert, t);
         }
 
-        // check constraints
-        for (const c of this.columnDefs) {
-            c.checkConstraints(toInsert, t);
-        }
+        // check change handlers (foreign keys)
+        const changePlan = this.changePlan(t, null, toInsert);
+        changePlan.before();
 
         // check "on conflict"
         if (onConflict) {
@@ -285,15 +300,70 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
         }
 
-        // check change handlers (foreign keys)
-        for (const h of this.changeHandlers) {
-            h(null, toInsert, t);
+        // check constraints
+        for (const c of this.columnDefs) {
+            c.checkConstraints(toInsert, t);
         }
+
+        // check change handlers (foreign keys)
+        changePlan.after();
 
         // index & check indx contrainsts
         this.indexElt(t, toInsert);
         this.setBin(t, this.bin(t).set(newId, toInsert));
         return toInsert;
+    }
+
+    private changePlan(t: _Transaction, old: T | null, neu: T | null): ChangePlan<T> {
+        let iter: () => IterableIterator<ChangeSub<T>>;
+        if (!old || !neu) {
+            iter = () => this.changeHandlers.values();
+        } else {
+            const ret: ChangeSub<T>[] = [];
+            const global = this.changeHandlers.get(null);
+            if (global) {
+                ret.push(global);
+            }
+            for (const def of this.columnDefs) {
+                const h = this.changeHandlers.get(def);
+                if (!h) {
+                    continue;
+                }
+                const oldVal = (old as any)[def.expression.id!];
+                const neuVal = (neu as any)[def.expression.id!];
+                if (def.expression.type.equals(oldVal, neuVal)) {
+                    continue;
+                }
+                ret.push(h);
+            }
+            iter = ret[Symbol.iterator].bind(ret);
+        }
+        return {
+            before: () => {
+                const ran = new Set();
+                for (const { before } of iter()) {
+                    for (const b of before) {
+                        if (!b || ran.has(b)) {
+                            continue;
+                        }
+                        b(old, neu, t);
+                        ran.add(b);
+                    }
+                }
+            },
+            after: () => {
+                const ran = new Set();
+                for (const { after } of iter()) {
+                    for (const a of after) {
+                        if (!a || ran.has(a)) {
+                            continue;
+                        }
+                        a(old, neu, t);
+                        ran.add(a);
+                    }
+                }
+            },
+        }
     }
 
     update(t: _Transaction, toUpdate: T): T {
@@ -302,38 +372,24 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
         const bin = this.bin(t);
         const id = getId(toUpdate);
-        const exists = bin.get(id);
+        const exists = bin.get(id) ?? null;
 
         // set default values
         for (const c of this.columnDefs) {
             c.setDefaults(toUpdate, t);
         }
 
-        // check constraints
-        for (const c of this.columnDefs) {
-            c.checkConstraints(toUpdate, t);
-        }
 
 
         // check change handlers (foreign keys)
-        if (exists && this.changeHandlers.size) {
-            const change = new Set<ChangeHandler<T>>();
-            for (const c of this.columnDefs.filter(x => x.changeHandlers.size)) {
-                const old = (exists as any)[c.expression.id!];
-                const neu = (toUpdate as any)[c.expression.id!];
-                if (c.expression.type.equals(old, neu)) {
-                    continue;
-                }
-                for (const ch of c.changeHandlers) {
-                    change.add(ch);
-                }
-                if (change.size === this.changeHandlers.size) {
-                    break;
-                }
-            }
-            for (const ch of change) {
-                ch(exists, toUpdate, t); // actual check
-            }
+        const changePlan = this.changePlan(t, exists, toUpdate);
+        changePlan.before();
+        changePlan.after();
+
+
+        // check constraints
+        for (const c of this.columnDefs) {
+            c.checkConstraints(toUpdate, t);
         }
 
         // remove old version from index
@@ -360,9 +416,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // check change handlers (foreign keys)
-        for (const h of this.changeHandlers) {
-            h(toDelete, null, t);
-        }
+        const changePlan = this.changePlan(t, toDelete, null);
+        changePlan.before();
+        changePlan.after();
 
         // remove from indices
         for (const k of this.indexByHash.values()) {
@@ -423,7 +479,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // add a check for future updates
-        this.onChange([], (old, neu, ct) => {
+        this.onBeforeChange([], (old, neu, ct) => {
             if (!neu) {
                 return;
             }
@@ -546,9 +602,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction, constraintName: string | nil) {
+    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction) {
         const ihash = indexHash(cst.localColumns.map(x => x));
-        constraintName = this.determineIndexRelName(constraintName, ihash, false, 'fk');
+        const constraintName = this.determineIndexRelName(cst.constraintName, ihash, false, 'fk');
         if (!constraintName) {
             return this;
         }
@@ -563,7 +619,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // todo add constraint name
         switch (cst.type) {
             case 'foreign key':
-                return this.addForeignKey(cst, t, cst.constraintName);
+                return this.addForeignKey(cst, t);
             case 'primary key':
                 return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
             case 'unique':
@@ -575,21 +631,39 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onChange(columns: string[], check: ChangeHandler<T>): ISubscription {
-        this.changeHandlers.add(check);
-        const reset: (() => void)[] = [];
+    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription {
+        return this._subChange('before', columns, check);
+    }
+    onCheckChange(columns: string[], check: ChangeHandler<T>): ISubscription {
+        return this._subChange('before', columns, check);
+    }
+
+    private _subChange(key: keyof ChangeSub<T>, columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription {
+        const unsubs: (() => void)[] = [];
         for (const c of columns) {
-            const hs = this.getColumnRef(c).changeHandlers;
-            hs.add(check);
-            reset.push(() => hs.delete(check));
+            const ref = typeof c === 'string'
+                ? this.getColumnRef(c)
+                : c;
+
+            let ch = this.changeHandlers.get(ref);
+            if (!ch) {
+                this.changeHandlers.set(ref, ch = {
+                    after: new Set(),
+                    before: new Set(),
+                });
+            }
+            ch[key].add(check);
+            unsubs.push(() => ch![key].delete(check));
         }
         return {
             unsubscribe: () => {
-                this.changeHandlers.delete(check);
-                reset.forEach(d => d());
+                for (const u of unsubs) {
+                    u();
+                }
             }
         }
     }
+
 
     drop(t: _Transaction) {
         this.drophandlers.forEach(d => d(t));
@@ -610,7 +684,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onTruncate(sub: DropHandler): ISubscription  {
+    onTruncate(sub: DropHandler): ISubscription {
         this.truncateHandlers.add(sub);
         return {
             unsubscribe: () => {
