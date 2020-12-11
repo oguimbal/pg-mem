@@ -320,7 +320,8 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
-    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef): this;
+    createIndex(t: _Transaction, expressions: CreateIndexDef): this;
+    createIndex(t: _Transaction, expressions: string[], type: 'primary' | 'unique', indexName?: string): this;
     setReadonly(): this;
     /** Create a column */
     addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column;
@@ -328,7 +329,7 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     getColumnRef(column: string): _Column;
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
-    addConstraint(constraint: TableConstraint, t: _Transaction, constraintName?: string): void;
+    addConstraint(constraint: TableConstraint, t: _Transaction): void;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction): void;

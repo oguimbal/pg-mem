@@ -72,13 +72,17 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
-        this.reg = schema._reg_register(this);
         this.selection = buildAlias(this, this.name) as Alias<T>;
 
         // fields
         for (const s of _schema.fields) {
             this.addColumn(s, t);
         }
+
+        // once fields registered,
+        //  then register the table
+        //  (column registrations need it not to be registered yet)
+        this.reg = schema._reg_register(this);
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
@@ -598,9 +602,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction, constraintName: string | nil) {
+    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction) {
         const ihash = indexHash(cst.localColumns.map(x => x));
-        constraintName = this.determineIndexRelName(constraintName, ihash, false, 'fk');
+        const constraintName = this.determineIndexRelName(cst.constraintName, ihash, false, 'fk');
         if (!constraintName) {
             return this;
         }
@@ -615,7 +619,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // todo add constraint name
         switch (cst.type) {
             case 'foreign key':
-                return this.addForeignKey(cst, t, cst.constraintName);
+                return this.addForeignKey(cst, t);
             case 'primary key':
                 return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
             case 'unique':

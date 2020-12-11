@@ -22,7 +22,16 @@ export class GeneratedIdentityConstraint implements _IConstraint {
 
     install(ct: _Transaction, _c: AlterColumnAddGenerated) {
         if (!this.column.notNull) {
-            throw new QueryError(`column "${this.column.name}" of relation "${this.table.name}" must be declared NOT NULL before identity can be added`);
+            // if it's a table creation, then force 'not null'
+            const tableCreation = !this.schema.getTable(this.table.name, true);
+            if (tableCreation) {
+                this.column.alter({
+                    type: 'set not null',
+                }, ct);
+            } else {
+                // else, throw an error
+                throw new QueryError(`column "${this.column.name}" of relation "${this.table.name}" must be declared NOT NULL before identity can be added`);
+            }
         }
 
         const seq = this.schema.createSequence(ct, _c.sequence, _c.sequence?.name);

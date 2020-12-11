@@ -415,7 +415,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             case 'rename constraint':
                 throw new NotSupported('rename constraint');
             case 'add constraint':
-                table.addConstraint(change.constraint, t, change.constraint.constraintName);
+                table.addConstraint(change.constraint, t);
                 return nop;
             case 'owner':
                 // owner change statements are not supported.
