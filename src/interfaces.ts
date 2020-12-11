@@ -41,6 +41,14 @@ export enum DataType {
     time = 'time',
     null = 'null',
     bool = 'bool',
+
+    point = 'point',
+    line = 'line',
+    lseg = 'lseg',
+    box = 'box',
+    path = 'path',
+    polygon = 'polygon',
+    circle = 'circle',
 }
 
 export interface MemoryDbOptions {
