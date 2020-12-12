@@ -5,13 +5,13 @@ import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, ExprBinary, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
-import { fromNative } from './datatypes/index.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
 import { parseSql } from './parse-cache.ts';
 import { ForeignKey } from './constraints/foreign-key.ts';
+import { Types } from './datatypes/index.ts';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -130,7 +130,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if ('dataType' in column) {
             const tp = {
                 ...column,
-                type: fromNative(column.dataType),
+                type: this.ownerSchema.getType(column.dataType),
             };
             delete (tp as Optional<typeof tp>).dataType;
             return this.addColumn(tp, t);
@@ -464,7 +464,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     addCheck(_t: _Transaction, check: Expr, constraintName?: string) {
         constraintName = this.constraintNameGen(constraintName);
-        const getter = buildValue(this.selection, check).convert(DataType.bool);
+        const getter = buildValue(this.selection, check).convert(Types.bool);
 
         const checkVal = (t: _Transaction, v: any) => {
             const value = getter.get(v, t);

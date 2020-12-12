@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private.ts';
 import {  nil, Schema } from '../../interfaces.ts';
-import { Types, makeArray } from '../../datatypes/index.ts';
+import { Types } from '../../datatypes/index.ts';
 import { TableIndex } from '../table-index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
 
@@ -14,30 +14,30 @@ export class PgConstraintTable extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'pg_constraint',
         fields: [
-            { name: 'oid', type: Types.int } // hidden oid column
+            { name: 'oid', type: Types.integer } // hidden oid column
             , { name: 'conname', type: Types.text() } // <== 'name' type
-            , { name: 'connamespace', type: Types.int } // <== 'oid' type
+            , { name: 'connamespace', type: Types.integer } // <== 'oid' type
             , { name: 'contype', type: Types.text(1) } // <== 'char(1)' type
             , { name: 'condeferrable', type: Types.bool }
             , { name: 'condeferred', type: Types.bool }
             , { name: 'convalidated', type: Types.bool }
-            , { name: 'conrelid', type: Types.int } // <== oid
-            , { name: 'contypid', type: Types.int } // <== oid
-            , { name: 'conindid', type: Types.int } // <== oid
-            , { name: 'conparentid', type: Types.int } // <== oid
-            , { name: 'confrelid', type: Types.int } // <== oid
+            , { name: 'conrelid', type: Types.integer } // <== oid
+            , { name: 'contypid', type: Types.integer } // <== oid
+            , { name: 'conindid', type: Types.integer } // <== oid
+            , { name: 'conparentid', type: Types.integer } // <== oid
+            , { name: 'confrelid', type: Types.integer } // <== oid
             , { name: 'confupdtype', type: Types.text(1) } // <== 'char(1)' type
             , { name: 'confdeltype', type: Types.text(1) } // <== 'char(1)' type
             , { name: 'confmatchtype', type: Types.text(1) } // <== 'char(1)' type
             , { name: 'conislocal', type: Types.bool }
-            , { name: 'coninhcount', type: Types.int }
+            , { name: 'coninhcount', type: Types.integer }
             , { name: 'connoinherit', type: Types.bool }
-            , { name: 'conkey', type: makeArray(Types.int) }
-            , { name: 'confkey', type: makeArray(Types.int) }
-            , { name: 'conpfeqop', type: makeArray(Types.int) } // <== oid[]
-            , { name: 'conppeqop', type: makeArray(Types.int) } // <== oid[]
-            , { name: 'conffeqop', type: makeArray(Types.int) } // <== oid[]
-            , { name: 'conexclop', type: makeArray(Types.int) } // <== oid[]
+            , { name: 'conkey', type: Types.integer.asArray() }
+            , { name: 'confkey', type: Types.integer.asArray() }
+            , { name: 'conpfeqop', type: Types.integer.asArray() } // <== oid[]
+            , { name: 'conppeqop', type: Types.integer.asArray() } // <== oid[]
+            , { name: 'conffeqop', type: Types.integer.asArray() } // <== oid[]
+            , { name: 'conexclop', type: Types.integer.asArray() } // <== oid[]
             , { name: 'conbin', type: Types.text() } // <== weird type
             , { name: 'consrc', type: Types.text() }
         ]

@@ -1,13 +1,43 @@
 import { Evaluator } from '../valuetypes.ts';
-import { CastError, DataType, IValue, nil, _IType } from '../interfaces-private.ts';
-import { makeType } from './datatypes.ts';
+import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase } from '../interfaces-private.ts';
+import { ArrayType } from './datatypes.ts';
+import { isType } from '../utils.ts';
 
-export abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
+let regCnt = 0;
+
+export function regGen(): Reg {
+    return {
+        classId: ++regCnt,
+        typeId: ++regCnt,
+    };
+}
+
+export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBase {
+    get [isType.TAG]() {
+        return true;
+    }
+
+    readonly reg: Reg;
+
+    get type(): 'type' {
+        return 'type';
+    }
+
+    constructor() {
+        this.reg = regGen();
+    }
+
+    private _asArray?: _IType<TRaw[]>;
 
     abstract primary: DataType;
-    abstract regTypeName: string | null;
+    get name(): string {
+        return this.primary;
+    }
     /** Can be casted to */
     doCanCast?(to: _IType<TRaw>): boolean | nil;
+
+    /** Can be built to from (inverse of doCanCast()) */
+    doCanBuildFrom?(from: _IType): boolean | nil;
 
     /**
      * @see this.prefer() doc
@@ -19,8 +49,11 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
      */
     doCanConvertImplicit?(to: _IType<TRaw>): boolean;
 
-    /** Perform conversion */
+    /** Perform conversion from this type to given type */
     doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any> | nil;
+
+    /** Perform conversion  given type to this type (inverse of doCast()) */
+    doBuildFrom?(value: Evaluator, from: _IType): Evaluator<TRaw> | nil;
 
     doEquals(a: TRaw, b: TRaw): boolean {
         return a === b;
@@ -69,8 +102,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
      * When performing 'a+b', will be given 'b' type,
      * this returns the prefered resulting type, or null if they are not compatible
       */
-    prefer(type: DataType | _IType<TRaw>): _IType | nil {
-        const to = makeType(type) as TypeBase;
+    prefer(to: _IType<TRaw>): _IType | nil {
         if (to === this) {
             return this;
         }
@@ -80,15 +112,14 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
                 return ret;
             }
         }
-        return to.doPrefer?.(this);
+        return (to as TypeBase).doPrefer?.(this);
     }
 
     /**
      * Can constant literals be converted implicitely
      * (without a cast... i.e. you can use both values as different values of a case expression, for instance)
      **/
-    canConvertImplicit(_to: DataType | _IType<TRaw>): boolean | nil {
-        const to = makeType(_to);
+    canConvertImplicit(to: _IType<TRaw>): boolean | nil {
         if (to === this) {
             return true;
         }
@@ -96,39 +127,57 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw> {
     }
 
     /** Can be explicitely casted to */
-    canConvert(_to: DataType | _IType<TRaw>): boolean | nil {
-        const to = makeType(_to);
+    canConvert(to: _IType<TRaw>): boolean | nil {
         if (to === this) {
             return true;
         }
-        return this.doCanCast?.(to);
+
+        // ask the target type if it know how to build itself from this
+        if ((to as TypeBase).doCanBuildFrom?.(this)) {
+            return true;
+        }
+
+        // asks this type if it knows how to convert itself to target
+        if (this.doCanCast?.(to)) {
+            return true;
+        }
+
+        return false;
     }
 
     /** Perform conversion */
-    convert(a: IValue<TRaw>, _to: DataType | _IType<any>): IValue<any> {
-        const to = makeType(_to);
+    convert(a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+        const to = _to as TypeBase;
         if (to === this) {
             return a;
         }
-        if (!this.canConvert(to) || !this.doCast || !(a instanceof Evaluator)) {
+        if (!(a instanceof Evaluator)) {
             throw new CastError(this.primary, to.primary);
         }
-        const converted = this.doCast(a, to);
+
+        let converted: Evaluator | nil;
+        if (to.doCanBuildFrom?.(this)) {
+            if (!to.doBuildFrom) {
+                throw new CastError(this.primary, to.primary);
+            }
+            converted = to.doBuildFrom(a, this);
+        } else {
+            if (!this.doCanCast?.(to) || !this.doCast) {
+                throw new CastError(this.primary, to.primary);
+            }
+            converted = this.doCast(a, to);
+        }
+
         if (!converted) {
             throw new CastError(this.primary, to.primary);
         }
         return converted.setType(to);
     }
 
-    constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget) {
-        let current: TRaw;
-        const ev = new Evaluator(this, null, null, null as any, null, () => current, {
-            unpure: true,
-        });
-        const converted = this.convert(ev, _to);
-        return (source: TRaw) => {
-            current = source;
-            return converted.get()
-        };
+    asArray(): _IType<TRaw[]> {
+        if (this._asArray) {
+            return this._asArray;
+        }
+        return this._asArray = new ArrayType(this);
     }
 }

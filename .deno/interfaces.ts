@@ -1,5 +1,6 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+
 
 export type nil = undefined | null;
 
@@ -18,25 +19,28 @@ export interface SchemaField extends Omit<CreateColumnDef, 'dataType'> {
 export interface IType {
     /** Data type */
     readonly primary: DataType;
+    readonly name: string;
     toString(): string;
 }
 
 // todo support all types https://www.postgresql.org/docs/9.5/datatype.html
 export enum DataType {
+
     uuid = 'uuid',
     text = 'text',
     citext = 'citext',
     array = 'array',
-    long = 'long',
+    bigint = 'bigint',
     float = 'float',
     decimal = 'decimal',
-    int = 'int',
+    integer = 'integer',
     jsonb = 'jsonb',
     regtype = 'regtype',
     regclass = 'regclass',
     json = 'json',
     bytea = 'bytea',
     timestamp = 'timestamp',
+    timestampz = 'timestampz',
     date = 'date',
     time = 'time',
     null = 'null',
@@ -186,11 +190,19 @@ export interface ISchema {
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
 
+
+    /**
+     * Registers an enum type on this schema
+     * @param name Enum name
+     * @param values Possible values
+     */
+    registerEnum(name: string, values: string[]): void;
+
     /**
      * Database migration, node-sqlite flavor
      * ⚠ Only working when runnin nodejs !
      */
-    migrate (config?: IMigrate.MigrationParams): Promise<void>;
+    migrate(config?: IMigrate.MigrationParams): Promise<void>;
 }
 
 export interface FunctionDefinition {
@@ -293,8 +305,13 @@ function errDataToStr(data: ErrorData) {
 
 
 export class CastError extends QueryError {
-    constructor(from: DataType, to: DataType, inWhat?: string) {
-        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
+    constructor(from: DataType | IType, to: DataType | IType, inWhat?: string) {
+        super(`cannot cast type ${typeof from === 'string'
+            ? from
+            : from.name} to ${typeof to === 'string'
+                ? to
+                : to.name}`
+            + (inWhat ? ' in ' + inWhat : ''));
     }
 }
 export class ColumnNotFound extends QueryError {
@@ -314,6 +331,11 @@ export class RelationNotFound extends QueryError {
         super(`relation "${tableName}" does not exist`);
     }
 }
+export class TypeNotFound extends QueryError {
+    constructor(t: string | number | DataTypeDef) {
+        super(`type "${typeof t !== 'object' ? t : typeDefToStr(t)}" does not exist`);
+    }
+}
 
 export class RecordExists extends QueryError {
     constructor() {
@@ -325,7 +347,22 @@ export class RecordExists extends QueryError {
 export class PermissionDeniedError extends QueryError {
     constructor(what?: string) {
         super(what
-                ? `permission denied: "${what}" is a system catalog`
-                : 'permission denied');
+            ? `permission denied: "${what}" is a system catalog`
+            : 'permission denied');
     }
+}
+
+
+export function typeDefToStr(t: DataTypeDef): string {
+    if (t.kind === 'array') {
+        return typeDefToStr(t.arrayOf) + '[]';
+    }
+    let ret = t.name;
+    if (t.schema) {
+        ret = t.schema + '.' + ret;
+    }
+    if (typeof t.length === 'number') {
+        ret = ret + '(' + t.length + ')';
+    }
+    return ret;
 }

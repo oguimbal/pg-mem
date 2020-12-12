@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { buildValue } from '../predicate.ts';
 import { nullIsh } from '../utils.ts';
 

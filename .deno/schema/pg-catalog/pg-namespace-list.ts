@@ -8,9 +8,9 @@ export class PgNamespaceTable extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'pg_namespace',
         fields: [
-            { name: 'oid', type: Types.int } // hidden oid column
+            { name: 'oid', type: Types.integer } // hidden oid column
             , { name: 'nspname', type: Types.text() }
-            , { name: 'nspowner', type: Types.int } // oid
+            , { name: 'nspowner', type: Types.integer } // oid
             , { name: 'nspacl', type: Types.jsonb } // aclitem[]
         ]
     };

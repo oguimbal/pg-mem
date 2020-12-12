@@ -1,9 +1,9 @@
 import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private.ts';
-import { Types, ArrayType, makeType } from './datatypes/index.ts';
-import { QueryError, DataType, NotSupported, FunctionDefinition, nil } from './interfaces.ts';
+import { Types, ArrayType } from './datatypes/index.ts';
+import { QueryError, NotSupported } from './interfaces.ts';
 import { Evaluator } from './valuetypes.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { nullIsh } from './utils.ts';
 
 
@@ -18,7 +18,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     // put your ugly hack here 😶 🏴‍☠️ ...
     switch (name) {
         case 'any':
-            return buildAnyCall(args);
+            return buildAnyCall(schema, args);
         case 'current_schema':
             type = Types.text();
             get = () => 'public';
@@ -79,7 +79,8 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
         throw new NotSupported('Unsupported function: ' + name);
     }
     return new Evaluator(
-        type!
+        schema
+        , type!
         , null
         , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })
@@ -94,7 +95,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
 }
 
 
-function buildAnyCall(args: IValue[]) {
+function buildAnyCall(schema: _ISchema, args: IValue[]) {
     if (args.length !== 1) {
         throw new QueryError('ANY() expects 1 argument, given ' + args.length);
     }
@@ -103,7 +104,8 @@ function buildAnyCall(args: IValue[]) {
     // == if ANY(select something) ... get the element type
     if (array.type instanceof ArrayType) {
         return new Evaluator(
-            array.type.of
+            schema
+            , array.type.of
             , null
             , `ANY(${array.sql})`
             , hash({ any: array.hash })
@@ -123,7 +125,8 @@ function buildAnyCall(args: IValue[]) {
     // parse ANY() array literal
     const arrayValue = parseArrayLiteral(array.get());
     return new Evaluator(
-        Types.text()
+        schema
+        , Types.text()
         , null
         , `ANY(${array.sql})`
         , hash({ any: array.hash })

@@ -1,9 +1,9 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats } from '../interfaces-private.ts';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil } from '../interfaces.ts';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces.ts';
 import { buildValue } from '../predicate.ts';
 import { Evaluator } from '../valuetypes.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
 import { isSelectAllArgList } from '../utils.ts';
@@ -54,7 +54,8 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
         throw new Error('Invalid column id');
     }
     const ret = new Evaluator(
-        type
+        on.ownerSchema
+        , type
         , id
         , id
         , id
@@ -125,7 +126,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                         id = col.expr.keyword;
                         break;
                     case 'cast':
-                        id = col.expr.to.type;
+                        id = typeDefToStr(col.expr.to);
                         break;
                 }
 

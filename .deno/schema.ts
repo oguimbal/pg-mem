@@ -1,10 +1,10 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError } from './interfaces.ts';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg } from './interfaces-private.ts';
-import { ignore, pushContext, randomString, watchUse } from './utils.ts';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces.ts';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType } from './interfaces-private.ts';
+import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils.ts';
 import { buildValue } from './predicate.ts';
-import { Types, fromNative, makeType, parseRegClass } from './datatypes/index.ts';
+import { parseRegClass, ArrayType, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -12,9 +12,10 @@ import { parseSql } from './parse-cache.ts';
 import { Sequence } from './sequence.ts';
 import { IMigrate } from './migrate/migrate-interfaces.ts';
 import { migrate } from './migrate/migrate.ts';
+import { CustomEnumType } from './custom-enum.ts';
+import { regGen } from './datatypes/datatype-base.ts';
 
 
-let clsCnt = 0;
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -203,6 +204,12 @@ export class DbSchema implements _ISchema, ISchema {
                     break;
                 case 'tablespace':
                     throw new NotSupported('"TABLESPACE" statement');
+                case 'create enum':
+                    t = t.fullCommit();
+                    (p.name.schema ? this.db.getSchema(p.name.schema) : this)
+                        .registerEnum(p.name.name, p.values);
+                    t = t.fork();
+                    break;
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
@@ -250,6 +257,11 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
     }
 
+
+    registerEnum(name: string, values: string[]) {
+        new CustomEnumType(this, name, values).install();
+    }
+
     private checkExistence<T>(command: T, name: QName, ifNotExists: boolean | undefined, act: () => T | null | void): T {
         // check if object exists
         const exists = this.getObject(name, {
@@ -293,6 +305,95 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
 
+    private simpleTypes: { [key: string]: _IType } = {};
+    private sizeableTypes: {
+        [key: string]: {
+            ctor: (sz?: number) => _IType;
+            regs: Map<number | undefined, _IType>;
+        };
+    } = {};
+
+
+    parseType(native: string): _IType {
+        if (/\[\]$/.test(native)) {
+            const inner = this.parseType(native.substr(0, native.length - 2));
+            return inner.asArray();
+        }
+        return this.getType({ name: native });
+    }
+
+
+    getOwnType(t: DataTypeDef): _IType | null {
+        if (t.kind === 'array') {
+            const $of = this.getOwnType(t.arrayOf);
+            if (!$of) {
+                return null;
+            }
+            return $of.asArray();
+        }
+        const name = typeSynonyms[t.name] ?? t.name;
+        const sizeable = this.sizeableTypes[name];
+        if (sizeable) {
+            const key = t.length ?? undefined;
+            let ret = sizeable.regs.get(key);
+            if (!ret) {
+                sizeable.regs.set(key, ret = sizeable.ctor(key));
+            }
+            return ret;
+        }
+
+        return this.simpleTypes[name] ?? null;
+    }
+
+
+    getTypePub(t: DataType | IType): _IType {
+        return this.getType(t as TypeQuery);
+    }
+
+    getType(t: TypeQuery): _IType;
+    getType(_t: TypeQuery, opts?: QueryObjOpts): _IType | null {
+        if (typeof _t === 'number') {
+            const byOid = this.relsByTyp.get(_t);
+            if (byOid) {
+                return asType(byOid);
+            }
+            throw new TypeNotFound(_t);
+        }
+        if (typeof _t === 'string') {
+            return this.getType({ name: _t });
+        }
+        if (isType(_t)) {
+            return _t;
+        }
+        const t = _t;
+        function chk<T>(ret: T): T {
+            if (!ret && !opts?.nullIfNotFound) {
+                throw new TypeNotFound(t);
+            }
+            return ret;
+        }
+        const schema = schemaOf(t);
+        if (schema) {
+            if (schema === this.name) {
+                return chk(this.getOwnType(t));
+            } else {
+                return chk(this.db.getSchema(schema)
+                    .getType(t, opts));
+            }
+        }
+        if (opts?.skipSearch) {
+            return chk(this.getOwnType(t));
+        }
+        for (const sp of this.db.searchPath) {
+            const rel = this.db.getSchema(sp).getOwnType(t);
+            if (rel) {
+                return rel;
+            }
+        }
+        return chk(this.getOwnType(t));
+    }
+
+
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
     getObject(p: QName, opts?: QueryObjOpts) {
@@ -305,12 +406,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (p.schema) {
             if (p.schema === this.name) {
                 return chk(this.getOwnObject(p.name));
+            } else {
+                return chk(this.db.getSchema(p.schema)
+                    .getObject(p, opts));
             }
         }
-        if ((p.schema ?? this.name) !== this.name) {
-            return chk(this.db.getSchema(p.schema)
-                .getObject(p, opts));
-        }
+
         if (opts?.skipSearch) {
             return chk(this.getOwnObject(p.name));
         }
@@ -596,8 +697,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                         ignore(f.collate);
                         return {
                             ...f,
-                            type: fromNative(f.dataType),
-                            serial: f.dataType.type === 'serial',
+                            type: this.getType(f.dataType),
+                            serial: !f.dataType.kind && f.dataType.name === 'serial',
                         }
                     })
             });
@@ -847,12 +948,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             }
             const toInsert: any = {};
             for (let i = 0; i < val.length; i++) {
-                const v = val[i];
+                const v: Expr | 'default' = val[i];
                 const col = table.selection.getColumn(columns[i]);
                 if (v === 'default') {
                     continue;
                 }
-                const notConv = buildValue(null, v);
+                const notConv = buildValue(table.selection, v);
                 const converted = notConv.convert(col.type);
                 if (!converted.isConstant) {
                     throw new QueryError('Cannot insert non constant expression');
@@ -890,11 +991,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
 
+
     declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
-        const nm = table.name;
-        if (this.relsByNameLow.has(nm.toLowerCase())) {
-            throw new Error('Table exists: ' + nm);
-        }
         const trans = this.db.data.fork();
         const ret = new MemoryTable(this, trans, table);
         trans.commit();
@@ -904,6 +1002,26 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return ret;
     }
 
+    _registerTypeSizeable(name: string, ctor: (sz?: number) => _IType): this {
+        if (this.simpleTypes[name] || this.sizeableTypes[name]) {
+            throw new QueryError(`type "${name}" already exists`);
+        }
+        this.sizeableTypes[name] = {
+            ctor,
+            regs: new Map(),
+        };
+        return this;
+    }
+
+    _registerType(type: _IType): this {
+        if (this.simpleTypes[type.primary] || this.sizeableTypes[type.primary] || this.getOwnObject(type.primary)) {
+            throw new QueryError(`type "${type.primary}" already exists`);
+        }
+        this.simpleTypes[type.primary] = type;
+        this._reg_register(type);
+        return this;
+    }
+
 
     _reg_register(rel: _IRelation): Reg {
         if (this.readonly) {
@@ -911,12 +1029,9 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
         const nameLow = rel.name.toLowerCase();
         if (this.relsByNameLow.has(nameLow)) {
-            throw new Error('relation exists: ' + rel.name.toLowerCase());
+            throw new Error(`relation "${rel.name.toLowerCase()}" already exists`);
         }
-        const ret: Reg = {
-            classId: clsCnt++,
-            typeId: clsCnt++,
-        };
+        const ret: Reg = regGen();
         this.relsByNameLow.set(nameLow, rel);
         this.relsByNameCas.set(rel.name, rel);
         this.relsByCls.set(ret.classId, rel);
@@ -980,9 +1095,9 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             this.fns.set(nm, fns = []);
         }
         fns.push({
-            args: fn.args?.map(x => makeType(x)) ?? [],
-            argsVariadic: fn.argsVariadic && makeType(fn.argsVariadic),
-            returns: makeType(fn.returns),
+            args: fn.args?.map(x => this.getTypePub(x)) ?? [],
+            argsVariadic: fn.argsVariadic && this.getTypePub(fn.argsVariadic),
+            returns: this.getTypePub(fn.returns),
             impure: !!fn.impure,
             implementation: fn.implementation,
         });

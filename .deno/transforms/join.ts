@@ -1,9 +1,10 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats } from '../interfaces-private.ts';
 import { buildValue, uncache } from '../predicate.ts';
-import { QueryError, ColumnNotFound, DataType, NotSupported, nil } from '../interfaces.ts';
+import { QueryError, ColumnNotFound, NotSupported, nil } from '../interfaces.ts';
 import { DataSourceBase } from './transform-base.ts';
-import { Expr, ExprBinary } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { nullIsh } from '../utils.ts';
+import { Types } from '../datatypes/index.ts';
 
 let jCnt = 0;
 
@@ -112,7 +113,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         this.fetchStrategies(on);
 
         uncache(this);
-        this.seqScanExpression = buildValue(this, on).convert(DataType.bool);
+        this.seqScanExpression = buildValue(this, on).convert(Types.bool);
     }
 
     private fetchStrategies(on: Expr) {

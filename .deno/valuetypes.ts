@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema } from './interfaces-private.ts';
-import { DataType, QueryError, CastError, nil } from './interfaces.ts';
+import { DataType, QueryError, CastError, nil, ISchema } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { Types, makeArray, makeType, ArrayType, isNumeric } from './datatypes/index.ts';
+import { Types, ArrayType, isNumeric } from './datatypes/index.ts';
 import { buildCall } from './function-call.ts';
 import { nullIsh } from './utils.ts';
 
@@ -33,7 +33,8 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     constructor(
-        readonly type: _IType<T>
+        readonly owner: _ISchema
+        , readonly type: _IType<T>
         , readonly id: string | nil
         , readonly sql: string | nil
         , readonly hash: string
@@ -105,7 +106,8 @@ export class Evaluator<T = any> implements IValue<T> {
             return this;
         }
         return new Evaluator<T>(
-            type
+            this.owner
+            , type
             , this.id
             , this.sql
             , this.hash
@@ -117,11 +119,12 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
 
-    setConversion(converter: (val: any, isResult: boolean) => any
+    setConversion(converter: (val: T, isResult: boolean, t: _Transaction | nil) => any
         , sqlConv: (sql: string) => string
         , hashConv: (hash: string) => any) {
         return new Evaluator<T>(
-            this.type
+            this.owner
+            , this.type
             , this.id
             , this.sql && sqlConv(this.sql)
             , hash(hashConv(this.hash))
@@ -132,12 +135,12 @@ export class Evaluator<T = any> implements IValue<T> {
                     return null;
                 }
                 if (!this.isAny) {
-                    return converter(got, convDepth == 1);
+                    return converter(got, convDepth == 1, t);
                 }
                 if (!Array.isArray(got)) {
                     throw new QueryError('Unexpected use of ANY()');
                 }
-                return (got as any[]).map(x => converter(x, convDepth === 1));
+                return (got as any[]).map(x => converter(x, convDepth === 1, t));
             }
             , this.opts
         );
@@ -151,7 +154,8 @@ export class Evaluator<T = any> implements IValue<T> {
 
     clone(): Evaluator<T> {
         return new Evaluator<T>(
-            this.type
+            this.owner
+            , this.type
             , this.id
             , this.sql
             , this.hash
@@ -167,7 +171,8 @@ export class Evaluator<T = any> implements IValue<T> {
             throw new QueryError('Unexpected use of ANY()');
         }
         const ret = new Evaluator<T>(
-            this.type
+            this.owner
+            , this.type
             , this.id
             , this.sql
             , this.hash
@@ -190,7 +195,8 @@ export class Evaluator<T = any> implements IValue<T> {
             return this;
         }
         return new Evaluator<T>(
-            this.type
+            this.owner
+            , this.type
             , newId
             , this.sql
             , this.hash
@@ -222,11 +228,11 @@ export class Evaluator<T = any> implements IValue<T> {
         }
     }
 
-    canConvert(to: DataType | _IType<T>): boolean {
+    canConvert(to: _IType<T>): boolean {
         return !!this.type.canConvert(to);
     }
 
-    convert<T = any>(to: DataType | _IType<T>): IValue<T> {
+    convert<T = any>(to: _IType<T>): IValue<T> {
         return this.type.convert(this, to);
     }
 
@@ -311,21 +317,23 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
 export const Value = {
-    null(ofType?: _IType): IValue {
-        return new Evaluator(ofType ?? Types.null, null, 'null', 'null', null, null, undefined);
+    null(owner: _ISchema, ofType?: _IType): IValue {
+        return new Evaluator(owner, ofType ?? Types.null, null, 'null', 'null', null, null, undefined);
     },
-    text(value: string, length: number | nil = null): IValue {
+    text(owner: _ISchema, value: string, length: number | nil = null): IValue {
         return new Evaluator(
-            Types.text(length)
+            owner
+            , Types.text(length)
             , null
             , `[${value}]`
             , value
             , null
             , value);
     },
-    number(value: number, type = Types.float): IValue {
+    number(owner: _ISchema, value: number, type = Types.float): IValue {
         return new Evaluator(
-            type
+            owner
+            , type
             , null
             , `[${value}]`
             , value.toString(10)
@@ -335,10 +343,11 @@ export const Value = {
     function(schema: _ISchema, value: string, args: IValue[]): IValue {
         return buildCall(schema, value, args);
     },
-    bool(value: boolean): IValue {
+    bool(owner: _ISchema, value: boolean): IValue {
         const str = value ? 'true' : 'false';
         return new Evaluator(
-            Types.bool
+            owner
+            , Types.bool
             , null
             , str
             , str
@@ -346,25 +355,30 @@ export const Value = {
             , value);
     },
     /** @deprecated Use with care */
-    constant(_type: DataType | _IType, value: any): IValue {
-        const type = value === null ? Types.null : makeType(_type);
-        return new Evaluator(type
+    constant(owner: _ISchema, _type: _IType, value: any): IValue {
+        const type = value === null
+            ? Types.null
+            : _type;
+        return new Evaluator(
+            owner
+            , type
             , null
             , null
             , (null as any)
             , null
             , value);
     },
-    in(value: IValue, array: IValue, inclusive: boolean): IValue {
+    in(owner: _ISchema, value: IValue, array: IValue, inclusive: boolean): IValue {
         if (!value) {
             throw new Error('Argument null');
         }
         if (array.type.primary !== DataType.array) {
-            array = Value.array([array]);
+            array = Value.array(owner, [array]);
         }
         const of = (array.type as ArrayType).of;
         return new Evaluator(
-            Types.bool
+            owner
+            , Types.bool
             , null
             , value.sql + ' IN ' + array.sql
             , hash({ val: value.hash, in: array.hash })
@@ -379,9 +393,10 @@ export const Value = {
                 return inclusive ? has : !has;
             });
     },
-    isNull(leftValue: IValue, expectNull: boolean): IValue {
+    isNull(owner: _ISchema, leftValue: IValue, expectNull: boolean): IValue {
         return new Evaluator(
-            Types.bool
+            owner
+            , Types.bool
             , null
             , `${leftValue.sql} IS${expectNull ? '' : ' NOT'} NULL`
             , hash({ isNull: leftValue.hash, expectNull })
@@ -394,10 +409,11 @@ export const Value = {
                 return left !== null && left !== undefined;
             }))
     },
-    isTrue(leftValue: IValue, expectTrue: boolean): IValue {
+    isTrue(owner: _ISchema, leftValue: IValue, expectTrue: boolean): IValue {
         leftValue = leftValue.convert(Types.bool);
         return new Evaluator(
-            Types.bool
+            owner
+            , Types.bool
             , null
             , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} TRUE`
             , hash({ isTrue: leftValue.hash, expectTrue })
@@ -410,10 +426,11 @@ export const Value = {
                 return !(left === true); //  never returns null
             }));
     },
-    isFalse(leftValue: IValue, expectFalse: boolean): IValue {
+    isFalse(owner: _ISchema, leftValue: IValue, expectFalse: boolean): IValue {
         leftValue = leftValue.convert(Types.bool);
         return new Evaluator(
-            Types.bool
+            owner
+            , Types.bool
             , null
             , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} FALSE`
             , hash({ isFalse: leftValue.hash, expectFalse })
@@ -437,7 +454,7 @@ export const Value = {
         return (value as Evaluator)
             .setConversion(x => -x, x => '-(' + x + ')', x => ({ neg: x }));
     },
-    array(values: IValue[]): IValue {
+    array(owner: _ISchema, values: IValue[]): IValue {
         if (!values.length) {
             throw new QueryError('Expecting some value in list');
         }
@@ -452,7 +469,9 @@ export const Value = {
         }, Types.null);
         // const sel = values.find(x => !!x.selection)?.selection;
         const converted = values.map(x => x.convert(type));
-        return new Evaluator(makeArray(type)
+        return new Evaluator(
+            owner
+            , type.asArray()
             , null
             , '(' + converted.map(x => x.sql).join(', ') + ')'
             , hash(converted.map(x => x.hash))

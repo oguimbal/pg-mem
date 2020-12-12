@@ -1,10 +1,10 @@
-import { _ISelection, IValue, _IType } from './interfaces-private.ts';
+import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private.ts';
 import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from './utils.ts';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './valuetypes.ts';
-import { Types, isNumeric, isInteger, fromNative, reconciliateTypes, ArrayType, makeArray } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 
@@ -12,7 +12,7 @@ import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
     max: 30,
 });
-export function buildValue(data: _ISelection | nil, val: Expr): IValue {
+export function buildValue(data: _ISelection, val: Expr): IValue {
     return _buildValue(data, val);
 }
 
@@ -44,6 +44,9 @@ function _buildValue(data: _ISelection | nil, val: Expr): IValue {
 }
 
 function _buildValueReal(data: _ISelection, val: Expr): IValue {
+    if (!data) {
+        debugger;
+    }
     switch (val.type) {
         case 'binary':
             if (val.op === 'IN' || val.op === 'NOT IN') {
@@ -57,19 +60,19 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
                 ? data.getColumn(val.table + '.' + val.name)
                 : data.getColumn(val.name);
         case 'string':
-            return Value.text(val.value);
+            return Value.text(data.ownerSchema, val.value);
         case 'null':
-            return Value.null();
+            return Value.null(data.ownerSchema);
         case 'list':
             const vals = val.expressions.map(x => _buildValue(data, x));
-            return Value.array(vals);
+            return Value.array(data.ownerSchema, vals);
         case 'numeric':
-            return Value.number(val.value);
+            return Value.number(data.ownerSchema, val.value);
         case 'integer':
-            return Value.number(val.value, Types.int);
+            return Value.number(data.ownerSchema, val.value, Types.integer);
         case 'call':
             if (typeof val.function !== 'string') {
-                return buildKeyword(val.function, val.args);
+                return buildKeyword(data.ownerSchema, val.function, val.args);
             }
             if (aggregationFunctions.has(val.function)) {
                 if (!(data instanceof Aggregation)) {
@@ -82,7 +85,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return Value.function(schema, val.function, args);
         case 'cast':
             return _buildValue(data, val.operand)
-                .convert(fromNative(val.to))
+                .convert(data.ownerSchema.getType(val.to))
         case 'case':
             return buildCase(data, val);
         case 'member':
@@ -90,21 +93,21 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'arrayIndex':
             return buildArrayIndex(data, val);
         case 'boolean':
-            return Value.bool(val.value);
+            return Value.bool(data.ownerSchema, val.value);
         case 'ternary':
             return buildTernary(data, val);
         case 'select':
             return buildSelectAsArray(data, val);
         case 'constant':
-            return Value.constant(val.dataType as any, val.value);
+            return Value.constant(data.ownerSchema, val.dataType as any, val.value);
         case 'keyword':
-            return buildKeyword(val, []);
+            return buildKeyword(data.ownerSchema, val, []);
         default:
             throw NotSupported.never(val);
     }
 }
 
-function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
+function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IValue {
     if (args.length) {
         throw new NotSupported(`usage of "${kw.keyword}" keyword with arguments, please file an issue in https://github.com/oguimbal/pg-mem if you need it !`);
     }
@@ -117,14 +120,14 @@ function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
         case 'current_user':
         case 'session_user':
         case 'user':
-            return Value.constant(DataType.text, 'pg_mem');
+            return Value.constant(schema, Types.text(), 'pg_mem');
         case 'current_schema':
-            return Value.constant(DataType.text, 'public');
+            return Value.constant(schema, Types.text(), 'public');
         case 'current_date':
-            return Value.constant(DataType.date, new Date());
+            return Value.constant(schema, Types.date, new Date());
         case 'current_timestamp':
         case 'localtimestamp':
-            return Value.constant(DataType.timestamp, new Date());
+            return Value.constant(schema, Types.timestamp, new Date());
         case 'localtime':
         case 'current_time':
             throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
@@ -139,13 +142,13 @@ function buildUnary(data: _ISelection, op: UnaryOperator, operand: Expr) {
     switch (op) {
         case 'IS NULL':
         case 'IS NOT NULL':
-            return Value.isNull(expr, op === 'IS NULL');
+            return Value.isNull(data.ownerSchema, expr, op === 'IS NULL');
         case 'IS TRUE':
         case 'IS NOT TRUE':
-            return Value.isTrue(expr, op === 'IS TRUE');
+            return Value.isTrue(data.ownerSchema, expr, op === 'IS TRUE');
         case 'IS FALSE':
         case 'IS NOT FALSE':
-            return Value.isFalse(expr, op === 'IS FALSE');
+            return Value.isFalse(data.ownerSchema, expr, op === 'IS FALSE');
         case '+':
             if (!isNumeric(expr.type)) {
                 throw new CastError(expr.type.primary, DataType.float);
@@ -162,7 +165,7 @@ function buildUnary(data: _ISelection, op: UnaryOperator, operand: Expr) {
 function buildIn(data: _ISelection, left: Expr, array: Expr, inclusive: boolean): IValue {
     let leftValue = _buildValue(data, left);
     let rightValue = _buildValue(data, array);
-    return Value.in(leftValue, rightValue, inclusive);
+    return Value.in(data.ownerSchema, leftValue, rightValue, inclusive);
 }
 
 
@@ -235,14 +238,14 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             break;
         case 'AND':
         case 'OR':
-            if (!leftValue.canConvert(DataType.bool)) {
+            if (!leftValue.canConvert(Types.bool)) {
                 throw new CastError(leftValue.type.primary, DataType.bool);
             }
-            if (!rightValue.canConvert(DataType.bool)) {
+            if (!rightValue.canConvert(Types.bool)) {
                 throw new CastError(rightValue.type.primary, DataType.bool);
             }
-            leftValue = leftValue.convert(DataType.bool);
-            rightValue = rightValue.convert(DataType.bool);
+            leftValue = leftValue.convert(Types.bool);
+            rightValue = rightValue.convert(Types.bool);
 
             if (op === 'AND') {
                 getter = (a, b) => a && b;
@@ -266,7 +269,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             if (rightValue.isConstant) {
                 const pattern = rightValue.get();
                 if (pattern === null) {
-                    return Value.null(Types.bool);
+                    return Value.null(data.ownerSchema, Types.bool);
                 }
                 let matcher: (str: string | number) => boolean | nil;
                 if (rightValue.isAny) {
@@ -313,11 +316,12 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
     // handle cases like:  blah = ANY(stuff)
     if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(leftValue, op, rightValue, returnType, getter, sql, hashed);
+        return buildBinaryAny(data.ownerSchema, leftValue, op, rightValue, returnType, getter, sql, hashed);
     }
 
     return new Evaluator(
-        returnType
+        data.ownerSchema
+        , returnType
         , null
         , sql
         , hashed
@@ -333,7 +337,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
 }
 
-function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, sql: string, hashed: string) {
+function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, sql: string, hashed: string) {
     if (leftValue.isAny && rightValue.isAny) {
         throw new QueryError('ANY() cannot be compared to ANY()');
     }
@@ -341,7 +345,8 @@ function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValu
         throw new QueryError('Invalid ANY() usage');
     }
     return new Evaluator(
-        returnType
+        schema
+        , returnType
         , null
         , sql
         , hashed
@@ -402,7 +407,7 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
     }
 
     const whenExprs = whens.map(x => ({
-        when: buildValue(data, x.when).convert(DataType.bool),
+        when: buildValue(data, x.when).convert(Types.bool),
         then: buildValue(data, x.value)
     }));
 
@@ -412,7 +417,8 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
     }
 
     return new Evaluator(
-        valueType
+        data.ownerSchema
+        , valueType
         , null
         , ['CASE'
             , whenExprs.map(x => `WHEN ${x.when.sql} THEN ${x.then.sql}`).join(' ')
@@ -456,7 +462,8 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
         });
 
     return new Evaluator(
-        op.op === '->' ? onExpr.type : Types.text()
+        data.ownerSchema
+        , op.op === '->' ? onExpr.type : Types.text()
         , null
         , `(${onExpr.sql})${op.op}${JSON.stringify(op.member)}`
         , hash([onExpr.hash, op.op, op.member])
@@ -484,9 +491,10 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
     if (onExpr.type.primary !== DataType.array) {
         throw new QueryError(`Cannot use [] expression on type ${onExpr.type.primary}`);
     }
-    const index = _buildValue(data, op.index).convert(DataType.int);
+    const index = _buildValue(data, op.index).convert(Types.integer);
     return new Evaluator(
-        (onExpr.type as ArrayType).of
+        data.ownerSchema
+        , (onExpr.type as ArrayType).of
         , null
         , `(${onExpr.sql})[${index.sql}]`
         , hash({ array: onExpr.hash, index: index.hash })
@@ -526,7 +534,8 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         : (x: boolean) => x;
 
     return new Evaluator(
-        Types.bool
+        data.ownerSchema
+        , Types.bool
         , null
         , `${value.sql} BETWEEN ${lo.sql} AND ${hi.sql}`
         , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
@@ -559,7 +568,8 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
         throw new QueryError('subquery has too many columns');
     }
     return new Evaluator(
-        makeArray(onData.columns[0].type)
+        data.ownerSchema
+        , onData.columns[0].type.asArray()
         , null
         , '<subselection>'
         , Math.random().toString() // must not be indexable => always different hash

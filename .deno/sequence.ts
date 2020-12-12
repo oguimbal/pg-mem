@@ -1,8 +1,8 @@
-import { AlterSequenceChange, AlterSequenceSetOptions, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { combineSubs, ignore } from './utils.ts';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private.ts';
-import { DataType, ISubscription, nil, QueryError } from './interfaces.ts';
-import { fromNative, makeType, Types } from './datatypes/index.ts';
+import { ISubscription, nil, QueryError } from './interfaces.ts';
+import { Types } from './datatypes/index.ts';
 
 export class Sequence implements _ISequence {
 
@@ -29,7 +29,7 @@ export class Sequence implements _ISequence {
     }
 
     get dataType() {
-        return this.cfg.dataType ?? Types.int;
+        return this.cfg.dataType ?? Types.integer;
     }
 
     get inc() {
@@ -134,7 +134,7 @@ export class Sequence implements _ISequence {
     private alterOpts(t: _Transaction, opts: CreateSequenceOptions) {
         if (opts.as) {
             ignore(opts.as);
-            this.cfg.dataType = fromNative(opts.as);
+            this.cfg.dataType = this.db.getType(opts.as);
         }
         ignore(opts.cache);
         if (opts.cycle) {

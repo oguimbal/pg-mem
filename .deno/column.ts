@@ -1,12 +1,11 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './valuetypes.ts';
-import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@1.4.2/mod.ts';
+import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
 import { nullIsh } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './btree-index.ts';
-import { fromNative } from './datatypes/index.ts';
 import { GeneratedIdentityConstraint } from './constraints/generated.ts';
 
 
@@ -140,7 +139,7 @@ export class ColRef implements _Column {
                 this.notNull = false;
                 break;
             case 'set type':
-                const newType = fromNative(alter.dataType);
+                const newType = this.table.ownerSchema.getType(alter.dataType);
                 const conv = this.expression.convert(newType);
                 const eid = this.expression.id;
 
