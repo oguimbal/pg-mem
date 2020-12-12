@@ -1,6 +1,6 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private';
 import { Schema } from '../../interfaces';
-import { Types, makeArray } from '../../datatypes';
+import { Types } from '../../datatypes';
 import { ReadOnlyTable } from '../readonly-table';
 
 // https://www.postgresql.org/docs/12/catalog-pg-class.html
@@ -16,25 +16,25 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
     _schema: Schema = {
         name: 'pg_class',
         fields: [
-            { name: 'oid', type: Types.int } // hidden oid column
+            { name: 'oid', type: Types.integer } // hidden oid column
             , { name: 'relname', type: Types.text() }
-            , { name: 'relnamespace', type: Types.int } // oid
-            , { name: 'reltype', type: Types.int } // oid
-            , { name: 'reloftype', type: Types.int } // oid
-            , { name: 'relowner', type: Types.int } // oid
-            , { name: 'relam', type: Types.int } // oid
-            , { name: 'relfilenode', type: Types.int } // oid
-            , { name: 'reltablespace', type: Types.int } // oid
-            , { name: 'relpages', type: Types.int }
-            , { name: 'reltyples', type: Types.int }
-            , { name: 'relallvisible', type: Types.int }
-            , { name: 'reltoastrelid', type: Types.int }
+            , { name: 'relnamespace', type: Types.integer } // oid
+            , { name: 'reltype', type: Types.integer } // oid
+            , { name: 'reloftype', type: Types.integer } // oid
+            , { name: 'relowner', type: Types.integer } // oid
+            , { name: 'relam', type: Types.integer } // oid
+            , { name: 'relfilenode', type: Types.integer } // oid
+            , { name: 'reltablespace', type: Types.integer } // oid
+            , { name: 'relpages', type: Types.integer }
+            , { name: 'reltyples', type: Types.integer }
+            , { name: 'relallvisible', type: Types.integer }
+            , { name: 'reltoastrelid', type: Types.integer }
             , { name: 'relhashindex', type: Types.bool }
             , { name: 'relisshared', type: Types.bool }
             , { name: 'relpersistence', type: Types.text(1) } // char(1)
             , { name: 'relkind', type: Types.text(1) } // char(1)
-            , { name: 'relnatts', type: Types.int }
-            , { name: 'relchecks', type: Types.int }
+            , { name: 'relnatts', type: Types.integer }
+            , { name: 'relchecks', type: Types.integer }
             , { name: 'relhasoids', type: Types.bool }
             , { name: 'relhasrules', type: Types.bool }
             , { name: 'relhastriggers', type: Types.bool }
@@ -44,11 +44,11 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
             , { name: 'relispopulated', type: Types.bool }
             , { name: 'relreplident', type: Types.text(1) } // char(1)
             , { name: 'relispartition', type: Types.bool }
-            , { name: 'relrewrite', type: Types.int } // oid
-            , { name: 'relfrozenxid', type: Types.int } // xid
-            , { name: 'relminmxid', type: Types.int } // xid
+            , { name: 'relrewrite', type: Types.integer } // oid
+            , { name: 'relfrozenxid', type: Types.integer } // xid
+            , { name: 'relminmxid', type: Types.integer } // xid
             , { name: 'relacl', type: Types.text() } // alitem[]
-            , { name: 'reloptions', type: makeArray(Types.text()) } // text[]
+            , { name: 'reloptions', type: Types.text().asArray() } // text[]
             , { name: 'relpartbound', type: Types.jsonb } // pg_nod_tr
         ]
     };

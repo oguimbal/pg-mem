@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType } from '../interfaces-private';
+import { IValue, _IIndex, _ISelection, _IType, TR, RegClass, RegType, _ISchema } from '../interfaces-private';
 import { DataType, CastError, IType, QueryError, NotSupported, nil } from '../interfaces';
 import moment from 'moment';
 import { deepEqual, deepCompare, nullIsh, getContext } from '../utils';
@@ -14,9 +14,6 @@ import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonTy
 
 class RegTypeImpl extends TypeBase<RegType> {
 
-    get regTypeName(): string {
-        return 'regtype';
-    }
 
     get primary(): DataType {
         return DataType.regtype;
@@ -25,28 +22,29 @@ class RegTypeImpl extends TypeBase<RegType> {
     doCanCast(_to: _IType): boolean | nil {
         switch (_to.primary) {
             case DataType.text:
-            case DataType.int:
+            case DataType.integer:
                 return true;
         }
         return null;
     }
 
-    doCast(a: Evaluator, to: _IType): Evaluator {
+    doCast(a: Evaluator<RegType>, to: _IType): Evaluator {
         switch (to.primary) {
             case DataType.text:
                 return a
-                    .setType(Types.text())
-                    .setConversion((raw: string) => {
-                        return raw;
-                    }
+                    .setType(to)
+                    .setConversion(raw => raw.toString(10)
                         , s => `(${s})::TEXT`
                         , toText => ({ toText }))
-            case DataType.int:
+            case DataType.integer:
                 return a
-                    .setType(Types.text())
-                    .setConversion((raw: string) => {
-                        const got = parseRegType(raw);
-                        return typeIndexes[got.primary]
+                    .setType(to)
+                    .setConversion((raw: RegType) => {
+                        if (typeof raw === 'number') {
+                            return raw;
+                        }
+                        const t = a.owner.parseType(raw);
+                        return t.reg.typeId;
                     }
                         , s => `(${s})::INT`
                         , toText => ({ toText }))
@@ -57,9 +55,7 @@ class RegTypeImpl extends TypeBase<RegType> {
 
 class RegClassImpl extends TypeBase<RegClass> {
 
-    get regTypeName(): string {
-        return 'regclass';
-    }
+
 
     get primary(): DataType {
         return DataType.regclass;
@@ -68,7 +64,7 @@ class RegClassImpl extends TypeBase<RegClass> {
     doCanCast(_to: _IType): boolean | nil {
         switch (_to.primary) {
             case DataType.text:
-            case DataType.int:
+            case DataType.integer:
                 return true;
         }
         return null;
@@ -84,7 +80,7 @@ class RegClassImpl extends TypeBase<RegClass> {
                     }
                         , s => `(${s})::TEXT`
                         , toText => ({ toText }))
-            case DataType.int:
+            case DataType.integer:
                 return a
                     .setType(Types.text())
                     .setConversion((raw: RegClass) => {
@@ -114,9 +110,6 @@ class RegClassImpl extends TypeBase<RegClass> {
 
 class JSONBType extends TypeBase<any> {
 
-    get regTypeName(): string {
-        return 'jsonb';
-    }
 
     constructor(readonly primary: DataType) {
         super();
@@ -161,9 +154,6 @@ class JSONBType extends TypeBase<any> {
 
 class UUIDtype extends TypeBase<Date> {
 
-    get regTypeName(): string {
-        return 'uuid';
-    }
 
     get primary(): DataType {
         return DataType.uuid;
@@ -188,9 +178,6 @@ class UUIDtype extends TypeBase<Date> {
 
 class TimestampType extends TypeBase<Date> {
 
-    get regTypeName(): string {
-        return 'timestamp without time zone';
-    }
 
     constructor(readonly primary: DataType) {
         super();
@@ -237,16 +224,16 @@ class TimestampType extends TypeBase<Date> {
 
 class NullType extends TypeBase<null> {
 
-    get regTypeName(): string | null {
-        return null;
-    }
+    // get name() {
+    //     return null;
+    // }
 
     get primary(): DataType {
         return DataType.null;
     }
 
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
-        return new Evaluator(to, null, 'null', 'null', null, null);
+        return new Evaluator(value.owner, to, null, 'null', 'null', null, null);
     }
 
     doCanCast(to: _IType): boolean {
@@ -270,8 +257,8 @@ class NullType extends TypeBase<null> {
     }
 }
 
-const integers = new Set([DataType.int, DataType.long]);
-const numbers = new Set([DataType.int, DataType.long, DataType.decimal, DataType.float]);
+const integers = new Set([DataType.integer, DataType.bigint]);
+const numbers = new Set([DataType.integer, DataType.bigint, DataType.decimal, DataType.float]);
 
 export function isNumeric(t: IType) {
     return numbers.has(t.primary);
@@ -282,27 +269,14 @@ export function isInteger(t: IType) {
 
 class NumberType extends TypeBase<number> {
 
-    get regTypeName(): string {
-        switch (this.primary) {
-            case DataType.int:
-            case DataType.long:
-                return 'integer';
-            case DataType.float:
-            case DataType.decimal:
-                return 'double precision';
-            default:
-                throw new NotSupported('Retype name of ' + this.primary);
-        }
-    }
-
     constructor(readonly primary: DataType) {
         super();
     }
 
     doCanConvertImplicit(to: _IType) {
         switch (to.primary) {
-            case DataType.int:
-            case DataType.long:
+            case DataType.integer:
+            case DataType.bigint:
             case DataType.float:
             case DataType.decimal:
             case DataType.regtype:
@@ -315,8 +289,8 @@ class NumberType extends TypeBase<number> {
 
     doPrefer(type: _IType): _IType | null {
         switch (type.primary) {
-            case DataType.int:
-            case DataType.long:
+            case DataType.integer:
+            case DataType.bigint:
                 return this;
             case DataType.float:
             case DataType.decimal:
@@ -325,10 +299,10 @@ class NumberType extends TypeBase<number> {
         return null;
     }
 
-    canConvert(to: _IType) {
+    doCanCast(to: _IType) {
         switch (to.primary) {
-            case DataType.int:
-            case DataType.long:
+            case DataType.integer:
+            case DataType.bigint:
             case DataType.float:
             case DataType.decimal:
             case DataType.regtype:
@@ -340,7 +314,9 @@ class NumberType extends TypeBase<number> {
     }
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
         if (!integers.has(value.type.primary) && integers.has(to.primary)) {
-            return new Evaluator(to
+            return new Evaluator(
+                value.owner
+                , to
                 , value.id
                 , value.sql
                 , value.hash
@@ -356,12 +332,12 @@ class NumberType extends TypeBase<number> {
         if (to.primary === DataType.regtype) {
             return value
                 .setType(Types.regtype)
-                .setConversion((int: number) => {
-                    const got = makeType((DataType as any)[allTypes[int]]);
+                .setConversion((int: number, _, t) => {
+                    const got = value.owner.getType(int, { nullIfNotFound: true });
                     if (!got) {
-                        throw new CastError(DataType.int, DataType.regtype);
+                        throw new CastError(DataType.integer, DataType.regtype);
                     }
-                    return got.regTypeName;
+                    return got.name;
                 }
                     , sql => `(${sql})::regtype`
                     , intToRegType => ({ intToRegType }));
@@ -378,20 +354,12 @@ class NumberType extends TypeBase<number> {
                     , sql => `(${sql})::regclass`
                     , intToRegClass => ({ intToRegClass }));
         }
-        return new Evaluator(to
-            , value.id
-            , value.sql
-            , value.hash
-            , value
-            , value.val
-        );
+        return value.setType(to);
     }
 }
 
 class TimeType extends TypeBase<string> {
-    get regTypeName() {
-        return 'time';
-    }
+
 
     get primary(): DataType {
         return DataType.time;
@@ -417,9 +385,6 @@ class TimeType extends TypeBase<string> {
 }
 
 class ByteArrayType extends TypeBase<TBuffer> {
-    get regTypeName() {
-        return 'bytea';
-    }
 
     get primary(): DataType {
         return DataType.bytea;
@@ -461,7 +426,7 @@ class ByteArrayType extends TypeBase<TBuffer> {
 
 class TextType extends TypeBase<string> {
 
-    get regTypeName(): string {
+    get name(): string {
         if (this.citext) {
             return 'citext';
         }
@@ -642,7 +607,7 @@ class TextType extends TypeBase<string> {
                         if (repl.startsWith('pg_catalog.')) {
                             repl = repl.substr('pg_catalog.'.length);
                         }
-                        return parseRegType(repl).regTypeName;
+                        return value.owner.parseType(repl).name;
                     }
                         , sql => `(${sql})::regtype`
                         , strToRegType => ({ strToRegType }));
@@ -673,10 +638,10 @@ class TextType extends TypeBase<string> {
                     .setType(to)
                     .setConversion((str: string) => {
                         const array = parseArrayLiteral(str);
-                        (to as ArrayType).convertLiteral(array);
+                        (to as ArrayType).convertLiteral(value.owner, array);
                         return array;
                     }
-                        , sql => `(${sql})::${to.regTypeName}`
+                        , sql => `(${sql})::${to.name}`
                         , parseArray => ({ parseArray }));
             case DataType.bytea:
                 return value
@@ -724,12 +689,9 @@ class TextType extends TypeBase<string> {
     }
 }
 
+
+
 class BoolType extends TypeBase<boolean> {
-
-    get regTypeName(): string {
-        return 'boolean';
-    }
-
     get primary(): DataType {
         return DataType.bool;
     }
@@ -740,8 +702,8 @@ export class ArrayType extends TypeBase<any[]> {
         return DataType.array;
     }
 
-    get regTypeName(): string {
-        return this.of.regTypeName + '[]';
+    get name(): string {
+        return this.of.name + '[]';
     }
 
 
@@ -754,17 +716,19 @@ export class ArrayType extends TypeBase<any[]> {
             && to.of.canConvert(this.of);
     }
 
-    doCast(value: IValue, _to: _IType) {
+    doCast(value: Evaluator, _to: _IType) {
         const to = _to as ArrayType;
         const valueType = value.type as ArrayType;
-        return new Evaluator(to
+        return new Evaluator(
+            value.owner
+            , to
             , value.id
             , value.sql
             , value.hash!
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(valueType.of, x).convert(to.of).get(raw, t));
+                return arr.map(x => Value.constant(value.owner, valueType.of, x).convert(to.of).get(raw, t));
             });
     }
 
@@ -800,7 +764,7 @@ export class ArrayType extends TypeBase<any[]> {
         return a.length < b.length;
     }
 
-    convertLiteral(elts: any) {
+    convertLiteral(owner: _ISchema, elts: any) {
         if (elts === null || elts === undefined) {
             return;
         }
@@ -809,14 +773,14 @@ export class ArrayType extends TypeBase<any[]> {
         }
         if (this.of instanceof ArrayType) {
             for (let i = 0; i < elts.length; i++) {
-                this.of.convertLiteral(elts[i]);
+                this.of.convertLiteral(owner, elts[i]);
             }
         } else {
             for (let i = 0; i < elts.length; i++) {
                 if (Array.isArray(elts[i])) {
                     throw new QueryError('Array depth mismatch: was not expecting an array item.');
                 }
-                elts[i] = Value.text(elts[i])
+                elts[i] = Value.text(owner, elts[i])
                     .convert(this.of)
                     .get();
             }
@@ -825,28 +789,14 @@ export class ArrayType extends TypeBase<any[]> {
     }
 }
 
-export function makeType(to: DataType | IType | _IType<any>): _IType<any> {
-    if (typeof to === 'string') {
-        const ret = Types[to as keyof typeof Types];
-        if (!ret) {
-            throw new Error('Unsupported raw type: ' + to);
-        }
-        return typeof ret === 'function'
-            ? ret()
-            : ret;
-    }
-    return to as _IType;
-}
 
-
-// type Ctors = {
-//     [key in DataType]?: _IType;
-// };
-export const Types = { // : Ctors
+/** Basic types */
+export const Types = {
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),
     [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
+    [DataType.timestampz]: new TimestampType(DataType.timestampz) as _IType,
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.time]: new TimeType() as _IType,
@@ -856,8 +806,8 @@ export const Types = { // : Ctors
     [DataType.json]: new JSONBType(DataType.json) as _IType,
     [DataType.null]: new NullType() as _IType,
     [DataType.float]: new NumberType(DataType.float) as _IType,
-    [DataType.int]: new NumberType(DataType.int) as _IType,
-    [DataType.long]: new NumberType(DataType.long) as _IType,
+    [DataType.integer]: new NumberType(DataType.integer) as _IType,
+    [DataType.bigint]: new NumberType(DataType.bigint) as _IType,
     [DataType.bytea]: new ByteArrayType() as _IType,
     [DataType.point]: new PointType() as _IType,
     [DataType.line]: new LineType() as _IType,
@@ -882,15 +832,8 @@ export function isGeometric(dt: DataType) {
     return false;
 }
 
-
-const typeIndexes: { [key: string]: number } = {};
-const allTypes = Object.keys(DataType);
-for (let i = 0; i < allTypes.length; i++) {
-    typeIndexes[DataType[allTypes[i] as keyof typeof Types]] = i + 1;
-}
-
 const texts = new Map<number | null, _IType>();
-export function makeText(len: number | nil = null) {
+function makeText(len: number | nil = null) {
     len = len ?? null;
     let got = texts.get(len);
     if (!got) {
@@ -899,16 +842,7 @@ export function makeText(len: number | nil = null) {
     return got;
 }
 
-const arrays = new Map<_IType, _IType>();
 
-export function makeArray(of: _IType): _IType {
-    let got = arrays.get(of);
-    if (got) {
-        return got;
-    }
-    arrays.set(of, got = new ArrayType(of));
-    return got;
-}
 
 
 
@@ -930,75 +864,35 @@ export function parseRegClass(_reg: RegClass): QName | number {
 }
 
 
-export function parseRegType(native: string): _IType {
-    if (/\[\]$/.test(native)) {
-        const inner = parseRegType(native.substr(0, native.length - 2));
-        return makeArray(inner);
-    }
-    return fromNative({ type: native });
-}
+export const typeSynonyms: { [key: string]: DataType } = {
+    'varchar': DataType.text,
+    'char': DataType.text,
+    'character': DataType.text,
+    'character varying': DataType.text,
 
-export function fromNative(native: DataTypeDef): _IType {
-    const nt = (Types as any)[native.type];
-    if (nt && nt instanceof TypeBase) {
-        return nt;
-    }
-    switch (native.type) {
-        case 'text':
-        case 'varchar':
-        case 'char':
-        case 'character':
-        case 'character varying':
-            return Types.text(native.length);
-        case 'citext':
-            return Types.citext;
-        case 'uuid':
-            return Types.uuid;
-        case 'int':
-        case 'integer':
-        case 'serial':
-        case 'bigserial':
-        case 'smallserial':
-        case 'smallint':
-        case 'bigint':
-        case 'oid':
-            return Types.int;
-        case 'decimal':
-        case 'float':
-        case 'double precision':
-        case 'numeric':
-        case 'real':
-        case 'money':
-            return Types.float;
-        case 'timestamp':
-            return Types.timestamp;
-        case 'date':
-        case 'timestamp':
-        case 'timestamp with time zone':
-        case 'timestamp without time zone':
-            return Types.date;
-        case 'json':
-            return Types.json;
-        case 'jsonb':
-            return Types.jsonb;
-        case 'regtype':
-            return Types.regtype;
-        case 'regclass':
-            return Types.regclass;
-        case 'array':
-            return makeArray(fromNative(native.arrayOf!));
-        case 'boolean':
-        case 'bool':
-            return Types.bool;
-        case 'bytea':
-            return Types.bytea;
-        case 'time':
-        case 'time with time zone':
-        case 'time without time zone':
-            return Types.time;
-        default:
-            throw new NotSupported('Data type ' + JSON.stringify(native.type));
-    }
+    'int': DataType.integer,
+    'int4': DataType.integer,
+    'serial': DataType.integer,
+    'bigserial': DataType.integer,
+    'smallserial': DataType.integer,
+    'smallint': DataType.integer,
+    'bigint': DataType.integer,
+    'oid': DataType.integer,
+
+    'decimal': DataType.float,
+    'float': DataType.float,
+    'double precision': DataType.float,
+    'numeric': DataType.float,
+    'real': DataType.float,
+    'money': DataType.float,
+
+    'timestamp with time zone': DataType.timestampz,
+    'timestamp without time zone': DataType.timestamp,
+
+    'boolean': DataType.bool,
+
+    'time with time zone': DataType.time,
+    'time without time zone': DataType.time,
 }
 
 

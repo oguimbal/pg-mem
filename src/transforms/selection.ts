@@ -1,5 +1,5 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil } from '../interfaces';
+import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces';
 import { buildValue } from '../predicate';
 import { Evaluator } from '../valuetypes';
 import { TransformBase } from './transform-base';
@@ -54,7 +54,8 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
         throw new Error('Invalid column id');
     }
     const ret = new Evaluator(
-        type
+        on.ownerSchema
+        , type
         , id
         , id
         , id
@@ -125,7 +126,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                         id = col.expr.keyword;
                         break;
                     case 'cast':
-                        id = col.expr.to.type;
+                        id = typeDefToStr(col.expr.to);
                         break;
                 }
 

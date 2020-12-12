@@ -81,7 +81,8 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             const i = _i;
             const g = groupedBy[i];
             this.groupByMapping.set(g.hash!, new Evaluator(
-                g.type
+                on.ownerSchema
+                , g.type
                 , g.id
                 , g.sql
                 , g.hash!
@@ -277,7 +278,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         const got = this._getAggregation(name, args);
 
         const id = Symbol();
-        const getter = new Evaluator(got.type
+        const getter = new Evaluator(
+            this.ownerSchema
+            , got.type
             , null
             , name
             , hashed
@@ -338,7 +341,7 @@ class CountStar implements AggregationComputer<number> {
     }
 
     get type(): _IType<any> {
-        return Types.long;
+        return Types.bigint;
     }
 
     computeFromIndex(key: IndexKey, index: _IIndex<any>, t: _Transaction) {
@@ -366,7 +369,7 @@ class CountExpr implements AggregationComputer<number> {
     }
 
     get type(): _IType<any> {
-        return Types.long;
+        return Types.bigint;
     }
 
     createGroup(t: _Transaction): AggregationGroupComputer<number> {

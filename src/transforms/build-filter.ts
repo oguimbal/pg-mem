@@ -1,6 +1,6 @@
 import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private';
 import { buildValue } from '../predicate';
-import { Types, makeArray, ArrayType } from '../datatypes';
+import { Types, ArrayType } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../valuetypes';
 import { FalseFilter } from './false-filter';
@@ -36,7 +36,7 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelect
     // if this filter is a constant expression (ex: 1 = 1)
     // then return directly
     if (built.isConstant) {
-        const val = built.convert(DataType.bool)
+        const val = built.convert(Types.bool)
             .get();
         if (val) {
             return on;
@@ -64,7 +64,7 @@ function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary):
             if (leftValue.index) {
                 return new EqFilter(leftValue, null, op === 'IS NULL' ? 'eq' : 'neq', true);
             }
-            return new SeqScanFilter(on, Value.isNull(leftValue, op === 'IS NULL'));
+            return new SeqScanFilter(on, Value.isNull(on.ownerSchema, leftValue, op === 'IS NULL'));
         }
     }
     return null;
@@ -97,10 +97,10 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             let arrayValue = buildValue(on, right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
             if (arrayValue.type.primary !== DataType.array) {
-                arrayValue = Value.array([arrayValue]);
+                arrayValue = Value.array(on.ownerSchema, [arrayValue]);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
-            const array = arrayValue.convert(makeArray(elementType!));
+            const array = arrayValue.convert(elementType!.asArray());
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
                 const arrCst = array.get();
@@ -113,7 +113,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             }
             // todo use indexes on queries like "WHERE 'whatever' in (indexedOne, indexedTwo)"
             //   => this is an OrFilter
-            return new SeqScanFilter(on, Value.in(value, array, op === 'IN'));
+            return new SeqScanFilter(on, Value.in(on.ownerSchema, value, array, op === 'IN'));
         }
         case 'LIKE': {
             const value = buildValue(on, left);

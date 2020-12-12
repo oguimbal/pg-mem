@@ -5,13 +5,13 @@ import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
 import { nullIsh, deepCloneSimple, Optional, indexHash } from './utils';
 import { Map as ImMap } from 'immutable';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, ExprBinary, AlterColumnAddGenerated } from 'pgsql-ast-parser';
-import { fromNative } from './datatypes';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr } from 'pgsql-ast-parser';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
 import { DataSourceBase } from './transforms/transform-base';
 import { parseSql } from './parse-cache';
 import { ForeignKey } from './constraints/foreign-key';
+import { Types } from './datatypes';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -82,7 +82,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         // once fields registered,
         //  then register the table
         //  (column registrations need it not to be registered yet)
-        this.reg = schema._reg_register(this, 'relation');
+        this.reg = schema._reg_register(this);
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
@@ -130,7 +130,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if ('dataType' in column) {
             const tp = {
                 ...column,
-                type: fromNative(column.dataType),
+                type: this.ownerSchema.getType(column.dataType),
             };
             delete (tp as Optional<typeof tp>).dataType;
             return this.addColumn(tp, t);
@@ -464,7 +464,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     addCheck(_t: _Transaction, check: Expr, constraintName?: string) {
         constraintName = this.constraintNameGen(constraintName);
-        const getter = buildValue(this.selection, check).convert(DataType.bool);
+        const getter = buildValue(this.selection, check).convert(Types.bool);
 
         const checkVal = (t: _Transaction, v: any) => {
             const value = getter.get(v, t);

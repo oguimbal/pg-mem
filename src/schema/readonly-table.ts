@@ -36,7 +36,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     register() {
-        this.reg = this.schema._reg_register(this, 'relation');
+        this.reg = this.schema._reg_register(this);
     }
 
     private columnsById = new Map<string, IValue>();

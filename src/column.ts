@@ -6,7 +6,6 @@ import { nullIsh } from './utils';
 import { buildValue } from './predicate';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './btree-index';
-import { fromNative } from './datatypes';
 import { GeneratedIdentityConstraint } from './constraints/generated';
 
 
@@ -140,7 +139,7 @@ export class ColRef implements _Column {
                 this.notNull = false;
                 break;
             case 'set type':
-                const newType = fromNative(alter.dataType);
+                const newType = this.table.ownerSchema.getType(alter.dataType);
                 const conv = this.expression.convert(newType);
                 const eid = this.expression.id;
 

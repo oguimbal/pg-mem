@@ -1,8 +1,8 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { IValue, NotSupported, _ISchema, _Transaction } from './interfaces-private';
-import { Expr, QName } from 'pgsql-ast-parser';
-import { ISubscription } from './interfaces';
+import { IValue, NotSupported, _ISchema, _IType, _Transaction } from './interfaces-private';
+import { DataTypeDef, Expr, nil, QName } from 'pgsql-ast-parser';
+import { ISubscription, IType } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './buffer-node';
 
 export interface Ctor<T> extends Function {
@@ -401,3 +401,17 @@ export function randomString(length = 8, chars = '0123456789abcdefghijklmnopqrst
     for (var i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
     return result;
 }
+
+
+export function schemaOf(t: DataTypeDef): string | nil {
+    if (t.kind === 'array') {
+        return schemaOf(t.arrayOf);
+    }
+    return t.schema;
+}
+
+
+export function isType(t: any): t is _IType {
+    return !!t?.[isType.TAG];
+}
+isType.TAG = Symbol();

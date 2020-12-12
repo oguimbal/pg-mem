@@ -1,9 +1,10 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats } from '../interfaces-private';
 import { buildValue, uncache } from '../predicate';
-import { QueryError, ColumnNotFound, DataType, NotSupported, nil } from '../interfaces';
+import { QueryError, ColumnNotFound, NotSupported, nil } from '../interfaces';
 import { DataSourceBase } from './transform-base';
-import { Expr, ExprBinary } from 'pgsql-ast-parser';
+import { Expr } from 'pgsql-ast-parser';
 import { nullIsh } from '../utils';
+import { Types } from '../datatypes';
 
 let jCnt = 0;
 
@@ -112,7 +113,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         this.fetchStrategies(on);
 
         uncache(this);
-        this.seqScanExpression = buildValue(this, on).convert(DataType.bool);
+        this.seqScanExpression = buildValue(this, on).convert(Types.bool);
     }
 
     private fetchStrategies(on: Expr) {

@@ -21,7 +21,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
     {
         name: 'nextval',
         args: [Types.regclass],
-        returns: Types.int,
+        returns: Types.integer,
         implementation: (seqId: RegClass) => {
             const { seq, t } = getSeq(seqId);
             const ret = seq.nextValue(t);
@@ -33,7 +33,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
     {
         name: 'currval',
         args: [Types.regclass],
-        returns: Types.int,
+        returns: Types.integer,
         implementation: (seqId: RegClass) => {
             const { seq, t } = getSeq(seqId);
             return seq.currentValue(t);
@@ -42,7 +42,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
     },
     {
         name: 'lastval',
-        returns: Types.int,
+        returns: Types.integer,
         implementation: (seqId: RegClass) => {
             const { transaction } = getContext();
             if (!transaction) {
@@ -54,8 +54,8 @@ export const sequenceFunctions: FunctionDefinition[] = [
     },
     {
         name: 'setval',
-        args: [Types.regclass, Types.int],
-        returns: Types.int,
+        args: [Types.regclass, Types.integer],
+        returns: Types.integer,
         implementation: (seqId: RegClass, val: number) => {
             const { seq, t } = getSeq(seqId);
             if (typeof val !== 'number') {

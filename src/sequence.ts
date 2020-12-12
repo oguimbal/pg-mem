@@ -1,8 +1,8 @@
-import { AlterSequenceChange, AlterSequenceSetOptions, CreateSequenceOptions } from 'pgsql-ast-parser';
+import { AlterSequenceChange, CreateSequenceOptions } from 'pgsql-ast-parser';
 import { combineSubs, ignore } from './utils';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private';
-import { DataType, ISubscription, nil, QueryError } from './interfaces';
-import { fromNative, makeType, Types } from './datatypes';
+import { ISubscription, nil, QueryError } from './interfaces';
+import { Types } from './datatypes';
 
 export class Sequence implements _ISequence {
 
@@ -29,7 +29,7 @@ export class Sequence implements _ISequence {
     }
 
     get dataType() {
-        return this.cfg.dataType ?? Types.int;
+        return this.cfg.dataType ?? Types.integer;
     }
 
     get inc() {
@@ -38,7 +38,7 @@ export class Sequence implements _ISequence {
 
 
     constructor(public name: string, private db: _ISchema) {
-        this.reg = db._reg_register(this, 'relation');
+        this.reg = db._reg_register(this);
     }
 
 
@@ -134,7 +134,7 @@ export class Sequence implements _ISequence {
     private alterOpts(t: _Transaction, opts: CreateSequenceOptions) {
         if (opts.as) {
             ignore(opts.as);
-            this.cfg.dataType = fromNative(opts.as);
+            this.cfg.dataType = this.db.getType(opts.as);
         }
         ignore(opts.cache);
         if (opts.cycle) {

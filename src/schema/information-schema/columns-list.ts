@@ -18,18 +18,18 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
             , { name: 'table_schema', type: Types.text() }
             , { name: 'table_name', type: Types.text() }
             , { name: 'column_name', type: Types.text() }
-            , { name: 'ordinal_position', type: Types.int }
+            , { name: 'ordinal_position', type: Types.integer }
             , { name: 'column_default', type: Types.text() }
             , { name: 'is_nullable', type: Types.text(3) }
             , { name: 'data_type', type: Types.text() }
-            , { name: 'character_maximum_length', type: Types.int }
-            , { name: 'character_octet_length', type: Types.int }
-            , { name: 'numeric_precision', type: Types.int }
-            , { name: 'numeric_precision_radix', type: Types.int }
-            , { name: 'numeric_scale', type: Types.int }
-            , { name: 'datetime_precision', type: Types.int }
+            , { name: 'character_maximum_length', type: Types.integer }
+            , { name: 'character_octet_length', type: Types.integer }
+            , { name: 'numeric_precision', type: Types.integer }
+            , { name: 'numeric_precision_radix', type: Types.integer }
+            , { name: 'numeric_scale', type: Types.integer }
+            , { name: 'datetime_precision', type: Types.integer }
             , { name: 'interval_type', type: Types.text() }
-            , { name: 'interval_precision', type: Types.int }
+            , { name: 'interval_precision', type: Types.integer }
             , { name: 'character_set_catalog', type: Types.text() }
             , { name: 'character_set_schema', type: Types.text() }
             , { name: 'character_set_name', type: Types.text() }
@@ -45,8 +45,8 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
             , { name: 'scope_catalog', type: Types.text() } // <====
             , { name: 'scope_schema', type: Types.text() } // <====
             , { name: 'scope_name', type: Types.text() } // <====
-            , { name: 'maximum_cardinality', type: Types.int } // <====
-            , { name: 'dtd_identifier', type: Types.int } // <=== INDEX
+            , { name: 'maximum_cardinality', type: Types.integer } // <====
+            , { name: 'dtd_identifier', type: Types.integer } // <=== INDEX
             , { name: 'is_self_referencing', type: Types.text(3) }
             , { name: 'is_identity', type: Types.text(3) } // <==
             , { name: 'identity_generation', type: Types.text() } // <==

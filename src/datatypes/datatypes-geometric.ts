@@ -16,7 +16,7 @@ export class PointType extends TypeBase<Point> {
     get primary(): DataType {
         return DataType.point;
     }
-    get regTypeName() {
+    get name() {
         return 'point';
     }
     doCanCast(t: _IType) {
@@ -60,7 +60,7 @@ export class LineType extends TypeBase<Line> {
     get primary(): DataType {
         return DataType.line;
     }
-    get regTypeName() {
+    get name() {
         return 'line';
     }
     doCanCast(t: _IType) {
@@ -88,7 +88,7 @@ export class LsegType extends TypeBase<Segment> {
     get primary(): DataType {
         return DataType.lseg;
     }
-    get regTypeName() {
+    get name() {
         return 'lseg';
     }
     doCanCast(t: _IType) {
@@ -116,7 +116,7 @@ export class BoxType extends TypeBase<Box> {
     get primary(): DataType {
         return DataType.box;
     }
-    get regTypeName() {
+    get name() {
         return 'box';
     }
     doCanCast(t: _IType) {
@@ -144,7 +144,7 @@ export class PathType extends TypeBase<Path> {
     get primary(): DataType {
         return DataType.path;
     }
-    get regTypeName() {
+    get name() {
         return 'path';
     }
     doCanCast(t: _IType) {
@@ -180,7 +180,7 @@ export class PolygonType extends TypeBase<Polygon> {
     get primary(): DataType {
         return DataType.polygon;
     }
-    get regTypeName() {
+    get name() {
         return 'polygon';
     }
     doCanCast(t: _IType) {
@@ -211,7 +211,7 @@ export class CircleType extends TypeBase<Circle> {
     get primary(): DataType {
         return DataType.circle;
     }
-    get regTypeName() {
+    get name() {
         return 'circle';
     }
     doCanCast(t: _IType) {

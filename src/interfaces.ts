@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces';
-import { TableConstraint, CreateColumnDef, StatementLocation } from 'pgsql-ast-parser';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'pgsql-ast-parser';
 
 export type nil = undefined | null;
 
@@ -28,16 +28,17 @@ export enum DataType {
     text = 'text',
     citext = 'citext',
     array = 'array',
-    long = 'long',
+    bigint = 'bigint',
     float = 'float',
     decimal = 'decimal',
-    int = 'int',
+    integer = 'integer',
     jsonb = 'jsonb',
     regtype = 'regtype',
     regclass = 'regclass',
     json = 'json',
     bytea = 'bytea',
     timestamp = 'timestamp',
+    timestampz = 'timestampz',
     date = 'date',
     time = 'time',
     null = 'null',
@@ -199,7 +200,7 @@ export interface ISchema {
      * Database migration, node-sqlite flavor
      * ⚠ Only working when runnin nodejs !
      */
-    migrate (config?: IMigrate.MigrationParams): Promise<void>;
+    migrate(config?: IMigrate.MigrationParams): Promise<void>;
 }
 
 export interface FunctionDefinition {
@@ -323,6 +324,11 @@ export class RelationNotFound extends QueryError {
         super(`relation "${tableName}" does not exist`);
     }
 }
+export class TypeNotFound extends QueryError {
+    constructor(t: string | number | DataTypeDef) {
+        super(`type "${typeof t !== 'object' ? t : typeDefToStr(t)}" does not exist`);
+    }
+}
 
 export class RecordExists extends QueryError {
     constructor() {
@@ -334,7 +340,22 @@ export class RecordExists extends QueryError {
 export class PermissionDeniedError extends QueryError {
     constructor(what?: string) {
         super(what
-                ? `permission denied: "${what}" is a system catalog`
-                : 'permission denied');
+            ? `permission denied: "${what}" is a system catalog`
+            : 'permission denied');
     }
+}
+
+
+export function typeDefToStr(t: DataTypeDef): string {
+    if (t.kind === 'array') {
+        return typeDefToStr(t.arrayOf) + '[]';
+    }
+    let ret = t.name;
+    if (t.schema) {
+        ret = t.schema + '.' + ret;
+    }
+    if (typeof t.length === 'number') {
+        ret = ret + '(' + t.length + ')';
+    }
+    return ret;
 }

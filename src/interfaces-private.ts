@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
@@ -32,7 +32,7 @@ export function setId<T = any>(item: T, id: string): T {
 
 export type RegClass = string | number;
 export type RegType = string | number;
-
+export type TypeQuery = DataTypeDef | DataType | number | _IType;
 export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
@@ -53,6 +53,13 @@ export interface _ISchema extends ISchema {
 
     getOwnObject(name: string): _IRelation | null;
 
+    parseType(t: string): _IType;
+
+
+    getType(t: TypeQuery): _IType;
+    getType(_t: TypeQuery, opts?: QueryObjOpts): _IType | null;
+
+    getOwnType(name: DataTypeDef): _IType | null
 
     getObjectByRegClassId(reg: number): _IRelation;
     getObjectByRegClassId(reg: number, opts?: QueryObjOpts): _IRelation | null;
@@ -64,8 +71,10 @@ export interface _ISchema extends ISchema {
 
     setReadonly(): void;
 
+    _registerTypeSizeable(name: string, type: (sz?: number) => _IType): this;
+    _registerType(type: _IType): this;
 
-    _reg_register(rel: _IRelation, t: 'relation' | 'type'): Reg;
+    _reg_register(rel: _IRelation): Reg;
     _reg_unregister(rel: _IRelation): void;
     _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
 }
@@ -298,7 +307,7 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
 export type DropHandler = (t: _Transaction) => void;
 export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
-interface _RelationBase {
+export interface _RelationBase {
     readonly name: string;
     readonly reg: Reg;
 }
@@ -380,9 +389,12 @@ export interface CreateIndexColDef {
 
 
 export interface _IType<TRaw = any> extends IType {
+    readonly type: 'type';
     /** Data type */
     readonly primary: DataType;
-    readonly regTypeName: string | null;
+    /** Reg type name */
+    readonly name: string; // | null;
+    readonly reg: Reg;
 
     toString(): string;
     equals(a: TRaw, b: TRaw): boolean | null;
@@ -390,11 +402,13 @@ export interface _IType<TRaw = any> extends IType {
     ge(a: TRaw, b: TRaw): boolean | null;
     lt(a: TRaw, b: TRaw): boolean | null;
     le(a: TRaw, b: TRaw): boolean | null;
-    canConvertImplicit(to: DataType | _IType<TRaw>): boolean | nil;
-    canConvert(to: DataType | _IType<TRaw>): boolean | nil;
-    convert<T = any>(value: IValue<TRaw>, to: DataType | _IType<T>): IValue<T>;
-    constantConverter<TTarget>(_to: DataType | _IType<TTarget>): ((val: TRaw) => TTarget);
+    canConvertImplicit(to: _IType<TRaw>): boolean | nil;
+    canConvert(to: _IType<TRaw>): boolean | nil;
+    convert<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue<T>;
     prefer(type: _IType<any>): _IType | nil;
+
+    /** Build an array type for this type */
+    asArray(): _IType<TRaw[]>;
 }
 
 export interface IValue<TRaw = any> {
@@ -437,8 +451,8 @@ export interface IValue<TRaw = any> {
     get(raw: TRaw, t?: _Transaction | nil): any;
 
     setId(newId: string): IValue;
-    canConvert(to: DataType | _IType): boolean;
-    convert<T = any>(to: DataType | _IType<T>): IValue<T>;
+    canConvert(to: _IType): boolean;
+    convert<T = any>(to: _IType<T>): IValue<T>;
 
     /**
      * Creates a copy of this column that can
@@ -461,9 +475,8 @@ export interface _INamedIndex<T = any> extends _IIndex<T>, _RelationBase {
     readonly onTable: _ITable<T>;
 }
 
-export interface _ICustomType extends _IType, _RelationBase {
-    readonly type: 'type';
-}
+
+
 export interface _IIndex<T = any> {
     readonly unique?: boolean;
     readonly expressions: IndexExpression[];
@@ -542,7 +555,7 @@ export const NewColumn = Record<TableColumnRecordDef<any>>({
     name: null as any,
 });
 
-export type _IRelation = _ITable | _ISequence | _INamedIndex | _ICustomType;
+export type _IRelation = _ITable | _ISequence | _INamedIndex | _IType;
 
 export function asIndex(o: _IRelation): _INamedIndex;
 export function asIndex(o: _IRelation | null): _INamedIndex | null;
@@ -555,8 +568,9 @@ export function asIndex(o: _IRelation | null) {
     }
     throw new QueryError(`"${o.name}" is not an index`);
 }
-export function asType(o: _IRelation): _ICustomType;
-export function asType(o: _IRelation | null): _ICustomType | null;
+
+export function asType(o: _IRelation): _IType;
+export function asType(o: _IRelation | null): _IType | null;
 export function asType(o: _IRelation | null) {
     if (!o) {
         return null;
@@ -566,6 +580,7 @@ export function asType(o: _IRelation | null) {
     }
     throw new QueryError(`"${o.name}" is not a type`);
 }
+
 export function asSeq(o: _IRelation): _ISequence;
 export function asSeq(o: _IRelation | null): _ISequence | null;
 export function asSeq(o: _IRelation | null) {
@@ -577,6 +592,7 @@ export function asSeq(o: _IRelation | null) {
     }
     throw new QueryError(`"${o.name}" is not a sequence`);
 }
+
 export function asTable(o: _IRelation): _ITable;
 export function asTable(o: _IRelation | null): _ITable | null;
 export function asTable(o: _IRelation | null, nullIfNotType?: boolean): _ITable | null;

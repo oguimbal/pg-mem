@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
-import { DataType } from '../interfaces';
 import { FilterBase } from './transform-base';
+import { Types } from '../datatypes';
 
 export class SeqScanFilter<T = any> extends FilterBase<T> {
 
@@ -19,7 +19,7 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
 
     constructor(private selection: _ISelection<T>, private getter: IValue<T>) {
         super(selection);
-        this.getter = getter.convert(DataType.bool);
+        this.getter = getter.convert(Types.bool);
     }
 
 
