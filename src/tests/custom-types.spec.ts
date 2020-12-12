@@ -30,7 +30,7 @@ describe('Custom types', () => {
     it('can convert enum back to text', () => {
         expect(many(`create type myType as enum ('a', 'b');
                     select 'b'::myType::text;
-            `)).to.deep.equal([{ mytype: 'b' }]);
+            `)).to.deep.equal([{ text: 'b' }]);
     });
 
     it('cannot convert enum to something else', () => {
@@ -40,7 +40,8 @@ describe('Custom types', () => {
     });
 
     it('cannot cast invalid enum', () => {
-        assert.throws(() => none(`create type myType as enum ('a', 'b');`)
+        assert.throws(() => none(`create type myType as enum ('a', 'b');
+                                    select 'c'::myType;`)
             , /invalid input value for enum mytype: "c"/);
     });
 
@@ -57,7 +58,7 @@ describe('Custom types', () => {
         none(`create type myType as enum ('a', 'b');
                 create table test (val mytype);`);
 
-        assert.throws(() => none(`insert into test values ('a');`)
+        assert.throws(() => none(`insert into test values ('c');`)
             , /invalid input value for enum mytype: "c"/);
     })
 });

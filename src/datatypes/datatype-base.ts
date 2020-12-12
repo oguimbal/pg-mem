@@ -36,6 +36,9 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     /** Can be casted to */
     doCanCast?(to: _IType<TRaw>): boolean | nil;
 
+    /** Can be built to from (inverse of doCanCast()) */
+    doCanBuildFrom?(from: _IType): boolean | nil;
+
     /**
      * @see this.prefer() doc
       */
@@ -46,8 +49,11 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
      */
     doCanConvertImplicit?(to: _IType<TRaw>): boolean;
 
-    /** Perform conversion */
+    /** Perform conversion from this type to given type */
     doCast?(value: Evaluator<TRaw>, to: _IType<TRaw>): Evaluator<any> | nil;
+
+    /** Perform conversion  given type to this type (inverse of doCast()) */
+    doBuildFrom?(value: Evaluator, from: _IType): Evaluator<TRaw> | nil;
 
     doEquals(a: TRaw, b: TRaw): boolean {
         return a === b;
@@ -125,18 +131,43 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         if (to === this) {
             return true;
         }
-        return this.doCanCast?.(to);
+
+        // ask the target type if it know how to build itself from this
+        if ((to as TypeBase).doCanBuildFrom?.(this)) {
+            return true;
+        }
+
+        // asks this type if it knows how to convert itself to target
+        if (this.doCanCast?.(to)) {
+            return true;
+        }
+
+        return false;
     }
 
     /** Perform conversion */
-    convert(a: IValue<TRaw>, to: _IType<any>): IValue<any> {
+    convert(a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+        const to = _to as TypeBase;
         if (to === this) {
             return a;
         }
-        if (!this.canConvert(to) || !this.doCast || !(a instanceof Evaluator)) {
+        if (!(a instanceof Evaluator)) {
             throw new CastError(this.primary, to.primary);
         }
-        const converted = this.doCast(a, to);
+
+        let converted: Evaluator | nil;
+        if (to.doCanBuildFrom?.(this)) {
+            if (!to.doBuildFrom) {
+                throw new CastError(this.primary, to.primary);
+            }
+            converted = to.doBuildFrom(a, this);
+        } else {
+            if (!this.doCanCast?.(to) || !this.doCast) {
+                throw new CastError(this.primary, to.primary);
+            }
+            converted = this.doCast(a, to);
+        }
+
         if (!converted) {
             throw new CastError(this.primary, to.primary);
         }

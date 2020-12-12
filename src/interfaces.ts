@@ -1,6 +1,7 @@
 import { IMigrate } from './migrate/migrate-interfaces';
 import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'pgsql-ast-parser';
 
+
 export type nil = undefined | null;
 
 export type Schema = {
@@ -18,6 +19,7 @@ export interface SchemaField extends Omit<CreateColumnDef, 'dataType'> {
 export interface IType {
     /** Data type */
     readonly primary: DataType;
+    readonly name: string;
     toString(): string;
 }
 
@@ -303,8 +305,13 @@ function errDataToStr(data: ErrorData) {
 
 
 export class CastError extends QueryError {
-    constructor(from: DataType, to: DataType, inWhat?: string) {
-        super(`failed to cast ${from} to ${to}` + (inWhat ? ' in ' + inWhat : ''));
+    constructor(from: DataType | IType, to: DataType | IType, inWhat?: string) {
+        super(`cannot cast type ${typeof from === 'string'
+            ? from
+            : from.name} to ${typeof to === 'string'
+                ? to
+                : to.name}`
+            + (inWhat ? ' in ' + inWhat : ''));
     }
 }
 export class ColumnNotFound extends QueryError {

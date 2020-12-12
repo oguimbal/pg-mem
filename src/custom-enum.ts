@@ -1,6 +1,6 @@
 import { Evaluator } from './valuetypes';
 import { TypeBase } from './datatypes/datatype-base';
-import { DataType, nil } from './interfaces';
+import { CastError, DataType, nil, QueryError } from './interfaces';
 import { _ISchema, _IType } from './interfaces-private';
 
 export class CustomEnumType extends TypeBase<string> {
@@ -33,5 +33,20 @@ export class CustomEnumType extends TypeBase<string> {
 
     prefer(type: _IType<any>): _IType | nil {
         return this;
+    }
+
+    doCanBuildFrom(from: _IType): boolean | nil {
+        return from.primary === DataType.text;
+    }
+
+    doBuildFrom(value: Evaluator<string>, from: _IType<string>): Evaluator<string> | nil {
+        return value
+            .setConversion((raw: string) => {
+                if (!this.values.includes(raw)) {
+                    throw new QueryError(`invalid input value for enum ${this.name}: "${raw}"`);
+                }
+                return raw;
+            }, x => `(${x})::${this.name}`
+                , conv => ({ conv, toCenum: this.name }))
     }
 }
