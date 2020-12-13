@@ -91,15 +91,23 @@ describe('Schema manipulation', () => {
         expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
     });
 
-    // TODO =>  NOT SUPPORTED BY PARSER
-    // it('table timestamp with time zone', () => {
-    //     const db = newDb();
-    //     const many = db.query.many(`create table test(value timestamp with time zone);
-    //                                 insert into test(value) values ('2000-01-02 03:04:05');
-    //                                 select * from test;`);
-    //     expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-    //     expect(many.map(x => moment(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
-    // });
+    it('table timestamp with time zone', () => {
+        const db = newDb();
+        const many = db.public.many(`create table test(value timestamp with time zone);
+                                    insert into test(value) values ('2000-01-02 03:04:05');
+                                    select * from test;`);
+        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+    });
+
+    it('table timestamp without time zone', () => {
+        const db = newDb();
+        const many = db.public.many(`create table test(value timestamp without time zone);
+                                    insert into test(value) values ('2000-01-02 03:04:05');
+                                    select * from test;`);
+        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+    });
 
     it('table date', () => {
         const db = newDb();
@@ -111,15 +119,17 @@ describe('Schema manipulation', () => {
     });
 
 
-    // TODO =>  NOT SUPPORTED BY PARSER
-    // it('table date array', () => {
-    //     const db = newDb();
-    //     const many = db.query.many(`create table test(value date[]);
-    //                                 insert into test(value) values ('{2000-01-02 03:04:05,2000-01-02 03:04:05');
-    //                                 select * from test;`);
-    //     expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-    //     expect(many.map(x => x.value?.map?.(y => moment(y)?.format('YYYY-MM-DD HH:mm:ss')))).to.deep.equal([['2000-01-02 00:00:00', '2000-01-02 00:00:00']]);
-    // });
+    it('table date array', () => {
+        const db = newDb();
+        const { value } = db.public.one(`create table test(value date[]);
+                                    insert into test(value) values ('{2000-01-02 03:04:05,2000-01-02 03:04:05}');
+                                    select * from test;`);
+        if (!Array.isArray(value)) {
+            assert.fail('should be array');
+        }
+        expect(value.map(y => moment.utc(y)?.format('YYYY-MM-DD HH:mm:ss')))
+            .to.deep.equal(['2000-01-02 00:00:00', '2000-01-02 00:00:00']);
+    });
 
     it('table jsonb', () => {
         const db = newDb();

@@ -886,7 +886,8 @@ export const typeSynonyms: { [key: string]: DataType } = {
     'real': DataType.float,
     'money': DataType.float,
 
-    'timestamp with time zone': DataType.timestampz,
+    'timestampz': DataType.timestamp, //  => todo support timestampz
+    'timestamp with time zone': DataType.timestamp, //  => todo support timestampz
     'timestamp without time zone': DataType.timestamp,
 
     'boolean': DataType.bool,
