@@ -7,6 +7,7 @@ import type { buildFilter } from './build-filter';
 import type { buildGroupBy } from './aggregation';
 import type { buildLimit } from './limit';
 import type { buildOrderBy } from './order-by';
+import type { buildDistinct } from './distinct';
 
 import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
 import { RestrictiveIndex } from './restrictive-index';
@@ -18,6 +19,7 @@ interface Fns {
     buildFilter: typeof buildFilter;
     buildGroupBy: typeof buildGroupBy;
     buildOrderBy: typeof buildOrderBy;
+    buildDistinct: typeof buildDistinct;
 }
 let fns: Fns;
 export function initialize(init: Fns) {
@@ -85,6 +87,10 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
             return this;
         }
         return fns.buildOrderBy(this, orderBy);
+    }
+
+    distinct(exprs?: Expr[]): _ISelection<any> {
+        return fns.buildDistinct(this, exprs);
     }
 }
 

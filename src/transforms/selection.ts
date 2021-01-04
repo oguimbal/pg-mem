@@ -6,7 +6,7 @@ import { TransformBase } from './transform-base';
 import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'pgsql-ast-parser';
 import { aggregationFunctions, buildGroupBy } from './aggregation';
 
-import { isSelectAllArgList } from '../utils';
+import { isSelectAllArgList, suggestColumnName } from '../utils';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
     select = select ?? [];
@@ -106,29 +106,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         let anonymousBases = new Map<string, number>();
         for (let i = 0; i < this.columnIds.length; i++) {
             if (!this.columnIds[i]) {
-                let id = 'column';
-                let col = columns[i];
-
-                // suggest a column result name
-                switch (col.expr.type) {
-                    case 'call':
-                        const fn = col.expr.function;
-                        if (typeof fn === 'string') {
-                            id = fn;
-                        } else {
-                            id = fn.keyword;
-                        }
-                        break;
-                    case 'ref':
-                        id = col.expr.name;
-                        break;
-                    case 'keyword':
-                        id = col.expr.keyword;
-                        break;
-                    case 'cast':
-                        id = typeDefToStr(col.expr.to);
-                        break;
-                }
+                let id = suggestColumnName(columns[i].expr) ?? 'column';
 
                 // check no collision with an existing column
                 let cnt = anonymousBases.get(id);

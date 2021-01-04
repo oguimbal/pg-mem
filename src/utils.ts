@@ -2,7 +2,7 @@ import moment from 'moment';
 import { List } from 'immutable';
 import { IValue, NotSupported, _ISchema, _IType, _Transaction } from './interfaces-private';
 import { DataTypeDef, Expr, nil, QName } from 'pgsql-ast-parser';
-import { ISubscription, IType } from './interfaces';
+import { ISubscription, IType, typeDefToStr } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './buffer-node';
 
 export interface Ctor<T> extends Function {
@@ -415,3 +415,24 @@ export function isType(t: any): t is _IType {
     return !!t?.[isType.TAG];
 }
 isType.TAG = Symbol();
+
+
+export function suggestColumnName(expr: Expr): string | null {
+    // suggest a column result name
+    switch (expr.type) {
+        case 'call':
+            const fn = expr.function;
+            if (typeof fn === 'string') {
+                return fn;
+            } else {
+                return fn.keyword;
+            }
+        case 'ref':
+            return expr.name;
+        case 'keyword':
+            return expr.keyword;
+        case 'cast':
+            return typeDefToStr(expr.to);
+    }
+    return null;
+}

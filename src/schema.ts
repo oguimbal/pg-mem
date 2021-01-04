@@ -753,6 +753,9 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (p.type !== 'select') {
             throw new NotSupported(p.type);
         }
+        const distinct = !p.distinct || p.distinct === 'all'
+            ? null
+            : p.distinct;
         let sel: _ISelection | undefined = undefined;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
@@ -803,10 +806,26 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (p.groupBy) {
             sel = sel.groupBy(p.groupBy, p.columns!);
             sel = sel.orderBy(p.orderBy);
+            // when grouping by, distinct is handled after selection
+            //  => can distinct on key, or selected
+            if (Array.isArray(p.distinct)) {
+                sel = sel.distinct(p.distinct);
+            }
         } else {
+            // when not grouping by, distinct is handled before
+            // selection => can distinct on non selected values
+            if (Array.isArray(p.distinct)) {
+                sel = sel.distinct(p.distinct);
+            }
             sel = sel.orderBy(p.orderBy);
             sel = sel.select(p.columns!);
         }
+
+        // handle 'distinct' on result set
+        if (distinct === 'distinct') {
+            sel = sel.distinct();
+        }
+
         if (p.limit) {
             sel = sel.limit(p.limit);
         }

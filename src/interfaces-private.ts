@@ -138,6 +138,7 @@ export interface _ISelection<T = any> {
     orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any>;
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
+    distinct(select?: Expr[]): _ISelection;
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
@@ -194,6 +195,11 @@ export type _SelectExplanation = {
     take?: number;
     skip?: number;
     on: _SelectExplanation;
+} | {
+    /** A selection transformation */
+    id: string | number;
+    _: 'distinct';
+    of: _SelectExplanation;
 } | {
     /** A table */
     _: 'table';

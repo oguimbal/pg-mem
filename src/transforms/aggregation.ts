@@ -3,7 +3,7 @@ import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanat
 import { SelectedColumn, Expr } from 'pgsql-ast-parser';
 import { buildValue } from '../predicate';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
-import { isSelectAllArgList, nullIsh } from '../utils';
+import { isSelectAllArgList, nullIsh, suggestColumnName } from '../utils';
 import hash from 'object-hash';
 import { Evaluator } from '../valuetypes';
 import { Types } from '../datatypes';
@@ -103,7 +103,11 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             if (s.alias && cols.has(s.alias)) {
                 throw new NotSupported('Ambiguous aliasing');
             }
-            cols.set(s.alias ?? built.id ?? ('column' + (anonymous++)), built);
+            const name = s.alias
+                ?? suggestColumnName(s.expr)
+                ?? built.id
+                ?? ('column' + (anonymous++));
+            cols.set(name, built);
         }
         this.building = null;
         this.columnsById = cols;
