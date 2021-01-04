@@ -1,5 +1,4 @@
 import { expect } from 'chai';
-import type Knex from 'knex';
 import { newDb } from '../../src/db';
 
 export async function knexSample() {

@@ -54,13 +54,25 @@ export class Adapters implements LibAdapters {
             types?: any;
         }
         class MemPg {
+
+            connection = this;
+
             on() {
                 // nop
             }
+
             release() {
             }
+
             removeListener() {
             }
+
+            once(what: string, handler: () => void) {
+                if (what === 'connect') {
+                    setTimeout(handler, queryLatency ?? 0);
+                }
+            }
+
             end(callback: any) {
                 if (callback) {
                     callback();
@@ -69,6 +81,7 @@ export class Adapters implements LibAdapters {
                     return Promise.resolve();
                 }
             }
+
             connect(callback: any) {
                 if (callback) {
                     callback(null, this, () => { });
