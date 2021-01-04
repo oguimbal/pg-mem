@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts } from './interfaces-private';
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -242,7 +242,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T {
+    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -268,10 +268,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // check change handlers (foreign keys)
-        const changePlan = this.changePlan(t, null, toInsert);
+        const changePlan = this.changePlan(t, null, toInsert, opts);
         changePlan.before();
 
         // check "on conflict"
+        const onConflict = opts?.onConflict;
         if (onConflict) {
             if ('ignore' in onConflict) {
                 if (onConflict.ignore === 'all') {
@@ -314,7 +315,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return toInsert;
     }
 
-    private changePlan(t: _Transaction, old: T | null, neu: T | null): ChangePlan<T> {
+    private changePlan(t: _Transaction, old: T | null, neu: T | null, _opts: ChangeOpts | nil): ChangePlan<T> {
+        const opts = _opts ?? {};
         let iter: () => IterableIterator<ChangeSub<T>>;
         if (!old || !neu) {
             iter = () => this.changeHandlers.values();
@@ -346,7 +348,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                         if (!b || ran.has(b)) {
                             continue;
                         }
-                        b(old, neu, t);
+                        b(old, neu, t, opts);
                         ran.add(b);
                     }
                 }
@@ -358,7 +360,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                         if (!a || ran.has(a)) {
                             continue;
                         }
-                        a(old, neu, t);
+                        a(old, neu, t, opts);
                         ran.add(a);
                     }
                 }
@@ -382,7 +384,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         // check change handlers (foreign keys)
-        const changePlan = this.changePlan(t, exists, toUpdate);
+        const changePlan = this.changePlan(t, exists, toUpdate, null);
         changePlan.before();
         changePlan.after();
 
@@ -416,7 +418,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // check change handlers (foreign keys)
-        const changePlan = this.changePlan(t, toDelete, null);
+        const changePlan = this.changePlan(t, toDelete, null, null);
         changePlan.before();
         changePlan.after();
 

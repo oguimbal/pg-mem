@@ -317,6 +317,11 @@ export interface Reg {
     readonly classId: number;
 }
 
+export interface ChangeOpts {
+    onConflict?: OnConflictHandler | nil;
+    overriding?: 'user' | 'system' | nil;
+}
+
 export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
@@ -324,7 +329,7 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly ownerSchema: _ISchema;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
-    insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T;
+    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
     setHidden(): this;
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
@@ -358,7 +363,7 @@ export interface _IConstraint {
     uninstall(t: _Transaction): void;
 }
 
-export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction) => void;
+export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction, opts: ChangeOpts) => void;
 
 export interface _Column {
     readonly notNull: boolean;

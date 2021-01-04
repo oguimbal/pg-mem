@@ -1,5 +1,5 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts } from './interfaces-private';
 import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { parseRegClass, ArrayType, typeSynonyms } from './datatypes';
@@ -885,7 +885,14 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         let values = p.values;
 
         if (p.select) {
-            // const selection = this.executeSelect(t, p.select);
+            /**
+create table test(a text, b text);
+insert into test values ('a', 'b');
+insert into test select * from test;
+insert into test select b from test;
+insert into test select b, a from test;,
+select * from test; // ('a', 'b'), ('b', null), ('b', 'a')
+             */
             throw new Error('todo: array-mode iteration');
         }
         if (!values) {
@@ -902,7 +909,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 .slice(0, values[0].length);
 
         // build 'on conflict' strategy
-        let ignoreConflicts: OnConflictHandler | undefined = undefined;
+        let ignoreConflicts: OnConflictHandler | nil = undefined;
         if (p.onConflict) {
             // find the targeted index
             const on = p.onConflict.on?.map(x => buildValue(table.selection, x));
@@ -941,6 +948,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
         // insert values
         let rowCount = 0;
+        const opts: ChangeOpts = {
+            onConflict: ignoreConflicts,
+            overriding: p.overriding
+        };
         for (const val of values) {
             rowCount++;
             if (val.length !== columns.length) {
@@ -960,7 +971,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 }
                 toInsert[columns[i]] = converted.get();
             }
-            ret.push(table.insert(t, toInsert, ignoreConflicts));
+            ret.push(table.insert(t, toInsert, opts));
         }
 
         const rows = returning
