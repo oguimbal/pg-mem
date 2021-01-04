@@ -62,21 +62,29 @@ export class Adapters implements LibAdapters {
             removeListener() {
             }
             end(callback: any) {
-                callback();
-                return Promise.resolve();
+                if (callback) {
+                    callback();
+                    return null;
+                } else {
+                    return Promise.resolve();
+                }
             }
             connect(callback: any) {
-                callback?.(null, this, () => { });
-                return Promise.resolve(this);
+                if (callback) {
+                    callback(null, this, () => { });
+                    return null;
+                } else {
+                    return Promise.resolve(this);
+                }
             }
             query(query: any, valuesOrCallback: any, callback: any) {
                 let values: any = null;
                 if (Array.isArray(valuesOrCallback)) {
                     values = valuesOrCallback;
                 }
-                callback = typeof callback === 'function'
-                    ? callback
-                    : valuesOrCallback;
+                if (callback == null && typeof valuesOrCallback === 'function') {
+                    callback = valuesOrCallback;
+                }
 
                 const pgquery = this.adaptQuery(query, values);
                 try {
