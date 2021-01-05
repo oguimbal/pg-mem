@@ -36,8 +36,8 @@ describe('With statement', () => {
                     WITH sel AS (delete from data where a='a' returning a)
                     SELECT 'val ' || s.a from sel s union (select * from sel);`))
             .to.deep.equal([
-                { column0: 'a' },
-                { column0: 'val a' },
+                { column: 'val a' },
+                { column: 'a' },
             ])
     });
 
