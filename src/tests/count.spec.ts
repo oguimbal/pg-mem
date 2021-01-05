@@ -74,4 +74,17 @@ describe('Count', () => {
                 , { g: null, cnt: 1 }
             ])
     })
+
+    it('count on empty table', () => {
+        expect(one(`create table test(val text);
+            select count(val) as cnt from test`))
+            .to.deep.equal({ cnt: 0 });
+    });
+
+    it('count on empty selection', () => {
+        expect(one(`create table test(id int, val text);
+            insert into test values (1, 'a');
+            select count(*) as cnt from test where id = 2`))
+            .to.deep.equal({ cnt: 0 });
+    });
 });
