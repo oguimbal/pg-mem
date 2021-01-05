@@ -1,3 +1,11 @@
+
+<p align="center">
+  <a href="https://npmjs.org/package/pg-mem)"><img src="http://img.shields.io/npm/v/pg-mem.svg"></a>
+  <a href="https://npmjs.org/package/pg-mem"><img src="https://img.shields.io/npm/dm/pg-mem.svg"></a>
+  <a href="https://david-dm.org/oguimbal/pg-mem"><img src="https://david-dm.org/oguimbal/knex.svg"></a>
+  <img src="https://github.com/oguimbal/pg-mem/workflows/CI/badge.svg">
+</p>
+
 > `pg-mem` is an experimental in-memory emulation of a postgres database.
 
 ❤ It works both in node or in browser.
