@@ -250,5 +250,5 @@ describe('Selections', () => {
             .to.deep.equal([
                 { num: 2, str: 'two' },
             ])
-    })
+    });
 });

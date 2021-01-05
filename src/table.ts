@@ -31,7 +31,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
-    readonly reg: Reg;
+    private _reg?: Reg;
+    get reg(): Reg {
+        if (!this._reg) {
+            throw new QueryError(`relation "${this.name}" does not exist`);
+        }
+        return this._reg;
+    }
     private it = 0;
     private cstGen = 0;
     hasPrimary = false;
@@ -79,15 +85,19 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             this.addColumn(s, t);
         }
 
-        // once fields registered,
-        //  then register the table
-        //  (column registrations need it not to be registered yet)
-        this.reg = schema._reg_register(this);
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
             this.addConstraint(c, t);
         }
+    }
+
+    register() {
+        // once fields registered,
+        //  then register the table
+        //  (column registrations need it not to be registered yet)
+        this._reg = this.ownerSchema._reg_register(this);
+        return this;
     }
 
 
