@@ -6,13 +6,21 @@
   <img src="https://github.com/oguimbal/pg-mem/workflows/CI/badge.svg">
 </p>
 
-> `pg-mem` is an experimental in-memory emulation of a postgres database.
 
+ <h3 align="center">pg-mem is an experimental in-memory emulation of a postgres database.</h3>
+
+<p align="center">
 ❤ It works both in node or in browser.
+</p>
 
+<p align="center">
 ⭐ this repo if you like this package, it helps to motivate me :)
 
+</p>
+
+<p align="center">
 👉 See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
+</p>
 
 
 * [Usage](#-usage)
