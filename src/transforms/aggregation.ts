@@ -210,6 +210,18 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
                 g.computer.feedItem(item);
             }
         }
+        // if this.base is empty
+        if (groups.size === 0) {
+            const key: IndexKey = this.groupedBy.map(() => null);
+            const groupingKey = hash(key);
+            groups.set(groupingKey, {
+                key,
+                aggs: aggs.map(x => ({
+                    id: x.id,
+                    computer: x.computer.createGroup(t),
+                })),
+            });
+        }
 
         // === return results
         for (const g of groups.values()) {
