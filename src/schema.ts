@@ -14,12 +14,13 @@ import { IMigrate } from './migrate/migrate-interfaces';
 import { migrate } from './migrate/migrate';
 import { CustomEnumType } from './custom-enum';
 import { regGen } from './datatypes/datatype-base';
+import { ValuesTable } from './schema/values-table';
 
 
 
 export class DbSchema implements _ISchema, ISchema {
 
-    private dualTable: _ITable;
+    readonly dualTable: _ITable;
     private relsByNameCas = new Map<string, _IRelation>();
     private relsByNameLow = new Map<string, _IRelation>();
     private relsByCls = new Map<number, _IRelation>();
@@ -198,6 +199,7 @@ export class DbSchema implements _ISchema, ISchema {
                     t = t.fork();
                     break;
                 case 'set':
+                case 'set timezone':
                     // todo handle set statements ?
                     // They are just ignored as of today (in order to handle pg_dump exports)
                     ignore(p);
@@ -769,10 +771,20 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 throw new Error(`Table name "${alias}" specified more than once`)
             }
             // find what to select
-            let newT = from.type === 'statement'
-                ? this.buildSelect(from.statement)
-                : asTable(this.getObject(from))
-                    .selection;
+            let newT: _ISelection;
+            switch (from.type) {
+                case 'table':
+                    newT = asTable(this.getObject(from)).selection;
+                    break;
+                case 'statement':
+                    newT = this.buildSelect(from.statement);
+                    break;
+                case 'values':
+                    newT = new ValuesTable(this, from.alias, from.values, from.columnNames ?? []).selection;
+                    break;
+                default:
+                    throw NotSupported.never(from);
+            }
 
             // set its alias
             newT = newT.setAlias(alias);

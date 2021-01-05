@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private';
+import { _ITable, _ISelection, _IIndex, _IDb, _ISchema, _Transaction } from '../../interfaces-private';
 import { Schema } from '../../interfaces';
 import { Types } from '../../datatypes';
 import { ReadOnlyTable } from '../readonly-table';

@@ -226,4 +226,29 @@ describe('Selections', () => {
                 { x: 'c', count: 2 },
             ])
     });
+
+
+    it('can select from values', () => {
+        expect(many(`select * from (values (1, 'one'), (2, 'two')) as  tbl (num, str);`))
+            .to.deep.equal([
+                { num: 1, str: 'one' },
+                { num: 2, str: 'two' },
+            ])
+    })
+
+
+    it('can select qualified from values', () => {
+        expect(many(`select tbl.num, tbl.str from (values (1, 'one'), (2, 'two')) as  tbl (num, str);`))
+            .to.deep.equal([
+                { num: 1, str: 'one' },
+                { num: 2, str: 'two' },
+            ])
+    })
+
+    it('can filter from values', () => {
+        expect(many(`select * from (values (1, 'one'), (2, 'two')) as  tbl (num, str)  where tbl.num>1;`))
+            .to.deep.equal([
+                { num: 2, str: 'two' },
+            ])
+    })
 });

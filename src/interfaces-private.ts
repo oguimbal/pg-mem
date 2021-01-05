@@ -36,6 +36,7 @@ export type TypeQuery = DataTypeDef | DataType | number | _IType;
 export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
+    readonly dualTable: _ITable;
     buildSelect(p: SelectStatement): _ISelection;
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
