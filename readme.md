@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-👉 See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
+  👉 See it in action with <a href="https://oguimbal.github.io/pg-mem-playground/">pg-mem playground</a>
 </p>
 
 
