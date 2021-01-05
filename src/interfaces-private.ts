@@ -5,6 +5,8 @@ import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 export * from './interfaces';
 
 
+export const GLOBAL_VARS = Symbol('_global_vars');
+
 // export type PrimaryKey = string | number;
 const ID = Symbol('_id');
 export function getId(item: any): string {

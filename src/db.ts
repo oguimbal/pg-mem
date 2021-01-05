@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition } from './interfaces-private';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS } from './interfaces-private';
 import { DbSchema } from './schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -26,7 +26,14 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
         buildOrderBy,
         buildDistinct,
     });
-    return new MemoryDb(Transaction.root(), undefined, opts ?? {});
+    // root transaction
+    const root = Transaction.root();
+    const globals = root.getMap(GLOBAL_VARS)
+        .set('server_version', '12.2 (pg-mem)');
+    root.set(GLOBAL_VARS, globals);
+
+    // create db
+    return new MemoryDb(root, undefined, opts ?? {});
 }
 
 class MemoryDb implements _IDb {

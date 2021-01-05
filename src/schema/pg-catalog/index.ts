@@ -7,6 +7,7 @@ import { PgIndexTable } from './pg-index-list';
 import { PgNamespaceTable } from './pg-namespace-list';
 import { PgTypeTable } from './pg-type-list';
 import { allFunctions } from '../../functions';
+import { PgRange } from './pg-range';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -42,6 +43,7 @@ export function setupPgCatalog(db: _IDb) {
     new PgAttributeTable(catalog).register();
     new PgIndexTable(catalog).register();
     new PgTypeTable(catalog).register();
+    new PgRange(catalog).register();
 
 
     // this is an ugly hack...

@@ -1,10 +1,10 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS } from './interfaces-private';
 import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { parseRegClass, ArrayType, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -18,6 +18,7 @@ import { ValuesTable } from './schema/values-table';
 
 
 type WithableResult = number | _ISelection;
+
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -189,9 +190,17 @@ export class DbSchema implements _ISchema, ISchema {
                     last = this.executeDropSequence(t, p);
                     t = t.fork();
                     break;
+                case 'show':
+                    last = this.executeShow(t, p);
+                    break;
                 case 'set':
                 case 'set timezone':
-                    // todo handle set statements ?
+                    if (p.type === 'set' && p.set.type === 'value') {
+                        t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS)
+                            .set(p.variable, p.set.value));
+                        break;
+                    }
+                    // todo handle set statements timezone ?
                     // They are just ignored as of today (in order to handle pg_dump exports)
                     ignore(p);
                     break;
@@ -248,6 +257,21 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             e.location = this.locOf(_p);
             throw e;
         }
+    }
+
+
+    private executeShow(t: _Transaction, p: ShowStatement): QueryResult {
+        const got = t.getMap(GLOBAL_VARS);
+        if (!got.has(p.variable)) {
+            throw new QueryError(`unrecognized configuration parameter "${p.variable}"`);
+        }
+        return {
+            rows: [{ [p.variable]: got }],
+            rowCount: 1,
+            command: 'SHOW',
+            fields: [],
+            location: this.locOf(p),
+        };
     }
 
     private executeWith(t: _Transaction, p: WithStatement): QueryResult {
