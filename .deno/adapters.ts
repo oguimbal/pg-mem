@@ -54,13 +54,25 @@ export class Adapters implements LibAdapters {
             types?: any;
         }
         class MemPg {
+
+            connection = this;
+
             on() {
                 // nop
             }
+
             release() {
             }
+
             removeListener() {
             }
+
+            once(what: string, handler: () => void) {
+                if (what === 'connect') {
+                    setTimeout(handler, queryLatency ?? 0);
+                }
+            }
+
             end(callback: any) {
                 if (callback) {
                     callback();
@@ -69,6 +81,7 @@ export class Adapters implements LibAdapters {
                     return Promise.resolve();
                 }
             }
+
             connect(callback: any) {
                 if (callback) {
                     callback(null, this, () => { });
@@ -127,7 +140,7 @@ export class Adapters implements LibAdapters {
                     // clean copy to avoid mutating things outside our scope
                     query = { ...query };
                 }
-                if (!values?.length) {
+                if (!query.values?.length) {
                     return query;
                 }
 
@@ -138,7 +151,7 @@ export class Adapters implements LibAdapters {
                 // console.log(query);
                 // console.log('\n');
 
-                query.text = replaceQueryArgs$(query.text, values);
+                query.text = replaceQueryArgs$(query.text, query.values);
                 return query;
             }
         }
@@ -252,6 +265,16 @@ export class Adapters implements LibAdapters {
                 return ret;
             }
         }
+    }
+
+    createKnex(queryLatency?: number): any {
+        const knex = __non_webpack_require__('knex')({
+            client: 'pg',
+            connection: {},
+        });
+        knex.client.driver = this.createPg(queryLatency);
+        knex.client.version = 'pg-mem';
+        return knex;
     }
 
 }

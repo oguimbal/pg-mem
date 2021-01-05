@@ -6,18 +6,22 @@ import type { buildAlias } from './alias.ts';
 import type { buildFilter } from './build-filter.ts';
 import type { buildGroupBy } from './aggregation.ts';
 import type { buildLimit } from './limit.ts';
+import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
+import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
     buildSelection: typeof buildSelection;
     buildAlias: typeof buildAlias;
     buildLimit: typeof buildLimit;
+    buildUnion: typeof buildUnion;
     buildFilter: typeof buildFilter;
     buildGroupBy: typeof buildGroupBy;
     buildOrderBy: typeof buildOrderBy;
+    buildDistinct: typeof buildDistinct;
 }
 let fns: Fns;
 export function initialize(init: Fns) {
@@ -86,6 +90,15 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         }
         return fns.buildOrderBy(this, orderBy);
     }
+
+    distinct(exprs?: Expr[]): _ISelection<any> {
+        return fns.buildDistinct(this, exprs);
+    }
+
+    union(right: _ISelection<any>): _ISelection<any> {
+        return fns.buildUnion(this, right);
+    }
+
 }
 
 export abstract class TransformBase<T> extends DataSourceBase<T> {

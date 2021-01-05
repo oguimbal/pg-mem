@@ -1,9 +1,9 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats } from '../interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { buildValue } from '../predicate.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
-import { isSelectAllArgList, nullIsh } from '../utils.ts';
+import { isSelectAllArgList, nullIsh, suggestColumnName } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../valuetypes.ts';
 import { Types } from '../datatypes/index.ts';
@@ -103,7 +103,11 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             if (s.alias && cols.has(s.alias)) {
                 throw new NotSupported('Ambiguous aliasing');
             }
-            cols.set(s.alias ?? built.id ?? ('column' + (anonymous++)), built);
+            const name = s.alias
+                ?? suggestColumnName(s.expr)
+                ?? built.id
+                ?? ('column' + (anonymous++));
+            cols.set(name, built);
         }
         this.building = null;
         this.columnsById = cols;
@@ -205,6 +209,18 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             for (const g of group.aggs) {
                 g.computer.feedItem(item);
             }
+        }
+        // if this.base is empty
+        if (groups.size === 0) {
+            const key: IndexKey = this.groupedBy.map(() => null);
+            const groupingKey = hash(key);
+            groups.set(groupingKey, {
+                key,
+                aggs: aggs.map(x => ({
+                    id: x.id,
+                    computer: x.computer.createGroup(t),
+                })),
+            });
         }
 
         // === return results

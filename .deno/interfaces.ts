@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 
 
 export type nil = undefined | null;
@@ -151,6 +151,9 @@ export interface LibAdapters {
 
     /** Create a Typeorm connection bound to this db */
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number): any;
+
+    /** Create a Knex.js instance bound to this db */
+    createKnex(queryLatency?: number): any;
 }
 
 export interface ISchema {

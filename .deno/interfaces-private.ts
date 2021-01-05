@@ -1,9 +1,11 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
 
+
+export const GLOBAL_VARS = Symbol('_global_vars');
 
 // export type PrimaryKey = string | number;
 const ID = Symbol('_id');
@@ -36,6 +38,7 @@ export type TypeQuery = DataTypeDef | DataType | number | _IType;
 export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
+    readonly dualTable: _ITable;
     buildSelect(p: SelectStatement): _ISelection;
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
@@ -138,6 +141,8 @@ export interface _ISelection<T = any> {
     orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any>;
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
+    distinct(select?: Expr[]): _ISelection;
+    union(right: _ISelection<any>): _ISelection<any>;
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
@@ -194,6 +199,11 @@ export type _SelectExplanation = {
     take?: number;
     skip?: number;
     on: _SelectExplanation;
+} | {
+    /** A selection transformation */
+    id: string | number;
+    _: 'distinct';
+    of: _SelectExplanation;
 } | {
     /** A table */
     _: 'table';
@@ -317,6 +327,11 @@ export interface Reg {
     readonly classId: number;
 }
 
+export interface ChangeOpts {
+    onConflict?: OnConflictHandler | nil;
+    overriding?: 'user' | 'system' | nil;
+}
+
 export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
@@ -324,7 +339,7 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly ownerSchema: _ISchema;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
-    insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T;
+    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
     setHidden(): this;
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
@@ -358,7 +373,7 @@ export interface _IConstraint {
     uninstall(t: _Transaction): void;
 }
 
-export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction) => void;
+export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction, opts: ChangeOpts) => void;
 
 export interface _Column {
     readonly notNull: boolean;

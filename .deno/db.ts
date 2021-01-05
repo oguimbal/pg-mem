@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces.ts';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition } from './interfaces-private.ts';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS } from './interfaces-private.ts';
 import { DbSchema } from './schema.ts';
 import { initialize } from './transforms/transform-base.ts';
 import { buildSelection } from './transforms/selection.ts';
@@ -9,6 +9,8 @@ import { Adapters } from './adapters.ts';
 import { Transaction } from './transaction.ts';
 import { buildGroupBy } from './transforms/aggregation.ts';
 import { buildLimit } from './transforms/limit.ts';
+import { buildUnion } from './transforms/union.ts';
+import { buildDistinct } from './transforms/distinct.ts';
 import { buildOrderBy } from './transforms/order-by.ts';
 import { setupPgCatalog } from './schema/pg-catalog/index.ts';
 import { setupInformationSchema } from './schema/information-schema/index.ts';
@@ -20,9 +22,18 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
         buildFilter,
         buildGroupBy,
         buildLimit,
+        buildUnion,
         buildOrderBy,
+        buildDistinct,
     });
-    return new MemoryDb(Transaction.root(), undefined, opts ?? {});
+    // root transaction
+    const root = Transaction.root();
+    const globals = root.getMap(GLOBAL_VARS)
+        .set('server_version', '12.2 (pg-mem)');
+    root.set(GLOBAL_VARS, globals);
+
+    // create db
+    return new MemoryDb(root, undefined, opts ?? {});
 }
 
 class MemoryDb implements _IDb {

@@ -1,10 +1,10 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces.ts';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType } from './interfaces-private.ts';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS } from './interfaces-private.ts';
 import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils.ts';
 import { buildValue } from './predicate.ts';
 import { parseRegClass, ArrayType, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -14,16 +14,20 @@ import { IMigrate } from './migrate/migrate-interfaces.ts';
 import { migrate } from './migrate/migrate.ts';
 import { CustomEnumType } from './custom-enum.ts';
 import { regGen } from './datatypes/datatype-base.ts';
+import { ValuesTable } from './schema/values-table.ts';
 
+
+type WithableResult = number | _ISelection;
 
 
 export class DbSchema implements _ISchema, ISchema {
 
-    private dualTable: _ITable;
+    readonly dualTable: _ITable;
     private relsByNameCas = new Map<string, _IRelation>();
     private relsByNameLow = new Map<string, _IRelation>();
     private relsByCls = new Map<number, _IRelation>();
     private relsByTyp = new Map<number, _IRelation>();
+    private tempBindings = new Map<string, _ISelection | 'no returning'>();
     private _tables = new Set<_ITable>();
 
     private lastSelect?: _ISelection<any>;
@@ -32,7 +36,7 @@ export class DbSchema implements _ISchema, ISchema {
     private readonly: any;
 
     constructor(readonly name: string, readonly db: _IDb) {
-        this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' });
+        this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' }).register();
         this.dualTable.insert(this.db.data, {});
         this.dualTable.setReadonly();
         this._reg_unregister(this.dualTable);
@@ -130,26 +134,15 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'rollback':
                     t = t.rollback();
                     break;
-                case 'insert':
-                    last = this.executeInsert(t, p);
-                    break;
-                case 'update':
-                    last = this.executeUpdate(t, p);
+                case 'with':
+                    last = this.executeWith(t, p);
                     break;
                 case 'select':
-                    const subj = this.buildSelect(p);
-                    this.lastSelect = subj;
-                    const rows = [...subj.enumerate(t)];
-                    last = {
-                        rows,
-                        rowCount: rows.length,
-                        command: 'SELECT',
-                        fields: [],
-                        location: this.locOf(p),
-                    };
-                    break;
                 case 'delete':
-                    last = this.executeDelete(t, p);
+                case 'update':
+                case 'insert':
+                case 'union':
+                    last = this.executeWithable(t, p);
                     break;
                 case 'truncate table':
                     last = this.executeTruncateTable(t, p);
@@ -197,8 +190,17 @@ export class DbSchema implements _ISchema, ISchema {
                     last = this.executeDropSequence(t, p);
                     t = t.fork();
                     break;
+                case 'show':
+                    last = this.executeShow(t, p);
+                    break;
                 case 'set':
-                    // todo handle set statements ?
+                case 'set timezone':
+                    if (p.type === 'set' && p.set.type === 'value') {
+                        t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS)
+                            .set(p.variable, p.set.value));
+                        break;
+                    }
+                    // todo handle set statements timezone ?
                     // They are just ignored as of today (in order to handle pg_dump exports)
                     ignore(p);
                     break;
@@ -255,6 +257,77 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             e.location = this.locOf(_p);
             throw e;
         }
+    }
+
+
+    private executeShow(t: _Transaction, p: ShowStatement): QueryResult {
+        const got = t.getMap(GLOBAL_VARS);
+        if (!got.has(p.variable)) {
+            throw new QueryError(`unrecognized configuration parameter "${p.variable}"`);
+        }
+        return {
+            rows: [{ [p.variable]: got }],
+            rowCount: 1,
+            command: 'SHOW',
+            fields: [],
+            location: this.locOf(p),
+        };
+    }
+
+    private executeWith(t: _Transaction, p: WithStatement): QueryResult {
+
+        try {
+            // ugly hack to ensure that the insert/select behaviour of postgres is OK
+            // see unit test "only inserts once with statement is executed" for an example.
+            const selTrans = p.in.type === 'select' || p.in.type === 'union' ? t.fork() : t;
+
+            // declare temp bindings
+            for (const { alias, statement } of p.bind) {
+                const prepared = this.prepareWithable(t, statement);
+                if (this.tempBindings.has(alias)) {
+                    throw new QueryError(` WITH query name "${alias}" specified more than once`);
+                }
+                this.tempBindings.set(alias, typeof prepared === 'number' ? 'no returning' : prepared);
+            }
+            // execute statement
+            return this.executeWithable(selTrans, p.in);
+        } finally {
+            // remove temp bindings
+            for (const { alias } of p.bind) {
+                this.tempBindings.delete(alias);
+            }
+        }
+    }
+
+    private prepareWithable(t: _Transaction, p: WithStatementBinding): WithableResult {
+        switch (p.type) {
+            case 'select':
+            case 'union':
+                return this.lastSelect = this.buildSelect(p);
+            case 'delete':
+                return this.executeDelete(t, p);
+            case 'update':
+                return this.executeUpdate(t, p);
+            case 'insert':
+                return this.executeInsert(t, p);
+            default:
+                throw NotSupported.never(p);
+        }
+    }
+
+    private executeWithable(t: _Transaction, p: WithStatementBinding) {
+        const last = this.prepareWithable(t, p);
+
+        const rows = typeof last === 'number'
+            ? []
+            : [...last.enumerate(t)];
+        return {
+            rows,
+            rowCount: typeof last === 'number' ? last : rows.length,
+            command: p.type.toUpperCase(),
+            fields: [],
+            location: this.locOf(p),
+        };
     }
 
 
@@ -720,7 +793,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             .explain(new Explainer(this.db.data))
     }
 
-    executeDelete(t: _Transaction, p: DeleteStatement): QueryResult {
+    private executeDelete(t: _Transaction, p: DeleteStatement): WithableResult {
         const table = asTable(this.getObject(p.from));
         const toDelete = table
             .selection
@@ -730,14 +803,9 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             table.delete(t, item);
             rows.push(item);
         }
-        const returning = p.returning && buildSelection(new ArrayFilter(table.selection, rows), p.returning);
-        return {
-            rows: !returning ? [] : [...returning.enumerate(t)],
-            rowCount: rows.length,
-            command: 'DELETE',
-            fields: [],
-            location: this.locOf(p),
-        }
+        return p.returning
+            ? buildSelection(new ArrayFilter(table.selection, rows), p.returning)
+            : rows.length;
     }
 
     executeTruncateTable(t: _Transaction, p: TruncateTableStatement): QueryResult {
@@ -749,10 +817,24 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return this.simple('TRUNCATE', p);
     }
 
+    private buildUnion(p: SelectFromUnion): _ISelection {
+        const left = this.buildSelect(p.left);
+        const right = this.buildSelect(p.right);
+        return left.union(right);
+    }
+
     buildSelect(p: SelectStatement): _ISelection {
-        if (p.type !== 'select') {
-            throw new NotSupported(p.type);
+        switch (p.type) {
+            case 'union':
+                return this.buildUnion(p);
+            case 'select':
+                break;
+            default:
+                throw NotSupported.never(p);
         }
+        const distinct = !p.distinct || p.distinct === 'all'
+            ? null
+            : p.distinct;
         let sel: _ISelection | undefined = undefined;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
@@ -766,10 +848,25 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 throw new Error(`Table name "${alias}" specified more than once`)
             }
             // find what to select
-            let newT = from.type === 'statement'
-                ? this.buildSelect(from.statement)
-                : asTable(this.getObject(from))
-                    .selection;
+            let newT: _ISelection;
+            switch (from.type) {
+                case 'table':
+                    const temp = !from.schema
+                        && this.tempBindings.get(from.name);
+                    if (temp === 'no returning') {
+                        throw new QueryError(`WITH query "${from.name}" does not have a RETURNING clause`);
+                    }
+                    newT = temp || asTable(this.getObject(from)).selection;
+                    break;
+                case 'statement':
+                    newT = this.buildSelect(from.statement);
+                    break;
+                case 'values':
+                    newT = new ValuesTable(this, from.alias, from.values, from.columnNames ?? []).selection;
+                    break;
+                default:
+                    throw NotSupported.never(from);
+            }
 
             // set its alias
             newT = newT.setAlias(alias);
@@ -803,17 +900,33 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (p.groupBy) {
             sel = sel.groupBy(p.groupBy, p.columns!);
             sel = sel.orderBy(p.orderBy);
+            // when grouping by, distinct is handled after selection
+            //  => can distinct on key, or selected
+            if (Array.isArray(p.distinct)) {
+                sel = sel.distinct(p.distinct);
+            }
         } else {
+            // when not grouping by, distinct is handled before
+            // selection => can distinct on non selected values
+            if (Array.isArray(p.distinct)) {
+                sel = sel.distinct(p.distinct);
+            }
             sel = sel.orderBy(p.orderBy);
             sel = sel.select(p.columns!);
         }
+
+        // handle 'distinct' on result set
+        if (distinct === 'distinct') {
+            sel = sel.distinct();
+        }
+
         if (p.limit) {
             sel = sel.limit(p.limit);
         }
         return sel;
     }
 
-    executeUpdate(t: _Transaction, p: UpdateStatement): QueryResult {
+    private executeUpdate(t: _Transaction, p: UpdateStatement): WithableResult {
         const into = asTable(this.getObject(p.table));
 
         const items = into
@@ -830,18 +943,9 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             ret.push(into.update(t, i));
         }
 
-        const rows = returning
-            ? [...returning.enumerate(t)]
-            : [];
-
-        return {
-            rowCount,
-            rows,
-            command: 'UPDATE',
-            fields: [],
-            location: this.locOf(p),
-        }
+        return returning ?? rowCount;
     }
+
     private createSetter(t: _Transaction, setTable: _ITable, setSelection: _ISelection, _sets: SetStatement[]) {
 
         const sets = _sets.map(x => {
@@ -866,7 +970,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
     }
 
-    executeInsert(t: _Transaction, p: InsertStatement): QueryResult | undefined {
+    private executeInsert(t: _Transaction, p: InsertStatement): WithableResult {
         if (p.type !== 'insert') {
             throw new NotSupported();
         }
@@ -885,14 +989,21 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         let values = p.values;
 
         if (p.select) {
-            // const selection = this.executeSelect(t, p.select);
+            /**
+create table test(a text, b text);
+insert into test values ('a', 'b');
+insert into test select * from test;
+insert into test select b from test;
+insert into test select b, a from test;,
+select * from test; // ('a', 'b'), ('b', null), ('b', 'a')
+             */
             throw new Error('todo: array-mode iteration');
         }
         if (!values) {
             throw new QueryError('Nothing to insert');
         }
         if (!values.length) {
-            return undefined; // nothing to insert
+            return 0; // nothing to insert
         }
 
         // get columns to insert into
@@ -902,7 +1013,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 .slice(0, values[0].length);
 
         // build 'on conflict' strategy
-        let ignoreConflicts: OnConflictHandler | undefined = undefined;
+        let ignoreConflicts: OnConflictHandler | nil = undefined;
         if (p.onConflict) {
             // find the targeted index
             const on = p.onConflict.on?.map(x => buildValue(table.selection, x));
@@ -941,6 +1052,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
         // insert values
         let rowCount = 0;
+        const opts: ChangeOpts = {
+            onConflict: ignoreConflicts,
+            overriding: p.overriding
+        };
         for (const val of values) {
             rowCount++;
             if (val.length !== columns.length) {
@@ -960,20 +1075,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 }
                 toInsert[columns[i]] = converted.get();
             }
-            ret.push(table.insert(t, toInsert, ignoreConflicts));
+            ret.push(table.insert(t, toInsert, opts));
         }
 
-        const rows = returning
-            ? [...returning.enumerate(t)]
-            : [];
-
-        return {
-            rowCount,
-            rows,
-            command: 'INSERT',
-            fields: [],
-            location: this.locOf(p),
-        }
+        return returning ?? rowCount;
     }
 
 
@@ -994,7 +1099,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
         const trans = this.db.data.fork();
-        const ret = new MemoryTable(this, trans, table);
+        const ret = new MemoryTable(this, trans, table).register();
         trans.commit();
         if (!noSchemaChange) {
             this.db.onSchemaChange();

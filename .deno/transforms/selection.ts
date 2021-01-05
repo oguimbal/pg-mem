@@ -3,10 +3,10 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../predicate.ts';
 import { Evaluator } from '../valuetypes.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
-import { isSelectAllArgList } from '../utils.ts';
+import { isSelectAllArgList, suggestColumnName } from '../utils.ts';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
     select = select ?? [];
@@ -106,29 +106,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         let anonymousBases = new Map<string, number>();
         for (let i = 0; i < this.columnIds.length; i++) {
             if (!this.columnIds[i]) {
-                let id = 'column';
-                let col = columns[i];
-
-                // suggest a column result name
-                switch (col.expr.type) {
-                    case 'call':
-                        const fn = col.expr.function;
-                        if (typeof fn === 'string') {
-                            id = fn;
-                        } else {
-                            id = fn.keyword;
-                        }
-                        break;
-                    case 'ref':
-                        id = col.expr.name;
-                        break;
-                    case 'keyword':
-                        id = col.expr.keyword;
-                        break;
-                    case 'cast':
-                        id = typeDefToStr(col.expr.to);
-                        break;
-                }
+                let id = suggestColumnName(columns[i].expr) ?? 'column';
 
                 // check no collision with an existing column
                 let cnt = anonymousBases.get(id);

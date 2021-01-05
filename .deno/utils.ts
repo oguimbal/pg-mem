@@ -1,8 +1,8 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, _ISchema, _IType, _Transaction } from './interfaces-private.ts';
-import { DataTypeDef, Expr, nil, QName } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
-import { ISubscription, IType } from './interfaces.ts';
+import { DataTypeDef, Expr, nil, QName } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
+import { ISubscription, IType, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
 export interface Ctor<T> extends Function {
@@ -415,3 +415,24 @@ export function isType(t: any): t is _IType {
     return !!t?.[isType.TAG];
 }
 isType.TAG = Symbol();
+
+
+export function suggestColumnName(expr: Expr): string | null {
+    // suggest a column result name
+    switch (expr.type) {
+        case 'call':
+            const fn = expr.function;
+            if (typeof fn === 'string') {
+                return fn;
+            } else {
+                return fn.keyword;
+            }
+        case 'ref':
+            return expr.name;
+        case 'keyword':
+            return expr.keyword;
+        case 'cast':
+            return typeDefToStr(expr.to);
+    }
+    return null;
+}

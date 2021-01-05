@@ -1,5 +1,5 @@
 import { ISubscription, NotSupported, QueryError } from '../interfaces.ts';
-import { AlterColumnAddGenerated, Expr, ExprBinary, nil, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { AlterColumnAddGenerated, Expr, ExprBinary, nil, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { asTable, CreateIndexColDef, _Column, _IConstraint, _ITable, _Transaction } from '../interfaces-private.ts';
 import { nullIsh } from '../utils.ts';
 
@@ -37,16 +37,47 @@ export class GeneratedIdentityConstraint implements _IConstraint {
         const seq = this.schema.createSequence(ct, _c.sequence, _c.sequence?.name);
 
         // todo : Review this... it's a complete bluff (dont have time to check spec)
-        const mode = _c.always;
-        this.sub = this.table.onBeforeChange([this.column], (old, neu, dt) => {
+        const mode = _c.always ?? 'always';
+        this.sub = this.table.onBeforeChange([this.column], (old, neu, dt, opts) => {
             // only act on new things
             if (old) {
                 return;
             }
+            const gen = () => neu[this.column.name] = seq.nextValue(dt);
 
-            if (mode === 'always' || nullIsh(neu[this.column.name])) {
-                neu[this.column.name] = seq.nextValue(dt);
+            if (nullIsh(neu[this.column.name])) {
+                // no value has been provided => generate one.
+                gen();
+                return;
             }
+
+            // a value has been provided => check if must be overriden.
+            switch (mode) {
+                case 'by default':
+                    switch (opts.overriding ?? 'system') {
+                        case 'system':
+                            break;
+                        default:
+                            gen();
+                            break;
+
+                    }
+                    break;
+                case 'always':
+                    // column is 'GENREATED ALWAYS'
+                    // => must specify 'overriding system value'
+                    if (opts.overriding !== 'system') {
+                        throw new QueryError({
+                            error: `cannot insert into column "${this.column.name}"`,
+                            details: ` Column "${this.column.name}" is an identity column defined as GENERATED ALWAYS.`,
+                            hint: 'Use OVERRIDING SYSTEM VALUE to override.',
+                        })
+                    }
+                    break;
+                default:
+                    throw NotSupported.never(mode);
+            }
+
         });
     }
 

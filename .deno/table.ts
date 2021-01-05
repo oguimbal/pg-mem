@@ -1,11 +1,11 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces.ts';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg } from './interfaces-private.ts';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts } from './interfaces-private.ts';
 import { buildValue } from './predicate.ts';
 import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr } from 'https://deno.land/x/pgsql_ast_parser@2.0.0/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
@@ -31,7 +31,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
-    readonly reg: Reg;
+    private _reg?: Reg;
+    get reg(): Reg {
+        if (!this._reg) {
+            throw new QueryError(`relation "${this.name}" does not exist`);
+        }
+        return this._reg;
+    }
     private it = 0;
     private cstGen = 0;
     hasPrimary = false;
@@ -79,15 +85,19 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             this.addColumn(s, t);
         }
 
-        // once fields registered,
-        //  then register the table
-        //  (column registrations need it not to be registered yet)
-        this.reg = schema._reg_register(this);
 
         // other table constraints
         for (const c of _schema.constraints ?? []) {
             this.addConstraint(c, t);
         }
+    }
+
+    register() {
+        // once fields registered,
+        //  then register the table
+        //  (column registrations need it not to be registered yet)
+        this._reg = this.ownerSchema._reg_register(this);
+        return this;
     }
 
 
@@ -242,7 +252,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(t: _Transaction, toInsert: T, onConflict?: OnConflictHandler): T {
+    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -268,10 +278,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // check change handlers (foreign keys)
-        const changePlan = this.changePlan(t, null, toInsert);
+        const changePlan = this.changePlan(t, null, toInsert, opts);
         changePlan.before();
 
         // check "on conflict"
+        const onConflict = opts?.onConflict;
         if (onConflict) {
             if ('ignore' in onConflict) {
                 if (onConflict.ignore === 'all') {
@@ -314,7 +325,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return toInsert;
     }
 
-    private changePlan(t: _Transaction, old: T | null, neu: T | null): ChangePlan<T> {
+    private changePlan(t: _Transaction, old: T | null, neu: T | null, _opts: ChangeOpts | nil): ChangePlan<T> {
+        const opts = _opts ?? {};
         let iter: () => IterableIterator<ChangeSub<T>>;
         if (!old || !neu) {
             iter = () => this.changeHandlers.values();
@@ -346,7 +358,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                         if (!b || ran.has(b)) {
                             continue;
                         }
-                        b(old, neu, t);
+                        b(old, neu, t, opts);
                         ran.add(b);
                     }
                 }
@@ -358,7 +370,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                         if (!a || ran.has(a)) {
                             continue;
                         }
-                        a(old, neu, t);
+                        a(old, neu, t, opts);
                         ran.add(a);
                     }
                 }
@@ -382,7 +394,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         // check change handlers (foreign keys)
-        const changePlan = this.changePlan(t, exists, toUpdate);
+        const changePlan = this.changePlan(t, exists, toUpdate, null);
         changePlan.before();
         changePlan.after();
 
@@ -416,7 +428,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // check change handlers (foreign keys)
-        const changePlan = this.changePlan(t, toDelete, null);
+        const changePlan = this.changePlan(t, toDelete, null, null);
         changePlan.before();
         changePlan.after();
 

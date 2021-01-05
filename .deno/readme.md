@@ -138,6 +138,7 @@ pg-mem provides handy shortcuts to create instances of popuplar libraries that w
 - pg-promise (pgp)
 - slonik
 - typeorm
+- knex
 
 [See the wiki for more details](https://github.com/oguimbal/pg-mem/wiki/Libraries-adapters)
 
