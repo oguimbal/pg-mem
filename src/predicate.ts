@@ -97,6 +97,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'ternary':
             return buildTernary(data, val);
         case 'select':
+        case 'union':
             return buildSelectAsArray(data, val);
         case 'constant':
             return Value.constant(data.ownerSchema, val.dataType as any, val.value);

@@ -898,18 +898,43 @@ export const typeSynonyms: { [key: string]: DataType } = {
 
 
 /** Finds a common type by implicit conversion */
-export function reconciliateTypes(values: IValue[]): _IType {
-    // let typeConstraints = values
-    //     .filter(x => !x.isConstantLiteral);
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: false): _IType;
+export function reconciliateTypes(values: IValue[], nullIfNoMatch: true): _IType | nil;
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil {
+    // FROM  https://www.postgresql.org/docs/current/typeconv-union-case.html
 
-    // // if there are non constant literals, constant literals must match them.
-    // if (!typeConstraints.length) {
-    //     typeConstraints = values;
-    // }
+    const nonNull = values
+        .filter(x => x.type.primary !== DataType.null);
 
+    if (!nonNull.length) {
+        // If all inputs are of type unknown, resolve as type text (the preferred type of the string category). Otherwise, unknown inputs are ignored for the purposes of the remaining rules.
+        return Types.text();
+    }
+
+    // If all inputs are of the same type, and it is not unknown, resolve as that type.
+    const single = new Set(nonNull
+        .map(v => v.type.reg.typeId));
+    if (single.size === 1) {
+        return nonNull[0].type;
+    }
+
+    return reconciliateTypesRaw(nonNull, nullIfNoMatch);
+}
+
+
+
+/** Finds a common type by implicit conversion */
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: false): _IType;
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch: true): _IType | nil;
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil {
     // find the matching type among non constants
     const foundType = values
         .reduce((final, c) => {
+            if (c.type === Types.null) {
+                return final;
+            }
             const pref = final.prefer(c.type);
             if (!pref) {
                 throw new CastError(c.type.primary, final.primary, c.sql ?? undefined);
@@ -920,6 +945,9 @@ export function reconciliateTypes(values: IValue[]): _IType {
     // check that all constant literals are matching this.
     for (const x of values) {
         if (!x.isConstantLiteral && !x.type.canConvertImplicit(foundType)) {
+            if (nullIfNoMatch) {
+                return null;
+            }
             throw new CastError(x.type.primary, foundType.primary);
         }
     }

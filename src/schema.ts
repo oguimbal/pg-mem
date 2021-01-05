@@ -4,7 +4,7 @@ import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from '.
 import { buildValue } from './predicate';
 import { parseRegClass, ArrayType, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -140,6 +140,7 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'delete':
                 case 'update':
                 case 'insert':
+                case 'union':
                     last = this.executeWithable(t, p);
                     break;
                 case 'truncate table':
@@ -254,7 +255,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         try {
             // ugly hack to ensure that the insert/select behaviour of postgres is OK
             // see unit test "only inserts once with statement is executed" for an example.
-            const selTrans = p.in.type === 'select' ? t.fork() : t;
+            const selTrans = p.in.type === 'select' || p.in.type === 'union' ? t.fork() : t;
 
             // declare temp bindings
             for (const { alias, statement } of p.bind) {
@@ -277,6 +278,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     private prepareWithable(t: _Transaction, p: WithStatementBinding): WithableResult {
         switch (p.type) {
             case 'select':
+            case 'union':
                 return this.lastSelect = this.buildSelect(p);
             case 'delete':
                 return this.executeDelete(t, p);
@@ -791,9 +793,20 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return this.simple('TRUNCATE', p);
     }
 
+    private buildUnion(p: SelectFromUnion): _ISelection {
+        const left = this.buildSelect(p.left);
+        const right = this.buildSelect(p.right);
+        return left.union(right);
+    }
+
     buildSelect(p: SelectStatement): _ISelection {
-        if (p.type !== 'select') {
-            throw new NotSupported(p.type);
+        switch (p.type) {
+            case 'union':
+                return this.buildUnion(p);
+            case 'select':
+                break;
+            default:
+                throw NotSupported.never(p);
         }
         const distinct = !p.distinct || p.distinct === 'all'
             ? null

@@ -6,6 +6,7 @@ import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
 import type { buildGroupBy } from './aggregation';
 import type { buildLimit } from './limit';
+import type { buildUnion } from './union';
 import type { buildOrderBy } from './order-by';
 import type { buildDistinct } from './distinct';
 
@@ -16,6 +17,7 @@ interface Fns {
     buildSelection: typeof buildSelection;
     buildAlias: typeof buildAlias;
     buildLimit: typeof buildLimit;
+    buildUnion: typeof buildUnion;
     buildFilter: typeof buildFilter;
     buildGroupBy: typeof buildGroupBy;
     buildOrderBy: typeof buildOrderBy;
@@ -92,6 +94,11 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     distinct(exprs?: Expr[]): _ISelection<any> {
         return fns.buildDistinct(this, exprs);
     }
+
+    union(right: _ISelection<any>): _ISelection<any> {
+        return fns.buildUnion(this, right);
+    }
+
 }
 
 export abstract class TransformBase<T> extends DataSourceBase<T> {

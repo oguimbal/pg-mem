@@ -140,6 +140,7 @@ export interface _ISelection<T = any> {
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
     select(select: SelectedColumn[]): _ISelection;
     distinct(select?: Expr[]): _ISelection;
+    union(right: _ISelection<any>): _ISelection<any>;
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;

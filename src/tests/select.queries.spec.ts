@@ -4,7 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
-import { SelectStatement } from 'pgsql-ast-parser';
+import { SelectFromStatement, SelectStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../predicate';
 import { parseSql } from '../parse-cache';
 
@@ -122,7 +122,7 @@ describe('Selections', () => {
 
     it('has an index', () => {
         simpleDb();
-        const [{ where }] = parseSql(`select * from data where id='x'`) as SelectStatement[];
+        const [{ where }] = parseSql(`select * from data where id='x'`) as SelectFromStatement[];
         if (!where || where.type !== 'binary') {
             assert.fail('Should be a binary');
         }

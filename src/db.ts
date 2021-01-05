@@ -9,6 +9,7 @@ import { Adapters } from './adapters';
 import { Transaction } from './transaction';
 import { buildGroupBy } from './transforms/aggregation';
 import { buildLimit } from './transforms/limit';
+import { buildUnion } from './transforms/union';
 import { buildDistinct } from './transforms/distinct';
 import { buildOrderBy } from './transforms/order-by';
 import { setupPgCatalog } from './schema/pg-catalog';
@@ -21,6 +22,7 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
         buildFilter,
         buildGroupBy,
         buildLimit,
+        buildUnion,
         buildOrderBy,
         buildDistinct,
     });
