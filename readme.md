@@ -28,7 +28,6 @@
 * [Libraries adapters](#-libraries-adapters)
 * [Inspection](#inspection)
 * [FAQ](#-faq)
-* [Supported features](#-supported-features)
 * [Development](#-development)
 
 
@@ -206,28 +205,6 @@ db.on('catastrophic-join-optimization', () => {});
 
 Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
-# 📃 Supported features
-
-It supports:
-- [x] Indices, somewhat (on "simple" requests)
-- [x] Basic data types (json, dates, ...)
-- [x] Joins, group bys, ...
-- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
-- [x] Transactions (only one of multiple concurrent transactions can be commited, though)
-
-
-It does not (yet) support (this is kind-of a todo list):
-- [ ] Gin Indices
-- [ ] Cartesian Joins
-- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions) !
-- [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
-- [ ] Stored procedures
-- [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
-- [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
-- [ ] Concurrent transaction commit
-- [ ] Collation (see #collation tag in code if you want to implement it)
-
-... PRs are open :)
 
 # 🐜 Development
 
