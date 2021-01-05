@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { newDb } from '../../src/db';
 import { Sequelize, DataTypes } from 'sequelize';
 
-export async function sequelizeSample() {
+export async function sequelizeSample(force?: boolean) {
 
     // ========= CONNECT ==========
 
@@ -29,5 +29,5 @@ export async function sequelizeSample() {
         // Other model options go here
     });
 
-    await sequelize.sync({ force: true });
+    await sequelize.sync({ force });
 }

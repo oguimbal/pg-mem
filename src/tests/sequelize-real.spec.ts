@@ -1,8 +1,12 @@
 import { sequelizeSample } from '../../samples/sequelize/sequelize';
 
-describe('Sequelize', () => {
+describe.skip('Sequelize', () => {
 
-    it('can perform sample', async () => {
+    it('can perform sample without force sync', async () => {
         await sequelizeSample();
+    })
+
+    it('can perform sample with force sync', async () => {
+        await sequelizeSample(true);
     })
 });
