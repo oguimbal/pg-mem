@@ -27,8 +27,8 @@
 * [Features](#-features)
 * [Libraries adapters](#-libraries-adapters)
 * [Inspection](#inspection)
-* [FAQ](#-faq)
 * [Development](#-development)
+* [FAQ](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
 
 # 📐 Usage
