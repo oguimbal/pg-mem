@@ -53,7 +53,7 @@ export function setupPgCatalog(db: _IDb) {
             { name: 'current_schema', type: Types.text() },
         ]
     }, true);
-    tbl.insert(db.data, { current_schema: 'public' });
+    tbl.insert({ current_schema: 'public' });
     tbl.setHidden().setReadonly();
 
     addFns(catalog, allFunctions);

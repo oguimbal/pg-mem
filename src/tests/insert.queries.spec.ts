@@ -152,6 +152,34 @@ describe('Inserts', () => {
             ]);
     });
 
+    it('sets default when not provided', () => {
+        expect(many(`create table test(id text, n int default 0);
+                insert into test(id) values ('x');
+                select * from test;`))
+            .to.deep.equal([
+                { id: 'x', n: 0 },
+            ]);
+    });
+
+    it('sets default when explicitely told so', () => {
+        expect(many(`create table test(n int default 0);
+            insert into test(n) values (default);
+            select * from test;`))
+            .to.deep.equal([
+                { n: 0 },
+            ]);
+    });
+
+    it('does not override null values when default 0', () => {
+        expect(many(`create table test(n int default 0);
+                insert into test(n) values (null);
+                select * from test;`))
+            .to.deep.equal([
+                { n: null },
+            ]);
+    });
+
+
 
     it('cannot override value when generated always', () => {
         none(`create table test(id int  GENERATED ALWAYS AS IDENTITY, val text);`);

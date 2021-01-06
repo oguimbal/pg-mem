@@ -203,7 +203,7 @@ export class ColRef implements _Column {
 
     setDefaults(toInsert: any, t: _Transaction) {
         const col = this.expression.get(toInsert, t);
-        if (!nullIsh(col)) {
+        if (col !== undefined) {
             return;
         }
         if (!this.default) {

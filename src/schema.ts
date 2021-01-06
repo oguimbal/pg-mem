@@ -37,7 +37,7 @@ export class DbSchema implements _ISchema, ISchema {
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' }).register();
-        this.dualTable.insert(this.db.data, {});
+        this.dualTable.insert({});
         this.dualTable.setReadonly();
         this._reg_unregister(this.dualTable);
     }
@@ -1075,7 +1075,7 @@ select * from test; // ('a', 'b'), ('b', null), ('b', 'a')
                 }
                 toInsert[columns[i]] = converted.get();
             }
-            ret.push(table.insert(t, toInsert, opts));
+            ret.push(table.doInsert(t, toInsert, opts));
         }
 
         return returning ?? rowCount;

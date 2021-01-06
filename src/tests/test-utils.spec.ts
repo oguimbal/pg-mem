@@ -45,5 +45,5 @@ describe('Test utils', () => {
         assert.isTrue(queryJson({ a: [1] }, { a: [1, 2, 3] }));
         assert.isTrue(queryJson({ a: [{ b: 'test' }] }, { a: [{ b: 'test', c: 42 }] }));
         assert.isTrue(queryJson({ a: [{ b: 'test' }, { c: 12 }] }, { a: [{ c: 12 }, { b: 'test' }] }));
-    })
+    });
 });

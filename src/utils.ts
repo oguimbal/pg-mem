@@ -1,7 +1,7 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { IValue, NotSupported, _ISchema, _IType, _Transaction } from './interfaces-private';
-import { DataTypeDef, Expr, nil, QName } from 'pgsql-ast-parser';
+import { IValue, NotSupported, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private';
+import { BinaryOperator, DataTypeDef, Expr, nil, QName, SelectedColumn } from 'pgsql-ast-parser';
 import { ISubscription, IType, typeDefToStr } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './buffer-node';
 
@@ -435,4 +435,81 @@ export function suggestColumnName(expr: Expr): string | null {
             return typeDefToStr(expr.to);
     }
     return null;
+}
+
+export function findTemplate<T>(this: void, selection: _ISelection, t: _Transaction, template?: T, columns?: (keyof T)[]): Iterable<T> {
+    // === Build an SQL AST expression that matches
+    // this template
+    let expr: Expr | nil;
+    for (const [k, v] of Object.entries(template ?? {})) {
+        let right: Expr;
+        if (nullIsh(v)) {
+            // handle { myprop: null }
+            right = {
+                type: 'unary',
+                op: 'IS NULL',
+                operand: {
+                    type: 'ref',
+                    name: k,
+                },
+            };
+        } else {
+            let value: Expr;
+            let op: BinaryOperator = '=';
+            switch (typeof v) {
+                case 'number':
+                    // handle {myprop: 42}
+                    value = Number.isInteger(v)
+                        ? { type: 'integer', value: v }
+                        : { type: 'numeric', value: v };
+                    break;
+                case 'string':
+                    // handle {myprop: 'blah'}
+                    value = { type: 'string', value: v };
+                    break;
+                case 'object':
+                    // handle {myprop: new Date()}
+                    if (moment.isMoment(v)) {
+                        value = { type: 'string', value: v.toISOString() };
+                    } else if (v instanceof Date) {
+                        value = { type: 'string', value: moment(v).toISOString() };
+                    } else {
+                        // handle {myprop: {obj: "test"}}
+                        op = '@>';
+                        value = {
+                            type: 'string',
+                            value: JSON.stringify(v),
+                        };
+                    }
+                    break;
+                default:
+                    throw new Error(`Object type of property "${k}" not supported in template`);
+            }
+            right = {
+                type: 'binary',
+                op,
+                left: {
+                    type: 'ref',
+                    name: k,
+                },
+                right: value
+            };
+        }
+        expr = !expr ? right : {
+            type: 'binary',
+            op: 'AND',
+            left: expr,
+            right,
+        };
+    }
+
+    // === perform filter
+    let ret = selection
+        .filter(expr);
+    if (columns) {
+        ret = ret.select(columns.map<SelectedColumn>(x => ({
+            expr: { type: 'ref', name: x as string },
+        })));
+    }
+    return ret.enumerate(t);
 }

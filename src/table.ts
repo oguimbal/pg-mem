@@ -3,15 +3,16 @@ import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndex
 import { buildValue } from './predicate';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
-import { nullIsh, deepCloneSimple, Optional, indexHash } from './utils';
+import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate } from './utils';
 import { Map as ImMap } from 'immutable';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr } from 'pgsql-ast-parser';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator } from 'pgsql-ast-parser';
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
 import { DataSourceBase } from './transforms/transform-base';
 import { parseSql } from './parse-cache';
 import { ForeignKey } from './constraints/foreign-key';
 import { Types } from './datatypes';
+import moment from 'moment';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -240,6 +241,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
+    find(template?: T, columns?: (keyof T)[]): Iterable<T> {
+        return findTemplate(this.selection, this.db.data, template, columns);
+    }
+
     remapData(t: _Transaction, modify: (newCopy: T) => any) {
         // convert raw data (⚠ must copy the whole thing,
         // because it can throw in the middle of this process !)
@@ -252,7 +257,12 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
+    insert(toInsert: T): T {
+        const ret = this.doInsert(this.db.data, deepCloneSimple(toInsert));
+        return deepCloneSimple(ret);
+    }
+
+    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }

@@ -103,8 +103,8 @@ export interface IMemoryDb {
     /**
      * Get a table to inspect it (in the public schema... this is a shortcut for db.public.getTable())
      */
-    getTable(table: string): IMemoryTable;
-    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
+    getTable<T = any>(table: string): IMemoryTable<T>;
+    getTable<T = any>(table: string, nullIfNotFound?: boolean): IMemoryTable<T> | null;
 
     /** Subscribe to a global event */
     on(event: 'query', handler: (query: string) => any): ISubscription;
@@ -252,11 +252,21 @@ export interface FieldInfo {
 export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
-export interface IMemoryTable {
+export interface IMemoryTable<T = any> {
     /** Subscribe to an event on this table */
     on(event: TableEvent, handler: () => any): ISubscription;
     /** List existing indices defined on this table */
     listIndices(): IndexDef[];
+
+    /**
+     * Inserts a raw item into this table.
+     * ⚠ Neither the record you provided, nor the returned value are the actual item stored. You wont be able to mutate internal state.
+     * @returns A copy of the inserted item (with assigned defaults)
+     */
+    insert(item: Partial<T>): T;
+
+    /** Find all items matching a specific template */
+    find(template?: Partial<T> | nil, columns?: (keyof T)[]): Iterable<T>;
 }
 
 

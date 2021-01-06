@@ -26,7 +26,7 @@
 * [Usage](#-usage)
 * [Features](#-features)
 * [Libraries adapters](#-libraries-adapters)
-* [Inspection](#inspection)
+* [Inspection](#-inspection)
 * [Development](#-development)
 * [FAQ](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
@@ -157,9 +157,27 @@ pg-mem provides handy shortcuts to create instances of popuplar libraries that w
 
 [See the wiki for more details](https://github.com/oguimbal/pg-mem/wiki/Libraries-adapters)
 
-# Inspection
+# 💥 Inspection
 
-## 💥 Subscribe to events
+## Inspect a table
+
+You can manually inspect a table content using the `find()` method:
+
+```typescript
+for (const item of db.public.getTable<TItem>('mytable').find(itemTemplate)) {
+  console.log(item);
+}
+```
+
+## Manually insert items
+
+If you'd like to insert items manually into a table, you can do this like that:
+
+```typescript
+db.public.getTable<TItem>('mytable').insert({ /* item to insert */ }))
+```
+
+## Subscribe to events
 You can subscribe to some events, like:
 
 ```typescript
