@@ -2,7 +2,7 @@
 <p align="center">
   <a href="https://npmjs.org/package/pg-mem"><img src="http://img.shields.io/npm/v/pg-mem.svg"></a>
   <a href="https://npmjs.org/package/pg-mem"><img src="https://img.shields.io/npm/dm/pg-mem.svg"></a>
-  <a href="https://david-dm.org/oguimbal/pg-mem"><img src="https://david-dm.org/oguimbal/knex.svg"></a>
+  <a href="https://david-dm.org/oguimbal/pg-mem"><img src="https://david-dm.org/oguimbal/pg-mem.svg"></a>
   <img src="https://github.com/oguimbal/pg-mem/workflows/CI/badge.svg">
 </p>
 
