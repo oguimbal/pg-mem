@@ -3,15 +3,16 @@ import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndex
 import { buildValue } from './predicate.ts';
 import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
-import { nullIsh, deepCloneSimple, Optional, indexHash } from './utils.ts';
+import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
 import { parseSql } from './parse-cache.ts';
 import { ForeignKey } from './constraints/foreign-key.ts';
 import { Types } from './datatypes/index.ts';
+import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -240,6 +241,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
+    find(template?: T, columns?: (keyof T)[]): Iterable<T> {
+        return findTemplate(this.selection, this.db.data, template, columns);
+    }
+
     remapData(t: _Transaction, modify: (newCopy: T) => any) {
         // convert raw data (⚠ must copy the whole thing,
         // because it can throw in the middle of this process !)
@@ -252,7 +257,12 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
+    insert(toInsert: T): T {
+        const ret = this.doInsert(this.db.data, deepCloneSimple(toInsert));
+        return deepCloneSimple(ret);
+    }
+
+    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }

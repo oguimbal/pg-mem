@@ -332,14 +332,14 @@ export interface ChangeOpts {
     overriding?: 'user' | 'system' | nil;
 }
 
-export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
+export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
     readonly db: _IDb;
     readonly ownerSchema: _ISchema;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
-    insert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
+    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
     setHidden(): this;
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;

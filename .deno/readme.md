@@ -1,19 +1,34 @@
-> `pg-mem` is an experimental in-memory emulation of a postgres database.
 
+<p align="center">
+  <a href="https://npmjs.org/package/pg-mem"><img src="http://img.shields.io/npm/v/pg-mem.svg"></a>
+  <a href="https://npmjs.org/package/pg-mem"><img src="https://img.shields.io/npm/dm/pg-mem.svg"></a>
+  <a href="https://david-dm.org/oguimbal/pg-mem"><img src="https://david-dm.org/oguimbal/pg-mem.svg"></a>
+  <img src="https://github.com/oguimbal/pg-mem/workflows/CI/badge.svg">
+</p>
+
+
+ <h3 align="center">pg-mem is an experimental in-memory emulation of a postgres database.</h3>
+
+<p align="center">
 ❤ It works both in node or in browser.
+</p>
 
+<p align="center">
 ⭐ this repo if you like this package, it helps to motivate me :)
 
-👉 See it in action with [pg-mem playground](https://oguimbal.github.io/pg-mem-playground/)
+</p>
+
+<p align="center">
+  👉 See it in action with <a href="https://oguimbal.github.io/pg-mem-playground/">pg-mem playground</a>
+</p>
 
 
 * [Usage](#-usage)
 * [Features](#-features)
 * [Libraries adapters](#-libraries-adapters)
-* [Inspection](#inspection)
-* [FAQ](#-faq)
-* [Supported features](#-supported-features)
+* [Inspection](#-inspection)
 * [Development](#-development)
+* [FAQ](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
 
 # 📐 Usage
@@ -142,9 +157,27 @@ pg-mem provides handy shortcuts to create instances of popuplar libraries that w
 
 [See the wiki for more details](https://github.com/oguimbal/pg-mem/wiki/Libraries-adapters)
 
-# Inspection
+# 💥 Inspection
 
-## 💥 Subscribe to events
+## Inspect a table
+
+You can manually inspect a table content using the `find()` method:
+
+```typescript
+for (const item of db.public.getTable<TItem>('mytable').find(itemTemplate)) {
+  console.log(item);
+}
+```
+
+## Manually insert items
+
+If you'd like to insert items manually into a table, you can do this like that:
+
+```typescript
+db.public.getTable<TItem>('mytable').insert({ /* item to insert */ }))
+```
+
+## Subscribe to events
 You can subscribe to some events, like:
 
 ```typescript
@@ -190,28 +223,6 @@ db.on('catastrophic-join-optimization', () => {});
 
 Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
-# 📃 Supported features
-
-It supports:
-- [x] Indices, somewhat (on "simple" requests)
-- [x] Basic data types (json, dates, ...)
-- [x] Joins, group bys, ...
-- [x] Easy wrapper creator for [Typeorm](https://github.com/typeorm/typeorm), [pg-promise (pgp)](https://github.com/vitaly-t/pg-promise), [node-postgres (pg)](https://github.com/brianc/node-postgres), [pg-native](https://github.com/brianc/node-pg-native)
-- [x] Transactions (only one of multiple concurrent transactions can be commited, though)
-
-
-It does not (yet) support (this is kind-of a todo list):
-- [ ] Gin Indices
-- [ ] Cartesian Joins
-- [ ] Most of the pg functions are not implemented - ask for them, [they're easy to implement](src/functions) !
-- [ ] Some [aggregations](src/transforms/aggregation.ts) are to be implemented (avg, count, ...) - easy job, but not yet done.
-- [ ] Stored procedures
-- [ ] Lots of small and not so small things (collate, timezones, tsqueries, custom types ...)
-- [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
-- [ ] Concurrent transaction commit
-- [ ] Collation (see #collation tag in code if you want to implement it)
-
-... PRs are open :)
 
 # 🐜 Development
 

@@ -4,6 +4,7 @@ import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
 import { columnEvaluator } from '../transforms/selection.ts';
+import { findTemplate } from '../utils.ts';
 
 export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection<any> {
 
@@ -102,7 +103,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     addConstraint(constraint: TableConstraint, t: _Transaction) {
         throw new PermissionDeniedError(this.name);
     }
-    insert(toInsert: any): void {
+    insert(item: any) {
+        throw new PermissionDeniedError(this.name);
+    }
+    doInsert(toInsert: any): void {
         throw new PermissionDeniedError(this.name);
     }
     delete(t: _Transaction, toDelete: T): void {
@@ -155,6 +159,11 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     onIndex(sub: IndexHandler): ISubscription {
         // nop
         return { unsubscribe() { } }
+    }
+
+
+    find(template?: T, columns?: (keyof T)[]): Iterable<T> {
+        return findTemplate(this.selection, this.db.data, template, columns);
     }
 
 
