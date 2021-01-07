@@ -4,7 +4,7 @@ import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from '.
 import { buildValue } from './predicate.ts';
 import { parseRegClass, ArrayType, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -204,14 +204,16 @@ export class DbSchema implements _ISchema, ISchema {
                     // They are just ignored as of today (in order to handle pg_dump exports)
                     ignore(p);
                     break;
-                case 'tablespace':
-                    throw new NotSupported('"TABLESPACE" statement');
                 case 'create enum':
                     t = t.fullCommit();
                     (p.name.schema ? this.db.getSchema(p.name.schema) : this)
                         .registerEnum(p.name.name, p.values);
                     t = t.fork();
                     break;
+                case 'tablespace':
+                    throw new NotSupported('"TABLESPACE" statement');
+                case 'prepare':
+                    throw new NotSupported('"PREPARE" statement');
                 default:
                     throw NotSupported.never(p, 'statement type');
             }

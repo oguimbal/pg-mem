@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, nil, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
+import { BinaryOperator, DataTypeDef, Expr, nil, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
 import { ISubscription, IType, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
@@ -512,4 +512,24 @@ export function findTemplate<T>(this: void, selection: _ISelection, t: _Transact
         })));
     }
     return ret.enumerate(t);
+}
+
+
+function ver(v: string) {
+    if (!v || !/^\d+(\.\d+)+$/.test(v)) {
+        throw new Error('Invalid semver ' + v)
+    }
+    return v.split(/\./g).map(x => parseInt(x, 10));
+}
+export function compareVersions(_a: string, _b: string): number {
+    const a = ver(_a);
+    const b = ver(_b);
+    const m = Math.max(a.length, b.length);
+    for (let i = 0; i < m; i++) {
+        const d = (b[i] || 0)  - (a[i] || 0);
+        if (d !== 0) {
+            return d;
+        }
+    }
+    return 0;
 }

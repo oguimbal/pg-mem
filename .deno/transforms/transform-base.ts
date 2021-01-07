@@ -10,7 +10,7 @@ import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
 import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@3.0.4/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
