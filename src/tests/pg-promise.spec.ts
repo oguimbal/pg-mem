@@ -24,7 +24,6 @@ describe('pg-promise', () => {
     it('can open connection', async () => {
         simpleDb();
         const pgp = db.adapters.createPgPromise();
-        await pgp.connect();
         const got = await pgp.any('select * from data');
         assert.deepEqual(got, [{
             id: 'str',
@@ -37,7 +36,6 @@ describe('pg-promise', () => {
     it('can execute begin', async () => {
         simpleDb();
         const pgp = db.adapters.createPgPromise();
-        await pgp.connect();
         await pgp.any('begin');
     });
 });

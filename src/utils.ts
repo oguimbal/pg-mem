@@ -513,3 +513,23 @@ export function findTemplate<T>(this: void, selection: _ISelection, t: _Transact
     }
     return ret.enumerate(t);
 }
+
+
+function ver(v: string) {
+    if (!v || !/^\d+(\.\d+)+$/.test(v)) {
+        throw new Error('Invalid semver ' + v)
+    }
+    return v.split(/\./g).map(x => parseInt(x, 10));
+}
+export function compareVersions(_a: string, _b: string): number {
+    const a = ver(_a);
+    const b = ver(_b);
+    const m = Math.max(a.length, b.length);
+    for (let i = 0; i < m; i++) {
+        const d = (b[i] || 0)  - (a[i] || 0);
+        if (d !== 0) {
+            return d;
+        }
+    }
+    return 0;
+}

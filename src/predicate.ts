@@ -103,6 +103,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return Value.constant(data.ownerSchema, val.dataType as any, val.value);
         case 'keyword':
             return buildKeyword(data.ownerSchema, val, []);
+        case 'parameter':
+            throw new NotSupported('Paramters expressions ');
         default:
             throw NotSupported.never(val);
     }

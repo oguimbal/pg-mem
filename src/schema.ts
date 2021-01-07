@@ -204,14 +204,16 @@ export class DbSchema implements _ISchema, ISchema {
                     // They are just ignored as of today (in order to handle pg_dump exports)
                     ignore(p);
                     break;
-                case 'tablespace':
-                    throw new NotSupported('"TABLESPACE" statement');
                 case 'create enum':
                     t = t.fullCommit();
                     (p.name.schema ? this.db.getSchema(p.name.schema) : this)
                         .registerEnum(p.name.name, p.values);
                     t = t.fork();
                     break;
+                case 'tablespace':
+                    throw new NotSupported('"TABLESPACE" statement');
+                case 'prepare':
+                    throw new NotSupported('"PREPARE" statement');
                 default:
                     throw NotSupported.never(p, 'statement type');
             }

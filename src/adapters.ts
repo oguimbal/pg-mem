@@ -3,6 +3,7 @@ import { literal } from './pg-escape';
 import moment from 'moment';
 import lru from 'lru-cache';
 import { bufToString, isBuf } from './buffer-node';
+import { compareVersions } from './utils';
 declare var __non_webpack_require__: any;
 
 const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
@@ -189,10 +190,20 @@ export class Adapters implements LibAdapters {
 
     createPgPromise(queryLatency?: number) {
         // https://vitaly-t.github.io/pg-promise/module-pg-promise.html
-        const pgp = __non_webpack_require__('@oguimbal/pg-promise')({
-            customPg: this.createPg(queryLatency),
-        });
-        return pgp('fake connection string');
+        // https://github.com/vitaly-t/pg-promise/issues/743#issuecomment-756110347
+        const pgp = __non_webpack_require__('pg-promise')();
+        pgp.pg = this.createPg(queryLatency);
+        const db = pgp('pg-mem');
+        if (compareVersions('10.8.7', db.$config.version) < 0) {
+            throw new Error(`💀 pg-mem cannot be used with pg-promise@${db.$config.version},
+
+       👉 you must install version pg-promise@10.8.7 or newer:
+
+                npm i pg-promise@latest -S
+
+            See https://github.com/vitaly-t/pg-promise/issues/743 for details`);
+        }
+        return db;
     }
 
     createPgNative(queryLatency?: number) {
