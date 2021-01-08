@@ -104,7 +104,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'keyword':
             return buildKeyword(data.ownerSchema, val, []);
         case 'parameter':
-            throw new NotSupported('Paramters expressions ');
+            throw new NotSupported('Parameters expressions');
         default:
             throw NotSupported.never(val);
     }
