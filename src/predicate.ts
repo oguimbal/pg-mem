@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'pgsql-ast-parser';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 
@@ -105,6 +105,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildKeyword(data.ownerSchema, val, []);
         case 'parameter':
             throw new NotSupported('Parameters expressions');
+        case 'extract':
+            return buildExtract(data, val);
         default:
             throw NotSupported.never(val);
     }
@@ -584,4 +586,14 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
             }
             return ret;
         });
+}
+
+
+function buildExtract(data: _ISelection, op: ExprExtract): IValue {
+    const from = _buildValue(data, op.from);
+    switch (op.type) {
+        case 'century':
+
+
+    }
 }

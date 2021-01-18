@@ -374,8 +374,8 @@ export function typeDefToStr(t: DataTypeDef): string {
     if (t.schema) {
         ret = t.schema + '.' + ret;
     }
-    if (typeof t.length === 'number') {
-        ret = ret + '(' + t.length + ')';
+    if (t.config?.length) {
+        ret = ret + '(' + t.config.join(',') + ')';
     }
     return ret;
 }

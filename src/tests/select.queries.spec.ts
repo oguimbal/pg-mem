@@ -251,4 +251,56 @@ describe('Selections', () => {
                 { num: 2, str: 'two' },
             ])
     });
+
+    it('can select from function with selection', () => {
+        expect(many(`select a,b from concat('a') as a join concat('a') as b on b=a`))
+            .to.deep.equal([{ a: 'a', b: 'a' }])
+    })
+
+    it('can select from function without alias', () => {
+        expect(many(`select * from concat('a') as a join concat('a') as b on b=a`))
+            .to.deep.equal([{ a: 'a', b: 'a' }])
+    })
+
+    it('can select from function with alias', () => {
+        expect(many(`select * from concat('a') as a join concat('a') as b on a.a=b.b`))
+            .to.deep.equal([{ a: 'a', b: 'a' }])
+    })
+
+
+    it('can select record', () => {
+        expect(many(`create table test (a text, b text);
+                    insert into test values ('a', 'b');
+                    select test from test;`))
+            .to.deep.equal([{ test: { a: 'a', b: 'b' } }]);
+    })
+
+    it('can alias record selection', () => {
+        expect(many(`create table test (a text, b text);
+                    insert into test values ('a', 'b');
+                    select test as v from test;`))
+            .to.deep.equal([{ v: { a: 'a', b: 'b' } }]);
+    })
+
+
+    it('prefers column seleciton over record selection', () => {
+        expect(many(`create table test (test text, b text);
+                    insert into test values ('a', 'b');
+                    select test from test;`))
+            .to.deep.equal([{ test: 'a' }]);
+    })
+
+
+    it('supports self aliasing (bugfix)', () => {
+        expect(many(`CREATE TABLE my_table (id text NOT NULL PRIMARY KEY, name text NOT NULL, parent_id text);
+                        CREATE INDEX my_table_idx_name ON my_table (name);
+                        CREATE INDEX my_table_idx_id_parent_id ON my_table (id,parent_id);
+
+                        insert into my_table values ('parid', 'Parent', null);
+                        insert into my_table values ('childid', 'Child', 'parid');
+                        SELECT name FROM my_table as t1 WHERE NOT EXISTS (SELECT * FROM my_table as t2 WHERE t2.parent_id = t1.id);
+                        `))
+            .to.deep.equal([{ name: 'Parent' }])
+    })
+
 });

@@ -1,7 +1,7 @@
 import moment from 'moment';
 import { List } from 'immutable';
 import { IValue, NotSupported, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private';
-import { BinaryOperator, DataTypeDef, Expr, nil, QName, SelectedColumn } from 'pgsql-ast-parser';
+import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, nil, QName, SelectedColumn } from 'pgsql-ast-parser';
 import { ISubscription, IType, typeDefToStr } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './buffer-node';
 
@@ -532,4 +532,8 @@ export function compareVersions(_a: string, _b: string): number {
         }
     }
     return 0;
+}
+
+export function functionName(fn: string | ExprValueKeyword) {
+    return typeof fn === 'string' ? fn : fn.keyword;
 }

@@ -2,7 +2,7 @@ import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchem
 import { buildValue, uncache } from '../predicate';
 import { QueryError, ColumnNotFound, NotSupported, nil } from '../interfaces';
 import { DataSourceBase } from './transform-base';
-import { Expr } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn } from 'pgsql-ast-parser';
 import { nullIsh } from '../utils';
 import { Types } from '../datatypes';
 
@@ -233,6 +233,10 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
+    selectAll(): _ISelection {
+        return this.select(this.columns.map(v => v.id!));
+    }
+
     *iterateCatastrophicItem(item: any, others: any[], side: 'joined' | 'restrictive', t: _Transaction) {
         const { template, buildItem } = this.builder(item, side);
         let yielded = false;
@@ -302,7 +306,10 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }
 
     buildItem(l: TLeft, r: TRight) {
-        const ret = { '>joined': r, '>restrictive': l }
+        const ret = {
+            '>joined': r,
+            '>restrictive': l,
+        }
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
         return ret;
     }

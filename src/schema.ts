@@ -1,10 +1,10 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS } from './interfaces-private';
-import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils';
+import { functionName, ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { parseRegClass, ArrayType, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -214,6 +214,12 @@ export class DbSchema implements _ISchema, ISchema {
                     throw new NotSupported('"TABLESPACE" statement');
                 case 'prepare':
                     throw new NotSupported('"PREPARE" statement');
+                case 'create view':
+                case 'create materialized view':
+                    t = t.fullCommit();
+                    last = this.executeCreateView(t, p);
+                    t = t.fork();
+                    break;
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
@@ -375,6 +381,28 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         this.installedExtensions.add(p.extension);
     }
 
+    executeCreateView(t: _Transaction, p: CreateViewStatement | CreateMaterializedViewStatement) {
+        const nop = this.simple('CREATE', p);
+
+        // check existence
+        const ifNotExists = 'ifNotExists' in p && p.ifNotExists;
+        const replace = 'orReplace' in p && p.orReplace;
+        const existing = this.getObject(p, { nullIfNotFound: true });
+        if (existing) {
+            if (ifNotExists) {
+                nop.ignored = true;
+                return nop;
+            } else if (replace) {
+                todo // drop existing
+            }
+        }
+
+        const view = this.buildSelect(p.query);
+
+        return nop;
+
+    }
+
     private locOf(p: Statement): StatementLocation {
         return p[LOCATION] ?? {};
     }
@@ -383,8 +411,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     private simpleTypes: { [key: string]: _IType } = {};
     private sizeableTypes: {
         [key: string]: {
-            ctor: (sz?: number) => _IType;
-            regs: Map<number | undefined, _IType>;
+            ctor: (...sz: number[]) => _IType;
+            regs: Map<number | string | undefined, _IType>;
         };
     } = {};
 
@@ -409,10 +437,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const name = typeSynonyms[t.name] ?? t.name;
         const sizeable = this.sizeableTypes[name];
         if (sizeable) {
-            const key = t.length ?? undefined;
+            const key = t.config?.length === 1
+                ? t.config[0]
+                : t.config?.join(',') ?? undefined;
             let ret = sizeable.regs.get(key);
             if (!ret) {
-                sizeable.regs.set(key, ret = sizeable.ctor(key));
+                sizeable.regs.set(key, ret = sizeable.ctor(...t.config ?? []));
             }
             return ret;
         }
@@ -865,6 +895,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     break;
                 case 'values':
                     newT = new ValuesTable(this, from.alias, from.values, from.columnNames ?? []).selection;
+                    break;
+                case 'call':
+                    const fnName = from.alias ?? functionName(from.function);
+                    newT = new ValuesTable(this, fnName, [[from]], [fnName]);
                     break;
                 default:
                     throw NotSupported.never(from);

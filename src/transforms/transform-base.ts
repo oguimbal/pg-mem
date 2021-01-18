@@ -46,8 +46,22 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     constructor(readonly ownerSchema: _ISchema) {
     }
 
-    select(select: SelectedColumn[] | nil): _ISelection<any> {
-        return fns.buildSelection(this, select);
+    select(select: (string | SelectedColumn)[] | nil): _ISelection<any> {
+        let sel: SelectedColumn[] | nil;
+        if (select?.some(v => typeof v === 'string')) {
+            sel = select.map<SelectedColumn>(v => typeof v !== 'string'
+                ? v
+                : {
+                    expr: { type: 'ref', name: v },
+                })
+        } else {
+            sel = select as SelectedColumn[] | nil;
+        }
+        return fns.buildSelection(this, sel);
+    }
+
+    selectAll(): _ISelection {
+        return this;
     }
 
     filter(filter: Expr | undefined | null): _ISelection {

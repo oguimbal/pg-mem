@@ -635,7 +635,7 @@ describe('Joins', () => {
             ]);
     });
 
-    it ('can self right join', () => {
+    it('can self right join', () => {
         const got = many(`create table test(usr text, friend text);
         insert into test values ('me', 'you');
         insert into test values ('me', 'other1');
@@ -653,7 +653,7 @@ describe('Joins', () => {
             ])
     })
 
-    it ('can self left join', () => {
+    it('can self left join', () => {
         const got = many(`create table test(usr text, friend text);
         insert into test values ('me', 'you');
         insert into test values ('me', 'other1');
@@ -673,7 +673,7 @@ describe('Joins', () => {
             ])
     });
 
-    it ('can self inner join', () => {
+    it('can self inner join', () => {
         const got = many(`create table test(usr text, friend text);
         insert into test values ('me', 'you');
         insert into test values ('me', 'other1');
@@ -690,6 +690,24 @@ describe('Joins', () => {
                 { usr: 'you', friend: 'other1' },
             ])
     });
+
+    it('can select * and column on join', () => {
+        expect(many(`select *, a from concat('a') as a join concat('a') as b on a.a=b.b`))
+            .to.deep.equal([{ a: 'a', b: 'a' }]);
+    })
+
+    it('can select selective * and column on join ', () => {
+        expect(many(`select b.*, vala, a from (values ('x', 'a1')) as a(ida, vala) join (values ('x', 'b1')) as b(idb, valb) on a.ida=b.idb`))
+            .to.deep.equal([{
+                idb: 'x',
+                valb: 'b1',
+                vala: 'a1',
+                a: {
+                    ida: 'x',
+                    vala: 'a1',
+                },
+            }]);
+    })
 
     // it ('can full join', () => {
     //     photos();

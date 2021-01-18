@@ -16,7 +16,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
         if (!on.columns.length) {
             throw new QueryError('SELECT * with no tables specified is not valid');
         }
-        return on;
+        return on.selectAll();
     }
 
     // if there is any aggregation function

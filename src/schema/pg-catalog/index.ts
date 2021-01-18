@@ -35,7 +35,7 @@ export function setupPgCatalog(db: _IDb) {
         ._registerType(Types.path)
         ._registerType(Types.polygon)
         ._registerType(Types.circle)
-        ._registerTypeSizeable(DataType.text, Types.text);
+        ._registerTypeSizeable(DataType.text, Types.text)
 
     new PgConstraintTable(catalog).register();
     new PgClassListTable(catalog).register();

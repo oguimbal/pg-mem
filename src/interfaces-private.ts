@@ -140,7 +140,8 @@ export interface _ISelection<T = any> {
     limit(limit: LimitStatement): _ISelection;
     orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any>;
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
-    select(select: SelectedColumn[]): _ISelection;
+    select(select: (string  | SelectedColumn)[]): _ISelection;
+    selectAll(): _ISelection;
     distinct(select?: Expr[]): _ISelection;
     union(right: _ISelection<any>): _ISelection<any>;
     getColumn(column: string): IValue;
