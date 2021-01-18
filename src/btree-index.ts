@@ -474,7 +474,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return {
             _: 'btree',
             onTable: this.onTable.name,
-            btree: this.expressions.map(x => x.sql!),
+            btree: this.expressions.map(x => x.id!),
         }
     }
 }

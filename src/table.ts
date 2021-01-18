@@ -620,7 +620,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
                 name: x.index.name!,
-                expressions: x.expressions.map(x => x.sql!),
+                expressions: x.expressions.map(x => x.id!),
             }));
     }
 

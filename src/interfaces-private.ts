@@ -458,9 +458,6 @@ export interface IValue<TRaw = any> {
     /** Hash of this value (used to identify indexed expressions) */
     readonly hash: string;
 
-    /** Clean debug reconsitutition of SQL used to parse this value */
-    readonly sql: string | nil;
-
     /** Get value if is a constant */
     get(): any;
     /** Get value if is NOT a constant */

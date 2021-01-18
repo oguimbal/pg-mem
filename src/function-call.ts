@@ -82,7 +82,6 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
         schema
         , type!
         , null
-        , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })
         , args
         , (raw, t) => {
@@ -107,7 +106,6 @@ function buildAnyCall(schema: _ISchema, args: IValue[]) {
             schema
             , array.type.of
             , null
-            , `ANY(${array.sql})`
             , hash({ any: array.hash })
             , args
             , (raw, t) => {
@@ -128,7 +126,6 @@ function buildAnyCall(schema: _ISchema, args: IValue[]) {
         schema
         , Types.text()
         , null
-        , `ANY(${array.sql})`
         , hash({ any: array.hash })
         , args
         , arrayValue

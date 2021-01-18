@@ -36,7 +36,6 @@ export class Evaluator<T = any> implements IValue<T> {
         readonly owner: _ISchema
         , readonly type: _IType<T>
         , readonly id: string | nil
-        , readonly sql: string | nil
         , readonly hash: string
         , dependencies: IValue | IValue[] | nil
         , public val: nil | Object | number | string | Date | ((raw: any, transaction: _Transaction | nil, isResult: boolean) => any)
@@ -109,7 +108,6 @@ export class Evaluator<T = any> implements IValue<T> {
             this.owner
             , type
             , this.id
-            , this.sql
             , this.hash
             , this
             , this.val
@@ -120,13 +118,11 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
     setConversion(converter: (val: T, isResult: boolean, t: _Transaction | nil) => any
-        , sqlConv: (sql: string) => string
         , hashConv: (hash: string) => any) {
         return new Evaluator<T>(
             this.owner
             , this.type
             , this.id
-            , this.sql && sqlConv(this.sql)
             , hash(hashConv(this.hash))
             , this
             , (raw, t) => {
@@ -157,7 +153,6 @@ export class Evaluator<T = any> implements IValue<T> {
             this.owner
             , this.type
             , this.id
-            , this.sql
             , this.hash
             , this
             , this.val
@@ -174,7 +169,6 @@ export class Evaluator<T = any> implements IValue<T> {
             this.owner
             , this.type
             , this.id
-            , this.sql
             , this.hash
             , this
             , (raw, t) => {
@@ -198,7 +192,6 @@ export class Evaluator<T = any> implements IValue<T> {
             this.owner
             , this.type
             , newId
-            , this.sql
             , this.hash
             , this
             , this.val
@@ -236,10 +229,6 @@ export class Evaluator<T = any> implements IValue<T> {
         return this.type.convert(this, to);
     }
 
-    toString() {
-        return this.sql;
-    }
-
     explain(e: _Explainer): _ExprExplanation {
         if (!this.origin) {
             return {
@@ -248,7 +237,7 @@ export class Evaluator<T = any> implements IValue<T> {
         }
         return {
             on: e.idFor(this.origin),
-            col: this.id ?? this.sql!,
+            col: this.id!,
         };
     }
 }
@@ -318,14 +307,13 @@ export class Evaluator<T = any> implements IValue<T> {
 
 export const Value = {
     null(owner: _ISchema, ofType?: _IType): IValue {
-        return new Evaluator(owner, ofType ?? Types.null, null, 'null', 'null', null, null, undefined);
+        return new Evaluator(owner, ofType ?? Types.null, null, 'null', null, null, undefined);
     },
     text(owner: _ISchema, value: string, length: number | nil = null): IValue {
         return new Evaluator(
             owner
             , Types.text(length)
             , null
-            , `[${value}]`
             , value
             , null
             , value);
@@ -335,7 +323,6 @@ export const Value = {
             owner
             , type
             , null
-            , `[${value}]`
             , value.toString(10)
             , null
             , value);
@@ -350,7 +337,6 @@ export const Value = {
             , Types.bool
             , null
             , str
-            , str
             , null
             , value);
     },
@@ -362,7 +348,6 @@ export const Value = {
         return new Evaluator(
             owner
             , type
-            , null
             , null
             , (null as any)
             , null
@@ -380,7 +365,6 @@ export const Value = {
             owner
             , Types.bool
             , null
-            , value.sql + ' IN ' + array.sql
             , hash({ val: value.hash, in: array.hash })
             , [value, array]
             , (raw, t) => {
@@ -398,7 +382,6 @@ export const Value = {
             owner
             , Types.bool
             , null
-            , `${leftValue.sql} IS${expectNull ? '' : ' NOT'} NULL`
             , hash({ isNull: leftValue.hash, expectNull })
             , leftValue
             , expectNull ? ((raw, t) => {
@@ -415,7 +398,6 @@ export const Value = {
             owner
             , Types.bool
             , null
-            , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} TRUE`
             , hash({ isTrue: leftValue.hash, expectTrue })
             , leftValue
             , expectTrue ? ((raw, t) => {
@@ -432,7 +414,6 @@ export const Value = {
             owner
             , Types.bool
             , null
-            , `${leftValue.sql} IS${leftValue ? '' : ' NOT'} FALSE`
             , hash({ isFalse: leftValue.hash, expectFalse })
             , leftValue
             , expectFalse ? ((raw, t) => {
@@ -446,13 +427,13 @@ export const Value = {
     negate(value: IValue): IValue {
         if (value.type === Types.bool) {
             return (value as Evaluator)
-                .setConversion(x => !x, x => 'NOT(' + x + ')', x => ({ not: x }));
+                .setConversion(x => !x, x => ({ not: x }));
         }
         if (!isNumeric(value.type)) {
             throw new QueryError('Can only apply "-" unary operator to numeric types');
         }
         return (value as Evaluator)
-            .setConversion(x => -x, x => '-(' + x + ')', x => ({ neg: x }));
+            .setConversion(x => -x, x => ({ neg: x }));
     },
     array(owner: _ISchema, values: IValue[]): IValue {
         if (!values.length) {
@@ -473,7 +454,6 @@ export const Value = {
             owner
             , type.asArray()
             , null
-            , '(' + converted.map(x => x.sql).join(', ') + ')'
             , hash(converted.map(x => x.hash))
             , converted
             , (raw, t) => {

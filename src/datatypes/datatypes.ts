@@ -34,7 +34,6 @@ class RegTypeImpl extends TypeBase<RegType> {
                 return a
                     .setType(to)
                     .setConversion(raw => raw.toString(10)
-                        , s => `(${s})::TEXT`
                         , toText => ({ toText }))
             case DataType.integer:
                 return a
@@ -46,7 +45,6 @@ class RegTypeImpl extends TypeBase<RegType> {
                         const t = a.owner.parseType(raw);
                         return t.reg.typeId;
                     }
-                        , s => `(${s})::INT`
                         , toText => ({ toText }))
         }
         throw new Error('failed to cast');
@@ -78,7 +76,6 @@ class RegClassImpl extends TypeBase<RegClass> {
                     .setConversion((raw: RegClass) => {
                         return raw?.toString();
                     }
-                        , s => `(${s})::TEXT`
                         , toText => ({ toText }))
             case DataType.integer:
                 return a
@@ -101,7 +98,6 @@ class RegClassImpl extends TypeBase<RegClass> {
                         return schema.getObjectByRegOrName(raw)
                             .reg.classId;
                     }
-                        , s => `(${s})::INT`
                         , toText => ({ toText }))
         }
         throw new Error('failed to cast');
@@ -130,7 +126,6 @@ class JSONBType extends TypeBase<any> {
             return a
                 .setType(Types.text())
                 .setConversion(json => JSON.stringify(json)
-                    , s => `(${s})::JSONB`
                     , toJsonB => ({ toJsonB }))
                 .convert(to) as Evaluator; // <== might need truncation
         }
@@ -200,12 +195,10 @@ class TimestampType extends TypeBase<Date> {
             case DataType.date:
                 return value
                     .setConversion(raw => moment(raw).startOf('day').toDate()
-                        , sql => `(${sql})::date`
                         , toDate => ({ toDate }));
             case DataType.time:
                 return value
                     .setConversion(raw => moment(raw).format('HH:mm:ss') + '.000000'
-                        , sql => `(${sql})::date`
                         , toDate => ({ toDate }));
         }
         throw new Error('Unexpected cast error');
@@ -233,7 +226,7 @@ class NullType extends TypeBase<null> {
     }
 
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
-        return new Evaluator(value.owner, to, null, 'null', 'null', null, null);
+        return new Evaluator(value.owner, to, null, 'null', null, null);
     }
 
     doCanCast(to: _IType): boolean {
@@ -318,7 +311,6 @@ class NumberType extends TypeBase<number> {
                 value.owner
                 , to
                 , value.id
-                , value.sql
                 , value.hash
                 , value
                 , (raw, t) => {
@@ -339,7 +331,6 @@ class NumberType extends TypeBase<number> {
                     }
                     return got.name;
                 }
-                    , sql => `(${sql})::regtype`
                     , intToRegType => ({ intToRegType }));
         }
         if (to.primary === DataType.regclass) {
@@ -351,7 +342,6 @@ class NumberType extends TypeBase<number> {
                     const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
                     return obj?.reg.classId ?? int;
                 }
-                    , sql => `(${sql})::regclass`
                     , intToRegClass => ({ intToRegClass }));
         }
         return value.setType(to);
@@ -404,7 +394,6 @@ class ByteArrayType extends TypeBase<TBuffer> {
             case DataType.text:
                 return value
                     .setConversion(raw => bufToString(raw)
-                        , sql => `(${sql})::text`
                         , toStr => ({ toStr }));
         }
         throw new Error('Unexpected cast error');
@@ -509,7 +498,6 @@ class TextType extends TypeBase<string> {
                         }
                         return conv.toDate()
                     }
-                        , sql => `(${sql})::timestamp`
                         , toTs => ({ toTs }));
             case DataType.date:
                 return value
@@ -520,7 +508,6 @@ class TextType extends TypeBase<string> {
                         }
                         return conv.startOf('day').toDate();
                     }
-                        , sql => `(${sql})::date`
                         , toDate => ({ toDate }));
             case DataType.time:
                 return value
@@ -531,7 +518,6 @@ class TextType extends TypeBase<string> {
                         }
                         return conv.format('HH:mm:ss.000000');
                     }
-                        , sql => `(${sql})::time`
                         , toTime => ({ toTime }));
             case DataType.bool:
                 return value
@@ -552,7 +538,6 @@ class TextType extends TypeBase<string> {
                         }
                         throw new CastError(DataType.text, DataType.bool, 'string ' + rawStr);
                     }
-                        , sql => `(${sql})::boolean`
                         , toBool => ({ toBool }));
             case DataType.uuid:
                 return value
@@ -575,13 +560,11 @@ class TextType extends TypeBase<string> {
                         }
                         return `${a}-${b}-${c}-${d}-${e}`;
                     }
-                        , sql => `(${sql})::uuid`
                         , toUuid => ({ toUuid }));
             case DataType.json:
             case DataType.jsonb:
                 return value
                     .setConversion(raw => JSON.parse(raw)
-                        , sql => `(${sql})::jsonb`
                         , toJsonb => ({ toJsonb }));
             case DataType.text:
                 const fromStr = to as TextType;
@@ -597,7 +580,6 @@ class TextType extends TypeBase<string> {
                         }
                         return str;
                     }
-                        , sql => `TRUNCATE(${sql}, ${toStr.len})`
                         , truncate => ({ truncate, len: toStr.len }));
             case DataType.regtype:
                 return value
@@ -609,7 +591,6 @@ class TextType extends TypeBase<string> {
                         }
                         return value.owner.parseType(repl).name;
                     }
-                        , sql => `(${sql})::regtype`
                         , strToRegType => ({ strToRegType }));
             case DataType.regclass:
                 return value
@@ -631,7 +612,6 @@ class TextType extends TypeBase<string> {
                         return schema.getObject(cls)
                             .name;
                     }
-                        , sql => `(${sql})::regclass`
                         , strToRegClass => ({ strToRegClass }));
             case DataType.array:
                 return value
@@ -641,14 +621,12 @@ class TextType extends TypeBase<string> {
                         (to as ArrayType).convertLiteral(value.owner, array);
                         return array;
                     }
-                        , sql => `(${sql})::${to.name}`
                         , parseArray => ({ parseArray }));
             case DataType.bytea:
                 return value
                     .setConversion(str => {
                         return bufFromString(str);
                     }
-                        , sql => `(${sql})::bytea`
                         , toBytea => ({ toBytea }));
 
         }
@@ -665,7 +643,6 @@ class TextType extends TypeBase<string> {
                     }
                     return val;
                 }
-                    , sql => `(${sql})::${to.primary}`
                     , castNum => ({ castNum, to: to.primary }));
         }
         if (isGeometric(to.primary)) {
@@ -674,7 +651,6 @@ class TextType extends TypeBase<string> {
                     const ret = parseGeometricLiteral(str, to.primary as any);
                     return ret;
                 }
-                    , sql => `(${sql})::${to.primary}`
                     , castGeo => ({ castGeo, to: to.primary }));
         }
         return undefined;
@@ -723,7 +699,6 @@ export class ArrayType extends TypeBase<any[]> {
             value.owner
             , to
             , value.id
-            , value.sql
             , value.hash!
             , value
             , (raw, t) => {
@@ -937,7 +912,7 @@ function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType
             }
             const pref = final.prefer(c.type);
             if (!pref) {
-                throw new CastError(c.type.primary, final.primary, c.sql ?? undefined);
+                throw new CastError(c.type.primary, final.primary, c.id ?? undefined);
             }
             return pref;
         }, Types.null);

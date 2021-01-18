@@ -7,6 +7,7 @@ import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './dat
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
+import moment from 'moment';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
@@ -313,7 +314,6 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             throw new NotSupported('operator ' + op);
     }
 
-    const sql = `${leftValue.sql} ${op} ${rightValue.sql}`;
     const hashed = hash(forcehash
         ?? (commutative
             ? { op, vals: [leftValue.hash, rightValue.hash].sort() }
@@ -321,14 +321,13 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
     // handle cases like:  blah = ANY(stuff)
     if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(data.ownerSchema, leftValue, op, rightValue, returnType, getter, sql, hashed);
+        return buildBinaryAny(data.ownerSchema, leftValue, op, rightValue, returnType, getter, hashed);
     }
 
     return new Evaluator(
         data.ownerSchema
         , returnType
         , null
-        , sql
         , hashed
         , [leftValue, rightValue]
         , (raw, t) => {
@@ -342,7 +341,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
 }
 
-function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, sql: string, hashed: string) {
+function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
     if (leftValue.isAny && rightValue.isAny) {
         throw new QueryError('ANY() cannot be compared to ANY()');
     }
@@ -353,7 +352,6 @@ function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator,
         schema
         , returnType
         , null
-        , sql
         , hashed
         , [leftValue, rightValue]
         , leftValue.isAny
@@ -425,9 +423,6 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
         data.ownerSchema
         , valueType
         , null
-        , ['CASE'
-            , whenExprs.map(x => `WHEN ${x.when.sql} THEN ${x.then.sql}`).join(' ')
-            , ' END'].join(' ')
         , hash({ when: whenExprs.map(x => ({ when: x.when.hash, then: x.then.hash })) })
         , [
             ...whenExprs.map(x => x.when),
@@ -470,7 +465,6 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
         data.ownerSchema
         , op.op === '->' ? onExpr.type : Types.text()
         , null
-        , `(${onExpr.sql})${op.op}${JSON.stringify(op.member)}`
         , hash([onExpr.hash, op.op, op.member])
         , onExpr
         , typeof op.member === 'string'
@@ -501,7 +495,6 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
         data.ownerSchema
         , (onExpr.type as ArrayType).of
         , null
-        , `(${onExpr.sql})[${index.sql}]`
         , hash({ array: onExpr.hash, index: index.hash })
         , [onExpr, index]
         , (raw, t, isResult) => {
@@ -542,7 +535,6 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         data.ownerSchema
         , Types.bool
         , null
-        , `${value.sql} BETWEEN ${lo.sql} AND ${hi.sql}`
         , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
         , [value, hi, lo]
         , (raw, t) => {
@@ -576,7 +568,6 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
         data.ownerSchema
         , onData.columns[0].type.asArray()
         , null
-        , '<subselection>'
         , Math.random().toString() // must not be indexable => always different hash
         , onData.columns[0]
         , (raw, t) => {
@@ -591,9 +582,23 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
 
 function buildExtract(data: _ISelection, op: ExprExtract): IValue {
     const from = _buildValue(data, op.from);
-    switch (op.type) {
+    switch (op.field) {
         case 'century':
-
+            const asDate = from.convert(Types.date);
+            return new Evaluator(
+                data.ownerSchema
+                , Types.integer
+                , null
+                , hash({ extract: from.hash, field: op.field })
+                , [asDate]
+                , (raw, t) => {
+                    const got = asDate.get(raw, t);
+                    if (nullIsh(got)) {
+                        return null;
+                    }
+                    return Math.floor(moment(got).year() / 100);
+                }
+            )
 
     }
 }

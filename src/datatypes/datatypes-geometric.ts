@@ -30,7 +30,7 @@ export class PointType extends TypeBase<Point> {
         return value
             .setConversion((p: Point) => {
                 return pointToStr(p);
-            }, sql => `(${sql})::text`
+            }
                 , pointToTxt => ({ pointToTxt }));
     }
 
@@ -74,7 +74,7 @@ export class LineType extends TypeBase<Line> {
         return value
             .setConversion((l: Line) => {
                 return `{${l.a},${l.b},${l.c}}`;
-            }, sql => `(${sql})::text`
+            }
                 , lineToTxt => ({ lineToTxt }));
     }
 
@@ -102,7 +102,7 @@ export class LsegType extends TypeBase<Segment> {
         return value
             .setConversion(([a, b]: Segment) => {
                 return `[${pointToStr(a)},${pointToStr(b)}]`;
-            }, sql => `(${sql})::text`
+            }
                 , SegmentToTxt => ({ SegmentToTxt }));
     }
 
@@ -130,7 +130,7 @@ export class BoxType extends TypeBase<Box> {
         return value
             .setConversion(([a, b]: Box) => {
                 return `${pointToStr(a)},${pointToStr(b)}`;
-            }, sql => `(${sql})::text`
+            }
                 , BoxToTxt => ({ BoxToTxt }));
     }
 
@@ -161,7 +161,7 @@ export class PathType extends TypeBase<Path> {
                 return p.closed
                     ? '(' + vals + ')'
                     : '[' + vals + ']';
-            }, sql => `(${sql})::text`
+            }
                 , PathToTxt => ({ PathToTxt }));
     }
 
@@ -194,8 +194,8 @@ export class PolygonType extends TypeBase<Polygon> {
         return value
             .setConversion((p: Polygon) => {
                 const vals = p.map(pointToStr).join(',');
-                return'(' + vals + ')';
-            }, sql => `(${sql})::text`
+                return '(' + vals + ')';
+            }
                 , PolygonToTxt => ({ PolygonToTxt }));
     }
 
@@ -225,7 +225,7 @@ export class CircleType extends TypeBase<Circle> {
         return value
             .setConversion((p: Circle) => {
                 return `<${pointToStr(p.c)},${p.r}>`
-            }, sql => `(${sql})::text`
+            }
                 , CircleToTxt => ({ CircleToTxt }));
     }
 

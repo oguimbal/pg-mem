@@ -84,7 +84,6 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
                 on.ownerSchema
                 , g.type
                 , g.id
-                , g.sql
                 , g.hash!
                 , [g]
                 , v => v[this.symbol][i]
@@ -298,7 +297,6 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             this.ownerSchema
             , got.type
             , null
-            , name
             , hashed
             , []
             , raw => raw[id]

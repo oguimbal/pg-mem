@@ -58,7 +58,6 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
         , type
         , id
         , id
-        , id
         , null
         , raw => raw[id]
         , {

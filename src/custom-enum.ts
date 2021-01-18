@@ -46,7 +46,7 @@ export class CustomEnumType extends TypeBase<string> {
                     throw new QueryError(`invalid input value for enum ${this.name}: "${raw}"`);
                 }
                 return raw;
-            }, x => `(${x})::${this.name}`
+            }
                 , conv => ({ conv, toCenum: this.name }))
     }
 }

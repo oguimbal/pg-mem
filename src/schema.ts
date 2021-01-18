@@ -597,7 +597,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     if (change.ifNotExists) {
                         return _ignore();
                     } else {
-                        throw new QueryError('Column already exists: ' + col.sql);
+                        throw new QueryError('Column already exists: ' + col.id);
                     }
                 }
                 table.addColumn(change.column, t);
