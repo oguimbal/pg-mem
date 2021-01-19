@@ -3,6 +3,7 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces-private';
+import { expectSingle } from './test-utils';
 
 describe('Conversions', () => {
 
@@ -128,5 +129,18 @@ describe('Conversions', () => {
             assert.throw(() => many(`select to_date('20170103','YYYYMMDD') > ('2017-' || '01-03') as x;`));
         })
 
+    })
+
+
+    it('parses an interval literal', () => {
+        expect(many(`SELECT INTERVAL 'P2M' as v`))
+            .to.deep.equal([{ v: { months: 2 } }]);
+    });
+
+    describe('Time', () => {
+        expectSingle(`select time '23:18'`, '23:18:00');
+        expectSingle(`select time '23:18.5'`, '00:23:18.5');
+        expectSingle(`select time '23:18.005'`, '00:23:18.005');
+        expectSingle(`select time '1:2:3'`, '01:02:03');
     })
 });

@@ -72,3 +72,14 @@ export async function typeOrm(title: string
         }
     });
 }
+
+export async function expectSingle(query: string, value: any, name?: string) {
+    it(name ?? query, () => {
+        const db = newDb();
+        const q = db.public.many(query);
+        expect(q.length).to.equal(1, 'Was only expecting one result');
+        const keys = Object.keys(q[0]);
+        expect(keys.length).to.equal(1, 'Was only expecting one column');
+        expect(q[0][keys[0]]).to.equal(value);
+    })
+}

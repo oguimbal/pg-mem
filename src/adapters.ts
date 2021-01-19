@@ -27,7 +27,7 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
                     return 'null';
                 }
                 if (val instanceof Date) {
-                    return `'${moment(val).toISOString()}'`;
+                    return `'${moment.utc(val).toISOString()}'`;
                 }
                 if (isBuf(val)) {
                     return literal(bufToString(val));

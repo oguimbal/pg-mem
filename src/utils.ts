@@ -1,8 +1,8 @@
 import moment from 'moment';
 import { List } from 'immutable';
-import { IValue, NotSupported, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private';
-import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, nil, QName, SelectedColumn } from 'pgsql-ast-parser';
-import { ISubscription, IType, typeDefToStr } from './interfaces';
+import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private';
+import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'pgsql-ast-parser';
+import { ISubscription, IType, QueryError, typeDefToStr } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './buffer-node';
 
 export interface Ctor<T> extends Function {
@@ -526,7 +526,7 @@ export function compareVersions(_a: string, _b: string): number {
     const b = ver(_b);
     const m = Math.max(a.length, b.length);
     for (let i = 0; i < m; i++) {
-        const d = (b[i] || 0)  - (a[i] || 0);
+        const d = (b[i] || 0) - (a[i] || 0);
         if (d !== 0) {
             return d;
         }
@@ -536,4 +536,67 @@ export function compareVersions(_a: string, _b: string): number {
 
 export function functionName(fn: string | ExprValueKeyword) {
     return typeof fn === 'string' ? fn : fn.keyword;
+}
+
+export function intervalToSec(v: Interval) {
+    return (v.milliseconds ?? 0) / 1000
+        + (v.seconds ?? 0)
+        + (v.minutes ?? 0) * 60
+        + (v.hours ?? 0) * 3600
+        + (v.days ?? 0) * 3600 * 24
+        + (v.months ?? 0) * 3600 * 24 * 30
+        + (v.years ?? 0) * 3600 * 24 * 30 * 12;
+}
+
+export function parseRegClass(_reg: RegClass): QName | number {
+    let reg = _reg;
+    if (typeof reg === 'string' && /^\d+$/.test(reg)) {
+        reg = parseInt(reg);
+    }
+    if (typeof reg === 'number') {
+        return reg;
+    }
+    // todo remove casts after next pgsql-ast-parser release
+    try {
+        const ret = parse(reg, 'qualified_name' as any) as QName;
+        return ret;
+    } catch (e) {
+        return { name: reg };
+    }
+}
+
+
+const timeReg = /^(\d+):(\d+)(:(\d+))?(\.\d+)?$/;
+export function parseTime(str: string): moment.Moment {
+    const [_, a, b, __, c, d] = timeReg.exec(str) ?? [];
+    if (!_) {
+        throw new QueryError(`Invalid time format: ` + str);
+    }
+    const ms = d ? parseFloat(d) * 1000 : undefined;
+    let ret: moment.Moment;
+    if (c) {
+        ret = moment.utc({
+            h: parseInt(a, 10),
+            m: parseInt(b, 10),
+            s: parseInt(c, 10),
+            ms,
+        });
+    } else {
+        if (d) {
+            ret = moment.utc({
+                m: parseInt(a, 10),
+                s: parseInt(b, 10),
+                ms,
+            });
+        }
+        ret = moment.utc({
+            h: parseInt(a, 10),
+            m: parseInt(b, 10),
+            ms,
+        });
+    }
+    if (!ret.isValid()) {
+        throw new QueryError(`Invalid time format: ` + str);
+    }
+    return ret;
 }

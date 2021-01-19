@@ -1,10 +1,10 @@
 import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private';
-import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from './utils';
+import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract } from 'pgsql-ast-parser';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 import moment from 'moment';
@@ -582,23 +582,103 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
 
 function buildExtract(data: _ISelection, op: ExprExtract): IValue {
     const from = _buildValue(data, op.from);
-    switch (op.field) {
-        case 'century':
-            const asDate = from.convert(Types.date);
-            return new Evaluator(
-                data.ownerSchema
-                , Types.integer
-                , null
-                , hash({ extract: from.hash, field: op.field })
-                , [asDate]
-                , (raw, t) => {
-                    const got = asDate.get(raw, t);
-                    if (nullIsh(got)) {
-                        return null;
-                    }
-                    return Math.floor(moment(got).year() / 100);
+    function extract(as: _IType, fn: (v: any) => any, result = Types.integer) {
+        const conv = from.convert(as);
+        return new Evaluator(
+            data.ownerSchema
+            , result
+            , null
+            , hash({ extract: from.hash, field: op.field })
+            , [conv]
+            , (raw, t) => {
+                const got = conv.get(raw, t);
+                if (nullIsh(got)) {
+                    return null;
                 }
-            )
-
+                return fn(got);
+            }
+        )
+    }
+    switch (op.field) {
+        case 'millennium':
+            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 1000));
+        case 'century':
+            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 100));
+        case 'decade':
+            return extract(Types.date, x => Math.floor(moment.utc(x).year() / 10));
+        case 'day':
+            if (from.canConvert(Types.date)) {
+                return extract(Types.date, x => moment.utc(x).date());
+            }
+            return extract(Types.interval, (x: Interval) => x.days ?? 0);
+        case 'second':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => {
+                    const t = parseTime(x);
+                    return t.second() + t.milliseconds() / 1000;
+                }, Types.float);
+            }
+            return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) + (x.milliseconds ?? 0) / 1000, Types.float);
+        case 'minute':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => parseTime(x).minute());
+            }
+            return extract(Types.interval, (x: Interval) => x.minutes ?? 0);
+        case 'milliseconds':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => {
+                    const t = parseTime(x);
+                    return t.seconds() * 1000 + t.milliseconds();
+                });
+            }
+            return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000 + (x.milliseconds ?? 0), Types.float);
+        case 'month':
+            if (from.canConvert(Types.date)) {
+                return extract(Types.date, x => moment.utc(x).month() + 1);
+            }
+            return extract(Types.interval, (x: Interval) => x.months ?? 0);
+        case 'year':
+            if (from.canConvert(Types.date)) {
+                return extract(Types.date, x => moment.utc(x).year());
+            }
+            return extract(Types.interval, (x: Interval) => x.years ?? 0);
+        case 'dow':
+            return extract(Types.date, x => moment.utc(x).day());
+        case 'isodow':
+            return extract(Types.date, x => {
+                const dow = moment.utc(x).day();
+                return dow ? dow : 7;
+            });
+        case 'doy':
+            return extract(Types.date, x => moment.utc(x).dayOfYear());
+        case 'epoch':
+            if (from.canConvert(Types.timestamp)) {
+                return extract(Types.timestamp, x => moment.utc(x).unix(), Types.float);
+            }
+            return extract(Types.interval, (x: Interval) => intervalToSec(x));
+        case 'hour':
+            if (from.canConvert(Types.timestamp)) {
+                return extract(Types.timestamp, x => moment.utc(x).hour());
+            }
+            return extract(Types.interval, (x: Interval) => x.hours ?? 0);
+        case 'isoyear':
+            return extract(Types.date, x => {
+                const d = moment.utc(x);
+                return d.dayOfYear() <= 1 ? d.year() - 1 : d.year();
+            });
+        case 'quarter':
+            return extract(Types.date, x => moment.utc(x).quarter());
+        case 'week':
+            return extract(Types.date, x => moment.utc(x).week());
+        case 'microseconds':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => {
+                    const t = parseTime(x);
+                    return t.seconds() * 1000000 + t.milliseconds() * 1000;
+                });
+            }
+            return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000000 + (x.milliseconds ?? 0) * 1000);
+        default:
+            throw new NotSupported('Extract type "' + op.field + '"');
     }
 }

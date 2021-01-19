@@ -39,6 +39,7 @@ export enum DataType {
     regclass = 'regclass',
     json = 'json',
     bytea = 'bytea',
+    interval = 'interval',
     timestamp = 'timestamp',
     timestampz = 'timestampz',
     date = 'date',
