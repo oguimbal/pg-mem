@@ -1,6 +1,6 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats, nil } from '../interfaces-private';
+import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats, nil, _IAlias } from '../interfaces-private';
 import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
@@ -12,6 +12,7 @@ import type { buildDistinct } from './distinct';
 
 import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
 import { RestrictiveIndex } from './restrictive-index';
+import { QueryError } from 'interfaces';
 
 interface Fns {
     buildSelection: typeof buildSelection;
@@ -46,6 +47,14 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     constructor(readonly ownerSchema: _ISchema) {
     }
 
+    listColumns(): Iterable<IValue> {
+        return this.columns;
+    }
+
+    listSelectableIdentities(): Iterable<IValue> {
+        return this.columns;
+    }
+
     select(select: (string | SelectedColumn)[] | nil): _ISelection<any> {
         let sel: SelectedColumn[] | nil;
         if (select?.some(v => typeof v === 'string')) {
@@ -63,6 +72,11 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     selectAll(): _ISelection {
         return this;
     }
+
+    selectAlias(alias: string): _IAlias | nil {
+        return null;
+    }
+
 
     filter(filter: Expr | undefined | null): _ISelection {
         if (!filter) {

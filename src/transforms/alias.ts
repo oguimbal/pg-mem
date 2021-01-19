@@ -1,5 +1,5 @@
 import { TransformBase, FilterBase } from './transform-base';
-import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil } from '../interfaces-private';
+import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private';
 import { Evaluator } from '../valuetypes';
 import { Types } from '../datatypes';
 
@@ -14,7 +14,7 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     return new Alias(on, alias);
 }
 
-export class Alias<T> extends TransformBase<T>{
+export class Alias<T> extends TransformBase<T> implements _IAlias{
 
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
@@ -25,11 +25,30 @@ export class Alias<T> extends TransformBase<T>{
         super(sel);
     }
 
+    *listSelectableIdentities(): Iterable<IValue> {
+        this.init();
+        yield* super.listSelectableIdentities();
+        yield this.asRecord;
+    }
+
+
     rebuild() {
         this._columns = null;
         this.oldToThis.clear();
         this.thisToOld.clear();
     }
+
+    selectAlias(alias: string): _IAlias | nil {
+        if (this.name === alias) {
+            return this;
+        }
+        return null;
+    }
+
+    listColumns(): Iterable<IValue> {
+        return this.columns;
+    }
+
 
     get debugId() {
         return this.base.debugId;

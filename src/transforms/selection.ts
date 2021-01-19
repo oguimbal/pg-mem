@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats } from '../interfaces-private';
+import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces';
 import { buildValue } from '../predicate';
 import { Evaluator } from '../valuetypes';
@@ -66,6 +66,35 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
     return ret;
 }
 
+function* buildCols(this: void, base: _ISelection, columns: SelectedColumn[]): Iterable<{ val: IValue; as?: string; expr?: Expr }> {
+    for (const s of columns) {
+        if (s.expr.type === 'ref' && s.expr.name === '*') {
+            // handle select "*"
+            if (s.alias) {
+                throw new QueryError('Cannot alias *');
+            }
+            let of: _IAlias = base;
+            const alias = s.expr.table;
+            if (alias) {
+                // handle select "x.*"
+                const sub = base.selectAlias(alias);
+                if (!sub) {
+                    throw new QueryError(`Unknown alias "${alias}"`);
+                }
+                of = sub;
+            }
+
+            for (const val of of.listColumns()) {
+                yield { val };
+            }
+
+        } else {
+            const val = buildValue(base as _ISelection, s.expr);
+            yield { val, as: s.alias, expr: s.expr };
+        }
+    }
+}
+
 
 export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
 
@@ -79,27 +108,12 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     readonly columns: IValue[] = [];
 
 
-    constructor(base: _ISelection<any>, columns: SelectedColumn[]) {
+    constructor(base: _ISelection<any>, _columns: SelectedColumn[]) {
         super(base);
 
         // build non-conflicting column ids based on existing ones
-        this.columnIds = [];
-        for (const s of columns) {
-            if (s.expr.type === 'ref') {
-                if (s.expr.name === '*') {
-                    if (s.alias) {
-                        throw new QueryError('Cannot alias *');
-                    }
-                    for (const _col of base.columns) {
-                        this.columnIds.push(_col.id!);
-                    }
-                } else {
-                    this.columnIds.push(s.alias ?? s.expr.name);
-                }
-            } else {
-                this.columnIds.push(s.alias!);
-            }
-        }
+        const columns = [...buildCols(base, _columns)];
+        this.columnIds = columns.map(x => x.as ?? x.val.id!);
 
         // build column ids
         let anonymousBases = new Map<string, number>();
@@ -117,15 +131,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
 
         // build columns to select
         for (let i = 0; i < columns.length; i++) {
-            const s = columns[i];
-            if (s.expr.type === 'ref' && s.expr.name === '*') {
-                for (const _col of base.columns) {
-                    this.refColumn(_col, this.columnIds[i]);
-                }
-            } else {
-                let _col = buildValue(base as _ISelection, s.expr);
-                this.refColumn(_col, this.columnIds[i]);
-            }
+            this.refColumn(columns[i].val, this.columnIds[i]);
         }
     }
 

@@ -75,6 +75,10 @@ describe('Data types', () => {
         });
     })
 
+    it ('cannot create record tables', () => {
+        assert.throws(() => many('create table test(a record)'), /column "a" has pseudo-type record/);
+    })
+
     describe('time', () => {
         it('can be casted', () => {
             expect(many(`select '00:35:19.383683'::time without time zone`))

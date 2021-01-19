@@ -119,11 +119,13 @@ export interface Stats {
     count: number;
 }
 
-export interface _ISelection<T = any> {
+export interface _ISelection<T = any> extends _IAlias {
     readonly debugId?: string;
 
     readonly ownerSchema: _ISchema;
     readonly db: _IDb;
+    /** Column list (those visible when select *) */
+    readonly columns: ReadonlyArray<IValue>;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
     enumerate(t: _Transaction): Iterable<T>;
@@ -135,22 +137,34 @@ export interface _ISelection<T = any> {
 
     /** Gets the index associated with this value (or returns null) */
     getIndex(...forValue: IValue[]): _IIndex<T> | nil;
-    readonly columns: ReadonlyArray<IValue>;
+    /** All columns. A bit like .columns`, but including records selections */
+    listSelectableIdentities(): Iterable<IValue>;
     filter(where: Expr | nil): _ISelection;
     limit(limit: LimitStatement): _ISelection;
-    orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any>;
+    orderBy(orderBy: OrderByStatement[] | nil): _ISelection;
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
-    select(select: (string  | SelectedColumn)[]): _ISelection;
-    selectAll(): _ISelection;
     distinct(select?: Expr[]): _ISelection;
-    union(right: _ISelection<any>): _ISelection<any>;
+    union(right: _ISelection): _ISelection;
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
-    subquery(data: _ISelection<any>, op: SelectStatement): _ISelection;
-    isOriginOf(a: IValue<any>): boolean;
+    subquery(data: _ISelection, op: SelectStatement): _ISelection;
+    isOriginOf(a: IValue): boolean;
     explain(e: _Explainer): _SelectExplanation;
+
+    /** Select a specific subset */
+    select(select: (string | SelectedColumn)[]): _ISelection;
+    /** Select *  (will return 'this' most of the time) */
+    selectAll(): _ISelection;
+    /** Limit selection to a specific alias (in joins) */
+    selectAlias(alias: string): _IAlias | nil;
 }
+
+export interface _IAlias {
+    listColumns(): Iterable<IValue>;
+}
+
+
 export interface _Explainer {
     readonly transaction: _Transaction;
     idFor(sel: _ISelection): string | number;

@@ -337,12 +337,12 @@ export function deepCloneSimple<T>(v: T): T {
 }
 
 
-export function isSelectAllArgList(select: Expr[]) {
+export function isSelectAllArgList(select: Expr[]): boolean {
     const [first] = select;
     return select.length === 1
         && first.type === 'ref'
         && first.name === '*'
-    // && !first.table
+        && !first.table;
 }
 
 
@@ -417,7 +417,10 @@ export function isType(t: any): t is _IType {
 isType.TAG = Symbol();
 
 
-export function suggestColumnName(expr: Expr): string | null {
+export function suggestColumnName(expr: Expr | nil): string | null {
+    if (!expr) {
+        return null;
+    }
     // suggest a column result name
     switch (expr.type) {
         case 'call':

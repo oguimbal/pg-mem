@@ -1,7 +1,7 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias } from '../interfaces-private';
 import { buildValue, uncache } from '../predicate';
-import { QueryError, ColumnNotFound, NotSupported, nil } from '../interfaces';
-import { DataSourceBase } from './transform-base';
+import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces';
+import { DataSourceBase, TransformBase } from './transform-base';
 import { Expr, SelectedColumn } from 'pgsql-ast-parser';
 import { nullIsh } from '../utils';
 import { Types } from '../datatypes';
@@ -58,14 +58,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return this._columns;
     }
 
-    private get restrictiveColumns() {
-        return this.restrictive.columns
-    }
-
-    private get joinedColumns() {
-        return this.joined.columns
-    }
-
     entropy(t: _Transaction): number {
         const strategy = chooseStrategy(t, this.strategies);
         if (!strategy) {
@@ -90,20 +82,25 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
 
         this.joinId = jCnt++;
-        for (const c of this.restrictiveColumns) {
+        for (const c of this.restrictive.listSelectableIdentities()) {
             const nc = c.setWrapper(this, x => (x as any)['>restrictive']);
-            this._columns.push(nc);
             this.columnsMappingParentToThis.set(c, nc);
+            if (c.type.primary === DataType.record) {
+                continue;
+            }
+            this._columns.push(nc);
             this.columnsMappingThisToParent.set(nc, {
                 col: c,
                 side: 'restrictive'
             });
-            this.columnsMappingParentToThis
         }
-        for (const c of this.joinedColumns) {
+        for (const c of this.joined.listSelectableIdentities()) {
             const nc = c.setWrapper(this, x => (x as any)['>joined']);
-            this._columns.push(nc);
             this.columnsMappingParentToThis.set(c, nc);
+            if (c.type.primary === DataType.record) {
+                continue;
+            }
+            this._columns.push(nc);
             this.columnsMappingThisToParent.set(nc, {
                 col: c,
                 side: 'joined',
@@ -114,6 +111,10 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
         uncache(this);
         this.seqScanExpression = buildValue(this, on).convert(Types.bool);
+    }
+
+    listSelectableIdentities(): Iterable<IValue> {
+        return this.columnsMappingParentToThis.values();
     }
 
     private fetchStrategies(on: Expr) {
@@ -201,14 +202,15 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         if (!!onLeft && !!onRight) {
             throw new QueryError(`column reference "${column}" is ambiguous`);
         }
+        const on = onLeft ?? onRight;
         if (this.building) {
-            return onLeft ?? onRight;
+            return on;
         }
-        const mapped = this.columnsMappingParentToThis.get(onLeft ?? onRight!);
-        if (!mapped) {
-            throw new Error('Corrupted join');
+        const mapped = this.columnsMappingParentToThis.get(on!);
+        if (mapped) {
+            return mapped;
         }
-        return mapped;
+        throw new Error('Corrupted join');
     }
 
     stats(t: _Transaction): Stats | null {
@@ -235,6 +237,18 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
     selectAll(): _ISelection {
         return this.select(this.columns.map(v => v.id!));
+    }
+
+    selectAlias(alias: string): _IAlias | nil {
+        let onLeft = this.restrictive.selectAlias(alias);
+        let onRight = this.joined.selectAlias(alias);
+        if (!onLeft && !onRight) {
+            return null;
+        }
+        if (!!onLeft && !!onRight) {
+            throw new QueryError(`alias "${alias}" is ambiguous`);
+        }
+        return new JoinMapAlias(this, onLeft ?? onRight!, onLeft ? '>restrictive' : '>joined');
     }
 
     *iterateCatastrophicItem(item: any, others: any[], side: 'joined' | 'restrictive', t: _Transaction) {
@@ -355,6 +369,21 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                     seqScan: this.seqScanExpression.explain(e),
                 },
         };
+    }
+}
+
+
+class JoinMapAlias implements _IAlias {
+
+
+    constructor(private owner: JoinSelection, private target: _IAlias, private map: string) {
+    }
+
+    *listColumns(): Iterable<IValue<any>> {
+        debugger;
+        for (const c of this.target.listColumns()) {
+            yield c.setWrapper(this.owner, x => (x as any)[this.map]);
+        }
     }
 }
 
