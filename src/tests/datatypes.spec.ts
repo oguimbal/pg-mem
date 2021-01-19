@@ -79,8 +79,8 @@ describe('Data types', () => {
         it('can be casted', () => {
             expect(many(`select '00:35:19.383683'::time without time zone`))
                 .to.deep.equal([{
-                    // mind the zeros... we dont support sub second.
-                    'time without time zone': '00:35:19.000000'
+                    // mind the zeros... we dont support sub millisecond.
+                    'time without time zone': '00:35:19.383'
                 }])
 
         })

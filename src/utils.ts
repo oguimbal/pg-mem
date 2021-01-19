@@ -588,12 +588,13 @@ export function parseTime(str: string): moment.Moment {
                 s: parseInt(b, 10),
                 ms,
             });
+        } else {
+            ret = moment.utc({
+                h: parseInt(a, 10),
+                m: parseInt(b, 10),
+                ms,
+            });
         }
-        ret = moment.utc({
-            h: parseInt(a, 10),
-            m: parseInt(b, 10),
-            ms,
-        });
     }
     if (!ret.isValid()) {
         throw new QueryError(`Invalid time format: ` + str);

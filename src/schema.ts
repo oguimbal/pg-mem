@@ -1,6 +1,6 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS } from './interfaces-private';
-import { functionName, ignore, isType, parseRegClass, pushContext, randomString, schemaOf, watchUse } from './utils';
+import { functionName, ignore, isType, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './predicate';
 import { typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -870,9 +870,19 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         let sel: _ISelection | undefined = undefined;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
-            const alias = from.type === 'table'
-                ? from.alias ?? from.name
-                : from.alias;
+            let alias: string;
+            switch (from.type) {
+                case 'table':
+                    alias = from.alias ?? from.name
+                    break;
+                case 'call':
+                    alias = from.alias ?? suggestColumnName(from)!;
+                    break;
+                default:
+                    alias = from.alias;
+                    break;
+            }
+
             if (!alias) {
                 throw new Error('No alias provided');
             }

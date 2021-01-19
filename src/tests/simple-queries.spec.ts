@@ -4,7 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
-import { preventSeqScan } from './test-utils';
+import { expectSingle, preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
 describe('Simple queries', () => {
@@ -140,9 +140,14 @@ describe('Simple queries', () => {
     });
 
     it ('now() does not behave as dual table', () => {
-        assert.throws(() => none(`select * from now`));
-        assert.throws(() => none(`select * from now()`));
+        assert.throws(() => many(`select * from now`), /relation "now" does not exist/);
     })
+
+    it('can select * from now()', () => {
+        const ret = many(`select * from now()`);
+        expect(ret.length).to.equal(1);
+        expect(ret[0].now).to.be.instanceOf(Date);
+    });
 
     it ('can select now()', () => {
         expect(many(`select now()`)[0])
