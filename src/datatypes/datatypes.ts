@@ -13,6 +13,7 @@ import { TimestampType } from './t-timestamp';
 import { JSONBType } from './t-jsonb';
 import { RegTypeImpl } from './t-regtype';
 import { RegClassImpl } from './t-regclass';
+import { RecordType } from './t-record';
 
 
 class UUIDtype extends TypeBase<Date> {
@@ -493,6 +494,7 @@ export class ArrayType extends TypeBase<any[]> {
 
 /** Basic types */
 export const Types = {
+    [DataType.record]: new RecordType() as _IType,
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),

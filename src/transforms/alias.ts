@@ -1,5 +1,7 @@
 import { TransformBase, FilterBase } from './transform-base';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil } from '../interfaces-private';
+import { Evaluator } from '../valuetypes';
+import { Types } from '../datatypes';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     if (!alias) {
@@ -17,6 +19,7 @@ export class Alias<T> extends TransformBase<T>{
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
     private _columns: IValue<any>[] | null = null;
+    private asRecord!: IValue;
 
     constructor(sel: _ISelection, public name: string) {
         super(sel);
@@ -46,6 +49,14 @@ export class Alias<T> extends TransformBase<T>{
             this.thisToOld.set(ret, x);
             return ret;
         });
+
+        this.asRecord = new Evaluator(this.ownerSchema
+            , Types.record
+            , this.name
+            , Math.random().toString()
+            , this._columns
+            , v => ({ ...v })
+            , { forceNotConstant: true });
     }
 
     stats(t: _Transaction): Stats | null {
@@ -63,17 +74,30 @@ export class Alias<T> extends TransformBase<T>{
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil {
+        const col = this._getColumn(column);
+        if (col) {
+            return col;
+        }
+
+        if (column === this.name) {
+            return this.asRecord;
+        }
+
+        if (nullIfNotFound) {
+            return null;
+        }
+        throw new QueryError(`Column "${column}" not found`);
+    }
+
+    private _getColumn(column: string): IValue | nil {
         const exec = /^([^.]+)\.(.+)$/.exec(column);
         if (exec) {
             if (exec[1].toLowerCase() !== this.name) {
-                if (nullIfNotFound) {
-                    return null;
-                }
-                throw new QueryError(`Alias '${exec[1]}' not found`)
+                return null;
             }
             column = exec[2];
         }
-        const got = this.base.getColumn(column, nullIfNotFound);
+        const got = this.base.getColumn(column, true);
         if (!got) {
             return got;
         }

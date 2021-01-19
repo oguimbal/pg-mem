@@ -237,7 +237,7 @@ export class Evaluator<T = any> implements IValue<T> {
         }
         return {
             on: e.idFor(this.origin),
-            col: this.id!,
+            col: this.id ?? '<complex expression>',
         };
     }
 }

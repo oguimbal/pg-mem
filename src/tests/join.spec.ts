@@ -82,7 +82,7 @@ describe('Joins', () => {
             joined: { _: 'table', table: 'tb' },
             on: {
                 seqScan: {
-                    col: 'bid = bid',
+                    col: '<complex expression>',
                     on: 2,// <== directly on join
                 } as any,
             }
@@ -708,6 +708,7 @@ describe('Joins', () => {
                 },
             }]);
     })
+
 
     // it ('can full join', () => {
     //     photos();
