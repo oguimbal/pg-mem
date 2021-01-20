@@ -268,11 +268,30 @@ describe('Selections', () => {
     })
 
 
-    it('can select record', () => {
+    it('can select record when not aliased', () => {
         expect(many(`create table test (a text, b text);
                     insert into test values ('a', 'b');
                     select test from test;`))
             .to.deep.equal([{ test: { a: 'a', b: 'b' } }]);
+    })
+
+    it('can select record when aliased', () => {
+        expect(many(`create table test (a text, b text);
+                    insert into test values ('a', 'b');
+                    select v from test as v;`))
+            .to.deep.equal([{ v: { a: 'a', b: 'b' } }]);
+    })
+
+    it('does not select parent alis record', () => {
+        many(`create table test (a text, b text);
+                    insert into test values ('a', 'b')`);
+        assert.throws(() => many(`select test from test as v`), /does not exist/);
+    })
+
+    it('does not select record when scoped', () => {
+        many(`create table test (a text, b text);
+                    insert into test values ('a', 'b')`);
+        assert.throws(() => many(`select test.test from test`), /does not exist/);
     })
 
     it('can alias record selection', () => {
@@ -291,16 +310,53 @@ describe('Selections', () => {
     })
 
 
-    it('supports self aliasing (bugfix)', () => {
-        expect(many(`CREATE TABLE my_table (id text NOT NULL PRIMARY KEY, name text NOT NULL, parent_id text);
-                        CREATE INDEX my_table_idx_name ON my_table (name);
-                        CREATE INDEX my_table_idx_id_parent_id ON my_table (id,parent_id);
 
-                        insert into my_table values ('parid', 'Parent', null);
-                        insert into my_table values ('childid', 'Child', 'parid');
-                        SELECT name FROM my_table as t1 WHERE NOT EXISTS (SELECT * FROM my_table as t2 WHERE t2.parent_id = t1.id);
-                        `))
-            .to.deep.equal([{ name: 'Parent' }])
+    describe('Subqueries', () => {
+
+        function mytable() {
+            many(`CREATE TABLE my_table (id text NOT NULL PRIMARY KEY, name text NOT NULL, parent_id text);
+            CREATE INDEX my_table_idx_name ON my_table (name);
+            CREATE INDEX my_table_idx_id_parent_id ON my_table (id,parent_id);
+
+            insert into my_table values ('parid', 'Parent', null);
+            insert into my_table values ('childid', 'Child', 'parid');`);
+        }
+
+        it ('fails if multiple columns in predicate', () => {
+            mytable();
+            assert.throws(() => many(`SELECT name FROM my_table as t1 WHERE id = (SELECT name, id FROM my_table as t2 WHERE t2.parent_id = t1.id);`), /subquery must return only one column/);
+        });
+
+        it ('fails if multiple columns in selection', () => {
+            mytable();
+            assert.throws(() => many(`SELECT name, (SELECT name FROM my_table as t2 WHERE t2.parent_id = t1.id) FROM my_table as t1`), /subquery must return only one column/);
+        });
+
+        it('supports self aliasing (bugfix)', () => {
+            mytable();
+            expect(many(`SELECT name FROM my_table as t1 WHERE NOT EXISTS (SELECT * FROM my_table as t2 WHERE t2.parent_id = t1.id);`))
+                .to.deep.equal([{ name: 'Child' }]);
+        });
+
+
+
+        it('simplifies a subquery when possible', () => {
+            mytable();
+            let cnt = 0;
+            db.on('subquery', () => {
+                cnt++
+            });
+            db.on('non-constant-subquery', () => {
+                assert.fail('Should not have raised non-constant-subquery');
+            })
+            expect(many(`SELECT name FROM my_table as t1 WHERE id = (SELECT id FROM my_table LIMIT 1)`))
+                .to.deep.equal([{ name: 'Parent' }]);
+
+            expect(cnt).to.equal(1, 'Was expecting subquery to be simplified');
+        })
     })
+
+
+
 
 });
