@@ -182,11 +182,36 @@ describe('Operators', () => {
 
 
 
-    it('@> on value query', () => {
-        const result = many(`create table test(id text primary key, data jsonb);
-                            insert into test values ('id1', '{"prop": "A","in":1}'), ('id2', '{"prop": "B","in":2}'), ('id4', '{"prop": "A","in":3}'), ('id5', null);
-                            select id from test where data @> '{"prop": "A"}';`);
-        expect(result.map(x => x.id)).to.deep.equal(['id1', 'id4']);
+    describe('@> operator', () => {
+
+        it('on value query', () => {
+            const result = many(`create table test(id text primary key, data jsonb);
+                                insert into test values ('id1', '{"prop": "A","in":1}'), ('id2', '{"prop": "B","in":2}'), ('id4', '{"prop": "A","in":3}'), ('id5', null);
+                                select id from test where data @> '{"prop": "A"}';`);
+            expect(result.map(x => x.id)).to.deep.equal(['id1', 'id4']);
+        });
+
+        it('on array inverted', () => {
+            expect(many(`create table test(id text, vals jsonb);
+                            insert into test values ('a', '{"x":["a", "b", "c"]}'), ('b', '{"x":["a", "d"]}');
+                            select id from test where vals @> '{"x": ["b", "a"]}';`))
+                .to.deep.equal([{ id: 'a' }]);
+        });
+
+        it('on array normal', () => {
+            expect(many(`create table test(id text, vals jsonb);
+                            insert into test values ('a', '{"x":["a", "b", "c"]}'), ('b', '{"x":["a", "d"]}');
+                            select id from test where vals @> '{"x": ["a", "b"]}';`))
+                .to.deep.equal([{ id: 'a' }]);
+        });
+
+
+        it('on array single', () => {
+            expect(many(`create table test(id text, vals jsonb);
+                            insert into test values ('a', '{"x":["a", "b", "c"]}'), ('b', '{"x":["a", "d"]}');
+                            select id from test where vals @> '{"x": ["a"]}';`))
+                .to.deep.equal([{ id: 'a' }, { id: 'b' }]);
+        })
     });
 
     describe('LIKE operators', () => {

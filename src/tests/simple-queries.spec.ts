@@ -139,7 +139,7 @@ describe('Simple queries', () => {
         none(`select xx.ID from data as XX`);
     });
 
-    it ('now() does not behave as dual table', () => {
+    it('now() does not behave as dual table', () => {
         assert.throws(() => many(`select * from now`), /relation "now" does not exist/);
     })
 
@@ -149,7 +149,7 @@ describe('Simple queries', () => {
         expect(ret[0].now).to.be.instanceOf(Date);
     });
 
-    it ('can select now()', () => {
+    it('can select now()', () => {
         expect(many(`select now()`)[0])
             .to.have.property('now');
     })
@@ -296,5 +296,14 @@ describe('Simple queries', () => {
         none(`create table test(ka text, kb integer, val text,  primary key (ka, kb));
             insert into test values ('a', 1, 'oldA');`);
         assert.throws(() => none(`insert into test values ('a', 1, 'oldA');`));
+    });
+
+    it('supports substring() query as range', () => {
+        expect(many(`select substring('012345678' from 2 for 3) as v`))
+            .to.deep.equal([{ v: '123' }]);
+        expect(many(`select substring('012345678' from 5) as v`))
+            .to.deep.equal([{ v: '45678' }]);
+        expect(many(`select substring('012345678' for 3) as v`))
+            .to.deep.equal([{ v: '012' }]);
     })
 });
