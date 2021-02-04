@@ -18,6 +18,8 @@ If implementing an unsupported SQL statement may somtimes be hard, it's actually
 
 ## A) Implement its parser
 
+[pgsql-ast-parser](https://github.com/oguimbal/pgsql-ast-parser) uses [Nearley](https://nearley.js.org/) (all .ne files) to build a syntax parser.
+
 1) Look very hard at the statement syntax (for instance, here is [create sequence](https://www.postgresql.org/docs/current/sql-createsequence.html))
 2) Add the target statement type in [pgsql-ast-parser AST](https://github.com/oguimbal/pgsql-ast-parser/blob/7358e4a1fe0b3fe79ae047a936673745cc17b5f5/src/syntax/ast.ts#L6) based on what I understood.
 3) Implement unit tests I want to pass (ex with [create sequence UTs](https://github.com/oguimbal/pgsql-ast-parser/blob/master/src/syntax/sequence.spec.ts))
