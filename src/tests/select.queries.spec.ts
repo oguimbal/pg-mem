@@ -311,7 +311,7 @@ describe('Selections', () => {
 
 
 
-    describe.skip('Subqueries', () => {
+    describe('Subqueries', () => {
 
         function mytable() {
             many(`CREATE TABLE my_table (id text NOT NULL PRIMARY KEY, name text NOT NULL, parent_id text);
@@ -340,20 +340,20 @@ describe('Selections', () => {
 
 
 
-        // it('simplifies a subquery when possible', () => {
-        //     mytable();
-        //     let cnt = 0;
-        //     db.on('subquery', () => {
-        //         cnt++
-        //     });
-        //     db.on('non-constant-subquery', () => {
-        //         assert.fail('Should not have raised non-constant-subquery');
-        //     })
-        //     expect(many(`SELECT name FROM my_table as t1 WHERE id = (SELECT id FROM my_table LIMIT 1)`))
-        //         .to.deep.equal([{ name: 'Parent' }]);
+        it('simplifies a subquery when possible', () => {
+            mytable();
+            let cnt = 0;
+            db.on('subquery', () => {
+                cnt++
+            });
+            db.on('non-constant-subquery', () => {
+                assert.fail('Should not have raised non-constant-subquery');
+            })
+            expect(many(`SELECT name FROM my_table as t1 WHERE id = (SELECT id FROM my_table LIMIT 1)`))
+                .to.deep.equal([{ name: 'Parent' }]);
 
-        //     expect(cnt).to.equal(1, 'Was expecting subquery to be simplified');
-        // })
+            expect(cnt).to.equal(1, 'Was expecting subquery to be simplified');
+        })
     })
 
 
