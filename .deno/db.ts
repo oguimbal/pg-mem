@@ -131,10 +131,16 @@ class MemoryDb implements _IDb {
         }
     }
 
-    getSchema(db?: string | null): _ISchema {
+
+    getSchema(db?: string | null, nullIfNotFound?: false): _ISchema;
+    getSchema(db: string, nullIfNotFound: true): _ISchema | null;
+    getSchema(db?: string | null, nullIfNotFound?: boolean): _ISchema | null {
         db = db ?? 'public';
         const got = this.schemas.get(db);
         if (!got) {
+            if (nullIfNotFound) {
+                return null;
+            }
             throw new QueryError('schema not found: ' + db);
         }
         return got;

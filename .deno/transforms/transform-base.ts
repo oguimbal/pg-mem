@@ -1,6 +1,6 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats, nil } from '../interfaces-private.ts';
+import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats, nil, _IAlias } from '../interfaces-private.ts';
 import type { buildSelection } from './selection.ts';
 import type { buildAlias } from './alias.ts';
 import type { buildFilter } from './build-filter.ts';
@@ -10,7 +10,7 @@ import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
 import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
@@ -46,9 +46,36 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     constructor(readonly ownerSchema: _ISchema) {
     }
 
-    select(select: SelectedColumn[] | nil): _ISelection<any> {
-        return fns.buildSelection(this, select);
+    listColumns(): Iterable<IValue> {
+        return this.columns;
     }
+
+    listSelectableIdentities(): Iterable<IValue> {
+        return this.columns;
+    }
+
+    select(select: (string | SelectedColumn)[] | nil): _ISelection<any> {
+        let sel: SelectedColumn[] | nil;
+        if (select?.some(v => typeof v === 'string')) {
+            sel = select.map<SelectedColumn>(v => typeof v !== 'string'
+                ? v
+                : {
+                    expr: { type: 'ref', name: v },
+                })
+        } else {
+            sel = select as SelectedColumn[] | nil;
+        }
+        return fns.buildSelection(this, sel);
+    }
+
+    selectAll(): _ISelection {
+        return this;
+    }
+
+    selectAlias(alias: string): _IAlias | nil {
+        return null;
+    }
+
 
     filter(filter: Expr | undefined | null): _ISelection {
         if (!filter) {

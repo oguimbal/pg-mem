@@ -1,7 +1,7 @@
-import { Evaluator } from './valuetypes.ts';
-import { TypeBase } from './datatypes/datatype-base.ts';
-import { CastError, DataType, nil, QueryError } from './interfaces.ts';
-import { _ISchema, _IType } from './interfaces-private.ts';
+import { Evaluator } from '../valuetypes.ts';
+import { TypeBase } from './datatype-base.ts';
+import { CastError, DataType, nil, QueryError } from '../interfaces.ts';
+import { _ISchema, _IType } from '../interfaces-private.ts';
 
 export class CustomEnumType extends TypeBase<string> {
 
@@ -46,7 +46,7 @@ export class CustomEnumType extends TypeBase<string> {
                     throw new QueryError(`invalid input value for enum ${this.name}: "${raw}"`);
                 }
                 return raw;
-            }, x => `(${x})::${this.name}`
+            }
                 , conv => ({ conv, toCenum: this.name }))
     }
 }

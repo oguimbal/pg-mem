@@ -3,7 +3,7 @@ import { Types, ArrayType } from './datatypes/index.ts';
 import { QueryError, NotSupported } from './interfaces.ts';
 import { Evaluator } from './valuetypes.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import { nullIsh } from './utils.ts';
 
 
@@ -82,7 +82,6 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
         schema
         , type!
         , null
-        , `${name}(${args.map(x => x.sql).join(', ')})`
         , hash({ call: name, args: args.map(x => x.hash) })
         , args
         , (raw, t) => {
@@ -107,7 +106,6 @@ function buildAnyCall(schema: _ISchema, args: IValue[]) {
             schema
             , array.type.of
             , null
-            , `ANY(${array.sql})`
             , hash({ any: array.hash })
             , args
             , (raw, t) => {
@@ -128,7 +126,6 @@ function buildAnyCall(schema: _ISchema, args: IValue[]) {
         schema
         , Types.text()
         , null
-        , `ANY(${array.sql})`
         , hash({ any: array.hash })
         , args
         , arrayValue

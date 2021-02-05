@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -119,11 +119,13 @@ export interface Stats {
     count: number;
 }
 
-export interface _ISelection<T = any> {
+export interface _ISelection<T = any> extends _IAlias {
     readonly debugId?: string;
 
     readonly ownerSchema: _ISchema;
     readonly db: _IDb;
+    /** Column list (those visible when select *) */
+    readonly columns: ReadonlyArray<IValue>;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
     enumerate(t: _Transaction): Iterable<T>;
@@ -135,21 +137,34 @@ export interface _ISelection<T = any> {
 
     /** Gets the index associated with this value (or returns null) */
     getIndex(...forValue: IValue[]): _IIndex<T> | nil;
-    readonly columns: ReadonlyArray<IValue>;
+    /** All columns. A bit like .columns`, but including records selections */
+    listSelectableIdentities(): Iterable<IValue>;
     filter(where: Expr | nil): _ISelection;
     limit(limit: LimitStatement): _ISelection;
-    orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any>;
+    orderBy(orderBy: OrderByStatement[] | nil): _ISelection;
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
-    select(select: SelectedColumn[]): _ISelection;
     distinct(select?: Expr[]): _ISelection;
-    union(right: _ISelection<any>): _ISelection<any>;
+    union(right: _ISelection): _ISelection;
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
-    subquery(data: _ISelection<any>, op: SelectStatement): _ISelection;
-    isOriginOf(a: IValue<any>): boolean;
+    subquery(data: _ISelection, op: SelectStatement): _ISelection;
+    isOriginOf(a: IValue): boolean;
     explain(e: _Explainer): _SelectExplanation;
+
+    /** Select a specific subset */
+    select(select: (string | SelectedColumn)[]): _ISelection;
+    /** Select *  (will return 'this' most of the time) */
+    selectAll(): _ISelection;
+    /** Limit selection to a specific alias (in joins) */
+    selectAlias(alias: string): _IAlias | nil;
 }
+
+export interface _IAlias {
+    listColumns(): Iterable<IValue>;
+}
+
+
 export interface _Explainer {
     readonly transaction: _Transaction;
     idFor(sel: _ISelection): string | number;
@@ -299,7 +314,8 @@ export interface _IDb extends IMemoryDb {
     readonly searchPath: ReadonlyArray<string>;
 
     createSchema(db: string): _ISchema;
-    getSchema(db?: string | null): _ISchema;
+    getSchema(db?: string | null, nullIfNotFound?: false): _ISchema;
+    getSchema(db: string, nullIfNotFound: true): _ISchema | null;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent, ...args: any[]): void;
     listSchemas(): _ISchema[];
@@ -424,6 +440,7 @@ export interface _IType<TRaw = any> extends IType {
 
     /** Build an array type for this type */
     asArray(): _IType<TRaw[]>;
+    asList(): _IType<TRaw[]>;
 }
 
 export interface IValue<TRaw = any> {
@@ -456,9 +473,6 @@ export interface IValue<TRaw = any> {
 
     /** Hash of this value (used to identify indexed expressions) */
     readonly hash: string;
-
-    /** Clean debug reconsitutition of SQL used to parse this value */
-    readonly sql: string | nil;
 
     /** Get value if is a constant */
     get(): any;

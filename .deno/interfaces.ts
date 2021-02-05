@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 
 
 export type nil = undefined | null;
@@ -26,6 +26,8 @@ export interface IType {
 // todo support all types https://www.postgresql.org/docs/9.5/datatype.html
 export enum DataType {
 
+    inet = 'inet',
+    record = 'record',
     uuid = 'uuid',
     text = 'text',
     citext = 'citext',
@@ -39,6 +41,7 @@ export enum DataType {
     regclass = 'regclass',
     json = 'json',
     bytea = 'bytea',
+    interval = 'interval',
     timestamp = 'timestamp',
     timestampz = 'timestampz',
     date = 'date',
@@ -374,8 +377,8 @@ export function typeDefToStr(t: DataTypeDef): string {
     if (t.schema) {
         ret = t.schema + '.' + ret;
     }
-    if (typeof t.length === 'number') {
-        ret = ret + '(' + t.length + ')';
+    if (t.config?.length) {
+        ret = ret + '(' + t.config.join(',') + ')';
     }
     return ret;
 }

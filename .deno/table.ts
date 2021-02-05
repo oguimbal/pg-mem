@@ -5,7 +5,7 @@ import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
@@ -620,7 +620,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return [...this.indexByHash.values()]
             .map<IndexDef>(x => ({
                 name: x.index.name!,
-                expressions: x.expressions.map(x => x.sql!),
+                expressions: x.expressions.map(x => x.id!),
             }));
     }
 

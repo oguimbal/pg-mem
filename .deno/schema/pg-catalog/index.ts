@@ -8,6 +8,7 @@ import { PgNamespaceTable } from './pg-namespace-list.ts';
 import { PgTypeTable } from './pg-type-list.ts';
 import { allFunctions } from '../../functions/index.ts';
 import { PgRange } from './pg-range.ts';
+import { sqlSubstring } from '../../predicate.ts';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -35,7 +36,10 @@ export function setupPgCatalog(db: _IDb) {
         ._registerType(Types.path)
         ._registerType(Types.polygon)
         ._registerType(Types.circle)
-        ._registerTypeSizeable(DataType.text, Types.text);
+        ._registerType(Types.interval)
+        ._registerType(Types.record)
+        ._registerType(Types.inet)
+        ._registerTypeSizeable(DataType.text, Types.text)
 
     new PgConstraintTable(catalog).register();
     new PgClassListTable(catalog).register();
@@ -71,6 +75,20 @@ export function setupPgCatalog(db: _IDb) {
             return val;
         }
     });
+
+    catalog.registerFunction({
+        name: 'substring',
+        args: [Types.text(), Types.integer],
+        returns: Types.text(),
+        implementation: sqlSubstring,
+    })
+
+    catalog.registerFunction({
+        name: 'substring',
+        args: [Types.text(), Types.integer, Types.integer],
+        returns: Types.text(),
+        implementation: sqlSubstring,
+    })
 
 
     db.getSchema('pg_catalog').registerFunction({

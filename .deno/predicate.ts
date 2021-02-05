@@ -1,12 +1,13 @@
 import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private.ts';
-import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish } from './utils.ts';
+import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime } from './utils.ts';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './valuetypes.ts';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
+import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
@@ -64,8 +65,9 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'null':
             return Value.null(data.ownerSchema);
         case 'list':
+        case 'array':
             const vals = val.expressions.map(x => _buildValue(data, x));
-            return Value.array(data.ownerSchema, vals);
+            return Value.array(data.ownerSchema, vals, val.type === 'list');
         case 'numeric':
             return Value.number(data.ownerSchema, val.value);
         case 'integer':
@@ -104,7 +106,13 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'keyword':
             return buildKeyword(data.ownerSchema, val, []);
         case 'parameter':
-            throw new NotSupported('Paramters expressions ');
+            throw new NotSupported('Parameters expressions');
+        case 'extract':
+            return buildExtract(data, val);
+        case 'overlay':
+            return buildOverlay(data, val);
+        case 'substring':
+            return buildSubstring(data, val);
         default:
             throw NotSupported.never(val);
     }
@@ -311,7 +319,6 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             throw new NotSupported('operator ' + op);
     }
 
-    const sql = `${leftValue.sql} ${op} ${rightValue.sql}`;
     const hashed = hash(forcehash
         ?? (commutative
             ? { op, vals: [leftValue.hash, rightValue.hash].sort() }
@@ -319,14 +326,13 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
     // handle cases like:  blah = ANY(stuff)
     if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(data.ownerSchema, leftValue, op, rightValue, returnType, getter, sql, hashed);
+        return buildBinaryAny(data.ownerSchema, leftValue, op, rightValue, returnType, getter, hashed);
     }
 
     return new Evaluator(
         data.ownerSchema
         , returnType
         , null
-        , sql
         , hashed
         , [leftValue, rightValue]
         , (raw, t) => {
@@ -340,7 +346,7 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
 }
 
-function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, sql: string, hashed: string) {
+function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
     if (leftValue.isAny && rightValue.isAny) {
         throw new QueryError('ANY() cannot be compared to ANY()');
     }
@@ -351,7 +357,6 @@ function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator,
         schema
         , returnType
         , null
-        , sql
         , hashed
         , [leftValue, rightValue]
         , leftValue.isAny
@@ -423,9 +428,6 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
         data.ownerSchema
         , valueType
         , null
-        , ['CASE'
-            , whenExprs.map(x => `WHEN ${x.when.sql} THEN ${x.then.sql}`).join(' ')
-            , ' END'].join(' ')
         , hash({ when: whenExprs.map(x => ({ when: x.when.hash, then: x.then.hash })) })
         , [
             ...whenExprs.map(x => x.when),
@@ -468,7 +470,6 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
         data.ownerSchema
         , op.op === '->' ? onExpr.type : Types.text()
         , null
-        , `(${onExpr.sql})${op.op}${JSON.stringify(op.member)}`
         , hash([onExpr.hash, op.op, op.member])
         , onExpr
         , typeof op.member === 'string'
@@ -499,7 +500,6 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
         data.ownerSchema
         , (onExpr.type as ArrayType).of
         , null
-        , `(${onExpr.sql})[${index.sql}]`
         , hash({ array: onExpr.hash, index: index.hash })
         , [onExpr, index]
         , (raw, t, isResult) => {
@@ -540,7 +540,6 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         data.ownerSchema
         , Types.bool
         , null
-        , `${value.sql} BETWEEN ${lo.sql} AND ${hi.sql}`
         , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
         , [value, hi, lo]
         , (raw, t) => {
@@ -572,9 +571,8 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
     }
     return new Evaluator(
         data.ownerSchema
-        , onData.columns[0].type.asArray()
+        , onData.columns[0].type.asList()
         , null
-        , '<subselection>'
         , Math.random().toString() // must not be indexable => always different hash
         , onData.columns[0]
         , (raw, t) => {
@@ -584,4 +582,211 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
             }
             return ret;
         });
+}
+
+
+function buildExtract(data: _ISelection, op: ExprExtract): IValue {
+    const from = _buildValue(data, op.from);
+    function extract(as: _IType, fn: (v: any) => any, result = Types.integer) {
+        const conv = from.convert(as);
+        return new Evaluator(
+            data.ownerSchema
+            , result
+            , null
+            , hash({ extract: from.hash, field: op.field })
+            , [conv]
+            , (raw, t) => {
+                const got = conv.get(raw, t);
+                if (nullIsh(got)) {
+                    return null;
+                }
+                return fn(got);
+            }
+        )
+    }
+    switch (op.field) {
+        case 'millennium':
+            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 1000));
+        case 'century':
+            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 100));
+        case 'decade':
+            return extract(Types.date, x => Math.floor(moment.utc(x).year() / 10));
+        case 'day':
+            if (from.canConvert(Types.date)) {
+                return extract(Types.date, x => moment.utc(x).date());
+            }
+            return extract(Types.interval, (x: Interval) => x.days ?? 0);
+        case 'second':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => {
+                    const t = parseTime(x);
+                    return t.second() + t.milliseconds() / 1000;
+                }, Types.float);
+            }
+            return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) + (x.milliseconds ?? 0) / 1000, Types.float);
+        case 'minute':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => parseTime(x).minute());
+            }
+            return extract(Types.interval, (x: Interval) => x.minutes ?? 0);
+        case 'milliseconds':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => {
+                    const t = parseTime(x);
+                    return t.seconds() * 1000 + t.milliseconds();
+                });
+            }
+            return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000 + (x.milliseconds ?? 0), Types.float);
+        case 'month':
+            if (from.canConvert(Types.date)) {
+                return extract(Types.date, x => moment.utc(x).month() + 1);
+            }
+            return extract(Types.interval, (x: Interval) => x.months ?? 0);
+        case 'year':
+            if (from.canConvert(Types.date)) {
+                return extract(Types.date, x => moment.utc(x).year());
+            }
+            return extract(Types.interval, (x: Interval) => x.years ?? 0);
+        case 'dow':
+            return extract(Types.date, x => moment.utc(x).day());
+        case 'isodow':
+            return extract(Types.date, x => {
+                const dow = moment.utc(x).day();
+                return dow ? dow : 7;
+            });
+        case 'doy':
+            return extract(Types.date, x => moment.utc(x).dayOfYear());
+        case 'epoch':
+            if (from.canConvert(Types.timestamp)) {
+                return extract(Types.timestamp, x => moment.utc(x).unix(), Types.float);
+            }
+            return extract(Types.interval, (x: Interval) => intervalToSec(x));
+        case 'hour':
+            if (from.canConvert(Types.timestamp)) {
+                return extract(Types.timestamp, x => moment.utc(x).hour());
+            }
+            return extract(Types.interval, (x: Interval) => x.hours ?? 0);
+        case 'isoyear':
+            return extract(Types.date, x => {
+                const d = moment.utc(x);
+                return d.dayOfYear() <= 1 ? d.year() - 1 : d.year();
+            });
+        case 'quarter':
+            return extract(Types.date, x => moment.utc(x).quarter());
+        case 'week':
+            return extract(Types.date, x => moment.utc(x).week());
+        case 'microseconds':
+            if (from.canConvert(Types.time)) {
+                return extract(Types.time, x => {
+                    const t = parseTime(x);
+                    return t.seconds() * 1000000 + t.milliseconds() * 1000;
+                });
+            }
+            return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000000 + (x.milliseconds ?? 0) * 1000);
+        default:
+            throw new NotSupported('Extract type "' + op.field + '"');
+    }
+}
+
+
+function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
+    const value = _buildValue(data, op.value).convert(Types.text());
+    const placing = _buildValue(data, op.placing).convert(Types.text());
+    const from = _buildValue(data, op.from).convert(Types.integer);
+    const forr = op.for && _buildValue(data, op.for).convert(Types.integer);
+
+    return new Evaluator(
+        data.ownerSchema
+        , Types.text()
+        , null
+        , hash({ overlay: value.hash, placing: placing.hash, from: from.hash, for: forr?.hash })
+        , forr ? [value, placing, from, forr] : [value, placing, from]
+        , (raw, t) => {
+            const _value = value.get(raw, t) as string;
+            if (nullIsh(_value)) {
+                return null;
+            }
+            const _placing = placing.get(raw, t) as string;
+            if (nullIsh(_placing)) {
+                return null;
+            }
+            const _from = from.get(raw, t) as number;
+            if (nullIsh(_from)) {
+                return null;
+            }
+            const before = sqlSubstring(_value, 0, _from - 1);
+            let after: string | nil;
+            if (forr) {
+                const _for = forr.get(raw, t) as number;
+                if (nullIsh(_for)) {
+                    return null;
+                }
+                after = sqlSubstring(_value, _from  + _for);
+            } else {
+                after = sqlSubstring(_value, _placing.length + _from);
+            }
+            if (nullIsh(after)) {
+                return null;
+            }
+            return before + _placing + after;
+        });
+}
+
+function buildSubstring(data: _ISelection, op: ExprSubstring): IValue {
+    const value = _buildValue(data, op.value).convert(Types.text());
+    const vals = [value];
+    const from = op.from && _buildValue(data, op.from).convert(Types.integer);
+    const forr = op.for && _buildValue(data, op.for).convert(Types.integer);
+    if (forr) {
+        vals.push(forr);
+    }
+    if (from) {
+        vals.push(from);
+    }
+
+    return new Evaluator(
+        data.ownerSchema
+        , Types.text()
+        , null
+        , hash({ substr: value.hash, from: from?.hash, for: forr?.hash })
+        , vals
+        , (raw, t) => {
+            const _value = value.get(raw, t) as string;
+            if (nullIsh(_value)) {
+                return null;
+            }
+            let start = 0;
+            let len: number | nil;
+            if (from) {
+                start = from.get(raw, t) as number;
+                if (nullIsh(start)) {
+                    return null;
+                }
+            }
+            if (forr) {
+                len = forr.get(raw, t) as number;
+                if (nullIsh(len)) {
+                    return null;
+                }
+            }
+            return sqlSubstring(_value, start, len);
+        });
+}
+
+export function sqlSubstring(value: string, from = 0, len?: number | nil): string | null {
+    if (nullIsh(from) || nullIsh(value)) {
+        return null;
+    }
+    // sql substring is base-1
+    from--;
+    if (from < 0) {
+        from = 0;
+    }
+    if (!nullIsh(len)) {
+        if (len! < 0) {
+            throw new QueryError('negative substring length not allowed');
+        }
+        return value.substr(from, len!);
+    }
+    return value.substr(from);
 }

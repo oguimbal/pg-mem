@@ -1,10 +1,10 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces.ts';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS } from './interfaces-private.ts';
-import { ignore, isType, pushContext, randomString, schemaOf, watchUse } from './utils.ts';
+import { functionName, ignore, isType, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils.ts';
 import { buildValue } from './predicate.ts';
-import { parseRegClass, ArrayType, typeSynonyms } from './datatypes/index.ts';
+import { typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -12,7 +12,7 @@ import { parseSql } from './parse-cache.ts';
 import { Sequence } from './sequence.ts';
 import { IMigrate } from './migrate/migrate-interfaces.ts';
 import { migrate } from './migrate/migrate.ts';
-import { CustomEnumType } from './custom-enum.ts';
+import { CustomEnumType } from './datatypes/t-custom-enum.ts';
 import { regGen } from './datatypes/datatype-base.ts';
 import { ValuesTable } from './schema/values-table.ts';
 
@@ -214,6 +214,27 @@ export class DbSchema implements _ISchema, ISchema {
                     throw new NotSupported('"TABLESPACE" statement');
                 case 'prepare':
                     throw new NotSupported('"PREPARE" statement');
+                case 'create view':
+                case 'create materialized view':
+                    t = t.fullCommit();
+                    last = this.executeCreateView(t, p);
+                    t = t.fork();
+                    break;
+                case 'create schema':
+                    const sch = this.db.getSchema(p.name, true);
+                    if (!p.ifNotExists && sch) {
+                        throw new QueryError('schema already exists! ' + p.name);
+                    }
+                    if (sch) {
+                        ignore(p);
+                        break;
+                    }
+                    this.db.createSchema(p.name)
+                    break;
+                case 'comment':
+                case 'raise':
+                    ignore(p);
+                    break;
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
@@ -318,7 +339,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
     private executeWithable(t: _Transaction, p: WithStatementBinding) {
-        const last = this.prepareWithable(t, p);
+        let last = this.prepareWithable(t, p);
 
         const rows = typeof last === 'number'
             ? []
@@ -375,6 +396,30 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         this.installedExtensions.add(p.extension);
     }
 
+    executeCreateView(t: _Transaction, p: CreateViewStatement | CreateMaterializedViewStatement): QueryResult {
+        throw new NotSupported('Not yet implemented, see https://github.com/oguimbal/pg-mem/issues/34')
+
+        // const nop = this.simple('CREATE', p);
+
+        // // check existence
+        // const ifNotExists = 'ifNotExists' in p && p.ifNotExists;
+        // const replace = 'orReplace' in p && p.orReplace;
+        // const existing = this.getObject(p, { nullIfNotFound: true });
+        // if (existing) {
+        //     if (ifNotExists) {
+        //         nop.ignored = true;
+        //         return nop;
+        //     } else if (replace) {
+        //         todo // drop existing
+        //     }
+        // }
+
+        // const view = this.buildSelect(p.query);
+
+        // return nop;
+
+    }
+
     private locOf(p: Statement): StatementLocation {
         return p[LOCATION] ?? {};
     }
@@ -383,8 +428,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     private simpleTypes: { [key: string]: _IType } = {};
     private sizeableTypes: {
         [key: string]: {
-            ctor: (sz?: number) => _IType;
-            regs: Map<number | undefined, _IType>;
+            ctor: (...sz: number[]) => _IType;
+            regs: Map<number | string | undefined, _IType>;
         };
     } = {};
 
@@ -409,10 +454,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const name = typeSynonyms[t.name] ?? t.name;
         const sizeable = this.sizeableTypes[name];
         if (sizeable) {
-            const key = t.length ?? undefined;
+            const key = t.config?.length === 1
+                ? t.config[0]
+                : t.config?.join(',') ?? undefined;
             let ret = sizeable.regs.get(key);
             if (!ret) {
-                sizeable.regs.set(key, ret = sizeable.ctor(key));
+                sizeable.regs.set(key, ret = sizeable.ctor(...t.config ?? []));
             }
             return ret;
         }
@@ -567,7 +614,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     if (change.ifNotExists) {
                         return _ignore();
                     } else {
-                        throw new QueryError('Column already exists: ' + col.sql);
+                        throw new QueryError('Column already exists: ' + col.id);
                     }
                 }
                 table.addColumn(change.column, t);
@@ -840,9 +887,19 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         let sel: _ISelection | undefined = undefined;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
-            const alias = from.type === 'table'
-                ? from.alias ?? from.name
-                : from.alias;
+            let alias: string;
+            switch (from.type) {
+                case 'table':
+                    alias = from.alias ?? from.name
+                    break;
+                case 'call':
+                    alias = from.alias ?? suggestColumnName(from)!;
+                    break;
+                default:
+                    alias = from.alias;
+                    break;
+            }
+
             if (!alias) {
                 throw new Error('No alias provided');
             }
@@ -865,6 +922,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     break;
                 case 'values':
                     newT = new ValuesTable(this, from.alias, from.values, from.columnNames ?? []).selection;
+                    break;
+                case 'call':
+                    const fnName = from.alias ?? functionName(from.function);
+                    newT = new ValuesTable(this, fnName, [[from]], [fnName]);
                     break;
                 default:
                     throw NotSupported.never(from);

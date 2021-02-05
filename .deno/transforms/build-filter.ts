@@ -9,7 +9,7 @@ import { OrFilter } from './or-filter.ts';
 import { SeqScanFilter } from './seq-scan.ts';
 import { InFilter } from './in-filter.ts';
 import { NotInFilter } from './not-in-filter.ts';
-import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
+import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
 import { StartsWithFilter } from './startswith-filter.ts';
 import { IneqFilter } from './ineq-filter.ts';
 import { hasNullish, nullIsh } from '../utils.ts';
@@ -97,7 +97,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             let arrayValue = buildValue(on, right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
             if (arrayValue.type.primary !== DataType.array) {
-                arrayValue = Value.array(on.ownerSchema, [arrayValue]);
+                arrayValue = Value.array(on.ownerSchema, [arrayValue], false);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
             const array = arrayValue.convert(elementType!.asArray());

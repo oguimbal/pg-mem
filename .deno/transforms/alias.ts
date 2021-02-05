@@ -1,5 +1,7 @@
 import { TransformBase, FilterBase } from './transform-base.ts';
-import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil } from '../interfaces-private.ts';
+import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private.ts';
+import { Evaluator } from '../valuetypes.ts';
+import { Types } from '../datatypes/index.ts';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     if (!alias) {
@@ -12,21 +14,41 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     return new Alias(on, alias);
 }
 
-export class Alias<T> extends TransformBase<T>{
+export class Alias<T> extends TransformBase<T> implements _IAlias{
 
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
     private _columns: IValue<any>[] | null = null;
+    private asRecord!: IValue;
 
     constructor(sel: _ISelection, public name: string) {
         super(sel);
     }
+
+    *listSelectableIdentities(): Iterable<IValue> {
+        this.init();
+        yield* super.listSelectableIdentities();
+        yield this.asRecord;
+    }
+
 
     rebuild() {
         this._columns = null;
         this.oldToThis.clear();
         this.thisToOld.clear();
     }
+
+    selectAlias(alias: string): _IAlias | nil {
+        if (this.name === alias) {
+            return this;
+        }
+        return null;
+    }
+
+    listColumns(): Iterable<IValue> {
+        return this.columns;
+    }
+
 
     get debugId() {
         return this.base.debugId;
@@ -46,6 +68,14 @@ export class Alias<T> extends TransformBase<T>{
             this.thisToOld.set(ret, x);
             return ret;
         });
+
+        this.asRecord = new Evaluator(this.ownerSchema
+            , Types.record
+            , this.name
+            , Math.random().toString()
+            , this._columns
+            , v => ({ ...v })
+            , { forceNotConstant: true });
     }
 
     stats(t: _Transaction): Stats | null {
@@ -63,17 +93,30 @@ export class Alias<T> extends TransformBase<T>{
     getColumn(column: string): IValue;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string, nullIfNotFound?: boolean): IValue | nil {
+        const col = this._getColumn(column);
+        if (col) {
+            return col;
+        }
+
+        if (column === this.name) {
+            return this.asRecord;
+        }
+
+        if (nullIfNotFound) {
+            return null;
+        }
+        throw new QueryError(`Column "${column}" not found`);
+    }
+
+    private _getColumn(column: string): IValue | nil {
         const exec = /^([^.]+)\.(.+)$/.exec(column);
         if (exec) {
             if (exec[1].toLowerCase() !== this.name) {
-                if (nullIfNotFound) {
-                    return null;
-                }
-                throw new QueryError(`Alias '${exec[1]}' not found`)
+                return null;
             }
             column = exec[2];
         }
-        const got = this.base.getColumn(column, nullIfNotFound);
+        const got = this.base.getColumn(column, true);
         if (!got) {
             return got;
         }

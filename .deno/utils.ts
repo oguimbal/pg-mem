@@ -1,8 +1,8 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { IValue, NotSupported, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, nil, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@3.1.0/mod.ts';
-import { ISubscription, IType, typeDefToStr } from './interfaces.ts';
+import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
+import { ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
 export interface Ctor<T> extends Function {
@@ -337,12 +337,12 @@ export function deepCloneSimple<T>(v: T): T {
 }
 
 
-export function isSelectAllArgList(select: Expr[]) {
+export function isSelectAllArgList(select: Expr[]): boolean {
     const [first] = select;
     return select.length === 1
         && first.type === 'ref'
         && first.name === '*'
-    // && !first.table
+        && !first.table;
 }
 
 
@@ -417,7 +417,10 @@ export function isType(t: any): t is _IType {
 isType.TAG = Symbol();
 
 
-export function suggestColumnName(expr: Expr): string | null {
+export function suggestColumnName(expr: Expr | nil): string | null {
+    if (!expr) {
+        return null;
+    }
     // suggest a column result name
     switch (expr.type) {
         case 'call':
@@ -526,10 +529,78 @@ export function compareVersions(_a: string, _b: string): number {
     const b = ver(_b);
     const m = Math.max(a.length, b.length);
     for (let i = 0; i < m; i++) {
-        const d = (b[i] || 0)  - (a[i] || 0);
+        const d = (b[i] || 0) - (a[i] || 0);
         if (d !== 0) {
             return d;
         }
     }
     return 0;
+}
+
+export function functionName(fn: string | ExprValueKeyword) {
+    return typeof fn === 'string' ? fn : fn.keyword;
+}
+
+export function intervalToSec(v: Interval) {
+    return (v.milliseconds ?? 0) / 1000
+        + (v.seconds ?? 0)
+        + (v.minutes ?? 0) * 60
+        + (v.hours ?? 0) * 3600
+        + (v.days ?? 0) * 3600 * 24
+        + (v.months ?? 0) * 3600 * 24 * 30
+        + (v.years ?? 0) * 3600 * 24 * 30 * 12;
+}
+
+export function parseRegClass(_reg: RegClass): QName | number {
+    let reg = _reg;
+    if (typeof reg === 'string' && /^\d+$/.test(reg)) {
+        reg = parseInt(reg);
+    }
+    if (typeof reg === 'number') {
+        return reg;
+    }
+    // todo remove casts after next pgsql-ast-parser release
+    try {
+        const ret = parse(reg, 'qualified_name' as any) as QName;
+        return ret;
+    } catch (e) {
+        return { name: reg };
+    }
+}
+
+
+const timeReg = /^(\d+):(\d+)(:(\d+))?(\.\d+)?$/;
+export function parseTime(str: string): moment.Moment {
+    const [_, a, b, __, c, d] = timeReg.exec(str) ?? [];
+    if (!_) {
+        throw new QueryError(`Invalid time format: ` + str);
+    }
+    const ms = d ? parseFloat(d) * 1000 : undefined;
+    let ret: moment.Moment;
+    if (c) {
+        ret = moment.utc({
+            h: parseInt(a, 10),
+            m: parseInt(b, 10),
+            s: parseInt(c, 10),
+            ms,
+        });
+    } else {
+        if (d) {
+            ret = moment.utc({
+                m: parseInt(a, 10),
+                s: parseInt(b, 10),
+                ms,
+            });
+        } else {
+            ret = moment.utc({
+                h: parseInt(a, 10),
+                m: parseInt(b, 10),
+                ms,
+            });
+        }
+    }
+    if (!ret.isValid()) {
+        throw new QueryError(`Invalid time format: ` + str);
+    }
+    return ret;
 }
