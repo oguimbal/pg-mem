@@ -4,10 +4,11 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'object-hash';
 import { Value, Evaluator } from './valuetypes';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval } from 'pgsql-ast-parser';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 import moment from 'moment';
+import { buildCall } from 'function-call';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
@@ -109,6 +110,10 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             throw new NotSupported('Parameters expressions');
         case 'extract':
             return buildExtract(data, val);
+        case 'overlay':
+            return buildOverlay(data, val);
+        case 'substring':
+            return buildSubstring(data, val);
         default:
             throw NotSupported.never(val);
     }
@@ -682,4 +687,107 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
         default:
             throw new NotSupported('Extract type "' + op.field + '"');
     }
+}
+
+
+function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
+    const value = _buildValue(data, op.value).convert(Types.text());
+    const placing = _buildValue(data, op.placing).convert(Types.text());
+    const from = _buildValue(data, op.from).convert(Types.integer);
+    const forr = op.for && _buildValue(data, op.for).convert(Types.integer);
+
+    return new Evaluator(
+        data.ownerSchema
+        , Types.text()
+        , null
+        , hash({ overlay: value.hash, placing: placing.hash, from: from.hash, for: forr?.hash })
+        , forr ? [value, placing, from, forr] : [value, placing, from]
+        , (raw, t) => {
+            const _value = value.get(raw, t) as string;
+            if (nullIsh(_value)) {
+                return null;
+            }
+            const _placing = placing.get(raw, t) as string;
+            if (nullIsh(_placing)) {
+                return null;
+            }
+            const _from = from.get(raw, t) as number;
+            if (nullIsh(_from)) {
+                return null;
+            }
+            const before = sqlSubstring(_value, 0, _from - 1);
+            let after: string | nil;
+            if (forr) {
+                const _for = forr.get(raw, t) as number;
+                if (nullIsh(_for)) {
+                    return null;
+                }
+                after = sqlSubstring(_value, _from  + _for);
+            } else {
+                after = sqlSubstring(_value, _placing.length + _from);
+            }
+            if (nullIsh(after)) {
+                return null;
+            }
+            return before + _placing + after;
+        });
+}
+
+function buildSubstring(data: _ISelection, op: ExprSubstring): IValue {
+    const value = _buildValue(data, op.value).convert(Types.text());
+    const vals = [value];
+    const from = op.from && _buildValue(data, op.from).convert(Types.integer);
+    const forr = op.for && _buildValue(data, op.for).convert(Types.integer);
+    if (forr) {
+        vals.push(forr);
+    }
+    if (from) {
+        vals.push(from);
+    }
+
+    return new Evaluator(
+        data.ownerSchema
+        , Types.text()
+        , null
+        , hash({ substr: value.hash, from: from?.hash, for: forr?.hash })
+        , vals
+        , (raw, t) => {
+            const _value = value.get(raw, t) as string;
+            if (nullIsh(_value)) {
+                return null;
+            }
+            let start = 0;
+            let len: number | nil;
+            if (from) {
+                start = from.get(raw, t) as number;
+                if (nullIsh(start)) {
+                    return null;
+                }
+            }
+            if (forr) {
+                len = forr.get(raw, t) as number;
+                if (nullIsh(len)) {
+                    return null;
+                }
+            }
+            return sqlSubstring(_value, start, len);
+        });
+}
+
+export function sqlSubstring(value: string, from = 0, len?: number | nil): string | null {
+    if (nullIsh(from) || nullIsh(value)) {
+        return null;
+    }
+    // sql substring is base-1
+    from--;
+    if (from < 0) {
+        from = 0;
+    }
+    if (!nullIsh(len)) {
+        if (len! < 0) {
+            throw new QueryError('negative substring length not allowed');
+        }
+        return value.substr(from, len);
+    }
+    return value.substr(from);
 }

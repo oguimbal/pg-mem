@@ -8,6 +8,7 @@ import { PgNamespaceTable } from './pg-namespace-list';
 import { PgTypeTable } from './pg-type-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
+import { sqlSubstring } from '../../predicate';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -74,6 +75,20 @@ export function setupPgCatalog(db: _IDb) {
             return val;
         }
     });
+
+    catalog.registerFunction({
+        name: 'substring',
+        args: [Types.text(), Types.integer],
+        returns: Types.text(),
+        implementation: sqlSubstring,
+    })
+
+    catalog.registerFunction({
+        name: 'substring',
+        args: [Types.text(), Types.integer, Types.integer],
+        returns: Types.text(),
+        implementation: sqlSubstring,
+    })
 
 
     db.getSchema('pg_catalog').registerFunction({

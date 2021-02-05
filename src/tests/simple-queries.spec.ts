@@ -298,15 +298,62 @@ describe('Simple queries', () => {
         assert.throws(() => none(`insert into test values ('a', 1, 'oldA');`));
     });
 
-    it('supports substring() query as range', () => {
-        expect(many(`select substring('012345678' from 2 for 3) as v`))
-            .to.deep.equal([{ v: '123' }]);
-        expect(many(`select substring('012345678' from 5) as v`))
-            .to.deep.equal([{ v: '45678' }]);
-        expect(many(`select substring('012345678' for 3) as v`))
-            .to.deep.equal([{ v: '012' }]);
+
+    describe('substring query as range', () => {
+
+        for (const [k, v] of [
+            [`select substring('012345678' from 2 for 3) as v`, '123'],
+            [`select substring('012345678' from 5) as v`, '45678'],
+            [`select substring('012345678' for 3) as v`, '012'],
+            [`select substring('012345678' from 1) as v`, '012345678'],
+            [`select substring('012345678' from 0) as v`, '012345678'],
+            [`select substring('012345678' from -1) as v`, '012345678'],
+        ]) {
+            it(k, () => {
+                expect(many(k))
+                    .to.deep.equal([{ v }]);
+            })
+        }
+        it('fails with negative for', () => {
+            assert.throws(() => many(`select substring('012345678' for -1) as v`), /negative substring length not allowed/);
+        })
     })
 
+    it('supports substring() as classic function range', () => {
+        expect(many(`select substring('012345678', 2, 3) as v`))
+            .to.deep.equal([{ v: '123' }]);
+        expect(many(`select substring('012345678', 5) as v`))
+            .to.deep.equal([{ v: '45678' }]);
+    })
+
+    describe('overlay query as range', () => {
+
+        for (const [k, v] of [
+            [`select overlay('12345678' placing 'ab' from 3) as v`, '12ab5678'],
+            [`select overlay('12345678' placing 'abc' from 4) as v`, '123abc78'],
+
+            [`select overlay('12345678' placing 'ab' from 3 for 0) as v`, '12ab345678'],
+            [`select overlay('12345678' placing 'abc' from 3 for 0) as v`, '12abc345678'],
+            [`select overlay('12345678' placing 'abc' from 3 for 1) as v`, '12abc45678'],
+            [`select overlay('12345678' placing 'ab' from 3 for 4) as v`, '12ab78'],
+            [`select overlay('12345678' placing 'ab' from 2 for 4) as v`, '1ab678'],
+            [`select overlay('12345678' placing 'ab' from 2 for 5) as v`, '1ab78'],
+            [`select overlay('12345678' placing 'ab' from 1 for 5) as v`, 'ab678'],
+            [`select overlay('12345678' placing 'ab' from 2) as v`, '1ab45678'],
+            [`select overlay('12345678' placing 'ab' from 2 for 1) as v`, '1ab345678'],
+            [`select overlay('12345678' placing 'ab' from 2 for 0) as v`, '1ab2345678'],
+            [`select overlay('12345678' placing 'ab' from 2 for -3) as v`, '1ab12345678'],
+        ]) {
+            it(k, () => {
+                expect(many(k))
+                    .to.deep.equal([{ v }]);
+            })
+        }
+        it('fails with negative from', () => {
+            assert.throws(() => many(`select overlay('12345678' placing 'ab' from -2) as v`), /negative substring length not allowed/);
+            assert.throws(() => many(`select overlay('12345678' placing 'ab' from 0) as v`), /negative substring length not allowed/);
+        })
+    })
 
 
     it('can select list', () => {
