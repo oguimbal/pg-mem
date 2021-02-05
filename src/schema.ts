@@ -221,6 +221,7 @@ export class DbSchema implements _ISchema, ISchema {
                     t = t.fork();
                     break;
                 case 'create schema':
+                    t = t.fullCommit();
                     const sch = this.db.getSchema(p.name, true);
                     if (!p.ifNotExists && sch) {
                         throw new QueryError('schema already exists! ' + p.name);
@@ -229,7 +230,8 @@ export class DbSchema implements _ISchema, ISchema {
                         ignore(p);
                         break;
                     }
-                    this.db.createSchema(p.name)
+                    this.db.createSchema(p.name);
+                    t = t.fork();
                     break;
                 case 'comment':
                 case 'raise':

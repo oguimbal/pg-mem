@@ -356,6 +356,15 @@ describe('Simple queries', () => {
     })
 
 
+    it('should be able to create schema', () => {
+        expect(many(`create schema other;
+                create table other.tother(id text);
+                insert into other.tother values ('x');
+                select * from other.tother`))
+            .to.deep.equal([{ id: 'x' }]);
+    });
+
+
     it('can select list', () => {
         expect(many(`select (1, 2) as v`))
             .to.deep.equal([{ v: [1, 2] }]);
