@@ -8,7 +8,6 @@ import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprAr
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation';
 import moment from 'moment';
-import { buildCall } from 'function-call';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
@@ -787,7 +786,7 @@ export function sqlSubstring(value: string, from = 0, len?: number | nil): strin
         if (len! < 0) {
             throw new QueryError('negative substring length not allowed');
         }
-        return value.substr(from, len);
+        return value.substr(from, len!);
     }
     return value.substr(from);
 }

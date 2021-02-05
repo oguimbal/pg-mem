@@ -275,20 +275,20 @@ describe('Selections', () => {
             .to.deep.equal([{ test: { a: 'a', b: 'b' } }]);
     })
 
-    it('can select record when aliased', () => {
+    it.skip('can select record when aliased', () => {
         expect(many(`create table test (a text, b text);
                     insert into test values ('a', 'b');
                     select v from test as v;`))
             .to.deep.equal([{ v: { a: 'a', b: 'b' } }]);
     })
 
-    it('does not select parent alis record', () => {
+    it.skip('does not select parent alias record', () => {
         many(`create table test (a text, b text);
                     insert into test values ('a', 'b')`);
         assert.throws(() => many(`select test from test as v`), /does not exist/);
     })
 
-    it('does not select record when scoped', () => {
+    it.skip('does not select record when scoped', () => {
         many(`create table test (a text, b text);
                     insert into test values ('a', 'b')`);
         assert.throws(() => many(`select test.test from test`), /does not exist/);
@@ -311,7 +311,7 @@ describe('Selections', () => {
 
 
 
-    describe('Subqueries', () => {
+    describe.skip('Subqueries', () => {
 
         function mytable() {
             many(`CREATE TABLE my_table (id text NOT NULL PRIMARY KEY, name text NOT NULL, parent_id text);
@@ -340,20 +340,20 @@ describe('Selections', () => {
 
 
 
-        it('simplifies a subquery when possible', () => {
-            mytable();
-            let cnt = 0;
-            db.on('subquery', () => {
-                cnt++
-            });
-            db.on('non-constant-subquery', () => {
-                assert.fail('Should not have raised non-constant-subquery');
-            })
-            expect(many(`SELECT name FROM my_table as t1 WHERE id = (SELECT id FROM my_table LIMIT 1)`))
-                .to.deep.equal([{ name: 'Parent' }]);
+        // it('simplifies a subquery when possible', () => {
+        //     mytable();
+        //     let cnt = 0;
+        //     db.on('subquery', () => {
+        //         cnt++
+        //     });
+        //     db.on('non-constant-subquery', () => {
+        //         assert.fail('Should not have raised non-constant-subquery');
+        //     })
+        //     expect(many(`SELECT name FROM my_table as t1 WHERE id = (SELECT id FROM my_table LIMIT 1)`))
+        //         .to.deep.equal([{ name: 'Parent' }]);
 
-            expect(cnt).to.equal(1, 'Was expecting subquery to be simplified');
-        })
+        //     expect(cnt).to.equal(1, 'Was expecting subquery to be simplified');
+        // })
     })
 
 

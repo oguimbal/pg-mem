@@ -12,7 +12,6 @@ import type { buildDistinct } from './distinct';
 
 import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
 import { RestrictiveIndex } from './restrictive-index';
-import { QueryError } from 'interfaces';
 
 interface Fns {
     buildSelection: typeof buildSelection;

@@ -396,25 +396,27 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         this.installedExtensions.add(p.extension);
     }
 
-    executeCreateView(t: _Transaction, p: CreateViewStatement | CreateMaterializedViewStatement) {
-        const nop = this.simple('CREATE', p);
+    executeCreateView(t: _Transaction, p: CreateViewStatement | CreateMaterializedViewStatement): QueryResult {
+        throw new NotSupported('Not yet implemented, see https://github.com/oguimbal/pg-mem/issues/34')
 
-        // check existence
-        const ifNotExists = 'ifNotExists' in p && p.ifNotExists;
-        const replace = 'orReplace' in p && p.orReplace;
-        const existing = this.getObject(p, { nullIfNotFound: true });
-        if (existing) {
-            if (ifNotExists) {
-                nop.ignored = true;
-                return nop;
-            } else if (replace) {
-                todo // drop existing
-            }
-        }
+        // const nop = this.simple('CREATE', p);
 
-        const view = this.buildSelect(p.query);
+        // // check existence
+        // const ifNotExists = 'ifNotExists' in p && p.ifNotExists;
+        // const replace = 'orReplace' in p && p.orReplace;
+        // const existing = this.getObject(p, { nullIfNotFound: true });
+        // if (existing) {
+        //     if (ifNotExists) {
+        //         nop.ignored = true;
+        //         return nop;
+        //     } else if (replace) {
+        //         todo // drop existing
+        //     }
+        // }
 
-        return nop;
+        // const view = this.buildSelect(p.query);
+
+        // return nop;
 
     }
 
