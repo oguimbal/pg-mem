@@ -306,4 +306,34 @@ describe('Simple queries', () => {
         expect(many(`select substring('012345678' for 3) as v`))
             .to.deep.equal([{ v: '012' }]);
     })
+
+
+
+    it('can select list', () => {
+        expect(many(`select (1, 2) as v`))
+            .to.deep.equal([{ v: [1, 2] }]);
+    })
+
+
+    it('can convert list to text', () => {
+        expect(many(`select (1, 2)::text as v`))
+            .to.deep.equal([{ v: '(1,2)' }]);
+    })
+
+    it('supports select ARRAY[]', () => {
+        expect(many(`select ARRAY[1, 2] as v`))
+            .to.deep.equal([{ v: [1, 2] }])
+    });
+
+    it('can convert array to text', () => {
+        expect(many(`select ARRAY[1, 2]::text as v`))
+            .to.deep.equal([{ v: '{1,2}' }]);
+    })
+
+    it('can execute ANY on ARRAY[]', () => {
+        expect(many(`create table tbl (id text);
+                    insert into tbl values ('A'), ('B'), ('C');
+                    SELECT * FROM tbl WHERE id = ANY(array['A', 'C'])`))
+            .to.deep.equal([{ id: 'A' }, { id: 'C' }]);
+    })
 });

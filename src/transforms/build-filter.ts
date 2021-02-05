@@ -97,7 +97,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             let arrayValue = buildValue(on, right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
             if (arrayValue.type.primary !== DataType.array) {
-                arrayValue = Value.array(on.ownerSchema, [arrayValue]);
+                arrayValue = Value.array(on.ownerSchema, [arrayValue], false);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
             const array = arrayValue.convert(elementType!.asArray());

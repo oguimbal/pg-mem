@@ -44,10 +44,11 @@
     "lru-cache": "^6.0.0",
     "moment": "^2.27.0",
     "object-hash": "^2.0.3",
-    "pgsql-ast-parser": "^4.1.7"
+    "pgsql-ast-parser": "^4.1.10"
   },
   "devDependencies": {
     "@babel/cli": "^7.10.5",
+    "@types/pg": "^7.14.9",
     "@babel/core": "^7.10.5",
     "@babel/preset-env": "^7.10.4",
     "@hot-loader/react-dom": "^16.13.0",
@@ -77,7 +78,7 @@
     "monaco-editor": "^0.20.0",
     "monaco-editor-webpack-plugin": "^1.9.0",
     "nyc": "^15.1.0",
-    "pg": "^8.3.0",
+    "pg": "^8.5.1",
     "pg-promise": "^10.8.7",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",

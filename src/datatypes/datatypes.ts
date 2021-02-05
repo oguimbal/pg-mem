@@ -418,16 +418,23 @@ export class ArrayType extends TypeBase<any[]> {
     }
 
 
-    constructor(readonly of: _IType) {
+    constructor(readonly of: _IType, private list: boolean) {
         super();
     }
 
     doCanCast(to: _IType) {
+        if (to.primary === DataType.text) {
+            return this.of.canConvert(to);
+        }
         return to instanceof ArrayType
             && to.of.canConvert(this.of);
     }
 
     doCast(value: Evaluator, _to: _IType) {
+        if (_to.primary === DataType.text) {
+            return this.toText(_to, value);
+        }
+
         const to = _to as ArrayType;
         const valueType = value.type as ArrayType;
         return new Evaluator(
@@ -439,6 +446,24 @@ export class ArrayType extends TypeBase<any[]> {
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
                 return arr.map(x => Value.constant(value.owner, valueType.of, x).convert(to.of).get(raw, t));
+            });
+    }
+
+    toText(to: _IType, value: Evaluator) {
+        const valueType = value.type as ArrayType;
+        return new Evaluator(
+            value.owner
+            , to
+            , value.id
+            , value.hash!
+            , value
+            , (raw, t) => {
+                const arr = value.get(raw, t) as any[];
+                const strs = arr.map(x => Value.constant(value.owner, valueType.of, x).convert(Types.text()).get(raw, t));
+                const data = strs.join(',');
+                return this.list
+                    ? '(' + data + ')'
+                    : '{' + data + '}';
             });
     }
 

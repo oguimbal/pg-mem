@@ -358,7 +358,7 @@ export const Value = {
             throw new Error('Argument null');
         }
         if (array.type.primary !== DataType.array) {
-            array = Value.array(owner, [array]);
+            array = Value.array(owner, [array], false);
         }
         const of = (array.type as ArrayType).of;
         return new Evaluator(
@@ -435,7 +435,7 @@ export const Value = {
         return (value as Evaluator)
             .setConversion(x => -x, x => ({ neg: x }));
     },
-    array(owner: _ISchema, values: IValue[]): IValue {
+    array(owner: _ISchema, values: IValue[], list: boolean = false): IValue {
         if (!values.length) {
             throw new QueryError('Expecting some value in list');
         }
@@ -452,7 +452,7 @@ export const Value = {
         const converted = values.map(x => x.convert(type));
         return new Evaluator(
             owner
-            , type.asArray()
+            , list ? type.asList() : type.asArray()
             , null
             , hash(converted.map(x => x.hash))
             , converted

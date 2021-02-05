@@ -12,7 +12,7 @@ import { parseSql } from './parse-cache';
 import { Sequence } from './sequence';
 import { IMigrate } from './migrate/migrate-interfaces';
 import { migrate } from './migrate/migrate';
-import { CustomEnumType } from './custom-enum';
+import { CustomEnumType } from './datatypes/t-custom-enum';
 import { regGen } from './datatypes/datatype-base';
 import { ValuesTable } from './schema/values-table';
 
@@ -219,6 +219,21 @@ export class DbSchema implements _ISchema, ISchema {
                     t = t.fullCommit();
                     last = this.executeCreateView(t, p);
                     t = t.fork();
+                    break;
+                case 'create schema':
+                    const sch = this.db.getSchema(p.name, true);
+                    if (!p.ifNotExists && sch) {
+                        throw new QueryError('schema already exists! ' + p.name);
+                    }
+                    if (sch) {
+                        ignore(p);
+                        break;
+                    }
+                    this.db.createSchema(p.name)
+                    break;
+                case 'comment':
+                case 'raise':
+                    ignore(p);
                     break;
                 default:
                     throw NotSupported.never(p, 'statement type');

@@ -15,29 +15,36 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
             throw new Error('Unmatched parameter in query ' + str);
         }
         const val = values[i - 1];
-        switch (typeof val) {
-            case 'string':
-                return literal(val);
-            case 'boolean':
-                return val ? 'true' : 'false';
-            case 'number':
-                return val.toString(10);
-            default:
-                if (val === null || val === undefined) {
-                    return 'null';
-                }
-                if (val instanceof Date) {
-                    return `'${moment.utc(val).toISOString()}'`;
-                }
-                if (isBuf(val)) {
-                    return literal(bufToString(val));
-                }
-                if (typeof val === 'object') {
-                    return literal(JSON.stringify(val));
-                }
-                throw new Error('Invalid query parameter')
-        }
+        return toLiteral(val);
     });
+}
+
+function toLiteral(val: any): string {
+    switch (typeof val) {
+        case 'string':
+            return literal(val);
+        case 'boolean':
+            return val ? 'true' : 'false';
+        case 'number':
+            return val.toString(10);
+        default:
+            if (val === null || val === undefined) {
+                return 'null';
+            }
+            if (Array.isArray(val)) {
+                return `ARRAY[${val.map(x => toLiteral(x)).join(', ')}]`;
+            }
+            if (val instanceof Date) {
+                return `'${moment.utc(val).toISOString()}'`;
+            }
+            if (isBuf(val)) {
+                return literal(bufToString(val));
+            }
+            if (typeof val === 'object') {
+                return literal(JSON.stringify(val));
+            }
+            throw new Error('Invalid query parameter')
+    }
 }
 
 export class Adapters implements LibAdapters {

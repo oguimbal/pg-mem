@@ -314,7 +314,8 @@ export interface _IDb extends IMemoryDb {
     readonly searchPath: ReadonlyArray<string>;
 
     createSchema(db: string): _ISchema;
-    getSchema(db?: string | null): _ISchema;
+    getSchema(db?: string | null, nullIfNotFound?: false): _ISchema;
+    getSchema(db: string, nullIfNotFound: true): _ISchema | null;
     raiseTable(table: string, event: TableEvent): void;
     raiseGlobal(event: GlobalEvent, ...args: any[]): void;
     listSchemas(): _ISchema[];
@@ -439,6 +440,7 @@ export interface _IType<TRaw = any> extends IType {
 
     /** Build an array type for this type */
     asArray(): _IType<TRaw[]>;
+    asList(): _IType<TRaw[]>;
 }
 
 export interface IValue<TRaw = any> {

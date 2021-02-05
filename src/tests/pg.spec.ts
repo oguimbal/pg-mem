@@ -1,7 +1,7 @@
 import 'mocha';
 import 'chai';
 import { newDb } from '../db';
-import { assert } from 'chai';
+import { assert, expect } from 'chai';
 import { _IDb } from '../interfaces-private';
 
 describe('pg', () => {
@@ -22,7 +22,7 @@ describe('pg', () => {
 
     it('can select without arg', async () => {
         simpleDb();
-        const {Client} = db.adapters.createPg();
+        const { Client } = db.adapters.createPg();
         const client = new Client();
         await client.connect();
         const got = await client.query('select * from data');
@@ -37,7 +37,7 @@ describe('pg', () => {
 
     it('can select with arg', async () => {
         simpleDb();
-        const {Client} = db.adapters.createPg();
+        const { Client } = db.adapters.createPg();
         const client = new Client();
         await client.connect();
         const got = await client.query('select * from data where id = $1', ['str']);
@@ -52,7 +52,7 @@ describe('pg', () => {
 
     it('can select with callback', (done) => {
         simpleDb();
-        const {Client} = db.adapters.createPg();
+        const { Client } = db.adapters.createPg();
         const client = new Client();
         client.connect();
         client.query('select * from data where id = $1', ['str'], (err: any, res: any) => {
@@ -66,4 +66,18 @@ describe('pg', () => {
             done();
         });
     });
+
+
+    it('handles any($1)', async () => {
+        simpleDb();
+        const { Client } = db.adapters.createPg();
+        const client = new Client();
+        await client.connect();
+        many(`create table dispute (id text);
+                insert into dispute values ('A'), ('B'), ('OTHER')`);
+        const got = await client.query('select * from dispute where id = ANY($1)', [['A', 'B']]);
+        expect(got.rows).to.deep.equal([{ id: 'A' }, { id: 'B' }]);
+        await client.end();
+    });
+
 });

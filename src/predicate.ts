@@ -65,8 +65,9 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'null':
             return Value.null(data.ownerSchema);
         case 'list':
+        case 'array':
             const vals = val.expressions.map(x => _buildValue(data, x));
-            return Value.array(data.ownerSchema, vals);
+            return Value.array(data.ownerSchema, vals, val.type === 'list');
         case 'numeric':
             return Value.number(data.ownerSchema, val.value);
         case 'integer':
@@ -566,7 +567,7 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
     }
     return new Evaluator(
         data.ownerSchema
-        , onData.columns[0].type.asArray()
+        , onData.columns[0].type.asList()
         , null
         , Math.random().toString() // must not be indexable => always different hash
         , onData.columns[0]

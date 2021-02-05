@@ -28,6 +28,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     private _asArray?: _IType<TRaw[]>;
+    private _asList?: _IType<TRaw[]>;
 
     abstract primary: DataType;
     get name(): string {
@@ -178,6 +179,13 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         if (this._asArray) {
             return this._asArray;
         }
-        return this._asArray = new ArrayType(this);
+        return this._asArray = new ArrayType(this, false);
+    }
+
+    asList(): _IType<TRaw[]> {
+        if (this._asList) {
+            return this._asList;
+        }
+        return this._asList = new ArrayType(this, true);
     }
 }
