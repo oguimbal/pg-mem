@@ -51,7 +51,7 @@ interface AggregationGroupComputer<TRet = any> {
     /** When iterating, this will be called for each item in this group  */
     feedItem(item: any): void;
     /** Finish computation (sets aggregation on result) */
-    finish(): TRet;
+    finish(): TRet | nil;
 }
 
 export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
@@ -314,7 +314,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
     private _getAggregation(name: string, args: Expr[]): AggregationComputer {
         switch (name) {
-            case 'count':
+            case 'count': {
                 if (isSelectAllArgList(args)) {
                     return new CountStar(this.base);
                 }
@@ -323,6 +323,23 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
                 }
                 const what = buildValue(this.base, args[0]);
                 return new CountExpr(what);
+            }
+            case 'max': {
+                if (args.length !== 1) {
+                    throw new QueryError('MAX expects one argument, given ' + args.length);
+                }
+
+                const what = buildValue(this.base, args[0]);
+                return new MaxExpr(what);
+            }
+            case 'min': {
+                if (args.length !== 1) {
+                    throw new QueryError('MIN expects one argument, given ' + args.length);
+                }
+
+                const what = buildValue(this.base, args[0]);
+                return new MinExpr(what);
+            }
             default:
                 throw new NotSupported('aggregation function ' + name);
         }
@@ -396,6 +413,53 @@ class CountExpr implements AggregationComputer<number> {
                 }
             },
             finish: () => cnt,
+        };
+    }
+}
+
+class MaxExpr implements AggregationComputer<number> {
+
+    constructor(private exp: IValue) {
+    }
+
+    get type(): _IType<any> {
+        return Types.bigint;
+    }
+
+    createGroup(t: _Transaction): AggregationGroupComputer<number> {
+        let val: number | nil = null;
+        return {
+            feedItem: (item) => {
+                const value = this.exp.get(item, t);
+                if (!nullIsh(value) && (nullIsh(val) || val! < value)) {
+                    val = value;
+                }
+            },
+            finish: () => val,
+        };
+    }
+}
+
+
+class MinExpr implements AggregationComputer<number> {
+
+    constructor(private exp: IValue) {
+    }
+
+    get type(): _IType<any> {
+        return Types.bigint;
+    }
+
+    createGroup(t: _Transaction): AggregationGroupComputer<number> {
+        let val: number | nil = null;
+        return {
+            feedItem: (item) => {
+                const value = this.exp.get(item, t);
+                if (!nullIsh(value) && (nullIsh(val) || val! > value)) {
+                    val = value;
+                }
+            },
+            finish: () => val,
         };
     }
 }
