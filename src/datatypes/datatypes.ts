@@ -3,7 +3,7 @@ import { DataType, CastError, IType, QueryError, nil } from '../interfaces';
 import { nullIsh, getContext } from '../utils';
 import { Evaluator, Value } from '../valuetypes';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
-import {  parseGeometricLiteral } from 'pgsql-ast-parser';
+import { parseGeometricLiteral } from 'pgsql-ast-parser';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-node';
 import { TypeBase } from './datatype-base';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric';
@@ -14,6 +14,7 @@ import { JSONBType } from './t-jsonb';
 import { RegTypeImpl } from './t-regtype';
 import { RegClassImpl } from './t-regclass';
 import { RecordType } from './t-record';
+import { INetType } from './t-inet';
 
 
 class UUIDtype extends TypeBase<Date> {
@@ -128,6 +129,8 @@ class NumberType extends TypeBase<number> {
             case DataType.regtype:
             case DataType.regclass:
                 return true;
+            case DataType.text:
+                return true;
             default:
                 return false;
         }
@@ -148,28 +151,33 @@ class NumberType extends TypeBase<number> {
                 }
             );
         }
-        if (to.primary === DataType.regtype) {
-            return value
-                .setType(Types.regtype)
-                .setConversion((int: number, _, t) => {
-                    const got = value.owner.getType(int, { nullIfNotFound: true });
-                    if (!got) {
-                        throw new CastError(DataType.integer, DataType.regtype);
+        switch (to.primary) {
+            case DataType.regtype:
+                return value
+                    .setType(Types.regtype)
+                    .setConversion((int: number, _, t) => {
+                        const got = value.owner.getType(int, { nullIfNotFound: true });
+                        if (!got) {
+                            throw new CastError(DataType.integer, DataType.regtype);
+                        }
+                        return got.name;
                     }
-                    return got.name;
-                }
-                    , intToRegType => ({ intToRegType }));
-        }
-        if (to.primary === DataType.regclass) {
-            return value
-                .setType(Types.regclass)
-                .setConversion((int: number) => {
-                    // === int -> regclass
-                    const { schema } = getContext();
-                    const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
-                    return obj?.reg.classId ?? int;
-                }
-                    , intToRegClass => ({ intToRegClass }));
+                        , intToRegType => ({ intToRegType }));
+            case DataType.regclass:
+                return value
+                    .setType(Types.regclass)
+                    .setConversion((int: number) => {
+                        // === int -> regclass
+                        const { schema } = getContext();
+                        const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
+                        return obj?.reg.classId ?? int;
+                    }
+                        , intToRegClass => ({ intToRegClass }));
+            case DataType.text:
+                return value
+                    .setType(to)
+                    .setConversion((int: number) => int.toString()
+                        , toTxt => ({ toTxt }));
         }
         return value.setType(to);
     }
@@ -517,6 +525,7 @@ export const Types = {
     [DataType.line]: new LineType() as _IType,
     [DataType.lseg]: new LsegType() as _IType,
     [DataType.box]: new BoxType() as _IType,
+    [DataType.inet]: new INetType() as _IType,
     [DataType.path]: new PathType() as _IType,
     [DataType.polygon]: new PolygonType() as _IType,
     [DataType.circle]: new CircleType() as _IType,

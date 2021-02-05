@@ -26,6 +26,7 @@ export interface IType {
 // todo support all types https://www.postgresql.org/docs/9.5/datatype.html
 export enum DataType {
 
+    inet = 'inet',
     record = 'record',
     uuid = 'uuid',
     text = 'text',

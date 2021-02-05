@@ -75,7 +75,7 @@ describe('Data types', () => {
         });
     })
 
-    it ('cannot create record tables', () => {
+    it('cannot create record tables', () => {
         assert.throws(() => many('create table test(a record)'), /column "a" has pseudo-type record/);
     })
 
@@ -88,5 +88,23 @@ describe('Data types', () => {
                 }])
 
         })
+    })
+
+
+    describe('inet', () => {
+        it('can be inserted', () => {
+            const valids = ['1.1.1.1', '1.2.255.0/0', '1.2.3.4/32'];
+            expect(many(`CREATE TABLE example ( ip INET);
+                            insert into example values (${valids.map(x => `'${x}'`).join('),(')});
+                            select * from example`))
+                .to.deep.equal(valids.map(ip => ({ ip })))
+        })
+
+        for (const i of ['256.0.0.0', '  1.1.1.1', '   1.1.1.1', '1.1.1', '1.1.1.1.3', '1.1.1.1/33', '01.1.1.1', '1.1.1.01']) {
+            it(`"${i}" is invalid`, () => {
+                assert.throws(() => many(`CREATE TABLE example ( ip INET);
+                                insert into example values ('${i}')`), /invalid input syntax for type inet:/);
+            })
+        }
     })
 });

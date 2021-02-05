@@ -1,7 +1,7 @@
-import { Evaluator } from './valuetypes';
-import { TypeBase } from './datatypes/datatype-base';
-import { CastError, DataType, nil, QueryError } from './interfaces';
-import { _ISchema, _IType } from './interfaces-private';
+import { Evaluator } from '../valuetypes';
+import { TypeBase } from './datatype-base';
+import { CastError, DataType, nil, QueryError } from '../interfaces';
+import { _ISchema, _IType } from '../interfaces-private';
 
 export class CustomEnumType extends TypeBase<string> {
 
