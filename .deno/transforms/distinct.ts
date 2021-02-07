@@ -1,4 +1,4 @@
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
 import { buildValue } from '../predicate.ts';
 import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
@@ -41,8 +41,8 @@ class Distinct<T> extends FilterBase<any> {
     *enumerate(t: _Transaction): Iterable<T> {
         const got = new Set();
         for (const i of this.base.enumerate(t)) {
-            const vals = this.exprs.map(v => v.get(i, t) ?? null);
-            const hash = objectHash(vals);
+            const vals = this.exprs.map(v => v.type.hash(v.get(i, t)));
+            const hash = vals.length === 1 ? vals[0] : objectHash(vals);
             if (got.has(hash)) {
                 continue;
             }

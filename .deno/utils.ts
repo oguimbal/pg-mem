@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
 import { ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
@@ -95,6 +95,7 @@ This means that those parts could be ignored:
 export function deepEqual<T>(a: T, b: T, strict?: boolean, depth = 10, numberDelta = 0.0001) {
     return deepCompare(a, b, strict, depth, numberDelta) === 0;
 }
+
 export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberDelta = 0.0001): number {
     if (depth < 0) {
         throw new NotSupported('Comparing too deep entities');
@@ -113,7 +114,7 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
 
     if (Array.isArray(a)) {
         if (!Array.isArray(b)) {
-            return 1;
+            return -1; // [] < {}
         }
         if (a.length !== b.length) {
             return a.length > b.length ? 1 : -1;
@@ -124,6 +125,10 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
                 return inner;
         }
         return 0;
+    }
+
+    if (Array.isArray(b)) {
+        return 1;
     }
 
     if (isBuf(a) || isBuf(b)) {
@@ -170,19 +175,23 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
 
     const fa = Number.isFinite(<any>a);
     const fb = Number.isFinite(<any>b);
-    if (fa || fb) {
+    if (fa && fb) {
         if (Math.abs(<any>a - <any>b) <= numberDelta) {
             return 0;
         }
         return a > b ? 1 : -1;
+    } else if (fa && b) {
+        return -1;
+    } else if (fb && a) {
+        return 1;
     }
 
     // === handle plain objects
     if (typeof a !== 'object') {
-        return -1; // objects are at the end
+        return 1; // objects are at the end
     }
     if (typeof b !== 'object') {
-        return 1; // objects are at the end
+        return -1; // objects are at the end
     }
 
     if (!a || !b) {

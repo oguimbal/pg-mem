@@ -1,12 +1,13 @@
 import { TransformBase } from './transform-base.ts';
-import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats } from '../interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
+import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private.ts';
+import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
 import { buildValue } from '../predicate.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
-import { isSelectAllArgList, nullIsh, suggestColumnName } from '../utils.ts';
+import { suggestColumnName } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../valuetypes.ts';
-import { Types } from '../datatypes/index.ts';
+import { buildCount } from './aggregations/count.ts';
+import { buildMinMax } from './aggregations/max-min.ts';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -16,7 +17,6 @@ export const aggregationFunctions = new Set([
     'bit_or',
     'bool_and',
     'bool_or',
-    'count',
     'count',
     'every',
     'json_agg',
@@ -33,25 +33,6 @@ export const aggregationFunctions = new Set([
 export function buildGroupBy(on: _ISelection, groupBy: Expr[], select: SelectedColumn[]) {
     const group = groupBy.map(x => buildValue(on, x));
     return new Aggregation(on, group, select);
-}
-
-interface AggregationComputer<TRet = any> {
-    readonly type: _IType;
-    /**  Compute from index  (ex: count(*) with a group-by) */
-    computeFromIndex?(key: IndexKey, index: _IIndex, t: _Transaction): TRet | undefined;
-    /**  Compute out of nowhere when there is no group
-     * (ex: when there is no grouping, count(*) on a table or count(xxx) when there is an index on xxx) */
-    computeNoGroup?(t: _Transaction): TRet | undefined;
-
-    /** When iterating, each new group will have its computer */
-    createGroup(t: _Transaction): AggregationGroupComputer<TRet>;
-}
-
-interface AggregationGroupComputer<TRet = any> {
-    /** When iterating, this will be called for each item in this group  */
-    feedItem(item: any): void;
-    /** Finish computation (sets aggregation on result) */
-    finish(): TRet | nil;
 }
 
 export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
@@ -314,32 +295,11 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
     private _getAggregation(name: string, args: Expr[]): AggregationComputer {
         switch (name) {
-            case 'count': {
-                if (isSelectAllArgList(args)) {
-                    return new CountStar(this.base);
-                }
-                if (args.length !== 1) {
-                    throw new QueryError('COUNT expects one argument, given ' + args.length);
-                }
-                const what = buildValue(this.base, args[0]);
-                return new CountExpr(what);
-            }
-            case 'max': {
-                if (args.length !== 1) {
-                    throw new QueryError('MAX expects one argument, given ' + args.length);
-                }
-
-                const what = buildValue(this.base, args[0]);
-                return new MaxExpr(what);
-            }
-            case 'min': {
-                if (args.length !== 1) {
-                    throw new QueryError('MIN expects one argument, given ' + args.length);
-                }
-
-                const what = buildValue(this.base, args[0]);
-                return new MinExpr(what);
-            }
+            case 'count':
+                return buildCount(this.base, args);
+            case 'max':
+            case 'min':
+                return buildMinMax(this.base, args, name);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }
@@ -363,103 +323,4 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         }
     }
 
-}
-
-
-class CountStar implements AggregationComputer<number> {
-
-    constructor(private on: _ISelection) {
-    }
-
-    get type(): _IType<any> {
-        return Types.bigint;
-    }
-
-    computeFromIndex(key: IndexKey, index: _IIndex<any>, t: _Transaction) {
-        const stats = index.stats(t, key);
-        return stats?.count;
-    }
-
-    computeNoGroup(t: _Transaction) {
-        return this.on.stats(t)?.count;
-    }
-
-    createGroup(): AggregationGroupComputer<number> {
-        let cnt = 0;
-        return {
-            feedItem: () => cnt++,
-            finish: () => cnt,
-        };
-    }
-
-}
-
-class CountExpr implements AggregationComputer<number> {
-
-    constructor(private exp: IValue) {
-    }
-
-    get type(): _IType<any> {
-        return Types.bigint;
-    }
-
-    createGroup(t: _Transaction): AggregationGroupComputer<number> {
-        let cnt = 0;
-        return {
-            feedItem: (item) => {
-                const value = this.exp.get(item, t);
-                if (!nullIsh(value)) {
-                    cnt++;
-                }
-            },
-            finish: () => cnt,
-        };
-    }
-}
-
-class MaxExpr implements AggregationComputer<number> {
-
-    constructor(private exp: IValue) {
-    }
-
-    get type(): _IType<any> {
-        return Types.bigint;
-    }
-
-    createGroup(t: _Transaction): AggregationGroupComputer<number> {
-        let val: number | nil = null;
-        return {
-            feedItem: (item) => {
-                const value = this.exp.get(item, t);
-                if (!nullIsh(value) && (nullIsh(val) || val! < value)) {
-                    val = value;
-                }
-            },
-            finish: () => val,
-        };
-    }
-}
-
-
-class MinExpr implements AggregationComputer<number> {
-
-    constructor(private exp: IValue) {
-    }
-
-    get type(): _IType<any> {
-        return Types.bigint;
-    }
-
-    createGroup(t: _Transaction): AggregationGroupComputer<number> {
-        let val: number | nil = null;
-        return {
-            feedItem: (item) => {
-                const value = this.exp.get(item, t);
-                if (!nullIsh(value) && (nullIsh(val) || val! > value)) {
-                    val = value;
-                }
-            },
-            finish: () => val,
-        };
-    }
 }

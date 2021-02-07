@@ -2,7 +2,7 @@ import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchem
 import { buildValue, uncache } from '../predicate.ts';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces.ts';
 import { DataSourceBase, TransformBase } from './transform-base.ts';
-import { Expr, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
+import { Expr, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
 import { nullIsh } from '../utils.ts';
 import { Types } from '../datatypes/index.ts';
 

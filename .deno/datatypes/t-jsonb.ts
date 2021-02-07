@@ -1,10 +1,10 @@
-import { DataType, nil, QueryError, _IType } from '../interfaces-private.ts';
+import { DataType, nil, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../valuetypes.ts';
 import { deepCompare, deepEqual } from '../utils.ts';
 import { Types } from './datatypes.ts';
 
-
+const NIL = Symbol('null');
 export class JSONBType extends TypeBase<any> {
 
 
@@ -26,7 +26,7 @@ export class JSONBType extends TypeBase<any> {
         if (to.primary === DataType.json) {
             return a
                 .setType(Types.text())
-                .setConversion(json => JSON.stringify(json)
+                .setConversion(json => JSON.stringify(this.toResult(json))
                     , toJsonB => ({ toJsonB }))
                 .convert(to) as Evaluator; // <== might need truncation
         }
@@ -49,7 +49,7 @@ export class JSONBType extends TypeBase<any> {
         switch (from.primary) {
             case DataType.text:
                 return value
-                    .setConversion(raw => JSON.parse(raw)
+                    .setConversion(raw => JSON.parse(raw) ?? NIL
                         , toJsonb => ({ toJsonb }));
         }
         return null;
@@ -58,14 +58,21 @@ export class JSONBType extends TypeBase<any> {
 
 
     doEquals(a: any, b: any): boolean {
-        return deepEqual(a, b, false);
+        return deepEqual(this.toResult(a), this.toResult(b), false);
     }
 
     doGt(a: any, b: any): boolean {
-        return deepCompare(a, b) > 0;
+        return deepCompare(this.toResult(a), this.toResult(b)) > 0;
     }
 
     doLt(a: any, b: any): boolean {
-        return deepCompare(a, b) < 0;
+        return deepCompare(this.toResult(a), this.toResult(b)) < 0;
     }
+
+    toResult(result: any): any {
+        return result === NIL
+            ? null
+            : result;
+    }
+
 }

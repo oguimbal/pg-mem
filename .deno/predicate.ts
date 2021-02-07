@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './valuetypes.ts';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@4.1.12/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
@@ -211,11 +211,11 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             forcehash = { op: '>', left: rightValue.hash, right: leftValue.hash };
             break;
         case '>=':
-            getter = (a, b) => type.gt(a, b) || type.equals(a, b);
+            getter = (a, b) => type.ge(a, b);
             forcehash = { op: '>=', left: leftValue.hash, right: rightValue.hash };
             break;
         case '<=':
-            getter = (a, b) => type.lt(a, b) || type.equals(a, b);
+            getter = (a, b) => type.le(a, b);
             forcehash = { op: '>=', left: rightValue.hash, right: leftValue.hash };
             break;
         case '+':
@@ -457,7 +457,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
     const conv = op.op === '->'
         ? ((x: any) => x)
         : ((x: any) => {
-            if (x === null || x === undefined) {
+            if (nullIsh(x)) {
                 return null;
             }
             if (typeof x === 'string') {
@@ -544,18 +544,18 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         , [value, hi, lo]
         , (raw, t) => {
             const v = value.get(raw, t);
-            if (v === null || v === undefined) {
+            if (nullIsh(v)) {
                 return null;
             }
             const lov = lo.get(raw, t);
-            if (lov !== null && lov !== undefined && type.lt(v, lov)) {
+            if (!nullIsh(lov) && type.lt(v, lov)) {
                 return conv(false);
             }
             const hiv = hi.get(raw, t);
-            if (hiv !== null && hiv !== undefined && type.gt(v, hiv)) {
+            if (!nullIsh(hiv) && type.gt(v, hiv)) {
                 return conv(false);
             }
-            if ((lov ?? null) === null || (hiv ?? null) === null) {
+            if (nullIsh(lov) || nullIsh(hiv)) {
                 return null;
             }
             return conv(true);
@@ -721,7 +721,7 @@ function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
                 if (nullIsh(_for)) {
                     return null;
                 }
-                after = sqlSubstring(_value, _from  + _for);
+                after = sqlSubstring(_value, _from + _for);
             } else {
                 after = sqlSubstring(_value, _placing.length + _from);
             }
