@@ -1,7 +1,8 @@
 import { Evaluator } from '../valuetypes';
 import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase } from '../interfaces-private';
 import { ArrayType } from './datatypes';
-import { isType } from '../utils';
+import { isType, nullIsh } from '../utils';
+import objectHash from 'object-hash';
 
 let regCnt = 0;
 
@@ -34,6 +35,11 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     get name(): string {
         return this.primary;
     }
+
+
+    /** Compute a custom unicty hash for a non null value */
+    doGetHash?(value: TRaw): string | number;
+
     /** Can be casted to */
     doCanCast?(to: _IType<TRaw>): boolean | nil;
 
@@ -188,4 +194,18 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         }
         return this._asList = new ArrayType(this, true);
     }
+
+    hash(value: any): string | number | null {
+        if (nullIsh(value)) {
+            return null;
+        }
+        if (this.doGetHash) {
+            return this.doGetHash(value);
+        }
+        if (typeof value === 'number') {
+            return value;
+        }
+        return objectHash(value);
+    }
+
 }

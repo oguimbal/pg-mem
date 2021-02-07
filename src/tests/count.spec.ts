@@ -87,4 +87,60 @@ describe('Count', () => {
             select count(*) as cnt from test where id = 2`))
             .to.deep.equal({ cnt: 0 });
     });
+
+
+
+    it('can count distinct single value', () => {
+        expect(one(`create table test(val int);
+            insert into test values (0), (1), (1), (2), (3), (1);
+            select count (distinct(val)) from test where val > 0`))
+            .to.deep.equal({ count: 3 });
+    });
+
+
+    it('can count distinct multiple value', () => {
+        expect(one(`create table test(a int, b int);
+            insert into test values (0, 0), (1, 0), (1, 1), (1, 1), (2, 0), (0, 1), (2, 0);
+            select count (distinct(a, b)) from test`))
+            .to.deep.equal({ count: 5 });
+    });
+
+    it('can select multiple counts', () => {
+        expect(one(`create table test(a int, b int);
+                insert into test values (0, 0), (1, 0), (1, 1), (1, 1), (2, 0), (0, 1), (2, 0);
+                select count (*) as a, count(distinct(a, b)) as b from test`))
+            .to.deep.equal({ a: 7, b: 5 });
+    });
+
+    it('cannot count distinct *', () => {
+        one(`create table test(val int);
+            insert into test values (0), (1), (1), (2), (3), (1);`);
+        assert.throws(() => one(`select count (distinct(*)) from test`));
+    });
+
+    it('distincts jsonb values', () => {
+        expect(one(`create table test(v jsonb);
+                    insert into test values ('{}'), ('{}'), ('[]');
+                    select count(distinct(v)) from test;`))
+            .to.deep.equal({ count: 2 });
+    });
+
+
+
+    it('ignores null on count distinct jsonb values', () => {
+        expect(one(`create table test(v jsonb);
+                    insert into test values ('{}'), ('{}'), ('[]'), (null);
+                    select count(distinct(v)) from test;`))
+            .to.deep.equal({ count: 2 });
+    })
+
+    it('behaves nicely with nulls on multiple count', () => {
+        expect(one(`create table test(v jsonb, i int);
+                    insert into test values ('{}',0), ('{}',0), ('[]',null), (null, 1);
+                    select count(distinct(v,i)) from test;`))
+            .to.deep.equal({ count: 3 });
+        expect(one(`insert into test values (null, null);
+                        select count(distinct(v,i)) from test;`))
+            .to.deep.equal({ count: 4 });
+    });
 });

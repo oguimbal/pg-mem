@@ -211,11 +211,11 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             forcehash = { op: '>', left: rightValue.hash, right: leftValue.hash };
             break;
         case '>=':
-            getter = (a, b) => type.gt(a, b) || type.equals(a, b);
+            getter = (a, b) => type.ge(a, b);
             forcehash = { op: '>=', left: leftValue.hash, right: rightValue.hash };
             break;
         case '<=':
-            getter = (a, b) => type.lt(a, b) || type.equals(a, b);
+            getter = (a, b) => type.le(a, b);
             forcehash = { op: '>=', left: rightValue.hash, right: leftValue.hash };
             break;
         case '+':
@@ -457,7 +457,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
     const conv = op.op === '->'
         ? ((x: any) => x)
         : ((x: any) => {
-            if (x === null || x === undefined) {
+            if (nullIsh(x)) {
                 return null;
             }
             if (typeof x === 'string') {
@@ -544,18 +544,18 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         , [value, hi, lo]
         , (raw, t) => {
             const v = value.get(raw, t);
-            if (v === null || v === undefined) {
+            if (nullIsh(v)) {
                 return null;
             }
             const lov = lo.get(raw, t);
-            if (lov !== null && lov !== undefined && type.lt(v, lov)) {
+            if (!nullIsh(lov) && type.lt(v, lov)) {
                 return conv(false);
             }
             const hiv = hi.get(raw, t);
-            if (hiv !== null && hiv !== undefined && type.gt(v, hiv)) {
+            if (!nullIsh(hiv) && type.gt(v, hiv)) {
                 return conv(false);
             }
-            if ((lov ?? null) === null || (hiv ?? null) === null) {
+            if (nullIsh(lov) || nullIsh(hiv)) {
                 return null;
             }
             return conv(true);
@@ -721,7 +721,7 @@ function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
                 if (nullIsh(_for)) {
                     return null;
                 }
-                after = sqlSubstring(_value, _from  + _for);
+                after = sqlSubstring(_value, _from + _for);
             } else {
                 after = sqlSubstring(_value, _placing.length + _from);
             }

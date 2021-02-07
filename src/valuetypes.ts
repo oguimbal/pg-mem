@@ -215,7 +215,12 @@ export class Evaluator<T = any> implements IValue<T> {
 
         try {
             convDepth++;
-            return this.val(raw, t, convDepth === 1);
+            const isResult = convDepth === 1;
+            const result = this.val(raw, t, isResult);
+            if (isResult && this.type.toResult) {
+                return this.type.toResult(result);
+            }
+            return result;
         } finally {
             convDepth--;
         }

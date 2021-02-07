@@ -441,6 +441,12 @@ export interface _IType<TRaw = any> extends IType {
     /** Build an array type for this type */
     asArray(): _IType<TRaw[]>;
     asList(): _IType<TRaw[]>;
+
+    /** Get an unicity hash */
+    hash(value: TRaw): string | number | null;
+
+    /** Optionally unwrap value to an actual result */
+    toResult?(result: TRaw): TRaw;
 }
 
 export interface IValue<TRaw = any> {
@@ -646,4 +652,24 @@ export interface _ISequence extends _RelationBase {
     setValue(t: _Transaction, value: number): void;
     currentValue(t: _Transaction): number;
     drop(t: _Transaction): void;
+}
+
+
+export interface AggregationComputer<TRet = any> {
+    readonly type: _IType;
+    /**  Compute from index  (ex: count(*) with a group-by) */
+    computeFromIndex?(key: IndexKey, index: _IIndex, t: _Transaction): TRet | undefined;
+    /**  Compute out of nowhere when there is no group
+     * (ex: when there is no grouping, count(*) on a table or count(xxx) when there is an index on xxx) */
+    computeNoGroup?(t: _Transaction): TRet | undefined;
+
+    /** When iterating, each new group will have its computer */
+    createGroup(t: _Transaction): AggregationGroupComputer<TRet>;
+}
+
+export interface AggregationGroupComputer<TRet = any> {
+    /** When iterating, this will be called for each item in this group  */
+    feedItem(item: any): void;
+    /** Finish computation (sets aggregation on result) */
+    finish(): TRet | nil;
 }

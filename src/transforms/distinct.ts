@@ -41,8 +41,8 @@ class Distinct<T> extends FilterBase<any> {
     *enumerate(t: _Transaction): Iterable<T> {
         const got = new Set();
         for (const i of this.base.enumerate(t)) {
-            const vals = this.exprs.map(v => v.get(i, t) ?? null);
-            const hash = objectHash(vals);
+            const vals = this.exprs.map(v => v.type.hash(v.get(i, t)));
+            const hash = vals.length === 1 ? vals[0] : objectHash(vals);
             if (got.has(hash)) {
                 continue;
             }
