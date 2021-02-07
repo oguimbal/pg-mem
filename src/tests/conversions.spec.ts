@@ -144,12 +144,12 @@ describe('Conversions', () => {
         expectSingle(`select time '1:2:3'`, '01:02:03');
     })
 
-    it ('can cast integer to text', () => {
+    it('can cast integer to text', () => {
         expect(many(`SELECT 42::text`))
             .to.deep.equal([{ text: '42' }]);
     })
 
-    it ('can cast float to text', () => {
+    it('can cast float to text', () => {
         expect(many(`SELECT 42.3::text`))
             .to.deep.equal([{ text: '42.3' }]);
     })
