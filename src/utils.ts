@@ -28,7 +28,7 @@ export function trimNullish<T>(value: T, depth = 5): T {
 
     for (const k of Object.keys(value)) {
         const val = (value as any)[k];
-        if (val === undefined || val === null)
+        if (nullIsh(val))
             delete (value as any)[k];
         else
             trimNullish(val, depth - 1);

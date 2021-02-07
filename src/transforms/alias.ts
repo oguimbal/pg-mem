@@ -1,6 +1,6 @@
 import { TransformBase, FilterBase } from './transform-base';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private';
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { Types } from '../datatypes';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {

@@ -1,7 +1,7 @@
 import { DataType, QueryError } from '../interfaces';
 import { _IType } from '../interfaces-private';
 import { Box, Circle, Line, Path, Point, Polygon, Segment } from 'pgsql-ast-parser';
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { TypeBase } from './datatype-base';
 
 export function pointToStr(p: Point) {

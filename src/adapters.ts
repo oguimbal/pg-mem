@@ -3,7 +3,7 @@ import { literal } from './pg-escape';
 import moment from 'moment';
 import lru from 'lru-cache';
 import { bufToString, isBuf } from './buffer-node';
-import { compareVersions } from './utils';
+import { compareVersions, nullIsh } from './utils';
 declare var __non_webpack_require__: any;
 
 const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
@@ -28,7 +28,7 @@ function toLiteral(val: any): string {
         case 'number':
             return val.toString(10);
         default:
-            if (val === null || val === undefined) {
+            if (nullIsh(val === null)) {
                 return 'null';
             }
             if (Array.isArray(val)) {

@@ -1,4 +1,4 @@
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase } from '../interfaces-private';
 import { ArrayType } from './datatypes';
 import { isType, nullIsh } from '../utils';

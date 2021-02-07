@@ -8,7 +8,7 @@ import { PgNamespaceTable } from './pg-namespace-list';
 import { PgTypeTable } from './pg-type-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
-import { sqlSubstring } from '../../predicate';
+import { sqlSubstring } from '../../expression-builder';
 
 
 export function setupPgCatalog(db: _IDb) {

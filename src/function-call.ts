@@ -1,7 +1,7 @@
 import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private';
 import { Types, ArrayType } from './datatypes';
 import { QueryError, NotSupported } from './interfaces';
-import { Evaluator } from './valuetypes';
+import { Evaluator } from './evaluator';
 import hash from 'object-hash';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';

@@ -1,4 +1,4 @@
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { TypeBase } from './datatype-base';
 import { DataType, nil, QueryError } from '../interfaces';
 import { _ISchema, _IType } from '../interfaces-private';

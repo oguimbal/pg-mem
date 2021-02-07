@@ -1,6 +1,6 @@
 import { DataType, nil, QueryError, RegClass, RegType, _IType } from '../interfaces-private';
 import { TypeBase } from './datatype-base';
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { Types } from './datatypes';
 
 export class RegTypeImpl extends TypeBase<RegType> {

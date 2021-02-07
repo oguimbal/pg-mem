@@ -2,7 +2,7 @@ import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private';
 import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
 import hash from 'object-hash';
-import { Value, Evaluator } from './valuetypes';
+import { Value, Evaluator } from './evaluator';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'pgsql-ast-parser';
 import lru from 'lru-cache';

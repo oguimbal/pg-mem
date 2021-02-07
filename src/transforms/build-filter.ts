@@ -1,8 +1,8 @@
 import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private';
-import { buildValue } from '../predicate';
+import { buildValue } from '../expression-builder';
 import { Types, ArrayType } from '../datatypes';
 import { EqFilter } from './eq-filter';
-import { Value } from '../valuetypes';
+import { Value } from '../evaluator';
 import { FalseFilter } from './false-filter';
 import { AndFilter } from './and-filter';
 import { OrFilter } from './or-filter';

@@ -1,7 +1,7 @@
 import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces';
 import { nullIsh, getContext } from '../utils';
-import { Evaluator, Value } from '../valuetypes';
+import { Evaluator, Value } from '../evaluator';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { parseGeometricLiteral } from 'pgsql-ast-parser';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-node';
@@ -500,7 +500,7 @@ export class ArrayType extends TypeBase<any[]> {
     }
 
     convertLiteral(owner: _ISchema, elts: any) {
-        if (elts === null || elts === undefined) {
+        if (nullIsh(elts)) {
             return;
         }
         if (!Array.isArray(elts)) {

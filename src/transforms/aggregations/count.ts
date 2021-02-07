@@ -1,7 +1,7 @@
 import { AggregationComputer, AggregationGroupComputer, IndexKey, IValue, QueryError, _IIndex, _ISelection, _IType, _Transaction } from '../../interfaces-private';
 import { Expr } from 'pgsql-ast-parser';
 import { isSelectAllArgList, nullIsh } from '../../utils';
-import { buildValue } from '../../predicate';
+import { buildValue } from '../../expression-builder';
 import { Types } from '../../datatypes';
 import objectHash from 'object-hash';
 

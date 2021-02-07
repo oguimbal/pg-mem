@@ -1,9 +1,9 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private';
 import type { MemoryTable } from './table';
-import { Evaluator } from './valuetypes';
+import { Evaluator } from './evaluator';
 import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
-import { buildValue } from './predicate';
+import { buildValue } from './expression-builder';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './btree-index';
 import { GeneratedIdentityConstraint } from './constraints/generated';

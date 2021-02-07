@@ -1,6 +1,6 @@
 import { DataType, nil, QueryError, _IType } from '../interfaces-private';
 import { TypeBase } from './datatype-base';
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import moment from 'moment';
 
 export class TimestampType extends TypeBase<Date> {

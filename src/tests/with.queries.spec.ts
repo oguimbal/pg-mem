@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
 import { SelectStatement } from 'pgsql-ast-parser';
-import { buildValue } from '../predicate';
+import { buildValue } from '../expression-builder';
 import { parseSql } from '../parse-cache';
 
 describe('With statement', () => {

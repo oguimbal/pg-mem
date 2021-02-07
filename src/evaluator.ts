@@ -127,7 +127,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this
             , (raw, t) => {
                 let got = this.get(raw, t);
-                if (got === null || got === undefined) {
+                if (nullIsh(got)) {
                     return null;
                 }
                 if (!this.isAny) {
@@ -173,7 +173,7 @@ export class Evaluator<T = any> implements IValue<T> {
             , this
             , (raw, t) => {
                 const got = unwrap(raw)
-                if (got === null || got === undefined) {
+                if (nullIsh(got)) {
                     return null;
                 }
                 return this.get(got, t);

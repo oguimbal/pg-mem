@@ -1,11 +1,11 @@
 import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private';
 import { SelectedColumn, Expr } from 'pgsql-ast-parser';
-import { buildValue } from '../predicate';
+import { buildValue } from '../expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
 import { suggestColumnName } from '../utils';
 import hash from 'object-hash';
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { buildCount } from './aggregations/count';
 import { buildMinMax } from './aggregations/max-min';
 

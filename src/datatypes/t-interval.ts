@@ -1,7 +1,7 @@
 import { DataType, nil, _IType } from '../interfaces-private';
 import { Interval, normalizeInterval, parseIntervalLiteral } from 'pgsql-ast-parser';
 import { TypeBase } from './datatype-base';
-import { Evaluator } from '../valuetypes';
+import { Evaluator } from '../evaluator';
 import { intervalToSec } from '../utils';
 
 export class IntervalType extends TypeBase<Interval> {
