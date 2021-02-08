@@ -420,7 +420,7 @@ export function schemaOf(t: DataTypeDef): string | nil {
 }
 
 
-export function isType(t: any): t is _IType {
+export function isType(t: any): t is (_IType | IType) {
     return !!t?.[isType.TAG];
 }
 isType.TAG = Symbol();

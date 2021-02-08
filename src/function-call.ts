@@ -1,6 +1,6 @@
 import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private';
 import { Types, ArrayType } from './datatypes';
-import { QueryError, NotSupported } from './interfaces';
+import { QueryError, NotSupported, nil } from './interfaces';
 import { Evaluator } from './evaluator';
 import hash from 'object-hash';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
@@ -8,10 +8,9 @@ import { nullIsh } from './utils';
 
 
 export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
-    let type: _IType;
+    let type: _IType | nil = null;
     let get: (...args: any[]) => any;
 
-    name = name.toLowerCase();
     let impure = false;
     let acceptNulls = false;
 
@@ -57,15 +56,16 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
             for (const o of schema.getFunctions(name, args.length)) {
                 let ok = true;
                 for (let i = 0; i < args.length; i++) {
-                    const t = o.args[i] ?? o.argsVariadic;
-                    if (!t || !args[i].canConvert(t)) {
+                    const t = o.args[i]?.type ?? o.argsVariadic;
+                    // calling 'out' arguments not supported
+                    if (!t || !args[i].canConvert(t) || o.args[i]?.mode === 'out') {
                         ok = false;
                         break;
                     }
                 }
 
                 if (ok) {
-                    args = args.map((x, i) => x.convert(o.args[i] ?? o.argsVariadic));
+                    args = args.map((x, i) => x.convert(o.args[i]?.type ?? o.argsVariadic));
                     type = o.returns;
                     get = o.implementation;
                     impure = !!o.impure;
@@ -75,12 +75,17 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
 
 
     }
-    if (!get! || !type!) {
-        throw new NotSupported('Unsupported function: ' + name);
+    if (!get!) {
+        throw new QueryError({
+            error: `function ${name}(${args.map(() => 'unknown').join(',')}) does not exist`,
+            hint: `🔨 Please note that pg-mem implements very few native functions.
+
+            👉 You can specify the functions you would like to use via "db.public.registerFunction(...)"`
+        })
     }
     return new Evaluator(
         schema
-        , type!
+        , type ?? Types.null
         , null
         , hash({ call: name, args: args.map(x => x.hash) })
         , args

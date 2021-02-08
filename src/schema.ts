@@ -1,10 +1,10 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS } from './interfaces-private';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails } from './interfaces';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails } from './interfaces-private';
 import { functionName, ignore, isType, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
-import { typeSynonyms } from './datatypes';
+import { Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -233,6 +233,12 @@ export class DbSchema implements _ISchema, ISchema {
                     this.db.createSchema(p.name);
                     t = t.fork();
                     break;
+                case 'create function':
+                    last = this.createFunction(p);
+                    break;
+                case 'do':
+                    last = this.do(p);
+                    break;
                 case 'comment':
                 case 'raise':
                     ignore(p);
@@ -282,6 +288,70 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             e.location = this.locOf(_p);
             throw e;
         }
+    }
+
+    private do(st: DoStatement) {
+        const lang = this.db.getLanguage(st.language ?? 'plpgsql');
+        const compiled = lang(st.code, [], null);
+        // TODO ACCESS OUTER TRANSACTION WITHIN THIS CALL
+        compiled();
+        return this.simple('DO', st);
+    }
+
+    private createFunction(fn: CreateFunctionStatement) {
+        if (!fn.language) {
+            throw new QueryError('Unspecified function language');
+        }
+
+        const lang = this.db.getLanguage(fn.language);
+
+        // determine arg types
+        const args = fn.arguments.map<_ArgDefDetails>(a => ({
+            name: a.name,
+            type: this.getType(a.type),
+            default: a.default && buildValue(this.dualTable.selection, a.default),
+            mode: a.mode,
+        }));
+
+        // determine return type
+        let returns: IType | null = null;
+        if (fn.returns) {
+            switch (fn.returns.kind) {
+                case 'table':
+                    // Todo: we're losing the typing here :(
+                    returns = Types.record.asArray();
+                    ignore(fn.returns.columns);
+                    break;
+                case 'array':
+                case null:
+                case undefined:
+                    returns = this.getType(fn.returns);
+                    break;
+                default:
+                    throw NotSupported.never(fn.returns);
+            }
+        }
+
+        let argsVariadic: _IType | nil;
+        const variad = args.filter(x => x.mode === 'variadic');
+        if (variad.length > 1) {
+            throw new QueryError(`Expected only one "VARIADIC" argument`);
+        } else if (variad.length) {
+            argsVariadic = variad[0].type;
+        }
+
+        // compile & register the associated function
+        const compiled = lang(fn.code, args, returns);
+        this.registerFunction({
+            name: fn.name,
+            returns,
+            implementation: compiled,
+            args: args.filter(x => x.mode !== 'variadic'),
+            argsVariadic,
+            impure: fn.purity !== 'immutable',
+            allowNullArguments: fn.onNullInput === 'call',
+        }, fn.orReplace);
+        return this.simple('CREATE', fn);
     }
 
 
@@ -1258,16 +1328,22 @@ select * from test; // ('a', 'b'), ('b', null), ('b', 'a')
         }
     }
 
-    registerFunction(fn: FunctionDefinition): this {
-        const nm = fn.name.toLowerCase().trim();
-        let fns = this.fns.get(nm);
+    registerFunction(fn: FunctionDefinition, replace?: boolean): this {
+        let fns = this.fns.get(fn.name);
         if (!fns) {
-            this.fns.set(nm, fns = []);
+            this.fns.set(fn.name, fns = []);
         }
         fns.push({
-            args: fn.args?.map(x => this.getTypePub(x)) ?? [],
+            args: (fn.args?.map<ArgDefDetails>(x => {
+                if (typeof x === 'string' || isType(x)) {
+                    return {
+                        type: this.getTypePub(x),
+                    };
+                }
+                return x;
+            }) ?? []) as _ArgDefDetails[],
             argsVariadic: fn.argsVariadic && this.getTypePub(fn.argsVariadic),
-            returns: this.getTypePub(fn.returns),
+            returns: fn.returns && this.getTypePub(fn.returns),
             impure: !!fn.impure,
             implementation: fn.implementation,
         });
