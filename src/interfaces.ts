@@ -147,7 +147,18 @@ export interface ArgDefDetails {
     mode?: FunctionArgumentMode;
 }
 
-export type LanguageCompiler = (code: string, args: ArgDefDetails[], returns: IType | null) => CompiledFunction;
+export type LanguageCompiler = (options: ToCompile) => CompiledFunction;
+
+export interface ToCompile {
+    /** Function being compiled (null for "DO" statements compilations) */
+    functioName?: string | nil;
+    /** Code to compile */
+    code: string;
+    /** Expected arguments */
+    args: ArgDefDetails[];
+    /** Expected return type (if any) */
+    returns?: IType | nil;
+}
 
 export class AdvancedResult {
     constructor(readonly result: any, outArgs: any[]) {

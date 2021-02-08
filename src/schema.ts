@@ -292,7 +292,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     private do(st: DoStatement) {
         const lang = this.db.getLanguage(st.language ?? 'plpgsql');
-        const compiled = lang(st.code, [], null);
+        const compiled = lang({
+            args: [],
+            code: st.code,
+        });
         // TODO ACCESS OUTER TRANSACTION WITHIN THIS CALL
         compiled();
         return this.simple('DO', st);
@@ -341,7 +344,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
 
         // compile & register the associated function
-        const compiled = lang(fn.code, args, returns);
+        const compiled = lang({
+            args,
+            code: fn.code,
+            returns,
+            functioName: fn.name,
+        });
         this.registerFunction({
             name: fn.name,
             returns,

@@ -29,10 +29,10 @@ describe('Functions', () => {
     })
 
     it('can declare & call function', () => {
-        db.registerLanguage('mylang', (code, args, ret) => {
+        db.registerLanguage('mylang', ({ code, args, returns }) => {
             expect(code).to.equal('some code');
             expect(args.map(x => x.type.primary)).to.deep.equal([DataType.text]);
-            expect(ret?.primary).to.equal(DataType.text);
+            expect(returns?.primary).to.equal(DataType.text);
             return arg => {
                 return 'hello ' + arg;
             }
