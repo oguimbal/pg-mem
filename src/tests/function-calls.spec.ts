@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { DataType, IMemoryDb } from '../interfaces';
+import { CompiledFunction, DataType, IMemoryDb } from '../interfaces';
 import { preventSeqScan } from './test-utils';
 
 describe('Functions', () => {
@@ -47,4 +47,35 @@ describe('Functions', () => {
         expect(many(`select "sayHello"('world')`))
             .to.deep.equal([{ sayHello: 'hello world' }]);
     });
+
+    it('can compile kind-of plv8', () => {
+        db.registerLanguage('plv8', ({ code, args }) => {
+            const argNames = args.map((x, i) => x.name ?? ('$' + i));
+            return new Function(...argNames, code) as CompiledFunction;
+        });
+
+        expect(many(`create or replace function calc_plv8(x int, y int, func text)
+    returns int
+    as
+    $$
+    if (func === '+'){
+        return x + y
+    }
+    else if (func === '-'){
+        return x - y
+    }
+    else if (func === '*'){
+        return x * y
+    }
+    else if (func === '/'){
+        return x - y
+    } else {
+        plv8.elog(ERROR, 'invaid function');
+    }
+    $$
+    language plv8;
+
+    select calc_plv8(5,5,'+')`))
+            .to.deep.equal([{ calc_plv8: 10 }])
+    })
 });
