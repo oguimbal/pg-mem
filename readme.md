@@ -6,6 +6,10 @@
   <img src="https://github.com/oguimbal/pg-mem/workflows/CI/badge.svg">
 </p>
 
+<p align="center">
+  <img src="./.github/pg_mem.png" width="200">
+</p>
+
 
  <h3 align="center">pg-mem is an experimental in-memory emulation of a postgres database.</h3>
 
