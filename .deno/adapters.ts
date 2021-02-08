@@ -3,7 +3,7 @@ import { literal } from './pg-escape.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { bufToString, isBuf } from './buffer-deno.ts';
-import { compareVersions } from './utils.ts';
+import { compareVersions, nullIsh } from './utils.ts';
 declare var __non_webpack_require__: any;
 
 const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
@@ -28,7 +28,7 @@ function toLiteral(val: any): string {
         case 'number':
             return val.toString(10);
         default:
-            if (val === null || val === undefined) {
+            if (nullIsh(val === null)) {
                 return 'null';
             }
             if (Array.isArray(val)) {

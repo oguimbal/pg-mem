@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 import { ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
@@ -28,7 +28,7 @@ export function trimNullish<T>(value: T, depth = 5): T {
 
     for (const k of Object.keys(value)) {
         const val = (value as any)[k];
-        if (val === undefined || val === null)
+        if (nullIsh(val))
             delete (value as any)[k];
         else
             trimNullish(val, depth - 1);
@@ -420,7 +420,7 @@ export function schemaOf(t: DataTypeDef): string | nil {
 }
 
 
-export function isType(t: any): t is _IType {
+export function isType(t: any): t is (_IType | IType) {
     return !!t?.[isType.TAG];
 }
 isType.TAG = Symbol();

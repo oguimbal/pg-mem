@@ -1,9 +1,9 @@
 import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private.ts';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
 import { nullIsh, getContext } from '../utils.ts';
-import { Evaluator, Value } from '../valuetypes.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { Evaluator, Value } from '../evaluator.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
@@ -500,7 +500,7 @@ export class ArrayType extends TypeBase<any[]> {
     }
 
     convertLiteral(owner: _ISchema, elts: any) {
-        if (elts === null || elts === undefined) {
+        if (nullIsh(elts)) {
             return;
         }
         if (!Array.isArray(elts)) {

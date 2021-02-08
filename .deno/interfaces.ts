@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 
 
 export type nil = undefined | null;
@@ -128,6 +128,41 @@ export interface IMemoryDb {
      * @param install How to install this extension on a given schema
      */
     registerExtension(name: string, install: (schema: ISchema) => void): this;
+
+    /** Registers a new language, usable in 'DO' blocks, or in 'CREATE FUNCTION' blocks */
+    registerLanguage(languageName: string, compiler: LanguageCompiler): this;
+}
+
+
+export type ArgDef = DataType | IType | ArgDefDetails;
+
+export interface ArgDefDetails {
+    /** Argument type */
+    type: IType;
+    /** Optional argument name */
+    name?: string;
+    /**
+     *  Arguments are 'in' by default, but you can change that.
+     */
+    mode?: FunctionArgumentMode;
+}
+
+export type LanguageCompiler = (code: string, args: ArgDefDetails[], returns: IType | null) => CompiledFunction;
+
+export class AdvancedResult {
+    constructor(readonly result: any, outArgs: any[]) {
+    }
+}
+
+export type CompiledFunction = (...inArguments: any[]) => AdvancedResult | PlainResult;
+
+export type PlainResult = Object | number | Date | null;
+
+export interface CompiledFunctionResult {
+    /** The function result, if function "returns" something */
+    result?: any;
+    /** The functions out arguments, as indexed in the `args` passed to your language compiler function */
+    outArgs?: any[];
 }
 
 export interface IBackup {
@@ -216,21 +251,24 @@ export interface FunctionDefinition {
     name: string;
 
     /** Expected arguments */
-    args?: (DataType | IType)[];
+    args?: ArgDef[] | nil;
 
     /** Other arguments type (variadic arguments) */
-    argsVariadic?: DataType | IType;
+    argsVariadic?: DataType | IType | nil;
 
     /** Returned data type */
-    returns: DataType | IType;
+    returns?: DataType | IType | nil;
 
     /**
      * If the function is marked as impure, it will not be simplified
      * (ex: "select myFn(1) from myTable" will call myFn() for each row in myTable, even if it does not depend on its result) */
     impure?: boolean;
 
+    /** If true, the function will also be called when passing null arguments */
+    allowNullArguments?: boolean;
+
     /** Actual implementation of the function */
-    implementation: (...args: any[]) => any;
+    implementation: CompiledFunction;
 }
 
 export interface QueryResult {

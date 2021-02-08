@@ -1,6 +1,6 @@
 import { DataType, nil, QueryError, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
-import { Evaluator } from '../valuetypes.ts';
+import { Evaluator } from '../evaluator.ts';
 import { Types } from './datatypes.ts';
 import { parseTime } from '../utils.ts';
 

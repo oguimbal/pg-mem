@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound, LanguageCompiler, ArgDef, ArgDefDetails } from './interfaces.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -90,13 +90,18 @@ export interface QueryObjOpts {
 }
 
 export interface _FunctionDefinition {
-    args: _IType[];
-    argsVariadic?: _IType;
-    returns: _IType;
+    args: _ArgDefDetails[];
+    argsVariadic?: _IType | nil;
+    returns?: _IType | nil;
     impure?: boolean;
     implementation: (...args: any[]) => any;
 }
 
+
+export type _ArgDefDetails = ArgDefDetails & {
+    type: _IType;
+    default?: IValue;
+};
 
 export interface _Transaction {
     readonly isChild: boolean;
@@ -324,6 +329,7 @@ export interface _IDb extends IMemoryDb {
     getExtension(name: string): (schema: ISchema) => void;
     /** Get functions matching this arrity */
     getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition>;
+    getLanguage(name: string): LanguageCompiler;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     onIndex: _IIndex;

@@ -1,5 +1,5 @@
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
-import { buildValue } from '../predicate.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { buildValue } from '../expression-builder.ts';
 import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';

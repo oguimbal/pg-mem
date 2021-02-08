@@ -1,11 +1,11 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
-import { buildValue } from '../predicate.ts';
+import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { buildValue } from '../expression-builder.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { suggestColumnName } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { Evaluator } from '../valuetypes.ts';
+import { Evaluator } from '../evaluator.ts';
 import { buildCount } from './aggregations/count.ts';
 import { buildMinMax } from './aggregations/max-min.ts';
 

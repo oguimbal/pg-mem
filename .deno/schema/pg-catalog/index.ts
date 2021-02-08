@@ -8,7 +8,7 @@ import { PgNamespaceTable } from './pg-namespace-list.ts';
 import { PgTypeTable } from './pg-type-list.ts';
 import { allFunctions } from '../../functions/index.ts';
 import { PgRange } from './pg-range.ts';
-import { sqlSubstring } from '../../predicate.ts';
+import { sqlSubstring } from '../../expression-builder.ts';
 
 
 export function setupPgCatalog(db: _IDb) {

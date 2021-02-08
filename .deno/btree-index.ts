@@ -133,7 +133,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         // build key and object id
         const id = getId(raw);
         const key = this.buildKey(raw, t);
-        if (this.notNull && key.some(x => x === null || x === undefined)) {
+        if (this.notNull && key.some(x => nullIsh(x))) {
             throw new QueryError('Cannot add a null record in index ' + this.name);
         }
         if (this.unique && this.hasKey(key, t)) {

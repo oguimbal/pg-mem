@@ -1,7 +1,7 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
-import { buildValue } from '../predicate.ts';
+import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { buildValue } from '../expression-builder.ts';
 import { nullIsh } from '../utils.ts';
 
 export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {

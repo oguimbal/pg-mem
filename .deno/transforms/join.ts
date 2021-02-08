@@ -1,8 +1,8 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias } from '../interfaces-private.ts';
-import { buildValue, uncache } from '../predicate.ts';
+import { buildValue, uncache } from '../expression-builder.ts';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces.ts';
 import { DataSourceBase, TransformBase } from './transform-base.ts';
-import { Expr, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { Expr, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 import { nullIsh } from '../utils.ts';
 import { Types } from '../datatypes/index.ts';
 

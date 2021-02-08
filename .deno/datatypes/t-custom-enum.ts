@@ -1,4 +1,4 @@
-import { Evaluator } from '../valuetypes.ts';
+import { Evaluator } from '../evaluator.ts';
 import { TypeBase } from './datatype-base.ts';
 import { CastError, DataType, nil, QueryError } from '../interfaces.ts';
 import { _ISchema, _IType } from '../interfaces-private.ts';

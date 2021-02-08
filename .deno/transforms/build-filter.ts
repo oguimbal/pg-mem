@@ -1,15 +1,15 @@
 import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private.ts';
-import { buildValue } from '../predicate.ts';
+import { buildValue } from '../expression-builder.ts';
 import { Types, ArrayType } from '../datatypes/index.ts';
 import { EqFilter } from './eq-filter.ts';
-import { Value } from '../valuetypes.ts';
+import { Value } from '../evaluator.ts';
 import { FalseFilter } from './false-filter.ts';
 import { AndFilter } from './and-filter.ts';
 import { OrFilter } from './or-filter.ts';
 import { SeqScanFilter } from './seq-scan.ts';
 import { InFilter } from './in-filter.ts';
 import { NotInFilter } from './not-in-filter.ts';
-import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 import { StartsWithFilter } from './startswith-filter.ts';
 import { IneqFilter } from './ineq-filter.ts';
 import { hasNullish, nullIsh } from '../utils.ts';

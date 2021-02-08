@@ -1,6 +1,6 @@
 import { DataType, nil, QueryError, RegClass, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
-import { Evaluator } from '../valuetypes.ts';
+import { Evaluator } from '../evaluator.ts';
 import { getContext, parseRegClass } from '../utils.ts';
 import { Types } from './datatypes.ts';
 

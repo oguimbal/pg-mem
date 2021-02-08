@@ -1,7 +1,7 @@
 import { DataType, QueryError } from '../interfaces.ts';
 import { _IType } from '../interfaces-private.ts';
-import { Box, Circle, Line, Path, Point, Polygon, Segment } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
-import { Evaluator } from '../valuetypes.ts';
+import { Box, Circle, Line, Path, Point, Polygon, Segment } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { Evaluator } from '../evaluator.ts';
 import { TypeBase } from './datatype-base.ts';
 
 export function pointToStr(p: Point) {

@@ -1,6 +1,6 @@
 import { TransformBase, FilterBase } from './transform-base.ts';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private.ts';
-import { Evaluator } from '../valuetypes.ts';
+import { Evaluator } from '../evaluator.ts';
 import { Types } from '../datatypes/index.ts';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {

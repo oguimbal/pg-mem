@@ -1,9 +1,9 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private.ts';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces.ts';
-import { buildValue } from '../predicate.ts';
-import { Evaluator } from '../valuetypes.ts';
+import { buildValue } from '../expression-builder.ts';
+import { Evaluator } from '../evaluator.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@4.1.13/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
 import { aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
 import { isSelectAllArgList, suggestColumnName } from '../utils.ts';

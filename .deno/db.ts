@@ -1,4 +1,4 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription } from './interfaces.ts';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler } from './interfaces.ts';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS } from './interfaces-private.ts';
 import { DbSchema } from './schema.ts';
 import { initialize } from './transforms/transform-base.ts';
@@ -45,6 +45,7 @@ class MemoryDb implements _IDb {
 
     readonly adapters: Adapters = new Adapters(this);
     private extensions: { [name: string]: (schema: ISchema) => void } = {};
+    private languages: { [name: string]: LanguageCompiler } = {};
     readonly searchPath = ['pg_catalog', 'public'];
 
     get public() {
@@ -74,6 +75,20 @@ class MemoryDb implements _IDb {
         this.extensions[name] = install;
         return this;
     }
+
+    registerLanguage(languageName: string, compiler: LanguageCompiler): this {
+        this.languages[languageName.toLowerCase()] = compiler;
+        return this;
+    }
+
+    getLanguage(name: string): LanguageCompiler {
+        const ret = this.languages[name.toLowerCase()];
+        if (!ret) {
+            throw new QueryError(`Unkonwn language "${name}". If you plan to use a script language, you must declare it to pg-mem via ".registerLanguage()"`);
+        }
+        return ret;
+    }
+
 
     getExtension(name: string): (schema: ISchema) => void {
         const ret = this.extensions[name];
