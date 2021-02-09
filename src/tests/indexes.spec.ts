@@ -92,7 +92,7 @@ describe('Indices', () => {
             create unique index idx1 on test(col);
             insert into test values ('one'), ('two')`);
 
-        assert.throws(() => none(`insert into table values ('one')`));
+        assert.throws(() => none(`insert into test values ('one')`), /constraint/);
     });
 
 
