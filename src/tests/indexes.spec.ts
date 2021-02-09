@@ -86,6 +86,16 @@ describe('Indices', () => {
         assert.throws(() => none(`insert into test values (null)`));
     });
 
+
+    it('can unique index', () => {
+        none(`create table test(col text);
+            create unique index idx1 on test(col);
+            insert into test values ('one'), ('two')`);
+
+        assert.throws(() => none(`insert into table values ('one')`));
+    });
+
+
     it('can create the same named index twice', () => {
         none(`create table test(col text);
             create index idx1 on test(col);

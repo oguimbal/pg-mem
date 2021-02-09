@@ -752,6 +752,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             .createIndex(t, {
                 columns,
                 indexName,
+                unique: p.unique,
             });
         return this.simple('CREATE', p);
     }
