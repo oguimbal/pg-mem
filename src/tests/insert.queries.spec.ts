@@ -198,4 +198,44 @@ describe('Inserts', () => {
             }]);
     });
 
+
+    describe('insert into select', () => {
+        it('can insert into select', () => {
+            expect(many(`create table test(a varchar(4), b int, c jsonb);
+                insert into test (select * from (values ('a', 42, '[]'::jsonb) ) as t);
+                select * from test;`))
+                .to.deep.equal([{ a: 'a', b: 42, c: [] }])
+        });
+
+        it('cannot insert into select when not implicitely convertible', () => {
+            none(`create table test(a varchar(4), b int, c jsonb);`);
+            assert.throws(() => none(`insert into test (select * from (values ('a', 42, '[]') ) as t)`), /column "c" is of type jsonb but expression is of type text/);
+        })
+
+        it('checks that insert values has enough columns', () => {
+            none(`create table test(a varchar(4), b int, c jsonb);`);
+            assert.throws(() => none(`insert into test(a) (select * from (values ('a', 42, '[]') ) as t)`), /INSERT has more expressions than target columns/);
+        })
+
+        it('can pick inserted values', () => {
+            expect(many(`create table test(a varchar(4), b int, c jsonb);
+                    insert into test(c, b) (select * from (values ('[]'::jsonb, 42) ) as t);
+                    select * from test;`))
+                .to.deep.equal([{ a: null, b: 42, c: [] }])
+        })
+
+        it('skips values', () => {
+            expect(many(`create table test(a varchar(4), b int, c jsonb);
+                    insert into test (select * from (values ('a', 42) ) as t);
+                    select * from test;`))
+                .to.deep.equal([{ a: 'a', b: 42, c: null }])
+        })
+
+        it('preserves null jsonb alues', () => {
+            expect(many(`create table test(val jsonb);
+                    insert into test (select * from (values ('null'::jsonb) ) as t);
+                    select val, val isnull as "isNil", val = 'null'::jsonb as "eqNilJson" from test;`))
+                .to.deep.equal([{ val: null, isNil: false, eqNilJson: true }])
+        })
+    });
 });
