@@ -78,4 +78,18 @@ describe('Functions', () => {
     select calc_plv8(5,5,'+')`))
             .to.deep.equal([{ calc_plv8: 10 }])
     })
+
+
+    it('can execute do statement', () => {
+        let called = false;
+        db.registerLanguage('mylang', () => {
+            return () => {
+                called = true;
+            }
+        });
+
+        none(`DO LANGUAGE mylang $$some code$$`);
+
+        assert.isTrue(called);
+    });
 });

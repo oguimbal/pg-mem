@@ -167,7 +167,7 @@ export class AdvancedResult {
 
 export type CompiledFunction = (...inArguments: any[]) => AdvancedResult | PlainResult;
 
-export type PlainResult = Object | number | Date | null;
+export type PlainResult = Object | number | Date | null | void;
 
 export interface CompiledFunctionResult {
     /** The function result, if function "returns" something */

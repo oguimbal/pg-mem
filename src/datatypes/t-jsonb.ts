@@ -5,6 +5,25 @@ import { deepCompare, deepEqual } from '../utils';
 import { Types } from './datatypes';
 
 const NIL = Symbol('null');
+
+
+export function cleanResults(results: any[]): any {
+    // ugly hack to turn jsonb nulls into actual nulls
+    // This will bite me someday ... but please dont judge me, I too try to have a life outside here 🤔
+    // The sane thing to do would be to refactor things & introduce a DBNULL value in pgmem
+    //   since the need of such DBNULL value could arise somehow on another type
+    //   see `can select jsonb null` test in nulls.spec.ts
+
+    for (const obj of results) {
+        for (const [k, v] of Object.entries(obj)) {
+            if (v === NIL) {
+                obj[k] = null;
+            }
+        }
+    }
+    return results;
+}
+
 export class JSONBType extends TypeBase<any> {
 
 
@@ -49,7 +68,7 @@ export class JSONBType extends TypeBase<any> {
         switch (from.primary) {
             case DataType.text:
                 return value
-                    .setConversion(raw => JSON.parse(raw) ?? NIL
+                    .setConversion(raw => JSON.parse(raw, (_, x) => x ?? NIL) ?? NIL
                         , toJsonb => ({ toJsonb }));
         }
         return null;

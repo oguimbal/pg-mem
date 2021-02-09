@@ -15,10 +15,10 @@ import { migrate } from './migrate/migrate';
 import { CustomEnumType } from './datatypes/t-custom-enum';
 import { regGen } from './datatypes/datatype-base';
 import { ValuesTable } from './schema/values-table';
+import { cleanResults } from './datatypes/t-jsonb';
 
 
 type WithableResult = number | _ISelection;
-
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -423,7 +423,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
         const rows = typeof last === 'number'
             ? []
-            : [...last.enumerate(t)];
+            : cleanResults([...last.enumerate(t)]);
         return {
             rows,
             rowCount: typeof last === 'number' ? last : rows.length,
@@ -933,6 +933,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             table.delete(t, item);
             rows.push(item);
         }
+        cleanResults(rows);
         return p.returning
             ? buildSelection(new ArrayFilter(table.selection, rows), p.returning)
             : rows.length;

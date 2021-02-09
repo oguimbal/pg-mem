@@ -78,24 +78,28 @@ describe('Null values', () => {
     });
 
 
-    // TODO
-    it.skip('can select jsonb null', () => {
+    it('can select jsonb null', () => {
+        expect(many(`drop table if exists test;
+        create table test(txt text);
+                        insert into test values ('null'), (null);
+                        select txt::jsonb as casted, txt::jsonb is null as "castedIsNil", txt::jsonb = null as "eqNil", txt::jsonb = 'null'::jsonb as "eqNilJson" from test;`))
+            .to.deep.equal([
+                { casted: null, castedIsNil: false, eqNil: null, eqNilJson: true },
+                { casted: null, castedIsNil: true, eqNil: null, eqNilJson: null },
+            ]);
+
         expect(many(`select 'null'::jsonb`))
             .to.deep.equal([{ jsonb: null }]);
 
         expect(many(`select concat('nu','ll')::jsonb`))
             .to.deep.equal([{ jsonb: null }]);
 
-
-        expect(many(`drop table if exists test;
-        create table test(txt text);
-                        insert into test values ('null'), (null);
-                        select txt::jsonb as casted, txt::jsonb is null as castedIsNil, txt::jsonb = null as eqNil, txt::jsonb = 'null'::jsonb as eqNilJson from test;`))
-            .to.deep.equal([
-                { casted: null, castedIsNil: false, eqNil: null, eqNilJson: true },
-                { casted: null, castedIsNil: true, eqNil: null, eqNilJson: null },
-            ]);
-
-
+        expect(many(`select val, val isnull as "isNil", val = null as "eqNil", val = 'null'::jsonb as "eqNilJson" from (values ('{"abc":null}'::jsonb -> 'abc')) as tbl(val)`))
+            .to.deep.equal([{
+                val: null,
+                isNil: false,
+                eqNil: null,
+                eqNilJson: true,
+            }])
     })
 });
