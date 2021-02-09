@@ -450,9 +450,6 @@ export interface _IType<TRaw = any> extends IType {
 
     /** Get an unicity hash */
     hash(value: TRaw): string | number | null;
-
-    /** Optionally unwrap value to an actual result */
-    toResult?(result: TRaw): TRaw;
 }
 
 export interface IValue<TRaw = any> {

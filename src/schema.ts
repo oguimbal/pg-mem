@@ -15,7 +15,7 @@ import { migrate } from './migrate/migrate';
 import { CustomEnumType } from './datatypes/t-custom-enum';
 import { regGen } from './datatypes/datatype-base';
 import { ValuesTable } from './schema/values-table';
-import { cleanResults } from './datatypes/t-jsonb';
+import { cleanResults } from './clean-results';
 
 
 type WithableResult = number | _ISelection;

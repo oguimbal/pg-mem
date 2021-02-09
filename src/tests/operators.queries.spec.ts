@@ -335,8 +335,8 @@ describe('Operators', () => {
     it('executes array multiple index incomplete indexing', () => {
         expect(many(`create table test(val integer[][]);
                 insert into test values ('{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}');
-                select val[2] as x from test;`))
-            .to.deep.equal([{ x: null }])
+                select val[2] as incomplete, val[2][1] as complete from test;`))
+            .to.deep.equal([{ incomplete: null, complete: 4 }])
     });
 
     describe('Between operator', () => {
