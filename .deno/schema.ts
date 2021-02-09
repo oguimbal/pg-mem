@@ -15,10 +15,10 @@ import { migrate } from './migrate/migrate.ts';
 import { CustomEnumType } from './datatypes/t-custom-enum.ts';
 import { regGen } from './datatypes/datatype-base.ts';
 import { ValuesTable } from './schema/values-table.ts';
+import { cleanResults } from './clean-results.ts';
 
 
 type WithableResult = number | _ISelection;
-
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -423,7 +423,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
         const rows = typeof last === 'number'
             ? []
-            : [...last.enumerate(t)];
+            : cleanResults([...last.enumerate(t)]);
         return {
             rows,
             rowCount: typeof last === 'number' ? last : rows.length,
@@ -933,6 +933,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             table.delete(t, item);
             rows.push(item);
         }
+        cleanResults(rows);
         return p.returning
             ? buildSelection(new ArrayFilter(table.selection, rows), p.returning)
             : rows.length;
@@ -1130,31 +1131,58 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const returning = p.returning && buildSelection(new ArrayFilter(selection, ret), p.returning);
 
 
-        let values = p.values;
+        type V = (Expr | 'default' | { _custom: any });
+        let values: V[][] | nil = p.values;
+        let columns: string[];
 
         if (p.select) {
-            /**
-create table test(a text, b text);
-insert into test values ('a', 'b');
-insert into test select * from test;
-insert into test select b from test;
-insert into test select b, a from test;,
-select * from test; // ('a', 'b'), ('b', null), ('b', 'a')
-             */
-            throw new Error('todo: array-mode iteration');
-        }
-        if (!values) {
-            throw new QueryError('Nothing to insert');
-        }
-        if (!values.length) {
-            return 0; // nothing to insert
+            const toInsert = this.buildSelect(p.select);
+
+            // check not inserting too many values
+            columns = p.columns
+                ?? table.selection.columns.map(x => x.id!)
+                    .slice(0, toInsert.columns.length);
+            if (toInsert.columns.length > columns.length) {
+                throw new QueryError(`INSERT has more expressions than target columns`);
+            }
+
+            values = [];
+
+            // check insert types
+            for (let i = 0; i < columns.length; i++) {
+                const valueType = toInsert.columns[i].type;
+                const insertIntoType = table.selection.getColumn(columns[i]).type;
+                if (!valueType.canConvertImplicit(insertIntoType)) {
+                    throw new QueryError(`column "${columns[i]}" is of type ${insertIntoType.name} but expression is of type ${valueType.name}`);
+                }
+            }
+
+            // enumerate & get
+            for (const o of toInsert.enumerate(t)) {
+                const nv: V[] = [];
+                for (let i = 0; i < columns.length; i++) {
+                    const _custom = toInsert.columns[i].get(o, t);
+                    nv.push({
+                        _custom
+                    });
+                }
+                values.push(nv);
+            }
+        } else {
+
+            if (!values) {
+                throw new QueryError('Nothing to insert');
+            }
+
+            // get columns to insert into
+            columns = p.columns
+                ?? table.selection.columns
+                    .map(x => x.id!)
+                    .slice(0, values[0].length);
         }
 
-        // get columns to insert into
-        const columns: string[] = p.columns
-            ?? table.selection.columns
-                .map(x => x.id!)
-                .slice(0, values[0].length);
+
+
 
         // build 'on conflict' strategy
         let ignoreConflicts: OnConflictHandler | nil = undefined;
@@ -1207,17 +1235,21 @@ select * from test; // ('a', 'b'), ('b', null), ('b', 'a')
             }
             const toInsert: any = {};
             for (let i = 0; i < val.length; i++) {
-                const v: Expr | 'default' = val[i];
+                const v: V = val[i];
                 const col = table.selection.getColumn(columns[i]);
                 if (v === 'default') {
                     continue;
                 }
-                const notConv = buildValue(table.selection, v);
-                const converted = notConv.convert(col.type);
-                if (!converted.isConstant) {
-                    throw new QueryError('Cannot insert non constant expression');
+                if ('_custom' in v) {
+                    toInsert[columns[i]] = v._custom;
+                } else {
+                    const notConv = buildValue(table.selection, v);
+                    const converted = notConv.convert(col.type);
+                    if (!converted.isConstant) {
+                        throw new QueryError('Cannot insert non constant expression');
+                    }
+                    toInsert[columns[i]] = converted.get();
                 }
-                toInsert[columns[i]] = converted.get();
             }
             ret.push(table.doInsert(t, toInsert, opts));
         }

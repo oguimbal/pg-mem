@@ -155,7 +155,7 @@ class NumberType extends TypeBase<number> {
             case DataType.regtype:
                 return value
                     .setType(Types.regtype)
-                    .setConversion((int: number, _, t) => {
+                    .setConversion((int: number) => {
                         const got = value.owner.getType(int, { nullIfNotFound: true });
                         if (!got) {
                             throw new CastError(DataType.integer, DataType.regtype);

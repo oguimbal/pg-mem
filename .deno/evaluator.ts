@@ -6,8 +6,6 @@ import { buildCall } from './function-call.ts';
 import { nullIsh } from './utils.ts';
 
 
-let convDepth = 0;
-
 export class Evaluator<T = any> implements IValue<T> {
 
     readonly isConstantLiteral: boolean;
@@ -38,7 +36,7 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly id: string | nil
         , readonly hash: string
         , dependencies: IValue | IValue[] | nil
-        , public val: nil | Object | number | string | Date | ((raw: any, transaction: _Transaction | nil, isResult: boolean) => any)
+        , public val: nil | Object | number | string | Date | ((raw: any, transaction: _Transaction | nil) => any)
         , private opts?: {
             isAny?: boolean;
             isColumnOf?: _ISelection;
@@ -95,7 +93,7 @@ export class Evaluator<T = any> implements IValue<T> {
         ) {
             // no dependency => this is a real constant => evaluate it.
             if (typeof this.val === 'function') {
-                this.val = this.val(null, null, true);
+                this.val = this.val(null, null);
             }
         }
     }
@@ -117,7 +115,7 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
 
-    setConversion(converter: (val: T, isResult: boolean, t: _Transaction | nil) => any
+    setConversion(converter: (val: T, t: _Transaction | nil) => any
         , hashConv: (hash: string) => any) {
         return new Evaluator<T>(
             this.owner
@@ -131,12 +129,12 @@ export class Evaluator<T = any> implements IValue<T> {
                     return null;
                 }
                 if (!this.isAny) {
-                    return converter(got, convDepth == 1, t);
+                    return converter(got, t);
                 }
                 if (!Array.isArray(got)) {
                     throw new QueryError('Unexpected use of ANY()');
                 }
-                return (got as any[]).map(x => converter(x, convDepth === 1, t));
+                return (got as any[]).map(x => converter(x, t));
             }
             , this.opts
         );
@@ -205,25 +203,10 @@ export class Evaluator<T = any> implements IValue<T> {
         if ((nullIsh(raw) || !t) && !this.isConstant) {
             throw new Error('Cannot be evaluated as constant');
         }
-        return this._get(raw, t);
-    }
-
-    private _get(raw?: any, t?: _Transaction): T {
         if (typeof this.val !== 'function') {
             return this.val as any;
         }
-
-        try {
-            convDepth++;
-            const isResult = convDepth === 1;
-            const result = this.val(raw, t, isResult);
-            if (isResult && this.type.toResult) {
-                return this.type.toResult(result);
-            }
-            return result;
-        } finally {
-            convDepth--;
-        }
+        return this.val(raw, t)
     }
 
     canConvert(to: _IType<T>): boolean {

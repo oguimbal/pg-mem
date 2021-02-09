@@ -8,6 +8,7 @@ import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprAr
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
+import { IS_PARTIAL_INDEXING } from './clean-results.ts';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
@@ -502,7 +503,7 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
         , null
         , hash({ array: onExpr.hash, index: index.hash })
         , [onExpr, index]
-        , (raw, t, isResult) => {
+        , (raw, t) => {
             const value = onExpr.get(raw, t);
             if (!Array.isArray(value)) {
                 return null;
@@ -512,8 +513,10 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
                 return null;
             }
             const ret = value[i - 1]; // 1-base !
-            if (isResult && Array.isArray(ret)) {
-                return null;
+
+            if (Array.isArray(ret)) {
+                // ugly hack.. see clean-results.ts
+                (ret as any)[IS_PARTIAL_INDEXING] = true;
             }
             return ret;
         });

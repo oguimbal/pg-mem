@@ -3,8 +3,8 @@ import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../evaluator.ts';
 import { deepCompare, deepEqual } from '../utils.ts';
 import { Types } from './datatypes.ts';
+import { JSON_NIL } from '../clean-results.ts';
 
-const NIL = Symbol('null');
 export class JSONBType extends TypeBase<any> {
 
 
@@ -49,7 +49,7 @@ export class JSONBType extends TypeBase<any> {
         switch (from.primary) {
             case DataType.text:
                 return value
-                    .setConversion(raw => JSON.parse(raw) ?? NIL
+                    .setConversion(raw => JSON.parse(raw, (_, x) => x ?? JSON_NIL) ?? JSON_NIL
                         , toJsonb => ({ toJsonb }));
         }
         return null;
@@ -70,7 +70,7 @@ export class JSONBType extends TypeBase<any> {
     }
 
     toResult(result: any): any {
-        return result === NIL
+        return result === JSON_NIL
             ? null
             : result;
     }
