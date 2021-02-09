@@ -92,7 +92,7 @@
     "style-loader": "^1.2.1",
     "ts-loader": "^8.0.0",
     "ts-node": "^8.10.2",
-    "typeorm": "^0.2.29",
+    "typeorm": "0.2.29",
     "typescript": "^3.9.6",
     "uuid": "^8.3.2",
     "vscode-mocha-hmr": "^1.0.0",
