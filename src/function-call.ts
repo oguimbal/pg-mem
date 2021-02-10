@@ -69,6 +69,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
                     type = o.returns;
                     get = o.implementation;
                     impure = !!o.impure;
+                    acceptNulls = !!o.allowNullArguments;
                     break;
                 }
             }

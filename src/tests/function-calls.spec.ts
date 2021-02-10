@@ -9,6 +9,7 @@ describe('Functions', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];
+    let one: (str: string) => any;
     let none: (str: string) => void;
     function all(table = 'data') {
         return many(`select * from ${table}`);
@@ -16,6 +17,7 @@ describe('Functions', () => {
     beforeEach(() => {
         db = newDb();
         many = db.public.many.bind(db.public);
+        one = db.public.one.bind(db.public);
         none = db.public.none.bind(db.public);
     });
 
@@ -91,5 +93,35 @@ describe('Functions', () => {
         none(`DO LANGUAGE mylang $$some code$$`);
 
         assert.isTrue(called);
+    });
+
+    it('does not call when has null argument', () => {
+        db.public.registerFunction({
+            name: 'myfn',
+            args: [DataType.text],
+            returns: DataType.text,
+            implementation: () => {
+                assert.fail('Should not be called');
+            },
+        });
+
+        expect(many(`select myfn(null)`))
+            .to.deep.equal([{ myfn: null }]);
+    });
+
+    it('calls when has null argument and told it to', () => {
+        db.public.registerFunction({
+            name: 'myfn',
+            args: [DataType.text],
+            returns: DataType.text,
+            allowNullArguments: true,
+            implementation: v => {
+                expect(v).to.equal(null);
+                return 'hi !';
+            },
+        });
+
+        expect(many(`select myfn(null)`))
+            .to.deep.equal([{ myfn: 'hi !' }]);
     });
 });

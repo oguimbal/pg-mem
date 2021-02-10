@@ -94,6 +94,7 @@ export interface _FunctionDefinition {
     argsVariadic?: _IType | nil;
     returns?: _IType | nil;
     impure?: boolean;
+    allowNullArguments?: boolean;
     implementation: (...args: any[]) => any;
 }
 
