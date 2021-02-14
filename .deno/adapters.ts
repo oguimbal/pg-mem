@@ -28,7 +28,7 @@ function toLiteral(val: any): string {
         case 'number':
             return val.toString(10);
         default:
-            if (nullIsh(val === null)) {
+            if (nullIsh(val)) {
                 return 'null';
             }
             if (Array.isArray(val)) {
