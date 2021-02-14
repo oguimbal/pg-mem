@@ -7,10 +7,9 @@ import { nullIsh } from '../../utils';
 
 class SumExpr implements AggregationComputer<number> {
 
-  constructor(private exp: IValue){
-
+  constructor(private exp: IValue) {
   }
-  
+
   get type(): _IType<any> {
     return Types.bigint;
   }
@@ -20,7 +19,7 @@ class SumExpr implements AggregationComputer<number> {
     return {
       feedItem: (item) => {
         const value = this.exp.get(item, t);
-        if (!nullIsh(value)){
+        if (!nullIsh(value)) {
           val = nullIsh(val) ? value : val + value;
         }
       },
@@ -31,10 +30,10 @@ class SumExpr implements AggregationComputer<number> {
 
 class SumDistinct implements AggregationComputer<number> {
 
-  constructor(private exp: IValue){
+  constructor(private exp: IValue) {
   }
 
-  get type(): _IType<any>{
+  get type(): _IType<any> {
     return Types.bigint
   }
   createGroup(t: _Transaction): AggregationGroupComputer<number> {
@@ -42,23 +41,23 @@ class SumDistinct implements AggregationComputer<number> {
     return {
       feedItem: (item) => {
         const value = this.exp.get(item, t)
-        if(!nullIsh(value)){
+        if (!nullIsh(value)) {
           unique.add(value);
         }
       },
-      finish: () => unique.size === 0 ? null : [...unique].reduce((acc, cur) => acc+cur, 0) 
+      finish: () => unique.size === 0 ? null : [...unique].reduce((acc, cur) => acc + cur, 0)
     }
   }
 
 }
 
-export function buildSum(this: void, base: _ISelection, args: Expr[]){
-  if (args.length !== 1){
+export function buildSum(this: void, base: _ISelection, args: Expr[]) {
+  if (args.length !== 1) {
     throw new QueryError('SUM expects ono argument, give ' + args.length);
   }
 
   if (args[0].type === 'call') {
-    if(args[0].function === 'distinct') {
+    if (args[0].function === 'distinct') {
       if (!args[0].args.length) {
         throw new QueryError('distinct() can only take one argument');
       }
