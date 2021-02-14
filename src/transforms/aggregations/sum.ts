@@ -53,7 +53,7 @@ class SumDistinct implements AggregationComputer<number> {
 
 export function buildSum(this: void, base: _ISelection, args: Expr[]) {
   if (args.length !== 1) {
-    throw new QueryError('SUM expects ono argument, give ' + args.length);
+    throw new QueryError('SUM expects one argument, given ' + args.length);
   }
 
   if (args[0].type === 'call') {
