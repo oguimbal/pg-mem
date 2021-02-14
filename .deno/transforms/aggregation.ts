@@ -8,6 +8,7 @@ import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../evaluator.ts';
 import { buildCount } from './aggregations/count.ts';
 import { buildMinMax } from './aggregations/max-min.ts';
+import { buildSum } from './aggregations/sum.ts';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -300,6 +301,8 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             case 'max':
             case 'min':
                 return buildMinMax(this.base, args, name);
+            case 'sum':
+                return buildSum(this.base, args);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }

@@ -1387,6 +1387,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             returns: fn.returns && this.getTypePub(fn.returns),
             impure: !!fn.impure,
             implementation: fn.implementation,
+            allowNullArguments: fn.allowNullArguments,
         });
         return this;
     }
