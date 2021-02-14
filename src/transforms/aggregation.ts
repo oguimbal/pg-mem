@@ -8,6 +8,7 @@ import hash from 'object-hash';
 import { Evaluator } from '../evaluator';
 import { buildCount } from './aggregations/count';
 import { buildMinMax } from './aggregations/max-min';
+import { buildSum } from './aggregations/sum';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -300,6 +301,8 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             case 'max':
             case 'min':
                 return buildMinMax(this.base, args, name);
+            case 'sum':
+                return buildSum(this.base, args);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }
