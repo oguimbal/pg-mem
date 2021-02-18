@@ -391,5 +391,23 @@ describe('Simple queries', () => {
                     insert into tbl values ('A'), ('B'), ('C');
                     SELECT * FROM tbl WHERE id = ANY(array['A', 'C'])`))
             .to.deep.equal([{ id: 'A' }, { id: 'C' }]);
+    });
+
+
+    it ('cannot evaluate casted empty arrays', () => {
+        none(`CREATE TABLE example (
+            members               VARCHAR[]
+        );
+        select array[]::varchar[];
+        INSERT INTO example (members) VALUES (ARRAY[]::varchar[]);
+        INSERT INTO example (members) VALUES ('{}');`)
+    });
+
+    it ('should not be able to determine the type of an empty array', () => {
+        assert.throw(() => none(`SELECT array[];`), /cannot determine type of empty array/);
+        none(`CREATE TABLE example (
+            members               VARCHAR[]
+        );`);
+        assert.throws(() => none(`INSERT INTO example (members) VALUES (ARRAY[])`), /cannot determine type of empty array/);
     })
 });

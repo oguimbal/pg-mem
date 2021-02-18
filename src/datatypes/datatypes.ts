@@ -427,7 +427,7 @@ export class ArrayType extends TypeBase<any[]> {
             return this.of.canConvert(to);
         }
         return to instanceof ArrayType
-            && to.of.canConvert(this.of);
+            && this.of.canConvert(to.of);
     }
 
     doCast(value: Evaluator, _to: _IType) {

@@ -15,7 +15,20 @@ const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
     max: 30,
 });
 export function buildValue(data: _ISelection, val: Expr): IValue {
-    return _buildValue(data, val);
+    const ret =  _buildValue(data, val);
+    checkNotUntypedArray(ret);
+    return ret;
+}
+
+
+function checkNotUntypedArray(value: IValue) {
+    // A bit ugly: check that this is not a non typed array (empty array)
+    // see https://github.com/oguimbal/pg-mem/issues/64
+    // + corresponding UTs
+    const type = value.type;
+    if (type instanceof ArrayType && type.of == Types.null) {
+        throw new QueryError(`cannot determine type of empty array`);
+    }
 }
 
 export function uncache(data: _ISelection) {
