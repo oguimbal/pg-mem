@@ -753,6 +753,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 columns,
                 indexName,
                 unique: p.unique,
+                ifNotExists: p.ifNotExists,
             });
         return this.simple('CREATE', p);
     }

@@ -102,6 +102,31 @@ describe('Indices', () => {
             create index idx2 on test(col);`);
     });
 
+
+    it('can create index if not exists', () => {
+        none(`create table test(col text);
+            create index idxname on test(col);
+            create index if not exists idxname on test(col);`);
+    });
+
+
+    it('reads .ifNotExists when creating index', () => {
+        none(`create table test(col text);
+            create index if not exists idxname on test(col);`);
+    });
+
+    it('cannot create index twice', () => {
+        none(`create table test(col text);
+            create index idxname on test(col);`);
+        assert.throws(() => none(`create index idxname on test(col)`), /exists/);
+    });
+
+    it('cannot create index which has same name as a table', () => {
+        none(`create table test(col text);`);
+        assert.throws(() => none(`create index test on test(col)`), /exists/);
+    });
+
+
     it('can create the same anonymous index twice', () => {
         none(`create table test(col text);
             create index on test(col);
