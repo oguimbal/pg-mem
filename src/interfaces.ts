@@ -11,7 +11,7 @@ export type Schema = {
 }
 
 
-export interface SchemaField extends Omit<CreateColumnDef, 'dataType'> {
+export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind'> {
     type: IType;
     serial?: boolean;
 }

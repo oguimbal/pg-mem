@@ -15,7 +15,7 @@ const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
     max: 30,
 });
 export function buildValue(data: _ISelection, val: Expr): IValue {
-    const ret =  _buildValue(data, val);
+    const ret = _buildValue(data, val);
     checkNotUntypedArray(ret);
     return ret;
 }
@@ -114,6 +114,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildTernary(data, val);
         case 'select':
         case 'union':
+        case 'with':
             return buildSelectAsArray(data, val);
         case 'constant':
             return Value.constant(data.ownerSchema, val.dataType as any, val.value);

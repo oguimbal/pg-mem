@@ -4,7 +4,7 @@ import { functionName, ignore, isType, parseRegClass, pushContext, randomString,
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -402,10 +402,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
     }
 
+    private buildWith(p: WithStatement): _ISelection {
+        throw new NotSupported('"WITH" statements');
+    }
+
+
     private prepareWithable(t: _Transaction, p: WithStatementBinding): WithableResult {
         switch (p.type) {
             case 'select':
             case 'union':
+            case 'with':
                 return this.lastSelect = this.buildSelect(p);
             case 'delete':
                 return this.executeDelete(t, p);
@@ -898,20 +904,30 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const ret = this.simple('CREATE', p);
 
         return this.checkExistence(ret, name, p.ifNotExists, () => {
+            let fields: SchemaField[] = [];
+            for (const f of p.columns) {
+                switch (f.kind) {
+                    case 'column':
+                        // TODO: #collation
+                        ignore(f.collate);
+                        fields.push({
+                            ...f,
+                            type: this.getType(f.dataType),
+                            serial: !f.dataType.kind && f.dataType.name === 'serial',
+                        });
+                        break;
+                    case 'like table':
+                        throw new NotSupported('"like table" statement');
+                    default:
+                        throw NotSupported.never(f);
+                }
+            }
+
             // perform creation
             this.declareTable({
                 name: name.name,
                 constraints: p.constraints,
-                fields: p.columns
-                    .map<SchemaField>(f => {
-                        // TODO: #collation
-                        ignore(f.collate);
-                        return {
-                            ...f,
-                            type: this.getType(f.dataType),
-                            serial: !f.dataType.kind && f.dataType.name === 'serial',
-                        }
-                    })
+                fields,
             });
         });
     }
@@ -966,6 +982,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         switch (p.type) {
             case 'union':
                 return this.buildUnion(p);
+            case 'with':
+                return this.buildWith(p);
             case 'select':
                 break;
             default:
