@@ -1,4 +1,4 @@
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 import { buildValue } from '../expression-builder.ts';
 import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';

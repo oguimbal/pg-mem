@@ -424,9 +424,6 @@ export const Value = {
             .setConversion(x => -x, x => ({ neg: x }));
     },
     array(owner: _ISchema, values: IValue[], list: boolean = false): IValue {
-        if (!values.length) {
-            throw new QueryError('Expecting some value in list');
-        }
         const type = values.reduce((t, v) => {
             if (v.canConvert(t)) {
                 return t;

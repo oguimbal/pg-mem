@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './evaluator.ts';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
@@ -15,7 +15,20 @@ const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
     max: 30,
 });
 export function buildValue(data: _ISelection, val: Expr): IValue {
-    return _buildValue(data, val);
+    const ret = _buildValue(data, val);
+    checkNotUntypedArray(ret);
+    return ret;
+}
+
+
+function checkNotUntypedArray(value: IValue) {
+    // A bit ugly: check that this is not a non typed array (empty array)
+    // see https://github.com/oguimbal/pg-mem/issues/64
+    // + corresponding UTs
+    const type = value.type;
+    if (type instanceof ArrayType && type.of == Types.null) {
+        throw new QueryError(`cannot determine type of empty array`);
+    }
 }
 
 export function uncache(data: _ISelection) {
@@ -101,6 +114,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildTernary(data, val);
         case 'select':
         case 'union':
+        case 'with':
             return buildSelectAsArray(data, val);
         case 'constant':
             return Value.constant(data.ownerSchema, val.dataType as any, val.value);

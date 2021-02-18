@@ -1,10 +1,10 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails } from './interfaces.ts';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails } from './interfaces-private.ts';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated } from './interfaces-private.ts';
 import { functionName, ignore, isType, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils.ts';
 import { buildValue } from './expression-builder.ts';
-import { Types, typeSynonyms } from './datatypes/index.ts';
+import { ArrayType, Types, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -402,10 +402,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
     }
 
+    private buildWith(p: WithStatement): _ISelection {
+        throw new NotSupported('"WITH" statements');
+    }
+
+
     private prepareWithable(t: _Transaction, p: WithStatementBinding): WithableResult {
         switch (p.type) {
             case 'select':
             case 'union':
+            case 'with':
                 return this.lastSelect = this.buildSelect(p);
             case 'delete':
                 return this.executeDelete(t, p);
@@ -597,9 +603,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
 
     getObject(p: QName): _IRelation;
+    getObject(p: QName, opts: BeingCreated): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
-    getObject(p: QName, opts?: QueryObjOpts) {
-        function chk<T>(ret: T): T {
+    getObject(p: QName, opts?: QueryObjOpts): _IRelation | null {
+        function chk(ret: _IRelation | null): _IRelation | null {
+            const bc = opts?.beingCreated;
+            if (!ret && bc && (
+                !p.schema || p.schema === bc.ownerSchema?.name
+            ) && bc.name === p.name) {
+                ret = bc;
+            }
             if (!ret && !opts?.nullIfNotFound) {
                 throw new RelationNotFound(p.name);
             }
@@ -753,6 +766,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 columns,
                 indexName,
                 unique: p.unique,
+                ifNotExists: p.ifNotExists,
             });
         return this.simple('CREATE', p);
     }
@@ -890,20 +904,30 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const ret = this.simple('CREATE', p);
 
         return this.checkExistence(ret, name, p.ifNotExists, () => {
+            let fields: SchemaField[] = [];
+            for (const f of p.columns) {
+                switch (f.kind) {
+                    case 'column':
+                        // TODO: #collation
+                        ignore(f.collate);
+                        fields.push({
+                            ...f,
+                            type: this.getType(f.dataType),
+                            serial: !f.dataType.kind && f.dataType.name === 'serial',
+                        });
+                        break;
+                    case 'like table':
+                        throw new NotSupported('"like table" statement');
+                    default:
+                        throw NotSupported.never(f);
+                }
+            }
+
             // perform creation
             this.declareTable({
                 name: name.name,
                 constraints: p.constraints,
-                fields: p.columns
-                    .map<SchemaField>(f => {
-                        // TODO: #collation
-                        ignore(f.collate);
-                        return {
-                            ...f,
-                            type: this.getType(f.dataType),
-                            serial: !f.dataType.kind && f.dataType.name === 'serial',
-                        }
-                    })
+                fields,
             });
         });
     }
@@ -958,6 +982,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         switch (p.type) {
             case 'union':
                 return this.buildUnion(p);
+            case 'with':
+                return this.buildWith(p);
             case 'select':
                 break;
             default:

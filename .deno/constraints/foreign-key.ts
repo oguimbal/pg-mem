@@ -1,5 +1,5 @@
 import { ISubscription, NotSupported, QueryError } from '../interfaces.ts';
-import { Expr, ExprBinary, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { Expr, ExprBinary, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 import { asTable, CreateIndexColDef, _IConstraint, _ITable, _Transaction } from '../interfaces-private.ts';
 import { nullIsh } from '../utils.ts';
 
@@ -25,7 +25,7 @@ export class ForeignKey implements _IConstraint {
     }
 
     install(_t: _Transaction, cst: TableConstraintForeignKey, table: _ITable) {
-        const ftable = asTable(table.ownerSchema.getObject(cst.foreignTable));
+        const ftable = asTable(table.ownerSchema.getObject(cst.foreignTable, { beingCreated: table }));
         const cols = cst.localColumns.map(x => table.getColumnRef(x));
         const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
         this.table = table;

@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg } from './interfaces-private.ts';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from './interfaces-private.ts';
 // @ts-ignore
 import createTree from 'https://deno.land/x/functional_red_black_tree@1.0.1-deno/mod.ts';
 import { QueryError, NotSupported, nil } from './interfaces.ts';
@@ -62,6 +62,10 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     private treeBinId = Symbol();
     private treeCountId = Symbol();
 
+
+    get ownerSchema(): _ISchema {
+        return this.onTable.ownerSchema;
+    }
 
     constructor(t: _Transaction
         , readonly name: string

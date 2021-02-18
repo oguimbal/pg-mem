@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound, LanguageCompiler, ArgDef, ArgDefDetails } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -52,6 +52,7 @@ export interface _ISchema extends ISchema {
     getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
 
     getObject(p: QName): _IRelation;
+    getObject(p: QName, opts: BeingCreated): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
 
     getOwnObject(name: string): _IRelation | null;
@@ -82,11 +83,15 @@ export interface _ISchema extends ISchema {
     _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
 }
 
-export interface QueryObjOpts {
+export interface QueryObjOpts extends Partial<BeingCreated> {
     /** Returns null instead of throwing error if not found */
     nullIfNotFound?: boolean;
     /** Will only search in the current schema, or in the targeted schema (not in search path) */
     skipSearch?: boolean;
+}
+
+export interface BeingCreated {
+    beingCreated: _IRelation;
 }
 
 export interface _FunctionDefinition {
@@ -343,6 +348,7 @@ export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 export interface _RelationBase {
     readonly name: string;
     readonly reg: Reg;
+    readonly ownerSchema?: _ISchema;
 }
 
 export interface Reg {
@@ -359,9 +365,9 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
     readonly db: _IDb;
-    readonly ownerSchema: _ISchema;
     readonly selection: _ISelection<T>;
     readonly columnDefs: _Column[];
+    readonly ownerSchema: _ISchema;
     doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
     setHidden(): this;
     setReadonly(): this;
@@ -426,7 +432,7 @@ export interface CreateIndexColDef {
 }
 
 
-export interface _IType<TRaw = any> extends IType {
+export interface _IType<TRaw = any> extends IType, _RelationBase {
     readonly type: 'type';
     /** Data type */
     readonly primary: DataType;

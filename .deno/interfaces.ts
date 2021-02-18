@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 
 
 export type nil = undefined | null;
@@ -11,7 +11,7 @@ export type Schema = {
 }
 
 
-export interface SchemaField extends Omit<CreateColumnDef, 'dataType'> {
+export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind'> {
     type: IType;
     serial?: boolean;
 }

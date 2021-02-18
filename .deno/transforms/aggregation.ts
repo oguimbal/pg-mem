@@ -1,6 +1,6 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@4.2.0/mod.ts';
+import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
 import { buildValue } from '../expression-builder.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { suggestColumnName } from '../utils.ts';
