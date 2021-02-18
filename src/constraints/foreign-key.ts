@@ -25,7 +25,7 @@ export class ForeignKey implements _IConstraint {
     }
 
     install(_t: _Transaction, cst: TableConstraintForeignKey, table: _ITable) {
-        const ftable = asTable(table.ownerSchema.getObject(cst.foreignTable));
+        const ftable = asTable(table.ownerSchema.getObject(cst.foreignTable, { beingCreated: table }));
         const cols = cst.localColumns.map(x => table.getColumnRef(x));
         const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
         this.table = table;

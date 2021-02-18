@@ -37,8 +37,8 @@ export class Sequence implements _ISequence {
     }
 
 
-    constructor(public name: string, private db: _ISchema) {
-        this.reg = db._reg_register(this);
+    constructor(public name: string, readonly ownerSchema: _ISchema) {
+        this.reg = ownerSchema._reg_register(this);
     }
 
 
@@ -79,13 +79,13 @@ export class Sequence implements _ISequence {
                     }
                     return this;
                 case 'set schema':
-                    if (opts.newSchema === this.db.name) {
+                    if (opts.newSchema === this.ownerSchema.name) {
                         return this;
                     }
                     throw new NotSupported('Sequence schema change');
                 case 'rename':
                     const to = opts.newName.toLowerCase();
-                    this.db._reg_rename(this, this.name, to);
+                    this.ownerSchema._reg_rename(this, this.name, to);
                     this.name = to;
                     return this;
                 case 'owner to':
@@ -134,7 +134,7 @@ export class Sequence implements _ISequence {
     private alterOpts(t: _Transaction, opts: CreateSequenceOptions) {
         if (opts.as) {
             ignore(opts.as);
-            this.cfg.dataType = this.db.getType(opts.as);
+            this.cfg.dataType = this.ownerSchema.getType(opts.as);
         }
         ignore(opts.cache);
         if (opts.cycle) {
@@ -167,7 +167,7 @@ export class Sequence implements _ISequence {
         } else if (opts.ownedBy) {
             this.owner?.unsubscribe();
 
-            const tbl = asTable(this.db.getObject({
+            const tbl = asTable(this.ownerSchema.getObject({
                 name: opts.ownedBy.table,
                 schema: opts.ownedBy.schema
             }));
@@ -199,6 +199,6 @@ export class Sequence implements _ISequence {
         this.owner?.unsubscribe();
         this.owner = undefined;
         t.delete(this.symbol);
-        this.db._reg_unregister(this);
+        this.ownerSchema._reg_unregister(this);
     }
 }

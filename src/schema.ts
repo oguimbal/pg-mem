@@ -1,5 +1,5 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated } from './interfaces-private';
 import { functionName, ignore, isType, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
 import { Types, typeSynonyms } from './datatypes';
@@ -597,9 +597,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
 
     getObject(p: QName): _IRelation;
+    getObject(p: QName, opts: BeingCreated): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
-    getObject(p: QName, opts?: QueryObjOpts) {
-        function chk<T>(ret: T): T {
+    getObject(p: QName, opts?: QueryObjOpts): _IRelation | null {
+        function chk(ret: _IRelation | null): _IRelation | null {
+            const bc = opts?.beingCreated;
+            if (!ret && bc && (
+                !p.schema || p.schema === bc.ownerSchema?.name
+            ) && bc.name === p.name) {
+                ret = bc;
+            }
             if (!ret && !opts?.nullIfNotFound) {
                 throw new RelationNotFound(p.name);
             }

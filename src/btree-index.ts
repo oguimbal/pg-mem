@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from './interfaces-private';
 // @ts-ignore
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from './interfaces';
@@ -62,6 +62,10 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     private treeBinId = Symbol();
     private treeCountId = Symbol();
 
+
+    get ownerSchema(): _ISchema {
+        return this.onTable.ownerSchema;
+    }
 
     constructor(t: _Transaction
         , readonly name: string

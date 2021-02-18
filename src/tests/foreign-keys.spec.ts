@@ -147,4 +147,15 @@ describe('Foreign keys', () => {
         , /there is no unique constraint matching given keys for referenced table "city"/)
     });
 
+
+    it ('can create foreign key with self-reference directly in table declaration', () => {
+        none(`CREATE TABLE my_table (
+                id text NOT NULL PRIMARY KEY,
+                field1 text,
+                field2 text NOT NULL,
+                parent_id text,
+                CONSTRAINT fk_id FOREIGN KEY (parent_id) REFERENCES my_table (id)
+            )`);
+    })
+
 });
