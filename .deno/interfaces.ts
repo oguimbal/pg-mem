@@ -43,7 +43,7 @@ export enum DataType {
     bytea = 'bytea',
     interval = 'interval',
     timestamp = 'timestamp',
-    timestampz = 'timestampz',
+    timestamptz = 'timestamptz',
     date = 'date',
     time = 'time',
     null = 'null',
