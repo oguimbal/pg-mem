@@ -532,7 +532,7 @@ export const Types = {
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),
     [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
-    [DataType.timestampz]: new TimestampType(DataType.timestampz) as _IType,
+    [DataType.timestamptz]: new TimestampType(DataType.timestamptz) as _IType,
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.interval]: new IntervalType() as _IType,
@@ -608,8 +608,8 @@ export const typeSynonyms: { [key: string]: DataType } = {
     'real': DataType.float,
     'money': DataType.float,
 
-    'timestampz': DataType.timestamp, //  => todo support timestampz
-    'timestamp with time zone': DataType.timestamp, //  => todo support timestampz
+    'timestamptz': DataType.timestamp, //  => todo support timestamptz
+    'timestamp with time zone': DataType.timestamp, //  => todo support timestamptz
     'timestamp without time zone': DataType.timestamp,
 
     'boolean': DataType.bool,
