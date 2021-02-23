@@ -73,5 +73,7 @@ describe('Various expressions', () => {
 
         expectSingle(`SELECT EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')`, 2001);
 
+        expectSingle(`SELECT EXTRACT(YEAR FROM TIMESTAMPTZ '2001-02-16 20:38:40')`, 2001);
+
     })
 });
