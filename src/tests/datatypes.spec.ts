@@ -91,6 +91,30 @@ describe('Data types', () => {
     })
 
 
+    describe('time', () => {
+        it("2019-01-02T06:00:00.000Z = 2019-01-02T06:00:00.000Z is true", () => {
+          expect(
+            many(`create table test(val timestamp with time zone NOT NULL);
+                    insert into test values ('2019-01-02T06:00:00.000Z');
+                    select extract(epoch FROM val) as epoch from test WHERE val = '2019-01-02T06:00:00.000Z';`)
+          ).to.deep.equal([{ epoch: 1546408800 }]);
+        });
+        it("2019-01-02T05:00:00.000Z = 2019-01-02T06:00:00.000Z is false", () => {
+          expect(
+            many(`create table test(val timestamp with time zone NOT NULL);
+                    insert into test values ('2019-01-02T05:00:00.000Z');
+                    select extract(epoch FROM val) as epoch from test WHERE val = '2019-01-02T06:00:00.000Z';`)
+          ).to.deep.equal([]);
+        });
+        it("2019-01-02T07:00:00.000Z = 2019-01-02T06:00:00.000Z is false", () => {
+          expect(
+            many(`create table test(val timestamp with time zone NOT NULL);
+                    insert into test values ('2019-01-02T07:00:00.000Z');
+                    select extract(epoch FROM val) as epoch from test WHERE val = '2019-01-02T06:00:00.000Z';`)
+          ).to.deep.equal([]);
+        });
+    })
+
     describe('inet', () => {
         it('can be inserted', () => {
             const valids = ['1.1.1.1', '1.2.255.0/0', '1.2.3.4/32'];
