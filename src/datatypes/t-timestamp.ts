@@ -71,13 +71,13 @@ export class TimestampType extends TypeBase<Date> {
                                 , toDate => ({ toDate }));
                 }
         }
-        return null;
+        return null;    
     }
 
 
 
     doEquals(a: any, b: any): boolean {
-        return moment(a).diff(moment(b)) < 0.1;
+        return Math.abs(moment(a).diff(moment(b))) < 0.1;
     }
     doGt(a: any, b: any): boolean {
         return moment(a).diff(moment(b)) > 0;
