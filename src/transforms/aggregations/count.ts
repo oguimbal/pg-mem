@@ -13,7 +13,7 @@ export function buildCount(this: void, base: _ISelection, args: Expr[]) {
         throw new QueryError('COUNT expects one argument, given ' + args.length);
     }
     if (args[0].type === 'call') {
-        if (asSingleQName(args[0].function) === 'distinct') {
+        if (asSingleQName(args[0].function, 'pg_catalog') === 'distinct') {
             if (!args[0].args.length) {
                 throw new QueryError('distinct() must take at least one argument');
             }

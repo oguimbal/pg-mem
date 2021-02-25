@@ -57,7 +57,7 @@ export function buildSum(this: void, base: _ISelection, args: Expr[]) {
   }
 
   if (args[0].type === 'call') {
-    if (asSingleQName(args[0].function) === 'distinct') {
+    if (asSingleQName(args[0].function, 'pg_catalog') === 'distinct') {
       if (!args[0].args.length) {
         throw new QueryError('distinct() can only take one argument');
       }

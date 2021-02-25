@@ -628,6 +628,16 @@ export function colToStr(col: string | ExprRef) {
     return col.table.name + '.' + col.name;
 }
 
+export function qnameToStr(col: string | QName) {
+    if (typeof col === 'string') {
+        return col;
+    }
+    if (!col.schema) {
+        return col.name;
+    }
+    return col.schema + '.' + col.name;
+}
+
 export function asSingleName(col: string | ExprRef): string | nil {
     if (typeof col === 'string') {
         return col;
@@ -638,8 +648,11 @@ export function asSingleName(col: string | ExprRef): string | nil {
     return col.name;
 }
 
-export function asSingleQName(col: QName): string | nil {
-    if (col.schema) {
+export function asSingleQName(col: string | QName, allowedSchema?: string): string | nil {
+    if (typeof col === 'string') {
+        return col;
+    }
+    if (col.schema && col.schema !== allowedSchema) {
         return null;
     }
     return col.name;

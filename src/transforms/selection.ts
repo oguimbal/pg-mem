@@ -6,7 +6,7 @@ import { TransformBase } from './transform-base';
 import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'pgsql-ast-parser';
 import { aggregationFunctions, buildGroupBy } from './aggregation';
 
-import { colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
+import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
     select = select ?? [];
@@ -36,7 +36,8 @@ function hasAggreg(e: Expr) {
     let has = false;
     astVisitor(visitor => ({
         call: expr => {
-            if (!expr.function.schema && aggregationFunctions.has(expr.function.name)) {
+            const nm = asSingleQName(expr.function, 'pg_catalog');
+            if (nm && aggregationFunctions.has(nm)) {
                 // yea, this is an aggregation
                 has = true;
                 return;

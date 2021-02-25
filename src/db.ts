@@ -14,6 +14,8 @@ import { buildDistinct } from './transforms/distinct';
 import { buildOrderBy } from './transforms/order-by';
 import { setupPgCatalog } from './schema/pg-catalog';
 import { setupInformationSchema } from './schema/information-schema';
+import { QName } from 'pgsql-ast-parser';
+import { asSingleQName } from './utils';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     initialize({
@@ -114,9 +116,16 @@ class MemoryDb implements _IDb {
         return this.public.getTable(name, nullIfNotExists);
     }
 
-    *getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition> {
-        for (const sp of this.searchPath) {
-            yield* this.getSchema(sp).getFunctions(name, arrity, true);
+    *getFunctions(name: string | QName, arrity: number): Iterable<_FunctionDefinition> {
+        const asSingle = asSingleQName(name);
+        debugger;
+        if (asSingle) {
+            for (const sp of this.searchPath) {
+                yield* this.getSchema(sp).getFunctions(name, arrity, true);
+            }
+        } else {
+            const q = name as QName;
+            yield* this.getSchema(q.schema!).getFunctions(q.name, arrity, true);
         }
     }
 

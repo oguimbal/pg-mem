@@ -1,6 +1,6 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated } from './interfaces-private';
-import { ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
+import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -1413,11 +1413,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return this;
     }
 
-    getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition> {
-        if (!forceOwn) {
+    getFunctions(name: string | QName, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition> {
+        const asSingle = asSingleQName(name, this.name);
+        if (!asSingle || !forceOwn) {
             return this.db.getFunctions(name, arrity);
         }
-        const matches = this.fns.get(name);
+        const matches = this.fns.get(asSingle);
         return !matches
             ? []
             : matches.filter(m => m.args.length === arrity

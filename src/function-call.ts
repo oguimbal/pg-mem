@@ -3,11 +3,11 @@ import { Types, ArrayType } from './datatypes';
 import { QueryError, NotSupported, nil } from './interfaces';
 import { Evaluator } from './evaluator';
 import hash from 'object-hash';
-import { parseArrayLiteral } from 'pgsql-ast-parser';
-import { nullIsh } from './utils';
+import { parseArrayLiteral, QName } from 'pgsql-ast-parser';
+import { asSingleQName, colToStr, nullIsh, qnameToStr } from './utils';
 
 
-export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
+export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]) {
     let type: _IType | nil = null;
     let get: (...args: any[]) => any;
 
@@ -15,7 +15,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     let acceptNulls = false;
 
     // put your ugly hack here 😶 🏴‍☠️ ...
-    switch (name) {
+    switch (asSingleQName(name)) {
         case 'any':
             return buildAnyCall(schema, args);
         case 'current_schema':
@@ -28,7 +28,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
         case 'pg_get_expr':
             type = Types.text();
             get = () => {
-                throw new NotSupported(name + ' is not supported');
+                throw new NotSupported(qnameToStr(name) + ' is not supported');
             };
             break;
         case 'unnest':
@@ -41,7 +41,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
             }
             type = utype.of;
             get = () => {
-                throw new NotSupported(name + ' is not supported');
+                throw new NotSupported(qnameToStr(name) + ' is not supported');
             };
             break;
         case 'coalesce':
@@ -78,7 +78,7 @@ export function buildCall(schema: _ISchema, name: string, args: IValue[]) {
     }
     if (!get!) {
         throw new QueryError({
-            error: `function ${name}(${args.map(() => 'unknown').join(',')}) does not exist`,
+            error: `function ${qnameToStr(name)}(${args.map(a => a.type.name).join(',')}) does not exist`,
             hint: `🔨 Please note that pg-mem implements very few native functions.
 
             👉 You can specify the functions you would like to use via "db.public.registerFunction(...)"`

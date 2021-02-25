@@ -4,6 +4,7 @@ import hash from 'object-hash';
 import { Types, ArrayType, isNumeric } from './datatypes';
 import { buildCall } from './function-call';
 import { nullIsh } from './utils';
+import { QName } from 'pgsql-ast-parser';
 
 
 export class Evaluator<T = any> implements IValue<T> {
@@ -315,7 +316,7 @@ export const Value = {
             , null
             , value);
     },
-    function(schema: _ISchema, value: string, args: IValue[]): IValue {
+    function(schema: _ISchema, value: string | QName, args: IValue[]): IValue {
         return buildCall(schema, value, args);
     },
     bool(owner: _ISchema, value: boolean): IValue {

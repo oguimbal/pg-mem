@@ -49,7 +49,7 @@ export interface _ISchema extends ISchema {
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this arrity */
-    getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
+    getFunctions(name: string | QName, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
 
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts: BeingCreated): _IRelation;
@@ -334,7 +334,7 @@ export interface _IDb extends IMemoryDb {
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
     getExtension(name: string): (schema: ISchema) => void;
     /** Get functions matching this arrity */
-    getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition>;
+    getFunctions(name: string | QName, arrity: number): Iterable<_FunctionDefinition>;
     getLanguage(name: string): LanguageCompiler;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {

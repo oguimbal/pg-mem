@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private';
-import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime } from './utils';
+import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './evaluator';
@@ -88,15 +88,16 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             // if (typeof val.function !== 'string') {
             //     return buildKeyword(data.ownerSchema, val.function, val.args);
             // }
-            if (!val.function.schema && aggregationFunctions.has(val.function.name)) {
+            const nm = asSingleQName(val.function, 'pg_catalog');
+            if (nm && aggregationFunctions.has(nm)) {
                 if (!(data instanceof Aggregation)) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(val.function.name, val.args);
+                return data.getAggregation(nm, val.args);
             }
             const args = val.args.map(x => _buildValue(data, x));
             const schema = data.db.getSchema(val.function.schema);
-            return Value.function(schema, val.function.name, args);
+            return Value.function(schema, val.function, args);
         case 'cast':
             return _buildValue(data, val.operand)
                 .convert(data.ownerSchema.getType(val.to))
