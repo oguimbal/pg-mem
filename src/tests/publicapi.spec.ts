@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
-import { IMemoryDb } from 'interfaces';
+import { IMemoryDb } from '../interfaces';
 
 describe('Test utils', () => {
 

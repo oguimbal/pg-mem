@@ -1,9 +1,9 @@
 import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private';
-import { SelectedColumn, Expr } from 'pgsql-ast-parser';
+import { SelectedColumn, Expr, ExprRef } from 'pgsql-ast-parser';
 import { buildValue } from '../expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
-import { suggestColumnName } from '../utils';
+import { colByName, suggestColumnName } from '../utils';
 import hash from 'object-hash';
 import { Evaluator } from '../evaluator';
 import { buildCount } from './aggregations/count';
@@ -81,10 +81,10 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         this.building = 'select';
         for (const s of select) {
             const built = buildValue(this, s.expr);
-            if (s.alias && cols.has(s.alias)) {
+            if (s.alias && cols.has(s.alias.name)) {
                 throw new NotSupported('Ambiguous aliasing');
             }
-            const name = s.alias
+            const name = s.alias?.name
                 ?? suggestColumnName(s.expr)
                 ?? built.id
                 ?? ('column' + (anonymous++));
@@ -246,23 +246,16 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return this.groupByMapping.get(got.hash!) ?? got;
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         if (this.building) {
             // when building, expressions are built agains "this"
             // => must check if parent column exists (might be aliased => cannot check by name)
             return this.base.getColumn(column, nullIfNotFound);
         } else {
             // normal behiavour (get columns from "exterior")
-            const got = this.columnsById.get(column);
-            if (!got) {
-                if (nullIfNotFound) {
-                    return null;
-                }
-                throw new ColumnNotFound(column);
-            }
-            return got;
+            return colByName(this.columnsById, column, nullIfNotFound);
         }
     }
 

@@ -26,8 +26,8 @@ export class ForeignKey implements _IConstraint {
 
     install(_t: _Transaction, cst: TableConstraintForeignKey, table: _ITable) {
         const ftable = asTable(table.ownerSchema.getObject(cst.foreignTable, { beingCreated: table }));
-        const cols = cst.localColumns.map(x => table.getColumnRef(x));
-        const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x));
+        const cols = cst.localColumns.map(x => table.getColumnRef(x.name));
+        const fcols = cst.foreignColumns.map(x => ftable.getColumnRef(x.name));
         this.table = table;
         this.foreignTable = ftable;
         if (cols.length !== fcols.length) {
@@ -65,7 +65,7 @@ export class ForeignKey implements _IConstraint {
         // ========================
         const onUpdate = cst.onUpdate ?? 'no action';
         const onDelete = cst.onDelete ?? 'no action';
-        this.unsubs.push(ftable.onBeforeChange(cst.foreignColumns, (old, neu, dt) => {
+        this.unsubs.push(ftable.onBeforeChange(cst.foreignColumns.map(x => x.name), (old, neu, dt) => {
             if (!old) {
                 return;
             }
@@ -77,7 +77,7 @@ export class ForeignKey implements _IConstraint {
             const equals = cst.localColumns.map<ExprBinary>((x, i) => ({
                 type: 'binary',
                 op: '=',
-                left: { type: 'ref', name: x, table: table.name },
+                left: { type: 'ref', name: x.name, table: { name: table.name } },
                 // hack, see #fkcheck
                 right: {
                     type: 'constant',
@@ -102,7 +102,7 @@ export class ForeignKey implements _IConstraint {
                     case 'cascade':
                         if (neu) {
                             for (let i = 0; i < fcols.length; i++) {
-                                local[cst.localColumns[i]] = neu[cst.foreignColumns[i]];
+                                local[cst.localColumns[i].name] = neu[cst.foreignColumns[i].name];
                             }
                             table.update(dt, local);
                         } else {
@@ -112,7 +112,7 @@ export class ForeignKey implements _IConstraint {
                     case 'set default':
                     case 'set null':
                         for (const c of cst.localColumns) {
-                            local[c] = null;
+                            local[c.name] = null;
                         }
                         table.update(dt, local);
                         break;
@@ -124,7 +124,7 @@ export class ForeignKey implements _IConstraint {
         //  when changing something in this table,
         //  then there must be a key match in the foreign table
         // =====================
-        table.onBeforeChange(cst.localColumns, (_, neu, dt) => {
+        table.onBeforeChange(cst.localColumns.map(x => x.name), (_, neu, dt) => {
             if (!neu) {
                 return;
             }
@@ -136,7 +136,7 @@ export class ForeignKey implements _IConstraint {
             const equals = cst.foreignColumns.map<ExprBinary>((x, i) => ({
                 type: 'binary',
                 op: '=',
-                left: { type: 'ref', name: x, table: ftable.name },
+                left: { type: 'ref', name: x.name, table: { name: ftable.name } },
                 // hack, see #fkcheck
                 right: {
                     type: 'constant',

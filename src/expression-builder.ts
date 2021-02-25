@@ -71,9 +71,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'unary':
             return buildUnary(data, val.op, val.operand);
         case 'ref':
-            return val.table
-                ? data.getColumn(val.table + '.' + val.name)
-                : data.getColumn(val.name);
+            return data.getColumn(val);
         case 'string':
             return Value.text(data.ownerSchema, val.value);
         case 'null':
@@ -87,18 +85,18 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'integer':
             return Value.number(data.ownerSchema, val.value, Types.integer);
         case 'call':
-            if (typeof val.function !== 'string') {
-                return buildKeyword(data.ownerSchema, val.function, val.args);
-            }
-            if (aggregationFunctions.has(val.function)) {
+            // if (typeof val.function !== 'string') {
+            //     return buildKeyword(data.ownerSchema, val.function, val.args);
+            // }
+            if (!val.function.schema && aggregationFunctions.has(val.function.name)) {
                 if (!(data instanceof Aggregation)) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(val.function, val.args);
+                return data.getAggregation(val.function.name, val.args);
             }
             const args = val.args.map(x => _buildValue(data, x));
-            const schema = data.db.getSchema(val.namespace);
-            return Value.function(schema, val.function, args);
+            const schema = data.db.getSchema(val.function.schema);
+            return Value.function(schema, val.function.name, args);
         case 'cast':
             return _buildValue(data, val.operand)
                 .convert(data.ownerSchema.getType(val.to))
@@ -157,6 +155,8 @@ function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IVa
         case 'localtime':
         case 'current_time':
             throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
+        case 'distinct':
+            throw new NotSupported(kw.keyword);
         default:
             throw NotSupported.never(kw.keyword);
     }
@@ -621,7 +621,7 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
             }
         )
     }
-    switch (op.field) {
+    switch (op.field.name) {
         case 'millennium':
             return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 1000));
         case 'century':

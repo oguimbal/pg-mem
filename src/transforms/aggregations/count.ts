@@ -1,6 +1,6 @@
 import { AggregationComputer, AggregationGroupComputer, IndexKey, IValue, QueryError, _IIndex, _ISelection, _IType, _Transaction } from '../../interfaces-private';
 import { Expr } from 'pgsql-ast-parser';
-import { isSelectAllArgList, nullIsh } from '../../utils';
+import {  asSingleQName, isSelectAllArgList, nullIsh } from '../../utils';
 import { buildValue } from '../../expression-builder';
 import { Types } from '../../datatypes';
 import objectHash from 'object-hash';
@@ -13,7 +13,7 @@ export function buildCount(this: void, base: _ISelection, args: Expr[]) {
         throw new QueryError('COUNT expects one argument, given ' + args.length);
     }
     if (args[0].type === 'call') {
-        if (args[0].function === 'distinct') {
+        if (asSingleQName(args[0].function) === 'distinct') {
             if (!args[0].args.length) {
                 throw new QueryError('distinct() must take at least one argument');
             }

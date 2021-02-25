@@ -11,8 +11,9 @@ export type Schema = {
 }
 
 
-export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind'> {
+export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind' | 'name'> {
     type: IType;
+    name: string;
     serial?: boolean;
 }
 
@@ -379,15 +380,17 @@ export class CastError extends QueryError {
             + (inWhat ? ' in ' + inWhat : ''));
     }
 }
+
+
 export class ColumnNotFound extends QueryError {
-    constructor(columnName: string) {
-        super(`column "${columnName}" does not exist`);
+    constructor(col: string) {
+        super(`column "${col}" does not exist`);
     }
 }
 
 export class AmbiguousColumn extends QueryError {
-    constructor(columnName: string) {
-        super(`column "${columnName}" is ambiguous`);
+    constructor(col: string) {
+        super(`column "${col}" is ambiguous`);
     }
 }
 

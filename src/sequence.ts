@@ -79,12 +79,12 @@ export class Sequence implements _ISequence {
                     }
                     return this;
                 case 'set schema':
-                    if (opts.newSchema === this.ownerSchema.name) {
+                    if (opts.newSchema.name === this.ownerSchema.name) {
                         return this;
                     }
                     throw new NotSupported('Sequence schema change');
                 case 'rename':
-                    const to = opts.newName.toLowerCase();
+                    const to = opts.newName.name.toLowerCase();
                     this.ownerSchema._reg_rename(this, this.name, to);
                     this.name = to;
                     return this;

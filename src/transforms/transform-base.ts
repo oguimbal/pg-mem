@@ -10,7 +10,7 @@ import type { buildUnion } from './union';
 import type { buildOrderBy } from './order-by';
 import type { buildDistinct } from './distinct';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'pgsql-ast-parser';
 import { RestrictiveIndex } from './restrictive-index';
 
 interface Fns {
@@ -190,9 +190,9 @@ export abstract class FilterBase<T> extends TransformBase<T> {
     }
      */
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         if (!this.base) { // istanbul ignore next
             throw new Error('Should not call .getColumn() on join');
         }

@@ -1,10 +1,10 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg } from '../interfaces-private';
-import { CreateColumnDef, TableConstraint } from 'pgsql-ast-parser';
+import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
 import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
-import { findTemplate } from '../utils';
+import { colByName, findTemplate } from '../utils';
 
 export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection<any> {
 
@@ -52,7 +52,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         for (const _col of this._schema.fields) {
             const newCol = columnEvaluator(this, _col.name, _col.type as _IType);
             this._columns.push(newCol);
-            this.columnsById.set(_col.name.toLowerCase(), newCol);
+            this.columnsById.set(_col.name, newCol);
         }
     }
 
@@ -61,15 +61,11 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return this._columns!;
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         this.build();
-        const got = this.columnsById.get(column.toLowerCase());
-        if (!got && !nullIfNotFound) {
-            throw new ColumnNotFound(column);
-        }
-        return got;
+        return colByName(this.columnsById, column, nullIfNotFound);
     }
 
     explain(e: _Explainer): _SelectExplanation {

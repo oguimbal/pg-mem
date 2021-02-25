@@ -121,6 +121,21 @@ describe('Simple queries', () => {
             .to.deep.equal([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
     });
 
+    it('can create two tables with different casing', () => {
+        none(`create table example(id text);
+            create table "Example"(val text);
+            insert into example values ('one');
+            insert into Example values ('two');
+            insert into "Example" values ('three');`);
+
+        expect(many('select * from example'))
+            .to.deep.equal([{ id: 'one' }, { id: 'two' }]);
+        expect(many('select * from Example'))
+            .to.deep.equal([{ id: 'one' }, { id: 'two' }]);
+        expect(many('select * from "Example"'))
+            .to.deep.equal([{ val: 'three' }]);
+    })
+
 
     it('call lower in select', () => {
         simpleDb();
@@ -394,7 +409,7 @@ describe('Simple queries', () => {
     });
 
 
-    it ('cannot evaluate casted empty arrays', () => {
+    it('cannot evaluate casted empty arrays', () => {
         none(`CREATE TABLE example (
             members               VARCHAR[]
         );
@@ -403,7 +418,7 @@ describe('Simple queries', () => {
         INSERT INTO example (members) VALUES ('{}');`)
     });
 
-    it ('should not be able to determine the type of an empty array', () => {
+    it('should not be able to determine the type of an empty array', () => {
         assert.throw(() => none(`SELECT array[];`), /cannot determine type of empty array/);
         none(`CREATE TABLE example (
             members               VARCHAR[]

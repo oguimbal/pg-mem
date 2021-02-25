@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound, LanguageCompiler, ArgDef, ArgDefDetails } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'pgsql-ast-parser';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
@@ -156,8 +156,8 @@ export interface _ISelection<T = any> extends _IAlias {
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
     distinct(select?: Expr[]): _ISelection;
     union(right: _ISelection): _ISelection;
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
     subquery(data: _ISelection, op: SelectStatement): _ISelection;
     isOriginOf(a: IValue): boolean;
