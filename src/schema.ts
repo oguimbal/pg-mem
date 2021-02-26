@@ -1,4 +1,4 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails } from './interfaces';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated } from './interfaces-private';
 import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
@@ -16,6 +16,7 @@ import { CustomEnumType } from './datatypes/t-custom-enum';
 import { regGen } from './datatypes/datatype-base';
 import { ValuesTable } from './schema/values-table';
 import { cleanResults } from './clean-results';
+import { EquivalentType } from './datatypes/t-equivalent';
 
 
 type WithableResult = number | _ISelection;
@@ -1308,6 +1309,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (!noSchemaChange) {
             this.db.onSchemaChange();
         }
+        return ret;
+    }
+
+    registerEquivalentType(type: IEquivalentType): IType {
+        const ret = new EquivalentType(type);
+        this._registerType(ret);
         return ret;
     }
 

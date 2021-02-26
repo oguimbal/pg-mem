@@ -3,6 +3,8 @@ import { TypeBase } from './datatype-base';
 import { DataType, nil, QueryError } from '../interfaces';
 import { _ISchema, _IType } from '../interfaces-private';
 
+// https://www.postgresql.org/docs/13/datatype-net-types.html#DATATYPE-INET
+
 export class INetType extends TypeBase<string> {
 
     get primary(): DataType {

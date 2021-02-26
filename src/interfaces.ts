@@ -243,6 +243,8 @@ export interface ISchema {
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
 
+    /** Register a simple type, which is equivalent to another */
+    registerEquivalentType(type: IEquivalentType): IType;
 
     /**
      * Registers an enum type on this schema
@@ -371,7 +373,7 @@ function errDataToStr(data: ErrorData) {
 
 
 export class CastError extends QueryError {
-    constructor(from: DataType | IType, to: DataType | IType, inWhat?: string) {
+    constructor(from: string | DataType | IType, to: string | DataType | IType, inWhat?: string) {
         super(`cannot cast type ${typeof from === 'string'
             ? from
             : from.name} to ${typeof to === 'string'
@@ -433,4 +435,16 @@ export function typeDefToStr(t: DataTypeDef): string {
         ret = ret + '(' + t.config.join(',') + ')';
     }
     return ret;
+}
+
+/** A type definition that is equivalent to another type */
+export interface IEquivalentType {
+    /** Type name */
+    readonly name: string;
+    /** Which underlying type is it equivalent to ? */
+    readonly equivalentTo: DataType | IType;
+    /**
+     * Is this value valid ?
+     */
+    isValid(value: any): boolean;
 }
