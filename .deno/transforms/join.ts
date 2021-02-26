@@ -2,8 +2,8 @@ import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchem
 import { buildValue, uncache } from '../expression-builder.ts';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces.ts';
 import { DataSourceBase, TransformBase } from './transform-base.ts';
-import { Expr, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
-import { nullIsh } from '../utils.ts';
+import { Expr, ExprRef, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { colToStr, nullIsh } from '../utils.ts';
 import { Types } from '../datatypes/index.ts';
 
 let jCnt = 0;
@@ -188,19 +188,19 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         let onLeft = this.restrictive.getColumn(column, true);
         let onRight = this.joined.getColumn(column, true);
         if (!onLeft && !onRight) {
             if (nullIfNotFound) {
                 return null;
             }
-            throw new ColumnNotFound(column);
+            throw new ColumnNotFound(colToStr(column));
         }
         if (!!onLeft && !!onRight) {
-            throw new QueryError(`column reference "${column}" is ambiguous`);
+            throw new QueryError(`column reference "${colToStr(column)}" is ambiguous`);
         }
         const on = onLeft ?? onRight;
         if (this.building) {

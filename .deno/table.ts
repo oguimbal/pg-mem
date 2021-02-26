@@ -3,9 +3,9 @@ import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndex
 import { buildValue } from './expression-builder.ts';
 import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
-import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate } from './utils.ts';
+import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
@@ -120,14 +120,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this;
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
-        const got = this.columnsByName.get(column.toLowerCase());
-        if (!got && !nullIfNotFound) {
-            throw new ColumnNotFound(column);
-        }
-        return got?.expression;
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+        return colByName(this.columnsByName, column, nullIfNotFound)
+            ?.expression;
     }
 
     explain(e: _Explainer): _SelectExplanation {
@@ -139,16 +136,16 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column {
         if ('dataType' in column) {
-            const tp = {
+            const tp: SchemaField = {
                 ...column,
+                name: column.name.name,
                 type: this.ownerSchema.getType(column.dataType),
             };
-            delete (tp as Optional<typeof tp>).dataType;
+            delete (tp as any as Optional<CreateColumnDef>).dataType;
             return this.addColumn(tp, t);
         }
 
-        const low = column.name.toLowerCase();
-        if (this.columnsByName.has(low)) {
+        if (this.columnsByName.has(column.name)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
         const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column, column.name);
@@ -160,7 +157,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         this.columnDefs.push(cref);
-        this.columnsByName.set(low, cref);
+        this.columnsByName.set(column.name, cref);
 
         try {
             if (column.constraints?.length) {
@@ -172,7 +169,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
         } catch (e) {
             this.columnDefs.pop();
-            this.columnsByName.delete(low);
+            this.columnsByName.delete(column.name);
             throw e;
         }
 
@@ -187,7 +184,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     getColumnRef(column: string): ColRef;
     getColumnRef(column: string, nullIfNotFound?: boolean): ColRef | nil;
     getColumnRef(column: string, nullIfNotFound?: boolean): ColRef | nil {
-        const got = this.columnsByName.get(column.toLowerCase());
+        const got = this.columnsByName.get(column);
         if (!got) {
             if (nullIfNotFound) {
                 return null;
@@ -625,8 +622,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     addForeignKey(cst: TableConstraintForeignKey, t: _Transaction) {
-        const ihash = indexHash(cst.localColumns.map(x => x));
-        const constraintName = this.determineIndexRelName(cst.constraintName, ihash, false, 'fk');
+        const ihash = indexHash(cst.localColumns.map(x => x.name));
+        const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
         if (!constraintName) {
             return this;
         }
@@ -643,11 +640,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             case 'foreign key':
                 return this.addForeignKey(cst, t);
             case 'primary key':
-                return this.createIndex(t, cst.columns, 'primary', cst.constraintName);
+                return this.createIndex(t, cst.columns.map(x => x.name), 'primary', cst.constraintName?.name);
             case 'unique':
-                return this.createIndex(t, cst.columns, 'unique', cst.constraintName);
+                return this.createIndex(t, cst.columns.map(x => x.name), 'unique', cst.constraintName?.name);
             case 'check':
-                return this.addCheck(t, cst.expr, cst.constraintName);
+                return this.addCheck(t, cst.expr, cst.constraintName?.name);
             default:
                 throw NotSupported.never(cst, 'constraint type');
         }

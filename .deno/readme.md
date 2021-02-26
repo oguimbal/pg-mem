@@ -134,6 +134,34 @@ Custom functions support overloading and variadic arguments.
 ⚠ However, the value you return is not type checked. It MUST correspond to the datatype you provided as 'returns' (wont fail if not, but could lead to weird bugs).
 
 
+## Custom types
+
+Not all pg types are implemented in pg-mem.
+That said, most of the types are often equivalent to other types, with a format validation. pg-mem provides a way to register such types.
+
+For instance, lets say you'd like to register the MACADDR type, which is basically a string, with a format constraint.
+
+You can register it like this:
+
+```typescript
+db.public.registerEquivalentType({
+    name: 'macaddr',
+    // which type is it equilalent to (will be able to cast it from it)
+    equivalentTo: DataType.text,
+    isValid(val: string) {
+        // check that it will be this format
+        return isValidMacAddress(val);
+    }
+});
+```
+
+Doing so, you'll be able to do things such as:
+
+```sql
+SELECT '08:00:2b:01:02:03:04:05'::macaddr; -- WORKS
+SELECT 'invalid'::macaddr; -- will throw a conversion error
+```
+
 ## Extensions
 
 No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:

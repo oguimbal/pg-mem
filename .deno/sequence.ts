@@ -1,4 +1,4 @@
-import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { combineSubs, ignore } from './utils.ts';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private.ts';
 import { ISubscription, nil, QueryError } from './interfaces.ts';
@@ -79,12 +79,12 @@ export class Sequence implements _ISequence {
                     }
                     return this;
                 case 'set schema':
-                    if (opts.newSchema === this.ownerSchema.name) {
+                    if (opts.newSchema.name === this.ownerSchema.name) {
                         return this;
                     }
                     throw new NotSupported('Sequence schema change');
                 case 'rename':
-                    const to = opts.newName.toLowerCase();
+                    const to = opts.newName.name.toLowerCase();
                     this.ownerSchema._reg_rename(this, this.name, to);
                     this.name = to;
                     return this;

@@ -1,8 +1,8 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { buildValue } from '../../expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
-import { nullIsh } from '../../utils.ts';
+import { asSingleQName, nullIsh } from '../../utils.ts';
 
 
 class SumExpr implements AggregationComputer<number> {
@@ -57,7 +57,7 @@ export function buildSum(this: void, base: _ISelection, args: Expr[]) {
   }
 
   if (args[0].type === 'call') {
-    if (args[0].function === 'distinct') {
+    if (asSingleQName(args[0].function, 'pg_catalog') === 'distinct') {
       if (!args[0].args.length) {
         throw new QueryError('distinct() can only take one argument');
       }

@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 
 
 export type nil = undefined | null;
@@ -11,8 +11,9 @@ export type Schema = {
 }
 
 
-export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind'> {
+export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind' | 'name'> {
     type: IType;
+    name: string;
     serial?: boolean;
 }
 
@@ -242,6 +243,8 @@ export interface ISchema {
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
 
+    /** Register a simple type, which is equivalent to another */
+    registerEquivalentType(type: IEquivalentType): IType;
 
     /**
      * Registers an enum type on this schema
@@ -370,7 +373,7 @@ function errDataToStr(data: ErrorData) {
 
 
 export class CastError extends QueryError {
-    constructor(from: DataType | IType, to: DataType | IType, inWhat?: string) {
+    constructor(from: string | DataType | IType, to: string | DataType | IType, inWhat?: string) {
         super(`cannot cast type ${typeof from === 'string'
             ? from
             : from.name} to ${typeof to === 'string'
@@ -379,15 +382,17 @@ export class CastError extends QueryError {
             + (inWhat ? ' in ' + inWhat : ''));
     }
 }
+
+
 export class ColumnNotFound extends QueryError {
-    constructor(columnName: string) {
-        super(`column "${columnName}" does not exist`);
+    constructor(col: string) {
+        super(`column "${col}" does not exist`);
     }
 }
 
 export class AmbiguousColumn extends QueryError {
-    constructor(columnName: string) {
-        super(`column "${columnName}" is ambiguous`);
+    constructor(col: string) {
+        super(`column "${col}" is ambiguous`);
     }
 }
 
@@ -430,4 +435,16 @@ export function typeDefToStr(t: DataTypeDef): string {
         ret = ret + '(' + t.config.join(',') + ')';
     }
     return ret;
+}
+
+/** A type definition that is equivalent to another type */
+export interface IEquivalentType {
+    /** Type name */
+    readonly name: string;
+    /** Which underlying type is it equivalent to ? */
+    readonly equivalentTo: DataType | IType;
+    /**
+     * Is this value valid ?
+     */
+    isValid(value: any): boolean;
 }

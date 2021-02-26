@@ -1,10 +1,10 @@
 import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private.ts';
-import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime } from './utils.ts';
+import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils.ts';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './evaluator.ts';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
@@ -71,9 +71,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'unary':
             return buildUnary(data, val.op, val.operand);
         case 'ref':
-            return val.table
-                ? data.getColumn(val.table + '.' + val.name)
-                : data.getColumn(val.name);
+            return data.getColumn(val);
         case 'string':
             return Value.text(data.ownerSchema, val.value);
         case 'null':
@@ -87,17 +85,18 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'integer':
             return Value.number(data.ownerSchema, val.value, Types.integer);
         case 'call':
-            if (typeof val.function !== 'string') {
-                return buildKeyword(data.ownerSchema, val.function, val.args);
-            }
-            if (aggregationFunctions.has(val.function)) {
+            // if (typeof val.function !== 'string') {
+            //     return buildKeyword(data.ownerSchema, val.function, val.args);
+            // }
+            const nm = asSingleQName(val.function, 'pg_catalog');
+            if (nm && aggregationFunctions.has(nm)) {
                 if (!(data instanceof Aggregation)) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(val.function, val.args);
+                return data.getAggregation(nm, val.args);
             }
             const args = val.args.map(x => _buildValue(data, x));
-            const schema = data.db.getSchema(val.namespace);
+            const schema = data.db.getSchema(val.function.schema);
             return Value.function(schema, val.function, args);
         case 'cast':
             return _buildValue(data, val.operand)
@@ -157,6 +156,8 @@ function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IVa
         case 'localtime':
         case 'current_time':
             throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
+        case 'distinct':
+            throw new NotSupported(kw.keyword);
         default:
             throw NotSupported.never(kw.keyword);
     }
@@ -621,7 +622,7 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
             }
         )
     }
-    switch (op.field) {
+    switch (op.field.name) {
         case 'millennium':
             return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 1000));
         case 'century':

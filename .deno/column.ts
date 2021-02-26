@@ -1,7 +1,7 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { nullIsh } from './utils.ts';
 import { buildValue } from './expression-builder.ts';
 import { columnEvaluator } from './transforms/selection.ts';
@@ -44,7 +44,7 @@ export class ColRef implements _Column {
                     this.table.createIndex(t, {
                         columns: [{ value: this.expression }],
                         primary: true,
-                        indexName: cname,
+                        indexName: cname?.name,
                     });
                     break;
                 case 'unique':
@@ -52,7 +52,7 @@ export class ColRef implements _Column {
                         columns: [{ value: this.expression }],
                         notNull: notNull,
                         unique: true,
-                        indexName: cname,
+                        indexName: cname?.name,
                     });
                     break;
                 case 'default':
@@ -63,10 +63,10 @@ export class ColRef implements _Column {
                     }, t);
                     break;
                 case 'check':
-                    this.table.addCheck(t, c.expr, cname);
+                    this.table.addCheck(t, c.expr, cname?.name);
                     break;
                 case 'add generated':
-                    new GeneratedIdentityConstraint(c.constraintName, this)
+                    new GeneratedIdentityConstraint(c.constraintName?.name, this)
                         .install(t, c);
                     break;
                 default:
@@ -153,7 +153,7 @@ export class ColRef implements _Column {
                 this.replaceExpression(eid!, newType);
                 break;
             case 'add generated':
-                new GeneratedIdentityConstraint(alter.constraintName, this)
+                new GeneratedIdentityConstraint(alter.constraintName?.name, this)
                     .install(t, alter);
                 break;
             default:
@@ -164,8 +164,8 @@ export class ColRef implements _Column {
     }
 
     private replaceExpression(newId: string, newType: _IType) {
-        const on = this.expression.id!.toLowerCase();
-        const nn = newId.toLowerCase();
+        const on = this.expression.id!;
+        const nn = newId;
         this.expression = columnEvaluator(this.table, newId, newType);
 
         // replace in table
@@ -174,7 +174,7 @@ export class ColRef implements _Column {
     }
 
     drop(t: _Transaction): void {
-        const on = this.expression.id!.toLowerCase();
+        const on = this.expression.id!;
         const i = this.table.columnDefs.indexOf(this);
         if (i < 0) {
             throw new Error('Corrupted table');

@@ -3,6 +3,8 @@ import { DataSourceBase } from './transform-base.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { columnEvaluator } from './selection.ts';
 import { reconciliateTypes } from '../datatypes/datatypes.ts';
+import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { colByName } from '../utils.ts';
 
 // https://www.postgresql.org/docs/current/typeconv-union-case.html
 export function buildUnion(left: _ISelection, right: _ISelection) {
@@ -88,14 +90,10 @@ class Union<T = any> extends DataSourceBase<T> {
         };
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
-        const got = this.colsByName.get(column.toLowerCase());
-        if (!got && !nullIfNotFound) {
-            throw new ColumnNotFound(column);
-        }
-        return got;
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+        return colByName(this.colsByName, column, nullIfNotFound);
     }
 
     getIndex(...forValue: IValue<any>[]): _IIndex<any> | null | undefined {

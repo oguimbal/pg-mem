@@ -4,6 +4,7 @@ import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Types, ArrayType, isNumeric } from './datatypes/index.ts';
 import { buildCall } from './function-call.ts';
 import { nullIsh } from './utils.ts';
+import { QName } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 
 
 export class Evaluator<T = any> implements IValue<T> {
@@ -315,7 +316,7 @@ export const Value = {
             , null
             , value);
     },
-    function(schema: _ISchema, value: string, args: IValue[]): IValue {
+    function(schema: _ISchema, value: string | QName, args: IValue[]): IValue {
         return buildCall(schema, value, args);
     },
     bool(owner: _ISchema, value: boolean): IValue {

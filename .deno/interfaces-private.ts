@@ -1,5 +1,5 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, RelationNotFound, LanguageCompiler, ArgDef, ArgDefDetails } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, AlterSequenceSetOptions, QName, DataTypeDef } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -49,7 +49,7 @@ export interface _ISchema extends ISchema {
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this arrity */
-    getFunctions(name: string, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
+    getFunctions(name: string | QName, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition>;
 
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts: BeingCreated): _IRelation;
@@ -156,8 +156,8 @@ export interface _ISelection<T = any> extends _IAlias {
     groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
     distinct(select?: Expr[]): _ISelection;
     union(right: _ISelection): _ISelection;
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
     subquery(data: _ISelection, op: SelectStatement): _ISelection;
     isOriginOf(a: IValue): boolean;
@@ -334,7 +334,7 @@ export interface _IDb extends IMemoryDb {
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
     getExtension(name: string): (schema: ISchema) => void;
     /** Get functions matching this arrity */
-    getFunctions(name: string, arrity: number): Iterable<_FunctionDefinition>;
+    getFunctions(name: string | QName, arrity: number): Iterable<_FunctionDefinition>;
     getLanguage(name: string): LanguageCompiler;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {

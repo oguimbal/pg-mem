@@ -10,7 +10,7 @@ import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
 import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
@@ -190,9 +190,9 @@ export abstract class FilterBase<T> extends TransformBase<T> {
     }
      */
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         if (!this.base) { // istanbul ignore next
             throw new Error('Should not call .getColumn() on join');
         }

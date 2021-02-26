@@ -3,10 +3,10 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../expression-builder.ts';
 import { Evaluator } from '../evaluator.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
-import { isSelectAllArgList, suggestColumnName } from '../utils.ts';
+import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils.ts';
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
     select = select ?? [];
@@ -36,7 +36,8 @@ function hasAggreg(e: Expr) {
     let has = false;
     astVisitor(visitor => ({
         call: expr => {
-            if (typeof expr.function === 'string' && aggregationFunctions.has(expr.function)) {
+            const nm = asSingleQName(expr.function, 'pg_catalog');
+            if (nm && aggregationFunctions.has(nm)) {
                 // yea, this is an aggregation
                 has = true;
                 return;
@@ -77,7 +78,7 @@ function* buildCols(this: void, base: _ISelection, columns: SelectedColumn[]): I
             const alias = s.expr.table;
             if (alias) {
                 // handle select "x.*"
-                const sub = base.selectAlias(alias);
+                const sub = base.selectAlias(alias.name);
                 if (!sub) {
                     throw new QueryError(`Unknown alias "${alias}"`);
                 }
@@ -90,7 +91,7 @@ function* buildCols(this: void, base: _ISelection, columns: SelectedColumn[]): I
 
         } else {
             const val = buildValue(base as _ISelection, s.expr);
-            yield { val, as: s.alias, expr: s.expr };
+            yield { val, as: s.alias?.name, expr: s.expr };
         }
     }
 }
@@ -102,7 +103,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     private columnsOrigin: IValue[] = [];
     private columnMapping = new Map<IValue, IValue>();
     private indexCache = new Map<IValue, _IIndex>();
-    private columnsById: { [key: string]: IValue[] } = {};
+    private columnsById = new Map<string, IValue[]>();
     private symbol = Symbol();
 
     readonly columns: IValue[] = [];
@@ -143,10 +144,9 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         if (!col.id) {
             return;
         }
-        const low = col.id.toLowerCase();
-        let ci = this.columnsById[low];
+        let ci = this.columnsById.get(col.id);
         if (!ci) {
-            this.columnsById[low] = ci = [];
+            this.columnsById.set(col.id, ci = []);
         }
         ci.push(col);
     }
@@ -178,18 +178,18 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
         return (value as any)[this.symbol] === this.symbol;
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil {
-        const ret = this.columnsById[column.toLowerCase()];
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
+        const ret = colByName(this.columnsById, column, true);
         if (!ret?.length) {
             if (nullIfNotFound) {
                 return null;
             }
-            throw new ColumnNotFound(column);
+            throw new ColumnNotFound(colToStr(column));
         }
         if (ret.length !== 1) {
-            throw new AmbiguousColumn(column);
+            throw new AmbiguousColumn(colToStr(column));
         }
         return ret[0];
     }

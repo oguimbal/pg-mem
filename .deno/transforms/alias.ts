@@ -2,19 +2,21 @@ import { TransformBase, FilterBase } from './transform-base.ts';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private.ts';
 import { Evaluator } from '../evaluator.ts';
 import { Types } from '../datatypes/index.ts';
+import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { asSingleName, colToStr } from '../utils.ts';
+import { ColumnNotFound } from '../interfaces.ts';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
     if (!alias) {
         return on as any;
     }
-    alias = alias.toLowerCase();
     if (on instanceof Alias && on.name === alias) {
         return on;
     }
     return new Alias(on, alias);
 }
 
-export class Alias<T> extends TransformBase<T> implements _IAlias{
+export class Alias<T> extends TransformBase<T> implements _IAlias {
 
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
@@ -90,31 +92,32 @@ export class Alias<T> extends TransformBase<T> implements _IAlias{
         return this.base.hasItem(value, t);
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
         const col = this._getColumn(column);
         if (col) {
             return col;
         }
 
-        if (column === this.name) {
+        if (asSingleName(column) === this.name) {
             return this.asRecord;
         }
 
         if (nullIfNotFound) {
             return null;
         }
-        throw new QueryError(`Column "${column}" not found`);
+        throw new ColumnNotFound(colToStr(column));
     }
 
-    private _getColumn(column: string): IValue | nil {
-        const exec = /^([^.]+)\.(.+)$/.exec(column);
-        if (exec) {
-            if (exec[1].toLowerCase() !== this.name) {
+    private _getColumn(column: string | ExprRef): IValue | nil {
+        if (typeof column !== 'string'
+            && column.table) {
+            if (!column.table.schema
+                && column.table.name !== this.name) {
                 return null;
             }
-            column = exec[2];
+            column = column.name;
         }
         const got = this.base.getColumn(column, true);
         if (!got) {

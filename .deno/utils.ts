@@ -1,8 +1,8 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
-import { ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
 export interface Ctor<T> extends Function {
@@ -433,12 +433,7 @@ export function suggestColumnName(expr: Expr | nil): string | null {
     // suggest a column result name
     switch (expr.type) {
         case 'call':
-            const fn = expr.function;
-            if (typeof fn === 'string') {
-                return fn;
-            } else {
-                return fn.keyword;
-            }
+            return expr.function.name;
         case 'ref':
             return expr.name;
         case 'keyword':
@@ -546,9 +541,6 @@ export function compareVersions(_a: string, _b: string): number {
     return 0;
 }
 
-export function functionName(fn: string | ExprValueKeyword) {
-    return typeof fn === 'string' ? fn : fn.keyword;
-}
 
 export function intervalToSec(v: Interval) {
     return (v.milliseconds ?? 0) / 1000
@@ -612,4 +604,56 @@ export function parseTime(str: string): moment.Moment {
         throw new QueryError(`Invalid time format: ` + str);
     }
     return ret;
+}
+
+
+export function colByName<T>(refs: Map<string, T>, ref: string | ExprRef, nullIfNotFound: boolean | nil): T | nil {
+    const nm = typeof ref === 'string' ? ref
+        : !ref.table ? ref.name
+            : null;
+    const got = nm ? refs.get(nm) : null;
+    if (!got && !nullIfNotFound) {
+        throw new ColumnNotFound(colToStr(ref));
+    }
+    return got;
+}
+
+export function colToStr(col: string | ExprRef) {
+    if (typeof col === 'string') {
+        return col;
+    }
+    if (!col.table) {
+        return col.name;
+    }
+    return col.table.name + '.' + col.name;
+}
+
+export function qnameToStr(col: string | QName) {
+    if (typeof col === 'string') {
+        return col;
+    }
+    if (!col.schema) {
+        return col.name;
+    }
+    return col.schema + '.' + col.name;
+}
+
+export function asSingleName(col: string | ExprRef): string | nil {
+    if (typeof col === 'string') {
+        return col;
+    }
+    if (col.table) {
+        return null;
+    }
+    return col.name;
+}
+
+export function asSingleQName(col: string | QName, allowedSchema?: string): string | nil {
+    if (typeof col === 'string') {
+        return col;
+    }
+    if (col.schema && col.schema !== allowedSchema) {
+        return null;
+    }
+    return col.name;
 }

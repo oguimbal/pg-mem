@@ -1,9 +1,9 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private.ts';
-import { SelectedColumn, Expr } from 'https://deno.land/x/pgsql_ast_parser@5.1.2/mod.ts';
+import { SelectedColumn, Expr, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
 import { buildValue } from '../expression-builder.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
-import { suggestColumnName } from '../utils.ts';
+import { colByName, suggestColumnName } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../evaluator.ts';
 import { buildCount } from './aggregations/count.ts';
@@ -81,10 +81,10 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         this.building = 'select';
         for (const s of select) {
             const built = buildValue(this, s.expr);
-            if (s.alias && cols.has(s.alias)) {
+            if (s.alias && cols.has(s.alias.name)) {
                 throw new NotSupported('Ambiguous aliasing');
             }
-            const name = s.alias
+            const name = s.alias?.name
                 ?? suggestColumnName(s.expr)
                 ?? built.id
                 ?? ('column' + (anonymous++));
@@ -246,23 +246,16 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return this.groupByMapping.get(got.hash!) ?? got;
     }
 
-    getColumn(column: string): IValue;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef): IValue;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         if (this.building) {
             // when building, expressions are built agains "this"
             // => must check if parent column exists (might be aliased => cannot check by name)
             return this.base.getColumn(column, nullIfNotFound);
         } else {
             // normal behiavour (get columns from "exterior")
-            const got = this.columnsById.get(column);
-            if (!got) {
-                if (nullIfNotFound) {
-                    return null;
-                }
-                throw new ColumnNotFound(column);
-            }
-            return got;
+            return colByName(this.columnsById, column, nullIfNotFound);
         }
     }
 
