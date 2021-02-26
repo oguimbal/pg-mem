@@ -166,6 +166,12 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
         return new FalseFilter(on);
     }
 
+    if (rightValue.isConstant) {
+        rightValue = rightValue.convert(leftValue.type);
+    } else if (leftValue.isConstant) {
+        leftValue = leftValue.convert(rightValue.type);
+    }
+
     switch (op) {
         case '=':
         case '!=': {
@@ -175,6 +181,7 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
             if (rightValue.index && leftValue.isConstant) {
                 return new EqFilter(rightValue, leftValue.get(), op === '=' ? 'eq' : 'neq', false);
             }
+            break;
         }
         case '>':
         case '>=':
@@ -194,6 +201,7 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
                             : 'gt';
                 return new IneqFilter(rightValue, fop, leftValue.get());
             }
+            break;
     }
     return null;
 }

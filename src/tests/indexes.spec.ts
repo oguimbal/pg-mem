@@ -340,6 +340,25 @@ describe('Indices', () => {
         expect(many(`select id from test where a+b=42`).map(x => x.id)).to.deep.equal(['id1', 'id3']);
     });
 
+    it('can use implicit cast index on index', () => {
+        expect(many(`create table example(id int primary key);
+                insert into example(id) values (1);
+                select * from example where id='1';`))
+            .to.deep.equal([
+                { id: 1 }
+            ]);
+        expect(many(`select * from example where id>'0';`))
+            .to.deep.equal([
+                { id: 1 }
+            ]);
+        expect(many(`select * from example where id<'3';`))
+            .to.deep.equal([
+                { id: 1 }
+            ]);
+        expect(many(`select * from example where id>'1';`))
+            .to.deep.equal([]);
+    })
+
 
     describe('Indexes on comparisons', () => {
 
