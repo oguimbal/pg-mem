@@ -162,6 +162,8 @@ SELECT '08:00:2b:01:02:03:04:05'::macaddr; -- WORKS
 SELECT 'invalid'::macaddr; -- will throw a conversion error
 ```
 
+If you feel your implementation of a type matches the standard, and would like to include it in pg-mem for others to enjoy it, please consider filing a pull request ! (tip: see the [INET](https://github.com/oguimbal/pg-mem/blob/master/src/datatypes/t-inet.ts) type implementation as an example, and the [pg_catalog index](https://github.com/oguimbal/pg-mem/blob/master/src/schema/pg-catalog/index.ts) where supported types are registered)
+
 ## Extensions
 
 No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:
