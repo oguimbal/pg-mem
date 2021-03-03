@@ -1074,18 +1074,21 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (p.groupBy) {
             sel = sel.groupBy(p.groupBy, p.columns!);
             sel = sel.orderBy(p.orderBy);
+
             // when grouping by, distinct is handled after selection
             //  => can distinct on key, or selected
             if (Array.isArray(p.distinct)) {
                 sel = sel.distinct(p.distinct);
             }
         } else {
+            sel = sel.orderBy(p.orderBy);
+
             // when not grouping by, distinct is handled before
             // selection => can distinct on non selected values
             if (Array.isArray(p.distinct)) {
                 sel = sel.distinct(p.distinct);
             }
-            sel = sel.orderBy(p.orderBy);
+
             sel = sel.select(p.columns!);
         }
 
