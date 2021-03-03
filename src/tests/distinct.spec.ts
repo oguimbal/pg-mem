@@ -119,4 +119,14 @@ describe('Distinct', () => {
             ])
     });
 
+    it('select distinct on one with desc order on two', () => {
+        expect(many(`create table data(a text, b text, c text);
+            insert into data values ('a', 'b', '1');
+            insert into data values ('a', 'b', '2');
+            insert into data values ('a', 'c', '3');
+            select distinct on (a) c from data order by a, c desc`))
+            .to.deep.equal([
+                { c: '3' },
+            ]);
+    });
 });
