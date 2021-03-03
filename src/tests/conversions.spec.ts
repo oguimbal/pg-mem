@@ -153,4 +153,9 @@ describe('Conversions', () => {
         expect(many(`SELECT 42.3::text`))
             .to.deep.equal([{ text: '42.3' }]);
     })
+
+    it('can cast empty array', () => {
+        expect(many(`select array[]::text[] val`))
+            .to.deep.equal([{ val: [] }]);
+    })
 });
