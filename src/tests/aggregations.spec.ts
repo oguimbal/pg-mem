@@ -53,8 +53,34 @@ describe('Aggregations', () => {
             .to.deep.equal([{ sum: 3 }])
     })
 
-    it('supports aggregation with qualifier', () => {
 
+    it('supports sum() in inner expression (simple)', () => {
+        expect(many(`create table example(a int);
+                  insert into example values (1), (2);
+                  select 3+sum(a) as sum from example`))
+            .to.deep.equal([{ sum: 6 }])
+    })
+
+    it('supports sum() in inner expression (grouped by)', () => {
+        expect(many(`create table example(id text, a int);
+                  insert into example values ('a', 1), ('b', 2), ('a', 3);
+                  select id, 3+sum(a) as sum from example group by id`))
+            .to.deep.equal([
+                { id: 'a', sum: 7 },
+                { id: 'b', sum: 5 },
+            ]);
+    });
+
+    it('supports sum(distinct)', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (1), (2), (2), (3);
+                  select sum(distinct a) from example`))
+            .to.deep.equal([
+                { sum: 6 },
+            ]);
+    })
+
+    it('supports aggregation with qualifier', () => {
         expect(many(`create table example(a int);
                   insert into example values (1), (-2), (null), (3), (-4), (5);
                   select pg_catalog.sum(a) from example`))
