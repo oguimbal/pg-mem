@@ -601,7 +601,7 @@ describe('Joins', () => {
             ]);
     });
 
-    it('can left join', () => {
+    it('can left join using "ON"', () => {
         photos();
         preventSeqScan(db, 'photo');
         const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
@@ -617,6 +617,74 @@ describe('Joins', () => {
             ]);
     });
 
+    function childrenToys() {
+        none(`create table child(id int, name text);
+                create table toy(child_id int, name text);
+                insert into child values (1, 'Tom');
+                insert into toy values (1, 'Gun');`)
+    }
+
+    describe('selects first mentioned table column on * ambiguity', () => {
+        beforeEach(() => childrenToys());
+
+        it('with no index', () => {
+            check();
+        })
+
+        it('with index on first', () => {
+            none(`create  index on child(id)`);
+            check();
+        })
+
+
+        it('with index on second', () => {
+            none(`create  index on toy(child_id)`);
+            check();
+        })
+
+        function check() {
+            expect(many(`select * from child
+        join toy on id=child_id`))
+                .to.deep.equal([{
+                    id: 1,
+                    child_id: 1,
+                    name: 'Tom',
+                    name0: 'Gun',
+                }]);
+        }
+    });
+
+
+    it('throws on selection ambiguity', () => {
+        childrenToys();
+        assert.throws(() => none(`select name from child
+        join toy on id=child_id`), /column reference "name" is ambiguous/);
+    });
+
+
+
+    it('does not throw when ambiguity not selected', () => {
+        childrenToys();
+        none(`select id, child_id from child
+        join toy on id=child_id`);
+    });
+
+
+
+
+    it('can left join using "USING" ', () => {
+        expect(many(`create table names(id int, name text);
+                                create table rates(id int, rate int);
+                                insert into names values (1, 'Me');
+                                insert into rates values (1, 10);
+                                select * from rates
+                                left join names using (id)`))
+            .to.deep.equal([{
+                id: 1,
+                name: 'Me',
+                rate: 10,
+            }]);
+    });
 
     it('can right join', () => {
         photos();
@@ -710,7 +778,7 @@ describe('Joins', () => {
     });
 
 
-    it ('[bugfix] performs typeorm schema exploration join', () => {
+    it('[bugfix] performs typeorm schema exploration join', () => {
         many(`SELECT "ns"."nspname" AS "table_schema", "t"."relname" AS "table_name", "cnst"."conname" AS "constraint_name", pg_get_constraintdef("cnst"."oid") AS "expression", CASE "cnst"."contype" WHEN 'p' THEN 'PRIMARY' WHEN 'u' THEN 'UNIQUE' WHEN 'c' THEN 'CHECK' WHEN 'x' THEN 'EXCLUDE' END AS "constraint_type", "a"."attname" AS "column_name" FROM "pg_constraint" "cnst" INNER JOIN "pg_class" "t" ON "t"."oid" = "cnst"."conrelid" INNER JOIN "pg_namespace" "ns" ON "ns"."oid" = "cnst"."connamespace" LEFT JOIN "pg_attribute" "a" ON "a"."attrelid" = "cnst"."conrelid" AND "a"."attnum" = ANY ("cnst"."conkey") WHERE "t"."relkind" IN ('r', 'p') AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'form') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'submission'));`);
     })
 

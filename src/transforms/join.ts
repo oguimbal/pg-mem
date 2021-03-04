@@ -1,8 +1,8 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias } from '../interfaces-private';
-import { buildValue, uncache } from '../expression-builder';
+import { buildBinaryValue, buildValue, uncache } from '../expression-builder';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces';
 import { DataSourceBase, TransformBase } from './transform-base';
-import { Expr, ExprRef, SelectedColumn } from 'pgsql-ast-parser';
+import { Expr, ExprRef, JoinClause, Name, SelectedColumn } from 'pgsql-ast-parser';
 import { colToStr, nullIsh } from '../utils';
 import { Types } from '../datatypes';
 
@@ -38,7 +38,7 @@ function chooseStrategy(this: void, t: _Transaction, strategies: JoinStrategy[])
 export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
 
     private _columns: IValue<any>[] = [];
-    private seqScanExpression: IValue<any>;
+    private seqScanExpression!: IValue<any>;
     private joinId: number;
     private columnsMappingParentToThis = new Map<IValue, IValue>();
     private columnsMappingThisToParent = new Map<IValue, {
@@ -73,13 +73,10 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     constructor(db: _ISchema
         , readonly restrictive: _ISelection<TLeft>
         , readonly joined: _ISelection<TRight>
-        , on: Expr
+        , on: JoinClause
         , private innerJoin: boolean) {
         super(db);
 
-        if (!on) {
-            throw new Error('Unspecified join ON clause');
-        }
 
         this.joinId = jCnt++;
         for (const c of this.restrictive.listSelectableIdentities()) {
@@ -107,50 +104,103 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             });
         }
 
-        this.fetchStrategies(on);
+        if (on.on) {
+            this.fetchOnStrategies(on.on);
+        } else if (on.using?.length) {
+            this.fetchUsingStrategies(on.using);
+        } else {
+            throw new Error('Unspecified join ON clause');
+        }
+    }
 
-        uncache(this);
-        this.seqScanExpression = buildValue(this, on).convert(Types.bool);
+    private wrap(v: IValue) {
+        const ret = this.columnsMappingParentToThis.get(v);
+        if (!ret) {
+            throw new Error('Corrupted join (unknown column)');
+        }
+        return ret;
     }
 
     listSelectableIdentities(): Iterable<IValue> {
         return this.columnsMappingParentToThis.values();
     }
 
-    private fetchStrategies(on: Expr) {
-        const all = [...extractAnds(on)];
-        for (let i = 0; i < all.length; i++) {
-            const thisOne = all[i];
-            const strats = [...this.fetchEqStrategy(thisOne)];
+    private fetchOnStrategies(_on: Expr) {
+        // build equalities eligible to a strategy
+        const ands: [IValue, IValue][] = [];
+        const others: IValue[] = [];
+        for (const on of extractAnds(_on)) {
+            if (on.type !== 'binary' || on.op !== '=') {
+                // join 'ON' clause not compatible with an indexed strategy
+                others.push(buildValue(this, on));
+                continue;
+            }
+            this.building = true;
+            const a = buildValue(this, on.left);
+            const b = buildValue(this, on.right);
+            this.building = false;
+            ands.push([a, b]);
+        }
+
+        // compute strategies
+        this.fetchAndStrategies(ands, others);
+
+        // necessary because of the 'this.building' hack
+        uncache(this);
+
+        // build seq-scan expression
+        this.seqScanExpression = buildValue(this, _on).convert(Types.bool);
+    }
+
+    private fetchUsingStrategies(_using: Name[]) {
+        // build equalities eligible to a strategy
+        const ands: [IValue, IValue][] = _using.map(n => [
+            this.restrictive.getColumn(n.name),
+            this.joined.getColumn(n.name),
+        ]);
+
+        // compute strategies
+        this.fetchAndStrategies(ands, []);
+
+        // build seq-scan expression
+        const bools = ands.map(([a, b]) => buildBinaryValue(this
+            , this.wrap(a)
+            , '='
+            , this.wrap(b)));
+        this.seqScanExpression = bools.slice(1)
+            .reduce((a, b) => buildBinaryValue(this, a, 'AND', b), bools[0]);
+    }
+
+    private fetchAndStrategies(_ands: [IValue, IValue][], otherPredicates: IValue[]) {
+        const ands = _ands.map(([a, b]) => ({
+            a,
+            b,
+            eq: buildBinaryValue(this, this.wrap(a), '=', this.wrap(b)),
+        }))
+        for (let i = 0; i < ands.length; i++) {
+            const { a, b } = ands[i];
+            const strats = [...this.fetchEqStrategyOn(a, b)];
             if (!strats.length) {
                 continue;
             }
-            const others = [...all.slice(0, i), ...all.slice(i + 1)];
+            const others = [
+                ...ands.slice(0, i).map(x => x.eq),
+                ...ands.slice(i + 1).map(x => x.eq),
+                ...otherPredicates
+            ];
             if (others.length) {
                 const and = others.slice(1)
-                    .reduce<Expr>((v, c) => ({
-                        type: 'binary',
-                        left: c,
-                        right: v,
-                        op: 'AND',
-                    }), others[0]);
-                const othersPredicate = buildValue(this, and);
+                    .reduce<IValue>((v, c) => buildBinaryValue(this, c, 'AND', v)
+                        , others[0]);
                 for (const s of strats) {
-                    s.othersPredicate = othersPredicate;
+                    s.othersPredicate = and;
                 }
             }
             this.strategies.push(...strats);
         }
     }
 
-    private *fetchEqStrategy(on: Expr): Iterable<JoinStrategy> {
-        if (on.type !== 'binary' || on.op !== '=') {
-            return;
-        }
-        this.building = true;
-        const a = buildValue(this, on.left);
-        const b = buildValue(this, on.right);
-        this.building = false;
+    private *fetchEqStrategyOn(a: IValue, b: IValue): Iterable<JoinStrategy> {
         let restrictedVal: IValue | undefined = undefined;
         let joinedVal: IValue | undefined = undefined;
 
