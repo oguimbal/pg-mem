@@ -222,8 +222,8 @@ export type _SelectExplanation = {
     /** A selection transformation */
     id: string | number;
     _: 'limit';
-    take?: number;
-    skip?: number;
+    take?: _ExprExplanation;
+    skip?: _ExprExplanation;
     on: _SelectExplanation;
 } | {
     /** A selection transformation */

@@ -57,8 +57,12 @@ export function watchUse<T>(rootValue: T): { checked: T; check?: () => string | 
                 .map((x, i) => recurse(x, stack.push(`[${i}]`)));
         }
         // watch object
-        const ret = {};
+        const ret: any = {};
         for (const [k, _v] of Object.entries(value)) {
+            if (k[0] === '_') { // ignore properties starting with '_'
+                ret[k] = _v;
+                continue;
+            }
             const nstack = stack.push('.' + k);
             let v = recurse(_v, nstack);
             const nstackKey = nstack.join('');

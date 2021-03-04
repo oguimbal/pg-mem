@@ -29,7 +29,7 @@ class OrderBy<T> extends FilterBase<any> {
         super(selection);
         this.order = order.map(x => ({
             by: buildValue(selection, x.by),
-            order: x.order,
+            order: x.order ?? 'ASC',
         }))
     }
 

@@ -50,7 +50,9 @@ class Union<T = any> extends DataSourceBase<T> {
         return this.left.hasItem(raw, t) || this.right.hasItem(raw, t);
     }
 
-    constructor(private cols: UCol[], private left: _ISelection, private right: _ISelection) {
+    constructor(private cols: UCol[]
+        , private left: _ISelection
+        , private right: _ISelection) {
         super(left.ownerSchema);
         this.columns = cols.map(x => columnEvaluator(this, x.name, x.type));
         for (const c of this.columns) {

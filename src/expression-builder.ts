@@ -113,8 +113,11 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildTernary(data, val);
         case 'select':
         case 'union':
+        case 'union all':
         case 'with':
             return buildSelectAsArray(data, val);
+        case 'array select':
+            return buildSelectAsArray(data, val.select);
         case 'constant':
             return Value.constant(data.ownerSchema, val.dataType as any, val.value);
         case 'keyword':
@@ -197,9 +200,12 @@ function buildIn(data: _ISelection, left: Expr, array: Expr, inclusive: boolean)
 
 
 function buildBinary(data: _ISelection, val: ExprBinary): IValue {
-    const { left, right, op } = val;
-    let leftValue = _buildValue(data, left);
-    let rightValue = _buildValue(data, right);
+    let leftValue = _buildValue(data, val.left);
+    let rightValue = _buildValue(data, val.right);
+    return buildBinaryValue(data, leftValue, val.op, rightValue);
+}
+
+export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: BinaryOperator, rightValue: IValue): IValue {
     const type: _IType = reconciliateTypes([leftValue, rightValue]);
     leftValue = leftValue.convert(type);
     rightValue = rightValue.convert(type);
@@ -265,12 +271,6 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             break;
         case 'AND':
         case 'OR':
-            if (!leftValue.canConvert(Types.bool)) {
-                throw new CastError(leftValue.type.primary, DataType.bool);
-            }
-            if (!rightValue.canConvert(Types.bool)) {
-                throw new CastError(rightValue.type.primary, DataType.bool);
-            }
             leftValue = leftValue.convert(Types.bool);
             rightValue = rightValue.convert(Types.bool);
 

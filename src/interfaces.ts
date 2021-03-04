@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'pgsql-ast-parser';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode } from 'pgsql-ast-parser';
 
 
 export type nil = undefined | null;
@@ -295,7 +295,7 @@ export interface QueryResult {
     /** Ignored (because of an "if not exists" or equivalent) */
     ignored?: boolean;
     /** Location of the last ";" prior to this statement */
-    location: StatementLocation;
+    location: NodeLocation;
 }
 
 export interface FieldInfo {

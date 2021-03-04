@@ -4,7 +4,7 @@ import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, ra
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, LOCATION, StatementLocation, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -120,7 +120,7 @@ export class DbSchema implements _ISchema, ISchema {
             const { checked: p, check } = this.db.options.noAstCoverageCheck
                 ? { checked: _p, check: null }
                 : watchUse(_p);
-            p[LOCATION] = _p[LOCATION];
+
             switch (p.type) {
                 case 'start transaction':
                     t = t.fork();
@@ -142,6 +142,7 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'update':
                 case 'insert':
                 case 'union':
+                case 'union all':
                     last = this.executeWithable(t, p);
                     break;
                 case 'truncate table':
@@ -411,6 +412,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         switch (p.type) {
             case 'select':
             case 'union':
+            case 'union all':
             case 'with':
                 return this.lastSelect = this.buildSelect(p);
             case 'delete':
@@ -506,8 +508,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     }
 
-    private locOf(p: Statement): StatementLocation {
-        return p[LOCATION] ?? { start: 0, end: 0 };
+    private locOf(p: Statement): NodeLocation {
+        return p._location ?? { start: 0, end: 0 };
     }
 
 
@@ -978,12 +980,17 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     private buildUnion(p: SelectFromUnion): _ISelection {
         const left = this.buildSelect(p.left);
         const right = this.buildSelect(p.right);
-        return left.union(right);
+        const ret = left.union(right);
+        if (p.type === 'union all') {
+            return ret;
+        }
+        return ret.distinct();
     }
 
     buildSelect(p: SelectStatement): _ISelection {
         switch (p.type) {
             case 'union':
+            case 'union all':
                 return this.buildUnion(p);
             case 'with':
                 return this.buildWith(p);
@@ -1051,16 +1058,15 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 continue;
             }
 
-
             switch (from.join?.type) {
                 case 'INNER JOIN':
-                    sel = new JoinSelection(this, sel, newT, from.join.on!, true);
+                    sel = new JoinSelection(this, sel, newT, from.join!, true);
                     break;
                 case 'LEFT JOIN':
-                    sel = new JoinSelection(this, sel, newT, from.join.on!, false);
+                    sel = new JoinSelection(this, sel, newT, from.join!, false);
                     break;
                 case 'RIGHT JOIN':
-                    sel = new JoinSelection(this, newT, sel, from.join.on!, false);
+                    sel = new JoinSelection(this, newT, sel, from.join!, false);
                     break;
                 default:
                     throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
@@ -1240,7 +1246,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     , selection
                     // fake data... we're only using this to get the multi table column resolution:
                     , new ArrayFilter(table.selection, []).setAlias('excluded')
-                    , { type: 'boolean', value: false }
+                    , {
+                        type: 'LEFT JOIN',
+                        on: { type: 'boolean', value: false }
+                    }
                     , false
                 );
                 const setter = this.createSetter(t, table, subject, p.onConflict.do.sets);
