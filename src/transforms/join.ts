@@ -3,8 +3,9 @@ import { buildBinaryValue, buildValue, uncache } from '../expression-builder';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces';
 import { DataSourceBase, TransformBase } from './transform-base';
 import { Expr, ExprRef, JoinClause, Name, SelectedColumn } from 'pgsql-ast-parser';
-import { colToStr, nullIsh } from '../utils';
+import { colToStr, nullIsh, SRecord } from '../utils';
 import { Types } from '../datatypes';
+import { buildSelection, CustomAlias, Selection } from './selection';
 
 let jCnt = 0;
 
@@ -20,6 +21,11 @@ interface JoinStrategy {
     othersPredicate?: IValue<any>;
 }
 
+interface Equality {
+    left: IValue;
+    right: IValue;
+    eq: IValue;
+}
 
 function* extractAnds(this: void, on: Expr): Iterable<Expr> {
     if (on.type === 'binary' && on.op === 'AND') {
@@ -48,6 +54,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private indexCache = new Map<IValue, _IIndex>();
     strategies: JoinStrategy[] = [];
     private building = false;
+    private ignoreDupes?: Set<IValue>;
 
 
     isOriginOf(a: IValue<any>): boolean {
@@ -127,7 +134,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
     private fetchOnStrategies(_on: Expr) {
         // build equalities eligible to a strategy
-        const ands: [IValue, IValue][] = [];
+        const ands: Equality[] = [];
         const others: IValue[] = [];
         for (const on of extractAnds(_on)) {
             if (on.type !== 'binary' || on.op !== '=') {
@@ -136,17 +143,21 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 continue;
             }
             this.building = true;
-            const a = buildValue(this, on.left);
-            const b = buildValue(this, on.right);
+            const left = buildValue(this, on.left);
+            const right = buildValue(this, on.right);
             this.building = false;
-            ands.push([a, b]);
+            // necessary because of the 'this.building' hack
+            uncache(this);
+            ands.push({
+                left,
+                right,
+                eq: buildValue(this, on),
+            });
         }
 
         // compute strategies
         this.fetchAndStrategies(ands, others);
 
-        // necessary because of the 'this.building' hack
-        uncache(this);
 
         // build seq-scan expression
         this.seqScanExpression = buildValue(this, _on).convert(Types.bool);
@@ -154,32 +165,33 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
     private fetchUsingStrategies(_using: Name[]) {
         // build equalities eligible to a strategy
-        const ands: [IValue, IValue][] = _using.map(n => [
-            this.restrictive.getColumn(n.name),
-            this.joined.getColumn(n.name),
-        ]);
+        const ands = _using.map<Equality>(n => {
+            const left = this.restrictive.getColumn(n.name);
+            const right = this.joined.getColumn(n.name);
+            return {
+                left,
+                right,
+                eq: buildBinaryValue(this
+                    , this.wrap(left)
+                    , '='
+                    , this.wrap(right))
+            }
+        });
+        this.ignoreDupes = new Set(ands.map(x => this.wrap(x.left)));
 
         // compute strategies
         this.fetchAndStrategies(ands, []);
 
         // build seq-scan expression
-        const bools = ands.map(([a, b]) => buildBinaryValue(this
-            , this.wrap(a)
-            , '='
-            , this.wrap(b)));
-        this.seqScanExpression = bools.slice(1)
-            .reduce((a, b) => buildBinaryValue(this, a, 'AND', b), bools[0]);
+        this.seqScanExpression = ands.slice(1)
+            .reduce((a, b) => buildBinaryValue(this, a, 'AND', b.eq), ands[0].eq);
     }
 
-    private fetchAndStrategies(_ands: [IValue, IValue][], otherPredicates: IValue[]) {
-        const ands = _ands.map(([a, b]) => ({
-            a,
-            b,
-            eq: buildBinaryValue(this, this.wrap(a), '=', this.wrap(b)),
-        }))
+    private fetchAndStrategies(ands: Equality[], otherPredicates: IValue[]) {
+
         for (let i = 0; i < ands.length; i++) {
-            const { a, b } = ands[i];
-            const strats = [...this.fetchEqStrategyOn(a, b)];
+            const { left, right } = ands[i];
+            const strats = [...this.fetchEqStrategyOn(left, right)];
             if (!strats.length) {
                 continue;
             }
@@ -286,7 +298,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }
 
     selectAll(): _ISelection {
-        return this.select(this.columns.map(v => v.id!));
+        let sel = this.columns.map<CustomAlias>(val => ({ val }));
+        if (this.ignoreDupes) {
+            sel = sel.filter(t => !this.ignoreDupes?.has(t.val));
+        }
+        return new Selection(this, sel);
     }
 
     selectAlias(alias: string): _IAlias | nil {

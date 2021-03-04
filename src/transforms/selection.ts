@@ -7,6 +7,9 @@ import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } 
 import { aggregationFunctions, buildGroupBy } from './aggregation';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
+import { rename } from 'fs';
+import { or } from 'sequelize/types';
+
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
     select = select ?? [];
@@ -22,7 +25,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     // if there is any aggregation function
     // check if there is any aggregation
     for (const col of select ?? []) {
-        if (hasAggreg(col.expr)) {
+        if ('expr' in col && hasAggreg(col.expr)) {
             // yea, there is an aggregation somewhere in selection
             return buildGroupBy(on, [], select);
         }
@@ -67,8 +70,15 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
     return ret;
 }
 
-function* buildCols(this: void, base: _ISelection, columns: SelectedColumn[]): Iterable<{ val: IValue; as?: string; expr?: Expr }> {
+function* buildCols(this: void, base: _ISelection, columns: (SelectedColumn | CustomAlias)[]): Iterable<CustomAlias> {
     for (const s of columns) {
+        if ('val' in s) {
+            if (s.val.origin !== base) {
+                throw new Error('Corrupted selection');
+            }
+            yield s;
+            continue;
+        }
         if (s.expr.type === 'ref' && s.expr.name === '*') {
             // handle select "*"
             if (s.alias) {
@@ -96,6 +106,11 @@ function* buildCols(this: void, base: _ISelection, columns: SelectedColumn[]): I
     }
 }
 
+export interface CustomAlias {
+    val: IValue;
+    as?: string;
+    expr?: Expr
+}
 
 export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
 
@@ -109,7 +124,7 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
     readonly columns: IValue[] = [];
 
 
-    constructor(base: _ISelection<any>, _columns: SelectedColumn[]) {
+    constructor(base: _ISelection<any>, _columns: (SelectedColumn | CustomAlias)[]) {
         super(base);
 
         // build non-conflicting column ids based on existing ones
@@ -128,7 +143,25 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
                 anonymousBases.set(id, (cnt ?? 0) + 1);
             }
         }
-        // this.columnIds = buildColumnIds(this.columnIds);
+
+        // rename ids for columns which have the same id
+        const has = new Map<string, number>();
+        for (let i = 0; i < columns.length; i++) {
+            const orig = this.columnIds[i];
+            const oi = has.get(orig);
+            if (typeof oi !== 'number') {
+                has.set(orig, i);
+                continue;
+            }
+            let ret: string = orig;
+            let k = 0;
+            do {
+                ret = orig + (++k);
+            } while (this.columnIds.includes(ret));
+            this.columnIds[i] = ret;
+            has.set(ret, i);
+        }
+
 
         // build columns to select
         for (let i = 0; i < columns.length; i++) {

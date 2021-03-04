@@ -10,7 +10,7 @@ export interface Ctor<T> extends Function {
 }
 
 export type Optional<T> = { [key in keyof T]?: T[key] };
-
+export type SRecord<T> = Record<string, T>;
 
 
 export function trimNullish<T>(value: T, depth = 5): T {
@@ -281,26 +281,6 @@ export function queryJson(a: Json, b: Json) {
         }
     }
     return true;
-}
-
-export function buildColumnIds(suggestedIds: string[]) {
-    const exists = new Set(suggestedIds);
-    const got = new Set();
-    let cid = 0;
-    return suggestedIds
-        .map(x => {
-            if (x && !got.has(x)) {
-                got.add(x);
-                return x;
-            }
-            let base = x ?? 'column';
-            let nm: string;
-            do {
-                nm = base + (cid++);
-            } while (exists.has(nm) || got.has(nm));
-            got.add(nm);
-            return nm;
-        });
 }
 
 export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {

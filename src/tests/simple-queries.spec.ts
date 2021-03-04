@@ -50,6 +50,15 @@ describe('Simple queries', () => {
     });
 
 
+    it('can select twice the same colmun', () => {
+        simpleDb();
+        expect(many(`insert into data(id) values ('key');
+            select id, id from data`))
+            .to.deep.equal([{
+                id: 'key',
+                id1: 'key',
+            }]);
+    });
 
     it('can select NOT', () => {
         expect(many(`select not true as v`))

@@ -649,7 +649,7 @@ describe('Joins', () => {
                     id: 1,
                     child_id: 1,
                     name: 'Tom',
-                    name0: 'Gun',
+                    name1: 'Gun',
                 }]);
         }
     });
@@ -671,20 +671,33 @@ describe('Joins', () => {
 
 
 
-
-    it('can left join using "USING" ', () => {
-        expect(many(`create table names(id int, name text);
+    describe('join "USING"', () => {
+        beforeEach(() => none(`create table names(id int, name text);
                                 create table rates(id int, rate int);
                                 insert into names values (1, 'Me');
-                                insert into rates values (1, 10);
-                                select * from rates
-                                left join names using (id)`))
-            .to.deep.equal([{
-                id: 1,
-                name: 'Me',
-                rate: 10,
-            }]);
-    });
+                                insert into rates values (1, 10);`))
+
+        it('can left join', () => {
+            expect(many(`select * from rates left join names using (id)`))
+                .to.deep.equal([{
+                    id: 1, // ==> IDENTIFIED AS UNIQUE !
+                    name: 'Me',
+                    rate: 10,
+                }]);
+        });
+
+        it('it outputs two ID columns when not using "USING"', () => {
+            expect(many(`select * from rates left join names ON rates.id = names.id`))
+                .to.deep.equal([{
+                    id: 1,
+                    id1: 1,
+                    name: 'Me',
+                    rate: 10,
+                }]);
+        });
+    })
+
+
 
     it('can right join', () => {
         photos();
@@ -703,65 +716,79 @@ describe('Joins', () => {
             ]);
     });
 
-    it('can self right join', () => {
-        const got = many(`create table test(usr text, friend text);
-        insert into test values ('me', 'you');
-        insert into test values ('me', 'other1');
-        insert into test values ('you', 'me');
-        insert into test values ('you', 'other2');
-        select a.usr, b.friend from
-            test a
-            right join test b on a.friend = b.usr;`);
-        expect(got)
-            .to.deep.equal([
-                { usr: 'you', friend: 'you' }
-                , { usr: 'you', friend: 'other1' }
-                , { usr: 'me', friend: 'me' }
-                , { usr: 'me', friend: 'other2' }
-            ])
+
+    describe('self joins', () => {
+        beforeEach(() => {
+            none(`create table test(usr text, friend text);
+                    insert into test values ('me', 'you');
+                    insert into test values ('me', 'other1');
+                    insert into test values ('you', 'me');
+                    insert into test values ('you', 'other2');`);
+        })
+
+
+        it('self join with *', () => {
+            const got = many(`select * from
+                                test a
+                                join test b on a.friend = b.usr;`);
+            expect(got)
+                .to.deep.equal([
+                    // nb: this is not exactly the same order as we'd get with pg
+                    //   (but there is no order clause)
+                    { usr: 'me', friend: 'you', usr1: 'you', friend1: 'me' },
+                    { usr: 'me', friend: 'you', usr1: 'you', friend1: 'other2' },
+                    { usr: 'you', friend: 'me', usr1: 'me', friend1: 'you' },
+                    { usr: 'you', friend: 'me', usr1: 'me', friend1: 'other1' },
+                ])
+        })
+
+
+        it('can self right join', () => {
+            const got = many(`select a.usr, b.friend from
+                                test a
+                                right join test b on a.friend = b.usr;`);
+            expect(got)
+                .to.deep.equal([
+                    { usr: 'you', friend: 'you' }
+                    , { usr: 'you', friend: 'other1' }
+                    , { usr: 'me', friend: 'me' }
+                    , { usr: 'me', friend: 'other2' }
+                ])
+        })
+
+        it('can self left join', () => {
+            const got = many(`select a.usr, b.friend from
+                                test a
+                                left join test b on a.friend = b.usr;`);
+            expect(got)
+                .to.deep.equal([
+                    { usr: 'me', friend: 'me' },
+                    { usr: 'me', friend: 'other2' },
+                    { usr: 'me', friend: null },
+                    { usr: 'you', friend: 'you' },
+                    { usr: 'you', friend: 'other1' },
+                    { usr: 'you', friend: null },
+                ])
+        });
+
+        it('can self inner join', () => {
+            const got = many(`select a.usr, b.friend from
+                                test a
+                                join test b on a.friend = b.usr;`);
+            expect(got)
+                .to.deep.equal([
+                    { usr: 'me', friend: 'me' },
+                    { usr: 'me', friend: 'other2' },
+                    { usr: 'you', friend: 'you' },
+                    { usr: 'you', friend: 'other1' },
+                ])
+        });
+
     })
-
-    it('can self left join', () => {
-        const got = many(`create table test(usr text, friend text);
-        insert into test values ('me', 'you');
-        insert into test values ('me', 'other1');
-        insert into test values ('you', 'me');
-        insert into test values ('you', 'other2');
-        select a.usr, b.friend from
-            test a
-            left join test b on a.friend = b.usr;`);
-        expect(got)
-            .to.deep.equal([
-                { usr: 'me', friend: 'me' },
-                { usr: 'me', friend: 'other2' },
-                { usr: 'me', friend: null },
-                { usr: 'you', friend: 'you' },
-                { usr: 'you', friend: 'other1' },
-                { usr: 'you', friend: null },
-            ])
-    });
-
-    it('can self inner join', () => {
-        const got = many(`create table test(usr text, friend text);
-        insert into test values ('me', 'you');
-        insert into test values ('me', 'other1');
-        insert into test values ('you', 'me');
-        insert into test values ('you', 'other2');
-        select a.usr, b.friend from
-            test a
-            join test b on a.friend = b.usr;`);
-        expect(got)
-            .to.deep.equal([
-                { usr: 'me', friend: 'me' },
-                { usr: 'me', friend: 'other2' },
-                { usr: 'you', friend: 'you' },
-                { usr: 'you', friend: 'other1' },
-            ])
-    });
 
     it('can select * and column on join', () => {
         expect(many(`select *, a from concat('a') as a join concat('a') as b on a.a=b.b`))
-            .to.deep.equal([{ a: 'a', b: 'a' }]);
+            .to.deep.equal([{ a: 'a', b: 'a', a1: 'a' }]);
     })
 
     it('can select selective * and column on join ', () => {
