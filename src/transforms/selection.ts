@@ -7,8 +7,6 @@ import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } 
 import { aggregationFunctions, buildGroupBy } from './aggregation';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
-import { rename } from 'fs';
-import { or } from 'sequelize/types';
 
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
@@ -144,7 +142,16 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             }
         }
 
+
+        // build columns to select
+        for (let i = 0; i < columns.length; i++) {
+            this.refColumn(columns[i].val, this.columnIds[i]);
+        }
+
+
+        // ONLY ONCE COLUMNS HAVE BEEN REFERENCED BY ID,
         // rename ids for columns which have the same id
+        // this allows yielding ambiguous columns data
         const has = new Map<string, number>();
         for (let i = 0; i < columns.length; i++) {
             const orig = this.columnIds[i];
@@ -160,12 +167,6 @@ export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
             } while (this.columnIds.includes(ret));
             this.columnIds[i] = ret;
             has.set(ret, i);
-        }
-
-
-        // build columns to select
-        for (let i = 0; i < columns.length; i++) {
-            this.refColumn(columns[i].val, this.columnIds[i]);
         }
     }
 

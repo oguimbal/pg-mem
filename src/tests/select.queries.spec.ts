@@ -134,7 +134,7 @@ describe('Selections', () => {
     it('detects ambiguous column selections on aliases', () => {
         // same-name columns not supported...if supported, must continue to throw when doing this:
         assert.throws(() => none(`create table data(id text primary key, str text);
-            select x.a from (select id as a, str as a from data) x;`));
+            select x.a from (select id as a, str as a from data) x;`), /column reference "a" is ambiguous/);
     });
 
 
@@ -235,12 +235,12 @@ describe('Selections', () => {
             insert into my_table values ('childid', 'Child', 'parid');`);
         }
 
-        it ('fails if multiple columns in predicate', () => {
+        it('fails if multiple columns in predicate', () => {
             mytable();
             assert.throws(() => many(`SELECT name FROM my_table as t1 WHERE id = (SELECT name, id FROM my_table as t2 WHERE t2.parent_id = t1.id);`), /subquery must return only one column/);
         });
 
-        it ('fails if multiple columns in selection', () => {
+        it('fails if multiple columns in selection', () => {
             mytable();
             assert.throws(() => many(`SELECT name, (SELECT name FROM my_table as t2 WHERE t2.parent_id = t1.id) FROM my_table as t1`), /subquery must return only one column/);
         });

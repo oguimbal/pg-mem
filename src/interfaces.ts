@@ -392,7 +392,7 @@ export class ColumnNotFound extends QueryError {
 
 export class AmbiguousColumn extends QueryError {
     constructor(col: string) {
-        super(`column "${col}" is ambiguous`);
+        super(`column reference "${col}" is ambiguous`);
     }
 }
 
