@@ -42,5 +42,25 @@ describe('Union', () => {
     it('cannot cast', () => {
         assert.throws(() => many(`select * from (values ('1')) as ta union select * from (values (2)) as tb`)
             , /UNION types text and integer cannot be matched/);
-    })
+    });
+
+    it('respects simple union', () => {
+        expect(many(`select 1 v union select 1 x`))
+            .to.deep.equal([{ v: 1 }]);
+        expect(many(`select null v union select null x`))
+            .to.deep.equal([{ v: null }]);
+    });
+
+    it('respects union all', () => {
+        expect(many(`select 1 v union all select 1 x`))
+            .to.deep.equal([
+                { v: 1 },
+                { v: 1 },
+            ]);
+        expect(many(`select null v union all select null x`))
+            .to.deep.equal([
+                { v: null },
+                { v: null },
+            ]);
+    });
 });

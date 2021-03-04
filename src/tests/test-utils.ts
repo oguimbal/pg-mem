@@ -80,6 +80,6 @@ export async function expectSingle(query: string, value: any, name?: string) {
         expect(q.length).to.equal(1, 'Was only expecting one result');
         const keys = Object.keys(q[0]);
         expect(keys.length).to.equal(1, 'Was only expecting one column');
-        expect(q[0][keys[0]]).to.equal(value);
+        expect(q[0][keys[0]]).to.deep.equal(value);
     })
 }

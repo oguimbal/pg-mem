@@ -85,5 +85,18 @@ describe('Aggregations', () => {
         expect(many(`create table example(a int);
                 select sum(distinct(a)) from example`))
             .to.deep.equal([{ sum: null }]);
-    })
+    });
+
+    it('can apply modifier filters on aggregations', () => {
+        expect(many(`select
+                        sum(v) filter (where v > 1) as f,
+                        sum(distinct v) filter (where v > 1) as d,
+                        sum(v) as t
+                    from (values (1), (2), (2)) as t(v);`))
+            .to.deep.equal([{
+                f: 4,
+                d: 2,
+                v: 5,
+            }]);
+    });
 });
