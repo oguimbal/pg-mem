@@ -94,6 +94,25 @@ describe('Joins', () => {
         ]);
     });
 
+
+
+    it('can select * on join', () => {
+        const result = many(`create table ta(aid text, bid text);
+                            create table tb(bid text, val text);
+                            insert into ta values ('aid1', 'bid1');
+                            insert into ta values ('aid2', 'bid2');
+
+                            insert into tb values ('bid1', 'val1');
+                            insert into tb values ('bid2', 'val2');
+
+                            select * from ta join tb on ta.bid = tb.bid`);
+
+        expect(result).to.deep.equal([
+            { val: 'val1', aid: 'aid1', bid: 'bid1', bid1: 'bid1' },
+            { val: 'val2', aid: 'aid2', bid: 'bid2', bid1: 'bid2' },
+        ]);
+    });
+
     it('reverses inner join on index when lots of left values and index present', () => {
         preventCataJoin(db);
         const result = many(`create table ta(aid text primary key, bid text);
