@@ -93,7 +93,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
                 if (!(data instanceof Aggregation)) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(nm, val.args);
+                return data.getAggregation(nm, val);
             }
             const args = val.args.map(x => _buildValue(data, x));
             const schema = data.db.getSchema(val.function.schema);

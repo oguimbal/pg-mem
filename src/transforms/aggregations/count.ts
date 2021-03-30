@@ -1,23 +1,29 @@
 import { AggregationComputer, AggregationGroupComputer, IndexKey, IValue, QueryError, _IIndex, _ISelection, _IType, _Transaction } from '../../interfaces-private';
-import { Expr } from 'pgsql-ast-parser';
-import {  asSingleQName, isSelectAllArgList, nullIsh } from '../../utils';
+import { Expr, ExprCall } from 'pgsql-ast-parser';
+import { asSingleQName, isSelectAllArgList, nullIsh } from '../../utils';
 import { buildValue } from '../../expression-builder';
 import { Types } from '../../datatypes';
 import objectHash from 'object-hash';
 
-export function buildCount(this: void, base: _ISelection, args: Expr[]) {
+export function buildCount(this: void, base: _ISelection, call: ExprCall) {
+    const args = call.args;
     if (isSelectAllArgList(args)) {
         return new CountStar(base);
     }
     if (args.length !== 1) {
         throw new QueryError('COUNT expects one argument, given ' + args.length);
     }
-    if (args[0].type === 'call') {
-        if (asSingleQName(args[0].function, 'pg_catalog') === 'distinct') {
-            if (!args[0].args.length) {
-                throw new QueryError('distinct() must take at least one argument');
-            }
-            const distinctArgs = args[0].args.map(x => buildValue(base, x));
+    if (call.distinct) {
+        if (!args.length) {
+            throw new QueryError('distinct() must take at least one argument');
+        }
+        if (args.length === 1 && args[0].type === 'list') {
+            // hack in case we get a record-like thing - ex: select count(distinct (a,b))
+            // cf UT behaves nicely with nulls on multiple count
+            const distinctArgs = args[0].expressions.map(x => buildValue(base, x));
+            return new CountDistinct(distinctArgs);
+        } else {
+            const distinctArgs = args.map(x => buildValue(base, x));
             return new CountDistinct(distinctArgs);
         }
     }

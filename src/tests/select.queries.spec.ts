@@ -223,6 +223,18 @@ describe('Selections', () => {
     })
 
 
+    it('does not leak null symbols (bugfix)', () => {
+        expect(many(`
+        create table test(data jsonb);
+        insert into test values ('{"value": null}'), ('{"value":[null]}'), (null);
+        select * from test;
+        `)).to.deep.equal([
+            { data: { value: null } },
+            { data: { value: [null] } },
+            { data: null },
+        ])
+    })
+
 
     describe.skip('Subqueries', () => {
 

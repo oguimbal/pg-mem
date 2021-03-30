@@ -11,16 +11,33 @@ export function cleanResults(results: any[]): any {
     //   - `can select jsonb null` test in nulls.spec.ts
     //   - `executes array multiple index incomplete indexing` test in operators.queries.spec.ts
 
-
-    for (const obj of results) {
+    function cleanObj(obj: any) {
+        if (!obj || typeof obj !== 'object') {
+            return;
+        }
         for (const [k, v] of Object.entries(obj)) {
             if (v === JSON_NIL) {
                 obj[k] = null;
-            }
-            if (Array.isArray(v) && (v as any)[IS_PARTIAL_INDEXING]) {
-                obj[k] = null;
+            } else if (Array.isArray(v)) {
+                if ((v as any)[IS_PARTIAL_INDEXING]) {
+                    obj[k] = null;
+                } else {
+                    for (let i = 0; i < v.length; i++) {
+                        if (obj[i] === JSON_NIL) {
+                            obj[i] = null;
+                        } else {
+                            cleanObj(v);
+                        }
+                    }
+                }
+            } else {
+                cleanObj(v);
             }
         }
+    }
+
+    for (const obj of results) {
+        cleanObj(obj);
     }
     return results;
 }

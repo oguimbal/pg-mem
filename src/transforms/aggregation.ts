@@ -1,6 +1,6 @@
 import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer } from '../interfaces-private';
-import { SelectedColumn, Expr, ExprRef } from 'pgsql-ast-parser';
+import { SelectedColumn, Expr, ExprRef, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
 import { colByName, suggestColumnName } from '../utils';
@@ -259,13 +259,13 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         }
     }
 
-    getAggregation(name: string, args: Expr[]): IValue {
-        const hashed = hash({ name, args });
+    getAggregation(name: string, call: ExprCall): IValue {
+        const hashed = hash(call);
         const agg = this.aggregations.get(hashed);
         if (agg) {
             return agg.getter;
         }
-        const got = this._getAggregation(name, args);
+        const got = this._getAggregation(name, call);
 
         const id = Symbol();
         const getter = new Evaluator(
@@ -287,15 +287,15 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return getter;
     }
 
-    private _getAggregation(name: string, args: Expr[]): AggregationComputer {
+    private _getAggregation(name: string, call: ExprCall): AggregationComputer {
         switch (name) {
             case 'count':
-                return buildCount(this.base, args);
+                return buildCount(this.base, call);
             case 'max':
             case 'min':
-                return buildMinMax(this.base, args, name);
+                return buildMinMax(this.base, call.args, name);
             case 'sum':
-                return buildSum(this.base, args);
+                return buildSum(this.base, call);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }

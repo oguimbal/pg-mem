@@ -113,7 +113,7 @@ describe('Aggregations', () => {
             .to.deep.equal([{ sum: null }]);
     });
 
-    it('can apply modifier filters on aggregations', () => {
+    it.skip('can apply modifier filters on aggregations', () => {
         expect(many(`select
                         sum(v) filter (where v > 1) as f,
                         sum(distinct v) filter (where v > 1) as d,
