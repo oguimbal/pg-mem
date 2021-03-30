@@ -9,6 +9,12 @@ const astCache: LRUCache<any, any> = new LRUCache({
     max: 1000,
 });
 
+let locationTracking = false;
+export function enableStatementLocationTracking() {
+    locationTracking = true;
+    astCache.reset();
+}
+
 
 /** Parse an AST from SQL */
 export function parseSql(sql: string): Statement[];
@@ -26,7 +32,10 @@ export function parseSql(sql: string, entry?: string): any {
 
     try {
 
-        let ret = parse(sql, entry as any);
+        let ret = parse(sql, {
+            entry,
+            locationTracking,
+        });
 
         // cache result
         if (!entry) {

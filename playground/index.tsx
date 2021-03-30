@@ -3,16 +3,18 @@ import { render } from 'react-dom';
 import MonacoEditor from 'react-monaco-editor';
 import { hot } from 'react-hot-loader/root';
 import dedent from 'dedent'
-import { newDb, QueryResult } from '../src';
+import { enableStatementLocationTracking, newDb, QueryResult } from '../src';
 import type monaco from 'monaco-editor';
 import type { editor } from 'monaco-editor';
-import { StatementLocation, Statement } from 'pgsql-ast-parser';
+import { NodeLocation, Statement } from 'pgsql-ast-parser';
 import { ErrorDisplay } from './error';
 import { ValueDisplay } from './value';
 import { DataGrid } from './grid';
 import Popup from 'reactjs-popup';
 // import ReactDataGrid from 'react-data-grid';
 // import 'react-data-grid/dist/react-data-grid.css';
+
+enableStatementLocationTracking();
 
 const columns = [
     { key: "id", name: "ID" },
@@ -80,7 +82,7 @@ const App = hot(class extends React.Component<{}, State> {
 
         -- aggregations
         select count(*) as usr from "user";
-        select count(*) as cnt, userId from "photo" group by userId;`;
+        select count(*) as cnt, "userId" from "photo" group by "userId";`;
     }
     editorDidMount(editor: editor.ICodeEditor, monaco) {
         this.editor = editor;
@@ -153,7 +155,7 @@ const App = hot(class extends React.Component<{}, State> {
 
             const markers: editor.IMarkerData[] = [];
             const decorations: editor.IModelDeltaDecoration[] = [];
-            const computePos = (loc: StatementLocation) => {
+            const computePos = (loc: NodeLocation) => {
                 let s = (loc.start ?? 0);
                 while (/[\s;\r\n]/.test(sql[s] ?? 'x')) {
                     s++;
@@ -167,7 +169,7 @@ const App = hot(class extends React.Component<{}, State> {
                     end: model.getPositionAt(e),
                 }
             }
-            const addMarker = (loc: StatementLocation, message: string, severity: monaco.MarkerSeverity = this.monaco.MarkerSeverity.Error) => {
+            const addMarker = (loc: NodeLocation, message: string, severity: monaco.MarkerSeverity = this.monaco.MarkerSeverity.Error) => {
                 const { start, end } = computePos(loc);
                 markers.push({
                     severity,
@@ -178,7 +180,7 @@ const App = hot(class extends React.Component<{}, State> {
                     endColumn: end.column,
                 })
             };
-            const addDecoration = (loc: StatementLocation, classname: string, message?: string) => {
+            const addDecoration = (loc: NodeLocation, classname: string, message?: string) => {
                 const { start, end } = computePos(loc);
 
                 const range: monaco.Range = new this.monaco.Range(start.lineNumber
@@ -202,7 +204,7 @@ const App = hot(class extends React.Component<{}, State> {
             // create results
             for (const r of results) {
                 if (r instanceof Error) {
-                    const loc = r['location'] as StatementLocation;
+                    const loc = r['location'] as NodeLocation;
                     if (!loc) {
                         // this.setGlobalError(e);
                         this.setState({
