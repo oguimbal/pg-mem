@@ -1,11 +1,12 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias, TR } from '../interfaces-private.ts';
 import { buildBinaryValue, buildValue, uncache } from '../expression-builder.ts';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces.ts';
 import { DataSourceBase, TransformBase } from './transform-base.ts';
 import { Expr, ExprRef, JoinClause, Name, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
 import { colToStr, nullIsh, SRecord } from '../utils.ts';
 import { Types } from '../datatypes/index.ts';
-import { buildSelection, CustomAlias, Selection } from './selection.ts';
+import { SELECT_ALL } from '../clean-results.ts';
+import { CustomAlias, Selection } from './selection.ts';
 
 let jCnt = 0;
 
@@ -55,6 +56,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     strategies: JoinStrategy[] = [];
     private building = false;
     private ignoreDupes?: Set<IValue>;
+    private mergeSelect?: Selection;
 
 
     isOriginOf(a: IValue<any>): boolean {
@@ -297,13 +299,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
-    selectAll(): _ISelection {
-        let sel = this.columns.map<CustomAlias>(val => ({ val }));
-        if (this.ignoreDupes) {
-            sel = sel.filter(t => !this.ignoreDupes?.has(t.val));
-        }
-        return new Selection(this, sel);
-    }
 
     selectAlias(alias: string): _IAlias | nil {
         let onLeft = this.restrictive.selectAlias(alias);
@@ -389,11 +384,25 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         const ret = {
             '>joined': r,
             '>restrictive': l,
+            [SELECT_ALL]: () => this.merge(ret),
         }
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
         return ret;
     }
 
+    private merge(item: any) {
+        if (!this.mergeSelect) {
+            let sel = this.columns.map<CustomAlias>(val => ({ val }));
+            if (this.ignoreDupes) {
+                sel = sel.filter(t => !this.ignoreDupes?.has(t.val));
+            }
+            this.mergeSelect = new Selection(this, sel);
+        }
+
+        // nb: second argument is null... this is a hack : we KNOW it wont use the transaction.
+        const ret = this.mergeSelect.build(item, Symbol('hack') as any);
+        return ret;
+    }
 
     hasItem(value: JoinRaw<TLeft, TRight>): boolean {
         throw new NotSupported('lookups on joins');

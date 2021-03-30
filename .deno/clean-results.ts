@@ -1,5 +1,6 @@
 export const JSON_NIL = Symbol('null');
 export const IS_PARTIAL_INDEXING = Symbol('partial_indexing');
+export const SELECT_ALL = Symbol('select *');
 
 
 export function cleanResults(results: any[]): any {
@@ -36,8 +37,12 @@ export function cleanResults(results: any[]): any {
         }
     }
 
-    for (const obj of results) {
-        cleanObj(obj);
+    for (let i = 0; i < results.length; i++) {
+        const sel = results[i][SELECT_ALL];
+        if (sel) {
+            results[i] = sel();
+        }
+        cleanObj(results[i]);
     }
     return results;
 }

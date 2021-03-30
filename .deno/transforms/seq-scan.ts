@@ -36,8 +36,6 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
         }
     }
 
-
-
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),

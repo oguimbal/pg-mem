@@ -165,8 +165,7 @@ export interface _ISelection<T = any> extends _IAlias {
 
     /** Select a specific subset */
     select(select: (string | SelectedColumn)[]): _ISelection;
-    /** Select *  (will return 'this' most of the time) */
-    selectAll(): _ISelection;
+
     /** Limit selection to a specific alias (in joins) */
     selectAlias(alias: string): _IAlias | nil;
 }

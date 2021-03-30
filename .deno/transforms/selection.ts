@@ -17,7 +17,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
         if (!on.columns.length) {
             throw new QueryError('SELECT * with no tables specified is not valid');
         }
-        return on.selectAll();
+        return on;
     }
 
     // if there is any aggregation function
@@ -110,7 +110,7 @@ export interface CustomAlias {
     expr?: Expr
 }
 
-export class Selection<T> extends TransformBase<T> implements _ISelection<T> {
+export class Selection<T = any> extends TransformBase<T> implements _ISelection<T> {
 
     private columnIds: string[] = [];
     private columnsOrigin: IValue[] = [];

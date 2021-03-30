@@ -68,9 +68,6 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return fns.buildSelection(this, sel);
     }
 
-    selectAll(): _ISelection {
-        return this;
-    }
 
     selectAlias(alias: string): _IAlias | nil {
         return null;
