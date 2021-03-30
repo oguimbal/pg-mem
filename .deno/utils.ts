@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
 
@@ -10,7 +10,7 @@ export interface Ctor<T> extends Function {
 }
 
 export type Optional<T> = { [key in keyof T]?: T[key] };
-
+export type SRecord<T> = Record<string, T>;
 
 
 export function trimNullish<T>(value: T, depth = 5): T {
@@ -57,8 +57,12 @@ export function watchUse<T>(rootValue: T): { checked: T; check?: () => string | 
                 .map((x, i) => recurse(x, stack.push(`[${i}]`)));
         }
         // watch object
-        const ret = {};
+        const ret: any = {};
         for (const [k, _v] of Object.entries(value)) {
+            if (k[0] === '_') { // ignore properties starting with '_'
+                ret[k] = _v;
+                continue;
+            }
             const nstack = stack.push('.' + k);
             let v = recurse(_v, nstack);
             const nstackKey = nstack.join('');
@@ -277,26 +281,6 @@ export function queryJson(a: Json, b: Json) {
         }
     }
     return true;
-}
-
-export function buildColumnIds(suggestedIds: string[]) {
-    const exists = new Set(suggestedIds);
-    const got = new Set();
-    let cid = 0;
-    return suggestedIds
-        .map(x => {
-            if (x && !got.has(x)) {
-                got.add(x);
-                return x;
-            }
-            let base = x ?? 'column';
-            let nm: string;
-            do {
-                nm = base + (cid++);
-            } while (exists.has(nm) || got.has(nm));
-            got.add(nm);
-            return nm;
-        });
 }
 
 export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {

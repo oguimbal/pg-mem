@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, StatementLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
 
 
 export type nil = undefined | null;
@@ -295,7 +295,7 @@ export interface QueryResult {
     /** Ignored (because of an "if not exists" or equivalent) */
     ignored?: boolean;
     /** Location of the last ";" prior to this statement */
-    location: StatementLocation;
+    location: NodeLocation;
 }
 
 export interface FieldInfo {
@@ -392,7 +392,7 @@ export class ColumnNotFound extends QueryError {
 
 export class AmbiguousColumn extends QueryError {
     constructor(col: string) {
-        super(`column "${col}" is ambiguous`);
+        super(`column reference "${col}" is ambiguous`);
     }
 }
 

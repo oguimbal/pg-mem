@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, IType, NotSupported, nil } from './int
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './evaluator.ts';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
@@ -93,7 +93,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
                 if (!(data instanceof Aggregation)) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(nm, val.args);
+                return data.getAggregation(nm, val);
             }
             const args = val.args.map(x => _buildValue(data, x));
             const schema = data.db.getSchema(val.function.schema);
@@ -113,8 +113,11 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildTernary(data, val);
         case 'select':
         case 'union':
+        case 'union all':
         case 'with':
             return buildSelectAsArray(data, val);
+        case 'array select':
+            return buildSelectAsArray(data, val.select);
         case 'constant':
             return Value.constant(data.ownerSchema, val.dataType as any, val.value);
         case 'keyword':
@@ -197,9 +200,12 @@ function buildIn(data: _ISelection, left: Expr, array: Expr, inclusive: boolean)
 
 
 function buildBinary(data: _ISelection, val: ExprBinary): IValue {
-    const { left, right, op } = val;
-    let leftValue = _buildValue(data, left);
-    let rightValue = _buildValue(data, right);
+    let leftValue = _buildValue(data, val.left);
+    let rightValue = _buildValue(data, val.right);
+    return buildBinaryValue(data, leftValue, val.op, rightValue);
+}
+
+export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: BinaryOperator, rightValue: IValue): IValue {
     const type: _IType = reconciliateTypes([leftValue, rightValue]);
     leftValue = leftValue.convert(type);
     rightValue = rightValue.convert(type);
@@ -265,12 +271,6 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
             break;
         case 'AND':
         case 'OR':
-            if (!leftValue.canConvert(Types.bool)) {
-                throw new CastError(leftValue.type.primary, DataType.bool);
-            }
-            if (!rightValue.canConvert(Types.bool)) {
-                throw new CastError(rightValue.type.primary, DataType.bool);
-            }
             leftValue = leftValue.convert(Types.bool);
             rightValue = rightValue.convert(Types.bool);
 

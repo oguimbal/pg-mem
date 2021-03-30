@@ -3,7 +3,7 @@ import { Types, ArrayType } from './datatypes/index.ts';
 import { QueryError, NotSupported, nil } from './interfaces.ts';
 import { Evaluator } from './evaluator.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { parseArrayLiteral, QName } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { parseArrayLiteral, QName } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
 import { asSingleQName, colToStr, nullIsh, qnameToStr } from './utils.ts';
 
 

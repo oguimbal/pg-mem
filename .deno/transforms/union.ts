@@ -3,7 +3,7 @@ import { DataSourceBase } from './transform-base.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { columnEvaluator } from './selection.ts';
 import { reconciliateTypes } from '../datatypes/datatypes.ts';
-import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
+import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
 import { colByName } from '../utils.ts';
 
 // https://www.postgresql.org/docs/current/typeconv-union-case.html
@@ -50,7 +50,9 @@ class Union<T = any> extends DataSourceBase<T> {
         return this.left.hasItem(raw, t) || this.right.hasItem(raw, t);
     }
 
-    constructor(private cols: UCol[], private left: _ISelection, private right: _ISelection) {
+    constructor(private cols: UCol[]
+        , private left: _ISelection
+        , private right: _ISelection) {
         super(left.ownerSchema);
         this.columns = cols.map(x => columnEvaluator(this, x.name, x.type));
         for (const c of this.columns) {

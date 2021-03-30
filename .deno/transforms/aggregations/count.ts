@@ -1,23 +1,29 @@
 import { AggregationComputer, AggregationGroupComputer, IndexKey, IValue, QueryError, _IIndex, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@6.2.1/mod.ts';
-import {  asSingleQName, isSelectAllArgList, nullIsh } from '../../utils.ts';
+import { Expr, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
+import { asSingleQName, isSelectAllArgList, nullIsh } from '../../utils.ts';
 import { buildValue } from '../../expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
 import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 
-export function buildCount(this: void, base: _ISelection, args: Expr[]) {
+export function buildCount(this: void, base: _ISelection, call: ExprCall) {
+    const args = call.args;
     if (isSelectAllArgList(args)) {
         return new CountStar(base);
     }
     if (args.length !== 1) {
         throw new QueryError('COUNT expects one argument, given ' + args.length);
     }
-    if (args[0].type === 'call') {
-        if (asSingleQName(args[0].function, 'pg_catalog') === 'distinct') {
-            if (!args[0].args.length) {
-                throw new QueryError('distinct() must take at least one argument');
-            }
-            const distinctArgs = args[0].args.map(x => buildValue(base, x));
+    if (call.distinct) {
+        if (!args.length) {
+            throw new QueryError('distinct() must take at least one argument');
+        }
+        if (args.length === 1 && args[0].type === 'list') {
+            // hack in case we get a record-like thing - ex: select count(distinct (a,b))
+            // cf UT behaves nicely with nulls on multiple count
+            const distinctArgs = args[0].expressions.map(x => buildValue(base, x));
+            return new CountDistinct(distinctArgs);
+        } else {
+            const distinctArgs = args.map(x => buildValue(base, x));
             return new CountDistinct(distinctArgs);
         }
     }
