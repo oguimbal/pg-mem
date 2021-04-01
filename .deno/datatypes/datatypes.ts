@@ -2,8 +2,8 @@ import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-pr
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
 import { nullIsh, getContext } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';

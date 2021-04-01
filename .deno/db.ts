@@ -14,7 +14,7 @@ import { buildDistinct } from './transforms/distinct.ts';
 import { buildOrderBy } from './transforms/order-by.ts';
 import { setupPgCatalog } from './schema/pg-catalog/index.ts';
 import { setupInformationSchema } from './schema/information-schema/index.ts';
-import { QName } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
+import { QName } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
 import { asSingleQName } from './utils.ts';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {

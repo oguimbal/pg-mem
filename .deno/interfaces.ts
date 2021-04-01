@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@7.0.2/mod.ts';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
 
 
 export type nil = undefined | null;
