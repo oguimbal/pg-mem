@@ -123,6 +123,8 @@ export class DbSchema implements _ISchema, ISchema {
 
             switch (p.type) {
                 case 'start transaction':
+                case 'begin':
+                    ignore(p);
                     t = t.fork();
                     break;
                 case 'commit':
@@ -366,11 +368,11 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     private executeShow(t: _Transaction, p: ShowStatement): QueryResult {
         const got = t.getMap(GLOBAL_VARS);
-        if (!got.has(p.variable)) {
-            throw new QueryError(`unrecognized configuration parameter "${p.variable}"`);
+        if (!got.has(p.variable.name)) {
+            throw new QueryError(`unrecognized configuration parameter "${p.variable.name}"`);
         }
         return {
-            rows: [{ [p.variable.name]: got }],
+            rows: [{ [p.variable.name]: got.get(p.variable.name) }],
             rowCount: 1,
             command: 'SHOW',
             fields: [],

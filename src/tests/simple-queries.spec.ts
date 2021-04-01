@@ -39,6 +39,10 @@ describe('Simple queries', () => {
         return db;
     }
 
+    it('handles show', () => {
+        expect(many(`show server_version`))
+            .to.deep.equal([{ server_version: '12.2 (pg-mem)' }]);
+    })
 
     it('can insert and select null', () => {
         simpleDb();
