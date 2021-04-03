@@ -4,7 +4,7 @@ import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, ra
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -504,8 +504,26 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             existing.drop(t);
         }
 
-        const view = this.buildSelect(p.query);
+        let view = this.buildSelect(p.query);
 
+        // optional column mapping
+        if (p.columnNames?.length) {
+            if (p.columnNames.length > view.columns.length) {
+                throw new QueryError('CREATE VIEW specifies more column names than columns', 42601);
+            }
+            view = view.select(view.columns.map<string | SelectedColumn>((x, i) => {
+                const alias = p.columnNames?.[i]?.name;
+                if (!alias) {
+                    return x.id!;
+                }
+                return {
+                    expr: { type: 'ref', name: x.id! },
+                    alias: { name: alias },
+                }
+            }));
+        }
+
+        // view creation
         new View(onSchema, p.name.name, view)
             .register();
 

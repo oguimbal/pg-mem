@@ -353,10 +353,10 @@ interface ErrorData {
 }
 export class QueryError extends Error {
     readonly data: ErrorData;
-    constructor(err: string | ErrorData) {
+    constructor(err: string | ErrorData, code?: number) {
         super(typeof err === 'string' ? err : errDataToStr(err));
         this.data = typeof err === 'string'
-            ? { error: err }
+            ? { error: err, code }
             : err;
     }
 }

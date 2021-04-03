@@ -19,17 +19,28 @@ describe('Views', () => {
     });
 
     function people() {
-        none(`create table people (name text, age int);
-        insert into people values ('jess', 30), ('kevin', 14), ('lea', 10), ('oliver', 34);`);
+        none(`create table people (name text, age int, loc text);
+        insert into people values ('jess', 30, 'en'), ('kevin', 14, 'fr'), ('lea', 10, 'fr'), ('oliver', 34, 'en');`);
     }
 
-    it('can create view', () => {
+    it('can create simple view', () => {
         people();
         expect(many(`create view minors as select name from people where age < 18;
             select * from minors`))
             .to.deep.equal([
                 { name: 'kevin' },
                 { name: 'lea' },
+            ]);
+    });
+
+
+    it('can create view with column names', () => {
+        people();
+        expect(many(`create view minors(nm) as select name, age from people where age < 18;
+            select * from minors`))
+            .to.deep.equal([
+                { nm: 'kevin', age: 14 },
+                { nm: 'lea', age: 10 },
             ]);
     });
 });
