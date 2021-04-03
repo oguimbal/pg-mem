@@ -1,5 +1,5 @@
 import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private';
 import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
@@ -17,6 +17,7 @@ import { regGen } from './datatypes/datatype-base';
 import { ValuesTable } from './schema/values-table';
 import { cleanResults } from './clean-results';
 import { EquivalentType } from './datatypes/t-equivalent';
+import { View } from './view';
 
 
 type WithableResult = number | _ISelection;
@@ -218,9 +219,13 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'prepare':
                     throw new NotSupported('"PREPARE" statement');
                 case 'create view':
-                case 'create materialized view':
                     t = t.fullCommit();
                     last = this.executeCreateView(t, p);
+                    t = t.fork();
+                    break;
+                case 'create materialized view':
+                    t = t.fullCommit();
+                    last = this.executeCreateMaterializedView(t, p);
                     t = t.fork();
                     break;
                 case 'create schema':
@@ -486,29 +491,51 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         this.installedExtensions.add(p.extension.name);
     }
 
-    executeCreateView(t: _Transaction, p: CreateViewStatement | CreateMaterializedViewStatement): QueryResult {
-        throw new NotSupported('Not yet implemented, see https://github.com/oguimbal/pg-mem/issues/34')
+    executeCreateView(t: _Transaction, p: CreateViewStatement): QueryResult {
 
-        // const nop = this.simple('CREATE', p);
+        const nop = this.simple('CREATE', p);
+        const onSchema = p.name.schema && p.name.schema !== this.name
+            ? this.db.getSchema(p.name.schema)
+            : this;
 
-        // // check existence
-        // const ifNotExists = 'ifNotExists' in p && p.ifNotExists;
-        // const replace = 'orReplace' in p && p.orReplace;
-        // const existing = this.getObject(p, { nullIfNotFound: true });
-        // if (existing) {
-        //     if (ifNotExists) {
-        //         nop.ignored = true;
-        //         return nop;
-        //     } else if (replace) {
-        //         todo // drop existing
-        //     }
-        // }
+        // check existence
+        const existing = asView(this.getObject(p.name, { nullIfNotFound: true }));
+        if (p.orReplace && existing) {
+            existing.drop(t);
+        }
 
-        // const view = this.buildSelect(p.query);
+        const view = this.buildSelect(p.query);
 
-        // return nop;
+        new View(onSchema, p.name.name, view)
+            .register();
+
+        return nop;
 
     }
+
+    executeCreateMaterializedView(t: _Transaction, p: CreateMaterializedViewStatement): QueryResult {
+
+        const nop = this.simple('CREATE', p);
+        const onSchema = p.name.schema && p.name.schema !== this.name
+            ? this.db.getSchema(p.name.schema)
+            : this;
+
+        // check existence
+        const existing = asView(this.getObject(p.name, { nullIfNotFound: true }));
+        if (p.ifNotExists && existing) {
+            nop.ignored = true;
+            return nop;
+        }
+
+        const view = this.buildSelect(p.query);
+
+        // hack: materialized views are implemented as simple views :/  (todo ?)
+        new View(onSchema, p.name.name, view)
+            .register();
+
+        return nop;
+    }
+
 
     private locOf(p: Statement): NodeLocation {
         return p._location ?? { start: 0, end: 0 };
@@ -1035,7 +1062,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     if (temp === 'no returning') {
                         throw new QueryError(`WITH query "${from.name}" does not have a RETURNING clause`);
                     }
-                    newT = temp || asTable(this.getObject(from)).selection;
+                    newT = temp || asSelectable(this.getObject(from)).selection;
                     break;
                 case 'statement':
                     newT = this.buildSelect(from.statement);

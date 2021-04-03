@@ -1,8 +1,9 @@
 import { Evaluator } from '../evaluator';
-import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase } from '../interfaces-private';
+import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase, _Transaction } from '../interfaces-private';
 import { ArrayType } from './datatypes';
 import { isType, nullIsh } from '../utils';
 import objectHash from 'object-hash';
+import { QueryError } from '../interfaces';
 
 let regCnt = 0;
 
@@ -206,6 +207,10 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
             return value;
         }
         return objectHash(value);
+    }
+
+    drop(t: _Transaction): void {
+        throw new QueryError('drop type not implemented');
     }
 
 }
