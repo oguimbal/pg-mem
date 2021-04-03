@@ -395,6 +395,13 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     truncate(t: _Transaction): void;
 }
 
+export interface _IView extends _RelationBase {
+    readonly type: 'view';
+    readonly db: _IDb;
+    readonly selection: _ISelection;
+    drop(t: _Transaction): void;
+}
+
 
 export interface _IConstraint {
     readonly name: string | nil;
@@ -456,6 +463,8 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
 
     /** Get an unicity hash */
     hash(value: TRaw): string | number | null;
+
+    drop(t: _Transaction): void;
 }
 
 export interface IValue<TRaw = any> {
@@ -517,6 +526,7 @@ export interface IndexExpression {
 export interface _INamedIndex<T = any> extends _IIndex<T>, _RelationBase {
     readonly type: 'index';
     readonly onTable: _ITable<T>;
+    drop(t: _Transaction): void;
 }
 
 
@@ -599,7 +609,7 @@ export const NewColumn = Record<TableColumnRecordDef<any>>({
     name: null as any,
 });
 
-export type _IRelation = _ITable | _ISequence | _INamedIndex | _IType;
+export type _IRelation = _ITable | _ISequence | _INamedIndex | _IType | _IView;
 
 export function asIndex(o: _IRelation): _INamedIndex;
 export function asIndex(o: _IRelation | null): _INamedIndex | null;
@@ -651,6 +661,44 @@ export function asTable(o: _IRelation | null, nullIfNotType?: boolean) {
         return null;
     }
     throw new QueryError(`"${o.name}" is not a table`);
+}
+
+
+export type _ISelectable = _ITable | _IView;
+export function asSelectable(o: _IRelation): _ISelectable;
+export function asSelectable(o: _IRelation | null): _ISelectable | null;
+export function asSelectable(o: _IRelation | null, nullIfNotType?: boolean): _ISelectable | null;
+export function asSelectable(o: _IRelation | null, nullIfNotType?: boolean) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'table' || o.type === 'view') {
+        return o;
+    }
+    if (nullIfNotType) {
+        return null;
+    }
+    throw new QueryError(`"${o.name}" is not selectable`);
+}
+
+
+export function asView(o: _IRelation): _IView;
+export function asView(o: _IRelation | null): _IView | null;
+export function asView(o: _IRelation | null, nullIfNotType?: boolean): _IView | null;
+export function asView(o: _IRelation | null, nullIfNotType?: boolean) {
+    if (!o) {
+        return null;
+    }
+    if (o.type === 'view') {
+        return o;
+    }
+    if (nullIfNotType) {
+        return null;
+    }
+    throw new QueryError({
+        code: 42809,
+        error: `"${o.name}" is not a view`,
+    });
 }
 
 export interface _ISequence extends _RelationBase {

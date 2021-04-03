@@ -349,6 +349,7 @@ interface ErrorData {
     readonly error: string;
     readonly details?: string;
     readonly hint?: string;
+    readonly code?: number;
 }
 export class QueryError extends Error {
     readonly data: ErrorData;

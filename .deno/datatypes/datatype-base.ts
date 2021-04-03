@@ -1,8 +1,9 @@
 import { Evaluator } from '../evaluator.ts';
-import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase } from '../interfaces-private.ts';
+import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase, _Transaction } from '../interfaces-private.ts';
 import { ArrayType } from './datatypes.ts';
 import { isType, nullIsh } from '../utils.ts';
 import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
+import { QueryError } from '../interfaces.ts';
 
 let regCnt = 0;
 
@@ -206,6 +207,10 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
             return value;
         }
         return objectHash(value);
+    }
+
+    drop(t: _Transaction): void {
+        throw new QueryError('drop type not implemented');
     }
 
 }

@@ -82,6 +82,9 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         this.expressions = cols.map(x => x.value);
     }
 
+    drop(t: _Transaction): void {
+        this.onTable.dropIndex(t, this.name);
+    }
 
     compare(_a: any, _b: any) {
         for (let i = 0; i < this.expressions.length; i++) {
