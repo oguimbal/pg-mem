@@ -101,6 +101,14 @@
     "webpack-dev-server": "^3.11.0",
     "webpack-node-externals": "^1.7.2"
   },
+  "peerDependencies": {
+    "pg-promise": "^10.8.7"
+  },
+  "peerDependenciesMeta": {
+    "pg-promise": {
+      "optional": true
+    }
+  },
   "nyc": {
     "include": [
       "src/**/*.ts"
