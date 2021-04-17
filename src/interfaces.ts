@@ -134,6 +134,8 @@ export interface IMemoryDb {
     registerLanguage(languageName: string, compiler: LanguageCompiler): this;
 }
 
+export type QueryInterceptor = (query: string) => any[] | nil;
+
 
 export type ArgDef = DataType | IType | ArgDefDetails;
 
@@ -258,6 +260,14 @@ export interface ISchema {
      * ⚠ Only working when runnin nodejs !
      */
     migrate(config?: IMigrate.MigrationParams): Promise<void>;
+
+
+    /**
+     * Intecept queries.
+     * If your interceptor returns an array, then the query will not be executed.
+     * The given result will be returned instead.
+     */
+    interceptQueries(interceptor: QueryInterceptor): ISubscription;
 }
 
 export interface FunctionDefinition {

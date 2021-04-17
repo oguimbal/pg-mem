@@ -1,4 +1,4 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType } from './interfaces';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private';
 import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
@@ -35,6 +35,7 @@ export class DbSchema implements _ISchema, ISchema {
     private fns = new Map<string, _FunctionDefinition[]>();
     private installedExtensions = new Set<string>();
     private readonly: any;
+    private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' }).register();
@@ -64,6 +65,21 @@ export class DbSchema implements _ISchema, ISchema {
 
 
     query(text: string): QueryResult {
+        // intercept ?
+        for (const { intercept } of this.interceptors) {
+            const ret = intercept(text);
+            if (ret) {
+                return {
+                    command: text,
+                    fields: [],
+                    location: { start: 0, end: text.length },
+                    rowCount: 0,
+                    rows: ret,
+                };
+            }
+        }
+
+        // execute.
         let last: QueryResult | undefined;
         for (const r of this.queries(text)) {
             last = r;
@@ -201,7 +217,7 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'set timezone':
                     if (p.type === 'set' && p.set.type === 'value') {
                         t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS)
-                            .set(p.variable, p.set.value));
+                            .set(p.variable.name, p.set.value));
                         break;
                     }
                     // todo handle set statements timezone ?
@@ -1494,6 +1510,18 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     async migrate(config?: IMigrate.MigrationParams) {
         await migrate(this, config);
+    }
+
+
+
+    interceptQueries(intercept: QueryInterceptor): ISubscription {
+        const qi = { intercept } as const;
+        this.interceptors.add(qi);
+        return {
+            unsubscribe: () => {
+                this.interceptors.delete(qi);
+            }
+        };
     }
 }
 
