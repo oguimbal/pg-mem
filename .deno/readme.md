@@ -114,7 +114,6 @@ backup.restore();
 db.public.many(`select * from test`) // => {test: 'value'}
 ```
 
-
 ## Custom functions
 
 You can declare custom functions like this:
@@ -189,10 +188,29 @@ pg-mem provides handy shortcuts to create instances of popular libraries that wi
 - slonik
 - typeorm
 - knex
+- mikro-orm
 
 [See the wiki for more details](https://github.com/oguimbal/pg-mem/wiki/Libraries-adapters)
 
 # 💥 Inspection
+
+
+## Intercept queries
+
+If you would like to hook your database, and return ad-hoc results, you can do so like this:
+
+```typescript
+const db = newDb();
+
+db.public.interceptQueries(sql => {
+    if (sql === 'select * from whatever') {
+        // intercept this statement, and return something custom:
+        return [{something: 42}];
+    }
+    // proceed to actual SQL execution for other requests.
+    return null;
+});
+```
 
 ## Inspect a table
 

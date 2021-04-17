@@ -1,10 +1,10 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType } from './interfaces.ts';
+import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription } from './interfaces.ts';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private.ts';
 import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils.ts';
 import { buildValue } from './expression-builder.ts';
 import { ArrayType, Types, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -35,6 +35,7 @@ export class DbSchema implements _ISchema, ISchema {
     private fns = new Map<string, _FunctionDefinition[]>();
     private installedExtensions = new Set<string>();
     private readonly: any;
+    private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' }).register();
@@ -64,6 +65,21 @@ export class DbSchema implements _ISchema, ISchema {
 
 
     query(text: string): QueryResult {
+        // intercept ?
+        for (const { intercept } of this.interceptors) {
+            const ret = intercept(text);
+            if (ret) {
+                return {
+                    command: text,
+                    fields: [],
+                    location: { start: 0, end: text.length },
+                    rowCount: 0,
+                    rows: ret,
+                };
+            }
+        }
+
+        // execute.
         let last: QueryResult | undefined;
         for (const r of this.queries(text)) {
             last = r;
@@ -201,7 +217,7 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'set timezone':
                     if (p.type === 'set' && p.set.type === 'value') {
                         t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS)
-                            .set(p.variable, p.set.value));
+                            .set(p.variable.name, p.set.value));
                         break;
                     }
                     // todo handle set statements timezone ?
@@ -504,8 +520,26 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             existing.drop(t);
         }
 
-        const view = this.buildSelect(p.query);
+        let view = this.buildSelect(p.query);
 
+        // optional column mapping
+        if (p.columnNames?.length) {
+            if (p.columnNames.length > view.columns.length) {
+                throw new QueryError('CREATE VIEW specifies more column names than columns', '42601');
+            }
+            view = view.select(view.columns.map<string | SelectedColumn>((x, i) => {
+                const alias = p.columnNames?.[i]?.name;
+                if (!alias) {
+                    return x.id!;
+                }
+                return {
+                    expr: { type: 'ref', name: x.id! },
+                    alias: { name: alias },
+                }
+            }));
+        }
+
+        // view creation
         new View(onSchema, p.name.name, view)
             .register();
 
@@ -1476,6 +1510,18 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     async migrate(config?: IMigrate.MigrationParams) {
         await migrate(this, config);
+    }
+
+
+
+    interceptQueries(intercept: QueryInterceptor): ISubscription {
+        const qi = { intercept } as const;
+        this.interceptors.add(qi);
+        return {
+            unsubscribe: () => {
+                this.interceptors.delete(qi);
+            }
+        };
     }
 }
 

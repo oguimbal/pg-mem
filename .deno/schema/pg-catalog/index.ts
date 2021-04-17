@@ -1,7 +1,7 @@
 import { Types } from '../../datatypes/index.ts';
 import { DataType, FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private.ts';
 import { PgAttributeTable } from './pg-attribute-list.ts';
-import { PgClassListTable } from './pg-classlist.ts';
+import { PgClassListTable } from './pg-class.ts';
 import { PgConstraintTable } from './pg-constraints-list.ts';
 import { PgIndexTable } from './pg-index-list.ts';
 import { PgNamespaceTable } from './pg-namespace-list.ts';
@@ -9,6 +9,7 @@ import { PgTypeTable } from './pg-type-list.ts';
 import { allFunctions } from '../../functions/index.ts';
 import { PgRange } from './pg-range.ts';
 import { sqlSubstring } from '../../expression-builder.ts';
+import { PgDatabaseTable } from './pg-database.ts';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -48,6 +49,7 @@ export function setupPgCatalog(db: _IDb) {
     new PgIndexTable(catalog).register();
     new PgTypeTable(catalog).register();
     new PgRange(catalog).register();
+    new PgDatabaseTable(catalog).register();
 
 
     // this is an ugly hack...

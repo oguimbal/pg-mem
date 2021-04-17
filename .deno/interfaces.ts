@@ -134,6 +134,8 @@ export interface IMemoryDb {
     registerLanguage(languageName: string, compiler: LanguageCompiler): this;
 }
 
+export type QueryInterceptor = (query: string) => any[] | nil;
+
 
 export type ArgDef = DataType | IType | ArgDefDetails;
 
@@ -204,6 +206,9 @@ export interface LibAdapters {
 
     /** Create a Knex.js instance bound to this db */
     createKnex(queryLatency?: number): any;
+
+    /** Create a mikro-orm instance bound to this db */
+    createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
 }
 
 export interface ISchema {
@@ -258,6 +263,14 @@ export interface ISchema {
      * ⚠ Only working when runnin nodejs !
      */
     migrate(config?: IMigrate.MigrationParams): Promise<void>;
+
+
+    /**
+     * Intecept queries.
+     * If your interceptor returns an array, then the query will not be executed.
+     * The given result will be returned instead.
+     */
+    interceptQueries(interceptor: QueryInterceptor): ISubscription;
 }
 
 export interface FunctionDefinition {
@@ -349,14 +362,14 @@ interface ErrorData {
     readonly error: string;
     readonly details?: string;
     readonly hint?: string;
-    readonly code?: number;
+    readonly code?: string;
 }
 export class QueryError extends Error {
     readonly data: ErrorData;
-    constructor(err: string | ErrorData) {
+    constructor(err: string | ErrorData, code?: string) {
         super(typeof err === 'string' ? err : errDataToStr(err));
         this.data = typeof err === 'string'
-            ? { error: err }
+            ? { error: err, code }
             : err;
     }
 }
