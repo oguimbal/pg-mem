@@ -206,6 +206,9 @@ export interface LibAdapters {
 
     /** Create a Knex.js instance bound to this db */
     createKnex(queryLatency?: number): any;
+
+    /** Create a mikro-orm instance bound to this db */
+    createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
 }
 
 export interface ISchema {

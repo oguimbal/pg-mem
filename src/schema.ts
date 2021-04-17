@@ -525,7 +525,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         // optional column mapping
         if (p.columnNames?.length) {
             if (p.columnNames.length > view.columns.length) {
-                throw new QueryError('CREATE VIEW specifies more column names than columns', 42601);
+                throw new QueryError('CREATE VIEW specifies more column names than columns', '42601');
             }
             view = view.select(view.columns.map<string | SelectedColumn>((x, i) => {
                 const alias = p.columnNames?.[i]?.name;

@@ -1,7 +1,7 @@
 import { Types } from '../../datatypes';
 import { DataType, FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private';
 import { PgAttributeTable } from './pg-attribute-list';
-import { PgClassListTable } from './pg-classlist';
+import { PgClassListTable } from './pg-class';
 import { PgConstraintTable } from './pg-constraints-list';
 import { PgIndexTable } from './pg-index-list';
 import { PgNamespaceTable } from './pg-namespace-list';
@@ -9,6 +9,7 @@ import { PgTypeTable } from './pg-type-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../expression-builder';
+import { PgDatabaseTable } from './pg-database';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -48,6 +49,7 @@ export function setupPgCatalog(db: _IDb) {
     new PgIndexTable(catalog).register();
     new PgTypeTable(catalog).register();
     new PgRange(catalog).register();
+    new PgDatabaseTable(catalog).register();
 
 
     // this is an ugly hack...

@@ -48,6 +48,7 @@ function toLiteral(val: any): string {
 }
 
 export class Adapters implements LibAdapters {
+    private _mikroPatched?: boolean;
 
     constructor(private db: IMemoryDb) {
     }
@@ -293,6 +294,48 @@ export class Adapters implements LibAdapters {
         knex.client.driver = this.createPg(queryLatency);
         knex.client.version = 'pg-mem';
         return knex;
+    }
+
+
+    async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
+
+        const { MikroORM } = __non_webpack_require__('@mikro-orm/core');
+        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = __non_webpack_require__('@mikro-orm/postgresql');
+        const that = this;
+
+        // see https://github.com/mikro-orm/mikro-orm/blob/aa71065d0727920db7da9bfdecdb33e6b8165cb5/packages/postgresql/src/PostgreSqlConnection.ts#L5
+        class PgMemConnection extends PostgreSqlConnection {
+            protected createKnexClient(type: string) {
+                return that.createKnex();
+            }
+
+        }
+        // see https://github.com/mikro-orm/mikro-orm/blob/master/packages/postgresql/src/PostgreSqlDriver.ts
+        class PgMemDriver extends AbstractSqlDriver<PgMemConnection> {
+            constructor(config: any) {
+                super(config, new PostgreSqlPlatform(), PgMemConnection, ['knex', 'pg']);
+            }
+        }
+
+        // hack: this query is not supported by pgsql-ast-parser
+        if (!this._mikroPatched) {
+            this.db.public.interceptQueries(q => {
+                if (q === `set names 'utf8';`) {
+                    return [];
+                }
+                console.log(q);
+                return null;
+            });
+            this._mikroPatched = true;
+        }
+
+
+        const orm = await MikroORM.init({
+            ...mikroOrmOptions,
+            dbName: 'public',
+            driver: PgMemDriver,
+        });
+        return orm;
     }
 
 }
