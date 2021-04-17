@@ -102,10 +102,22 @@
     "webpack-node-externals": "^1.7.2"
   },
   "peerDependencies": {
-    "pg-promise": "^10.8.7"
+    "pg-promise": "^10.8.7",
+    "typeorm": "0.2.29",
+    "slonik": "^23.0.1",
+    "knex": "^0.21.15"
   },
   "peerDependenciesMeta": {
     "pg-promise": {
+      "optional": true
+    },
+    "typeorm": {
+      "optional": true
+    },
+    "slonik": {
+      "optional": true
+    },
+    "knex": {
       "optional": true
     }
   },
