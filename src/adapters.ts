@@ -323,7 +323,6 @@ export class Adapters implements LibAdapters {
                 if (q === `set names 'utf8';`) {
                     return [];
                 }
-                console.log(q);
                 return null;
             });
             this._mikroPatched = true;
