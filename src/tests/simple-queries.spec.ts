@@ -53,6 +53,10 @@ describe('Simple queries', () => {
         expect(got).to.deep.equal([]);
     });
 
+    it ('supports "set" statement', () => {
+        none(`set session_replication_role = 'replica';`);
+    })
+
 
     it('can select twice the same colmun', () => {
         simpleDb();

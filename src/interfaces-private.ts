@@ -696,7 +696,7 @@ export function asView(o: _IRelation | null, nullIfNotType?: boolean) {
         return null;
     }
     throw new QueryError({
-        code: 42809,
+        code: '42809',
         error: `"${o.name}" is not a view`,
     });
 }

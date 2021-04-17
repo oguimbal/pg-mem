@@ -4,6 +4,7 @@ import { Evaluator } from '../evaluator';
 import { deepCompare, deepEqual } from '../utils';
 import { Types } from './datatypes';
 import { JSON_NIL } from '../clean-results';
+import { QueryError } from '../interfaces';
 
 export class JSONBType extends TypeBase<any> {
 
@@ -49,7 +50,17 @@ export class JSONBType extends TypeBase<any> {
         switch (from.primary) {
             case DataType.text:
                 return value
-                    .setConversion(raw => JSON.parse(raw, (_, x) => x ?? JSON_NIL) ?? JSON_NIL
+                    .setConversion(raw => {
+                        try {
+                            return JSON.parse(raw, (_, x) => x ?? JSON_NIL) ?? JSON_NIL
+                        } catch (e) {
+                            throw new QueryError({
+                                error: `invalid input syntax for type json`,
+                                details: e.message,
+                                code: '22P02',
+                            });
+                        }
+                    }
                         , toJsonb => ({ toJsonb }));
         }
         return null;
