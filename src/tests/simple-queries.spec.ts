@@ -53,7 +53,7 @@ describe('Simple queries', () => {
         expect(got).to.deep.equal([]);
     });
 
-    it ('supports "set" statement', () => {
+    it('supports "set" statement', () => {
         none(`set session_replication_role = 'replica';`);
     })
 
@@ -67,6 +67,22 @@ describe('Simple queries', () => {
                 id1: 'key',
             }]);
     });
+
+
+    it('supports inner request (bugfix)', () => {
+        // this used to throw:
+        many(`
+        create table duplicate_hash(dispute_id text, hash text, primary key(dispute_id, hash));
+                select
+                count(dispute_id) cnt
+            from duplicate_hash dh
+            where dh.hash in (select
+                        dhi.hash
+                        from duplicate_hash dhi
+                        where dhi.dispute_id = 'CFR-210419-DMMM')
+                and dh.dispute_id!='CFR-210419-DMMM';
+        `);
+    })
 
     it('can select NOT', () => {
         expect(many(`select not true as v`))

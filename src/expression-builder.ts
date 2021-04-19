@@ -592,14 +592,16 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
         , onData.columns[0].type.asList()
         , null
         , Math.random().toString() // must not be indexable => always different hash
-        , onData.columns[0]
+        , null // , onData.columns[0]
         , (raw, t) => {
             const ret = [];
             for (const v of onData.enumerate(t!)) {
                 ret.push(onData.columns[0].get(v, t));
             }
             return ret;
-        });
+        }, {
+        forceNotConstant: true
+    });
 }
 
 

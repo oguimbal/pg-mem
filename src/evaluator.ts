@@ -62,8 +62,8 @@ export class Evaluator<T = any> implements IValue<T> {
                 this.usedColumns = new Set();
                 for (const d of dependencies) {
                     if (d.origin) {
-                        if (this.origin && this.origin !== d.origin) {
-                            throw new Error('You cannot evaluate an expression which coming from multiple origins');
+                        if (this.origin && d.origin && this.origin !== d.origin) {
+                            throw new Error('You cannot evaluate an expression which is coming from multiple origins');
                         }
                         this.origin = d.origin;
                     }
