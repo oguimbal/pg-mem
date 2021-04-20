@@ -29,7 +29,6 @@ interface ChangePlan<T> {
 }
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
-
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
     private _reg?: Reg;
@@ -38,6 +37,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             throw new QueryError(`relation "${this.name}" does not exist`);
         }
         return this._reg;
+    }
+    get columns() {
+      return this.columnDefs.map(c => c.expression);
     }
     private it = 0;
     private cstGen = 0;
@@ -54,7 +56,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     columnsByName = new Map<string, ColRef>();
     name: string;
 
-    readonly columns: IValue[] = [];
     private changeHandlers = new Map<_Column | null, ChangeSub<T>>();
     private truncateHandlers = new Set<DropHandler>();
     private drophandlers = new Set<DropHandler>();
@@ -174,7 +175,6 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // once constraints created, reference them. (constraint creation might have thrown)m
-        this.columns.push(cref.expression);
         this.db.onSchemaChange();
         this.selection.rebuild();
         return cref;

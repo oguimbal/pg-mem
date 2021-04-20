@@ -241,6 +241,12 @@ describe('Simple queries', () => {
     });
 
 
+    it('can select info columns with updated data', () => {
+        simpleDb();
+        none(`ALTER TABLE data DROP COLUMN str`);
+        expect(many(`select column_name from information_schema.columns where table_name='data'`))
+            .to.not.deep.include({ column_name: 'str' });
+    });
 
     it('supports to_date function', () => {
         expect(many(`select to_date('20170103','YYYYMMDD') as x`))
