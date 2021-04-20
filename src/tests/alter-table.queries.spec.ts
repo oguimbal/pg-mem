@@ -28,6 +28,21 @@ describe('Alter table', () => {
         `)).to.deep.equal([{ a: 'a' }])
     });
 
+
+    it('removes unreferences column when dropped it (bugfix)', () => {
+        expect(many(`CREATE TABLE foo (
+            uuid   VARCHAR NOT NULL,
+            other text
+        );
+
+        SELECT * from information_schema.columns where table_name='foo'; -- This shows uuid as expected
+
+        ALTER TABLE foo DROP COLUMN uuid;
+
+        SELECT column_name from information_schema.columns where table_name='foo'; -- This should not show uuid anymore, but it does`))
+            .to.deep.equal([{column_name: 'other'}])
+    });
+
     it('can rename column', () => {
         simpleDb();
         expect(many(`
@@ -140,13 +155,13 @@ describe('Alter table', () => {
             .to.deep.equal([]);
     });
 
-    it ('cannot add generated on a nullable column', () => {
+    it('cannot add generated on a nullable column', () => {
         assert.throws(() => none(`create table city(name text, city_id int);
             ALTER TABLE public.city ALTER COLUMN city_id ADD GENERATED ALWAYS AS IDENTITY;`)
             , /column "city_id" of relation "city" must be declared NOT NULL before identity can be added/);
     })
 
-    it ('can add generated column', () => {
+    it('can add generated column', () => {
         // https://github.com/oguimbal/pg-mem/issues/9
         const data = many(`create table city(name text, city_id int not null);
                 ALTER TABLE public.city ALTER COLUMN city_id ADD GENERATED ALWAYS AS IDENTITY (

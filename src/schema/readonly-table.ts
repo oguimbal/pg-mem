@@ -171,7 +171,6 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
         if (typeof table === 'string') {
             for (const s of this.db.listSchemas()) {
-                debugger;
                 const got = s.getTable(table, true);
                 if (got) {
                     yield* this.itemsByTable(got, t);
