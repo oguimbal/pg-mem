@@ -22,6 +22,9 @@ export interface IType {
     readonly primary: DataType;
     readonly name: string;
     toString(): string;
+
+    /** Create an array type of this type */
+    asArray(): IType;
 }
 
 // todo support all types https://www.postgresql.org/docs/9.5/datatype.html
@@ -250,6 +253,9 @@ export interface ISchema {
 
     /** Register a simple type, which is equivalent to another */
     registerEquivalentType(type: IEquivalentType): IType;
+
+    /** Get an existing type */
+    getType(name: DataType): IType;
 
     /**
      * Registers an enum type on this schema
