@@ -191,6 +191,8 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnsByName.delete(on);
         this.table.columnDefs.splice(i, 1);
+        this.table.columns.splice(i, 1);
+        this.table.selection.rebuild();
         this.drophandlers.forEach(d => d(t));
         this.table.db.onSchemaChange();
     }
