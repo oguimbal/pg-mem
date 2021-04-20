@@ -80,10 +80,6 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         throw new NotSupported('stats (count, ...) on information schema');
     }
 
-    get columnDefs(): _Column[] {
-        throw new PermissionDeniedError(this.name);
-    }
-
     rename(to: string): this {
         throw new PermissionDeniedError(this.name);
     }
