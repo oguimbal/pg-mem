@@ -88,7 +88,7 @@ function* buildCols(this: void, base: _ISelection, columns: (SelectedColumn | Cu
                 // handle select "x.*"
                 const sub = base.selectAlias(alias.name);
                 if (!sub) {
-                    throw new QueryError(`Unknown alias "${alias}"`);
+                    throw new QueryError(`Unknown alias "${alias.name}"`);
                 }
                 of = sub;
             }
