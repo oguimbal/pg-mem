@@ -70,7 +70,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
 
     selectAlias(alias: string): _IAlias | nil {
-        return null;
+        return this;
     }
 
 
