@@ -148,7 +148,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.columnsByName.has(column.name)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
-        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, column.type as _IType), column, column.name);
+        const type = typeof column.type === 'string'
+            ? this.ownerSchema.getType(column.type)
+            : column.type;
+        const cref = new ColRef(this, columnEvaluator(this.selection, column.name, type as _IType), column, column.name);
 
 
         // auto increments

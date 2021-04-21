@@ -12,7 +12,7 @@ export type Schema = {
 
 
 export interface SchemaField extends Omit<CreateColumnDef, 'dataType' | 'kind' | 'name'> {
-    type: IType;
+    type: IType | DataType;
     name: string;
     serial?: boolean;
 }
