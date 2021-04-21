@@ -28,33 +28,33 @@ interface ChangePlan<T> {
 }
 
 class ColumnManager {
-  private _columns?: IValue[];
-  readonly map = new Map<string, ColRef>();
+    private _columns?: readonly IValue[];
+    readonly map = new Map<string, ColRef>();
 
-  get columns(): IValue[] {
-    if (!this._columns) {
-      this._columns = Object.freeze(Array.from(this.map.values(), c => c.expression));
+    get columns(): readonly IValue[] {
+        if (!this._columns) {
+            this._columns = Object.freeze(Array.from(this.map.values(), c => c.expression));
+        }
+        return this._columns!;
     }
-    return this._columns;
-  }
-  invalidateColumns() {
-    this._columns = undefined;
-  }
+    invalidateColumns() {
+        this._columns = undefined;
+    }
 
-  // Pass-through methods
-  get = this.map.get.bind(this.map);
-  has = this.map.has.bind(this.map)
-  values = this.map.values.bind(this.map);
+    // Pass-through methods
+    get = this.map.get.bind(this.map);
+    has = this.map.has.bind(this.map)
+    values = this.map.values.bind(this.map);
 
-  set(name: string, colDef: ColRef) {
-    this.invalidateColumns();
-    return this.map.set(name, colDef);
-  }
+    set(name: string, colDef: ColRef) {
+        this.invalidateColumns();
+        return this.map.set(name, colDef);
+    }
 
-  delete(name: string) {
-    this.invalidateColumns();
-    return this.map.delete(name);
-  }
+    delete(name: string) {
+        this.invalidateColumns();
+        return this.map.delete(name);
+    }
 }
 
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
@@ -70,7 +70,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this._reg;
     }
     get columns() {
-      return this.columnMgr.columns;
+        return this.columnMgr.columns;
     }
     private it = 0;
     private cstGen = 0;
