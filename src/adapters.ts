@@ -4,6 +4,7 @@ import moment from 'moment';
 import lru from 'lru-cache';
 import { bufToString, isBuf } from './buffer-node';
 import { compareVersions, nullIsh } from './utils';
+import Knex from 'knex';
 declare var __non_webpack_require__: any;
 
 const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
@@ -286,10 +287,11 @@ export class Adapters implements LibAdapters {
         }
     }
 
-    createKnex(queryLatency?: number): any {
+    createKnex(queryLatency?: number, knexConfig?: Knex.Config): any {
         const knex = __non_webpack_require__('knex')({
-            client: 'pg',
             connection: {},
+            ...knexConfig,
+            client: 'pg',
         });
         knex.client.driver = this.createPg(queryLatency);
         knex.client.version = 'pg-mem';

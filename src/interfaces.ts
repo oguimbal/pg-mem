@@ -1,5 +1,6 @@
 import { IMigrate } from './migrate/migrate-interfaces';
 import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode } from 'pgsql-ast-parser';
+import Knex from 'knex';
 
 
 export type nil = undefined | null;
@@ -208,7 +209,7 @@ export interface LibAdapters {
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number): any;
 
     /** Create a Knex.js instance bound to this db */
-    createKnex(queryLatency?: number): any;
+    createKnex(queryLatency?: number, knexConfig?: Knex.Config): any;
 
     /** Create a mikro-orm instance bound to this db */
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
