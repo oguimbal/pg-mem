@@ -37,4 +37,20 @@ describe('Knex', () => {
                 { id: 'gid', name: 'gname', user_id: 'uid', group_id: 'gid' }
             ]);
     })
+
+    it('should use knex config from parameter', async () => {
+        const mem = newDb();
+        const knex = mem.adapters.createKnex(
+          undefined,
+          {
+            migrations: {
+              tableName: 'example_table',
+              directory: '.example_migrations',
+            },
+          }
+        ) as import('knex');
+        const migrateConfig = (knex.migrate as any).config as { directory: string, tableName: string };
+        expect(migrateConfig.tableName).to.equal('example_table');
+        expect(migrateConfig.directory).to.equal('.example_migrations');
+    })
 });
