@@ -169,14 +169,13 @@ export class ColRef implements _Column {
         this.expression = columnEvaluator(this.table, newId, newType);
 
         // replace in table
-        this.table.columnsByName.delete(on);
-        this.table.columnsByName.set(nn, this);
+        this.table.columnMgr.delete(on);
+        this.table.columnMgr.set(nn, this);
     }
 
     drop(t: _Transaction): void {
         const on = this.expression.id!;
-        const i = this.table.columnDefs.indexOf(this);
-        if (i < 0) {
+        if (!this.table.columnMgr.has(on)) {
             throw new Error('Corrupted table');
         }
 
@@ -189,9 +188,7 @@ export class ColRef implements _Column {
         this.table.remapData(t, x => delete x[this.expression.id!]);
 
         // nasty business to remove columns
-        this.table.columnsByName.delete(on);
-        this.table.columnDefs.splice(i, 1);
-        this.table.columns.splice(i, 1);
+        this.table.columnMgr.delete(on);
         this.table.selection.rebuild();
         this.drophandlers.forEach(d => d(t));
         this.table.db.onSchemaChange();

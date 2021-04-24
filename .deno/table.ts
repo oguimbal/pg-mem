@@ -12,7 +12,6 @@ import { DataSourceBase } from './transforms/transform-base.ts';
 import { parseSql } from './parse-cache.ts';
 import { ForeignKey } from './constraints/foreign-key.ts';
 import { Types } from './datatypes/index.ts';
-import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -27,6 +26,37 @@ interface ChangePlan<T> {
     before(): void
     after(): void;
 }
+
+class ColumnManager {
+    private _columns?: readonly IValue[];
+    readonly map = new Map<string, ColRef>();
+
+    get columns(): readonly IValue[] {
+        if (!this._columns) {
+            this._columns = Object.freeze(Array.from(this.map.values(), c => c.expression));
+        }
+        return this._columns!;
+    }
+    invalidateColumns() {
+        this._columns = undefined;
+    }
+
+    // Pass-through methods
+    get = this.map.get.bind(this.map);
+    has = this.map.has.bind(this.map)
+    values = this.map.values.bind(this.map);
+
+    set(name: string, colDef: ColRef) {
+        this.invalidateColumns();
+        return this.map.set(name, colDef);
+    }
+
+    delete(name: string) {
+        this.invalidateColumns();
+        return this.map.delete(name);
+    }
+}
+
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
 
 
@@ -39,6 +69,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
         return this._reg;
     }
+    get columns() {
+        return this.columnMgr.columns;
+    }
     private it = 0;
     private cstGen = 0;
     hasPrimary = false;
@@ -50,11 +83,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         index: BIndex<T>;
         expressions: IValue[];
     }>();
-    columnDefs: ColRef[] = [];
-    columnsByName = new Map<string, ColRef>();
+    readonly columnMgr = new ColumnManager();
     name: string;
 
-    readonly columns: IValue[] = [];
     private changeHandlers = new Map<_Column | null, ChangeSub<T>>();
     private truncateHandlers = new Set<DropHandler>();
     private drophandlers = new Set<DropHandler>();
@@ -123,7 +154,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
-        return colByName(this.columnsByName, column, nullIfNotFound)
+        return colByName(this.columnMgr.map, column, nullIfNotFound)
             ?.expression;
     }
 
@@ -145,7 +176,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return this.addColumn(tp, t);
         }
 
-        if (this.columnsByName.has(column.name)) {
+        if (this.columnMgr.has(column.name)) {
             throw new QueryError(`Column "${column.name}" already exists`);
         }
         const type = typeof column.type === 'string'
@@ -159,8 +190,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             t.set(this.serialsId, t.getMap(this.serialsId).set(column.name, 0));
         }
 
-        this.columnDefs.push(cref);
-        this.columnsByName.set(column.name, cref);
+        this.columnMgr.set(column.name, cref);
 
         try {
             if (column.constraints?.length) {
@@ -171,13 +201,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 this.remapData(t, x => (x as any)[column.name] = (x as any)[column.name] ?? null);
             }
         } catch (e) {
-            this.columnDefs.pop();
-            this.columnsByName.delete(column.name);
+            this.columnMgr.delete(column.name);
             throw e;
         }
 
         // once constraints created, reference them. (constraint creation might have thrown)m
-        this.columns.push(cref.expression);
         this.db.onSchemaChange();
         this.selection.rebuild();
         return cref;
@@ -187,7 +215,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     getColumnRef(column: string): ColRef;
     getColumnRef(column: string, nullIfNotFound?: boolean): ColRef | nil;
     getColumnRef(column: string, nullIfNotFound?: boolean): ColRef | nil {
-        const got = this.columnsByName.get(column);
+        const got = this.columnMgr.get(column);
         if (!got) {
             if (nullIfNotFound) {
                 return null;
@@ -283,7 +311,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         t.set(this.serialsId, serials);
 
         // set default values
-        for (const c of this.columnDefs) {
+        for (const c of this.columnMgr.values()) {
             c.setDefaults(toInsert, t);
         }
 
@@ -322,7 +350,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // check constraints
-        for (const c of this.columnDefs) {
+        for (const c of this.columnMgr.values()) {
             c.checkConstraints(toInsert, t);
         }
 
@@ -346,7 +374,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             if (global) {
                 ret.push(global);
             }
-            for (const def of this.columnDefs) {
+            for (const def of this.columnMgr.values()) {
                 const h = this.changeHandlers.get(def);
                 if (!h) {
                     continue;
@@ -397,7 +425,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         const exists = bin.get(id) ?? null;
 
         // set default values
-        for (const c of this.columnDefs) {
+        for (const c of this.columnMgr.values()) {
             c.setDefaults(toUpdate, t);
         }
 
@@ -410,7 +438,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
         // check constraints
-        for (const c of this.columnDefs) {
+        for (const c of this.columnMgr.values()) {
             c.checkConstraints(toUpdate, t);
         }
 

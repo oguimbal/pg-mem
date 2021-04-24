@@ -286,10 +286,11 @@ export class Adapters implements LibAdapters {
         }
     }
 
-    createKnex(queryLatency?: number): any {
+    createKnex(queryLatency?: number, knexConfig?: object): any {
         const knex = __non_webpack_require__('knex')({
-            client: 'pg',
             connection: {},
+            ...knexConfig,
+            client: 'pg',
         });
         knex.client.driver = this.createPg(queryLatency);
         knex.client.version = 'pg-mem';

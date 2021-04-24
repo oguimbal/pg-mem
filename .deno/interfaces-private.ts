@@ -365,7 +365,6 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     readonly hidden: boolean;
     readonly db: _IDb;
     readonly selection: _ISelection<T>;
-    readonly columnDefs: _Column[];
     readonly ownerSchema: _ISchema;
     doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
     setHidden(): this;
@@ -578,7 +577,6 @@ export interface TableRecordDef<T> {
     it: number;
     indexByHash: ImMap<string, _IIndex<T>>;
     indexByName: ImMap<string, _IIndex<T>>;
-    columnDefs: List<string>;
     columnsByName: ImMap<string, CR<T>>;
 }
 
@@ -597,7 +595,6 @@ export const EmtpyTable = Record<TableRecordDef<any>>({
     it: 0,
     indexByHash: ImMap(),
     indexByName: ImMap(),
-    columnDefs: List(),
     columnsByName: ImMap(),
 });
 

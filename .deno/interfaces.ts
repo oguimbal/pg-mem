@@ -208,7 +208,7 @@ export interface LibAdapters {
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number): any;
 
     /** Create a Knex.js instance bound to this db */
-    createKnex(queryLatency?: number): any;
+    createKnex(queryLatency?: number, knexConfig?: object): any;
 
     /** Create a mikro-orm instance bound to this db */
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
