@@ -71,11 +71,11 @@ describe('Deletes', () => {
         select * from test;`))
             .to.deep.equal([])
 
-        expect(many(`create table test(a text);
-        insert into test values ('a'), ('b'), ('c');
+        expect(many(`create table test(id, serial, a text);
+        insert into test values ('a');
         truncate test restart identity;
-        insert into test values ('a'), ('b'), ('c');
+        insert into test values ('a');
         select * from test;`))
-            .to.deep.equal([])
+            .to.deep.equal([{ id: 1, a: 'a' }])
     });
 });
