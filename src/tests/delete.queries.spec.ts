@@ -63,4 +63,19 @@ describe('Deletes', () => {
         select * from test;`))
             .to.deep.equal([])
     });
+
+    it('can truncate table and restart identity', () => {
+        expect(many(`create table test(a text);
+        insert into test values ('a'), ('b'), ('c');
+        truncate test restart identity;
+        select * from test;`))
+            .to.deep.equal([])
+
+        expect(many(`create table test(a text);
+        insert into test values ('a'), ('b'), ('c');
+        truncate test restart identity;
+        insert into test values ('a'), ('b'), ('c');
+        select * from test;`))
+            .to.deep.equal([])
+    });
 });
