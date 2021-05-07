@@ -1,10 +1,10 @@
-import { ISchema, QueryError, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription } from './interfaces';
+import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private';
 import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -162,6 +162,8 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'insert':
                 case 'union':
                 case 'union all':
+                case 'values':
+                case 'with recursive':
                     last = this.executeWithable(t, p);
                     break;
                 case 'truncate table':
@@ -437,6 +439,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             case 'union':
             case 'union all':
             case 'with':
+            case 'with recursive':
+            case 'values':
                 return this.lastSelect = this.buildSelect(p);
             case 'delete':
                 return this.executeDelete(t, p);
@@ -761,51 +765,54 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
 
         ignore(p.only);
-        const change = p.change;
-        switch (change.type) {
-            case 'rename':
-                table.rename(change.to.name);
-                return nop;
-            case 'add column': {
-                const col = table.selection.getColumn(change.column.name.name, true);
-                if (col) {
-                    if (change.ifNotExists) {
-                        return _ignore();
-                    } else {
-                        throw new QueryError('Column already exists: ' + col.id);
+        for (const change of p.changes) {
+            switch (change.type) {
+                case 'rename':
+                    table.rename(change.to.name);
+                    break;
+                case 'add column': {
+                    const col = table.selection.getColumn(change.column.name.name, true);
+                    if (col) {
+                        if (change.ifNotExists) {
+                            return _ignore();
+                        } else {
+                            throw new QueryError('Column already exists: ' + col.id);
+                        }
                     }
+                    table.addColumn(change.column, t);
+                    break;
                 }
-                table.addColumn(change.column, t);
-                return nop;
-            }
-            case 'drop column':
-                const col = table.getColumnRef(change.column.name, change.ifExists);
-                if (!col) {
-                    return _ignore();
-                }
-                col.drop(t);
-                return nop;
-            case 'rename column':
-                table.getColumnRef(change.column.name)
-                    .rename(change.to.name, t);
-                return nop;
-            case 'alter column':
-                table.getColumnRef(change.column.name)
-                    .alter(change.alter, t);
-                return nop;
-            case 'rename constraint':
-                throw new NotSupported('rename constraint');
-            case 'add constraint':
-                table.addConstraint(change.constraint, t);
-                return nop;
-            case 'owner':
-                // owner change statements are not supported.
-                // however, in order to support, pg_dump, we're just ignoring them.
-                return _ignore();
-            default:
-                throw NotSupported.never(change, 'alter request');
+                case 'drop column':
+                    const col = table.getColumnRef(change.column.name, change.ifExists);
+                    if (!col) {
+                        return _ignore();
+                    }
+                    col.drop(t);
+                    break;
+                case 'rename column':
+                    table.getColumnRef(change.column.name)
+                        .rename(change.to.name, t);
+                    break;
+                case 'alter column':
+                    table.getColumnRef(change.column.name)
+                        .alter(change.alter, t);
+                    break;
+                case 'rename constraint':
+                    throw new NotSupported('rename constraint');
+                case 'add constraint':
+                    table.addConstraint(change.constraint, t);
+                    break;
+                case 'owner':
+                    // owner change statements are not supported.
+                    // however, in order to support, pg_dump, we're just ignoring them.
+                    _ignore();
+                    break;
+                default:
+                    throw NotSupported.never(change, 'alter request');
 
+            }
         }
+        return nop;
     }
 
     executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
@@ -1058,62 +1065,54 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             case 'with':
                 return this.buildWith(p);
             case 'select':
-                break;
+                return this.buildRawSelect(p);
+            case 'values':
+                return this.buildValues(p);
+            case 'with recursive':
+                throw new NotSupported('recursirve with statements not implemented by pg-mem');
             default:
                 throw NotSupported.never(p);
         }
+    }
+
+
+    private buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection {
+        const ret = new ValuesTable(this, '', p.values, null, acceptDefault);
+        return ret.selection;
+    }
+
+
+    private buildRawSelect(p: SelectFromStatement): _ISelection {
         const distinct = !p.distinct || p.distinct === 'all'
             ? null
             : p.distinct;
         let sel: _ISelection | undefined = undefined;
         const aliases = new Set<string>();
         for (const from of p.from ?? []) {
-            let alias: string;
-            switch (from.type) {
-                case 'table':
-                    alias = from.alias ?? from.name
-                    break;
-                case 'call':
-                    alias = from.alias?.name ?? suggestColumnName(from)!;
-                    break;
-                default:
-                    alias = from.alias?.name;
-                    break;
-            }
-
-            if (!alias) {
-                throw new Error('No alias provided');
-            }
-            if (aliases.has(alias)) {
-                throw new Error(`Table name "${alias}" specified more than once`)
-            }
             // find what to select
             let newT: _ISelection;
             switch (from.type) {
                 case 'table':
-                    const temp = !from.schema
-                        && this.tempBindings.get(from.name);
-                    if (temp === 'no returning') {
-                        throw new QueryError(`WITH query "${from.name}" does not have a RETURNING clause`);
-                    }
-                    newT = temp || asSelectable(this.getObject(from)).selection;
+                    newT = this.getSelectable(from.name);
                     break;
                 case 'statement':
-                    newT = this.buildSelect(from.statement);
-                    break;
-                case 'values':
-                    newT = new ValuesTable(this, from.alias.name, from.values, from.columnNames?.map(x => x.name) ?? []).selection;
+                    newT = this.mapColumns(from.alias
+                        , this.buildSelect(from.statement)
+                        , from.columnNames)
+                        .setAlias(from.alias);
                     break;
                 case 'call':
                     const fnName = from.alias?.name ?? from.function?.name;
-                    newT = new ValuesTable(this, fnName, [[from]], [fnName]);
+                    newT = new ValuesTable(this, fnName, [[from]], [fnName])
+                        .setAlias(from.alias?.name ?? suggestColumnName(from) ?? '');
                     break;
                 default:
                     throw NotSupported.never(from);
             }
 
-            // set its alias
-            newT = newT.setAlias(alias);
+            // if (!!newT.name && aliases.has(newT.name)) {
+            //     throw new Error(`Alias name "${newT.name}" specified more than once`)
+            // }
 
             if (!sel) {
                 // first table to be selected
@@ -1170,6 +1169,41 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             sel = sel.limit(p.limit);
         }
         return sel;
+    }
+
+
+    getSelectable(name: QNameMapped): _ISelection<any> {
+        const temp = !name.schema
+            && this.tempBindings.get(name.name);
+        if (temp === 'no returning') {
+            throw new QueryError(`WITH query "${name.name}" does not have a RETURNING clause`);
+        }
+        let ret = temp || asSelectable(this.getObject(name)).selection;
+
+        ret = this.mapColumns(name.name, ret, name.columnNames);
+
+        if (name.alias) {
+            ret = ret.setAlias(name.alias);
+        }
+        return ret;
+    }
+
+    private mapColumns(tableName: string, ret: _ISelection, columnNames?: Name[] | nil) {
+        if (!columnNames?.length) {
+            return ret;
+        }
+        if (columnNames.length > ret.columns.length) {
+            throw new QueryError(`table "${tableName}" has ${ret.columns.length} columns available but ${columnNames.length} columns specified`, '42P10')
+        }
+        return ret.select(
+            columnNames.map<SelectedColumn>((x, i) => ({
+                expr: {
+                    type: 'ref',
+                    name: ret.columns[i].id!,
+                },
+                alias: x,
+            }))
+        )
     }
 
     private executeUpdate(t: _Transaction, p: UpdateStatement): WithableResult {
@@ -1232,54 +1266,41 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const returning = p.returning && buildSelection(new ArrayFilter(selection, ret), p.returning);
 
 
-        type V = (Expr | 'default' | { _custom: any });
-        let values: V[][] | nil = p.values;
-        let columns: string[];
 
-        if (p.select) {
-            const toInsert = this.buildSelect(p.select);
 
-            // check not inserting too many values
-            columns = p.columns?.map(x => x.name)
-                ?? table.selection.columns.map(x => x.id!)
-                    .slice(0, toInsert.columns.length);
-            if (toInsert.columns.length > columns.length) {
-                throw new QueryError(`INSERT has more expressions than target columns`);
+
+        const valueRawSource = p.insert.type === 'values'
+            ? this.buildValues(p.insert, true)
+            : this.buildSelect(p.insert);
+
+        // check not inserting too many values
+        const columns: string[] = p.columns?.map(x => x.name)
+            ?? table.selection.columns.map(x => x.id!)
+                .slice(0, valueRawSource.columns.length);
+        if (valueRawSource.columns.length > columns.length) {
+            throw new QueryError(`INSERT has more expressions than target columns`);
+        }
+
+
+        // check insert types
+        const valueConvertedSource = columns.map((col, i) => {
+            const value = valueRawSource.columns[i];
+            const insertInto = table.selection.getColumn(col);
+            if (!value.type.canConvert(insertInto.type)) {
+                throw new QueryError(`column "${col}" is of type ${insertInto.type.name} but expression is of type ${value.type.name}`);
             }
+            return value.convert(insertInto.type);
+        });
 
-            values = [];
-
-            // check insert types
+        // enumerate & get
+        const values: any[][] = [];
+        for (const o of valueRawSource.enumerate(t)) {
+            const nv = [];
             for (let i = 0; i < columns.length; i++) {
-                const valueType = toInsert.columns[i].type;
-                const insertIntoType = table.selection.getColumn(columns[i]).type;
-                if (!valueType.canConvertImplicit(insertIntoType)) {
-                    throw new QueryError(`column "${columns[i]}" is of type ${insertIntoType.name} but expression is of type ${valueType.name}`);
-                }
+                const _custom = valueConvertedSource[i].get(o, t);
+                nv.push(_custom);
             }
-
-            // enumerate & get
-            for (const o of toInsert.enumerate(t)) {
-                const nv: V[] = [];
-                for (let i = 0; i < columns.length; i++) {
-                    const _custom = toInsert.columns[i].get(o, t);
-                    nv.push({
-                        _custom
-                    });
-                }
-                values.push(nv);
-            }
-        } else {
-
-            if (!values) {
-                throw new QueryError('Nothing to insert');
-            }
-
-            // get columns to insert into
-            columns = p.columns?.map(x => x.name)
-                ?? table.selection.columns
-                    .map(x => x.id!)
-                    .slice(0, values[0].length);
+            values.push(nv);
         }
 
 
@@ -1339,21 +1360,22 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             }
             const toInsert: any = {};
             for (let i = 0; i < val.length; i++) {
-                const v: V = val[i];
+                const v = val[i];
                 const col = table.selection.getColumn(columns[i]);
-                if (v === 'default') {
-                    continue;
+                if (col.type === Types.null) {
+                    continue; // insert a 'DEFAULT' value
                 }
-                if ('_custom' in v) {
-                    toInsert[columns[i]] = v._custom;
-                } else {
-                    const notConv = buildValue(table.selection, v);
-                    const converted = notConv.convert(col.type);
-                    if (!converted.isConstant) {
-                        throw new QueryError('Cannot insert non constant expression');
-                    }
-                    toInsert[columns[i]] = converted.get();
-                }
+                toInsert[columns[i]] = v;
+                // if ('_custom' in v) {
+                //      toInsert[columns[i]] = v._custom;
+                // } else {
+                //     const notConv = buildValue(table.selection, v);
+                //     const converted = notConv.convert(col.type);
+                //     if (!converted.isConstant) {
+                //         throw new QueryError('Cannot insert non constant expression');
+                //     }
+                //     toInsert[columns[i]] = converted.get();
+                // }
             }
             ret.push(table.doInsert(t, toInsert, opts));
         }

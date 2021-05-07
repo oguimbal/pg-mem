@@ -261,7 +261,6 @@ describe('Simple queries', () => {
     });
 
 
-
     it('supports to_date function', () => {
         expect(many(`select to_date('20170103','YYYYMMDD') as x`))
             .to.deep.equal([{ x: new Date('2017-01-03') }]);

@@ -236,6 +236,62 @@ describe('Selections', () => {
     })
 
 
+
+    it('can select raw values', () => {
+        expect(many(`values (1), (2)`))
+            .to.deep.equal([
+                { column1: 1 },
+                { column1: 2 },
+            ]);
+        expect(many(`values (1, 2)`))
+            .to.deep.equal([
+                { column1: 1, column2: 2 },
+            ]);
+    });
+
+    it('cannot select raw values when not same length', () => {
+        assert.throws(() => many(`values (1, 2), (3)`), /VALUES lists must all be the same length/);
+    })
+
+
+    it('can map column names 1', () => {
+        expect(many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select * from test as xxx(a,b);
+        `))
+            .to.deep.equal([
+                { a: 'id', b: 'name', value: 'value' },
+            ]);
+    });
+
+
+    it('can map column names 2', () => {
+        expect(many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select * from test newalias(a,b);
+        `))
+            .to.deep.equal([
+                { a: 'id', b: 'name', value: 'value' },
+            ]);
+    });
+
+    it('cannot map column names when too many names specified', () => {
+        assert.throws(() => many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select * from test newalias(a,b,c,d);
+        `), /table "test" has 3 columns available but 4 columns specified/);
+    });
+
+
+    it('cannot use default in expression', () => {
+        assert.throws(() => many(`values (1, default)`), /DEFAULT is not allowed in this context/);
+    });
+
+
+
     describe.skip('Subqueries', () => {
 
         function mytable() {

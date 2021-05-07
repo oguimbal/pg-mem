@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private';
-import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils';
+import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './evaluator';
@@ -112,6 +112,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'union':
         case 'union all':
         case 'with':
+        case 'with recursive':
+        case 'values':
             return buildSelectAsArray(data, val);
         case 'array select':
             return buildSelectAsArray(data, val.select);
@@ -127,6 +129,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildOverlay(data, val);
         case 'substring':
             return buildSubstring(data, val);
+        case 'default':
+            throw new QueryError(`DEFAULT is not allowed in this context`, '42601');
         default:
             throw NotSupported.never(val);
     }

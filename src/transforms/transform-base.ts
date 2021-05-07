@@ -38,6 +38,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
+    // abstract get name(): string;
 
     get db() {
         return this.ownerSchema.db;

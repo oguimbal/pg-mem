@@ -64,4 +64,9 @@ describe('With statement', () => {
             with test as (insert into data values ('x')), test as (insert into data values ('x'))
             select * from data;`), /WITH query name "test" specified more than once/)
     })
+
+
+    it('supports with recursive', () => {
+        assert.fail('todo');
+    })
 });
