@@ -13,7 +13,6 @@ import { buildArrayAgg } from './aggregations/array_agg';
 
 export const aggregationFunctions = new Set([
     'array_agg',
-    'array_agg',
     'avg',
     'bit_and',
     'bit_or',
