@@ -9,6 +9,7 @@ import { Evaluator } from '../evaluator';
 import { buildCount } from './aggregations/count';
 import { buildMinMax } from './aggregations/max-min';
 import { buildSum } from './aggregations/sum';
+import { buildArrayAgg } from './aggregations/array_agg';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -296,6 +297,8 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
                 return buildMinMax(this.base, call.args, name);
             case 'sum':
                 return buildSum(this.base, call);
+            case 'array_agg':
+                return buildArrayAgg(this.base, call);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }
