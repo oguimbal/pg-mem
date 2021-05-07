@@ -301,11 +301,15 @@ export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
     }
 }
 
-export function nullIsh(v: any) {
+export function nullIsh(v: any): boolean {
     return v === null || v === undefined;
 }
-export function hasNullish(...vals: any[]) {
+export function hasNullish(...vals: any[]): boolean {
     return vals.some(nullIsh);
+}
+
+export function sum(v: number[]): number {
+    return v.reduce((sum, el) => sum + el, 0);
 }
 
 export function deepCloneSimple<T>(v: T): T {

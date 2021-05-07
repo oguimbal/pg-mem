@@ -2,10 +2,10 @@ import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError,
 import { ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../../expression-builder';
 import { Types } from '../../datatypes';
-import { nullIsh } from '../../utils';
+import { nullIsh, sum } from '../../utils';
 
 
-class SumExpr implements AggregationComputer<number> {
+class AvgExpr implements AggregationComputer<number> {
 
     constructor(private exp: IValue) {
     }
@@ -15,15 +15,15 @@ class SumExpr implements AggregationComputer<number> {
     }
 
     createGroup(t: _Transaction): AggregationGroupComputer<number> {
-        let val: number | nil = null;
+        let full: number[] = [];
         return {
             feedItem: (item) => {
                 const value = this.exp.get(item, t);
                 if (!nullIsh(value)) {
-                    val = nullIsh(val) ? value : val + value;
+                    full.push(value);
                 }
             },
-            finish: () => val,
+            finish: () => full.length === 0 ? null : sum(full)/full.length,
         }
     }
 }
@@ -45,26 +45,23 @@ class SumDistinct implements AggregationComputer<number> {
                     unique.add(value);
                 }
             },
-            finish: () => unique.size === 0 ? null : [...unique].reduce((acc, cur) => acc + cur, 0)
+            finish: () => unique.size === 0 ? null : sum([...unique])/unique.size
         }
     }
 
 }
 
-export function buildSum(this: void, base: _ISelection, call: ExprCall) {
+export function buildAvg(this: void, base: _ISelection, call: ExprCall) {
     const args = call.args;
     if (args.length !== 1) {
-        throw new QueryError('SUM expects one argument, given ' + args.length);
+        throw new QueryError('AVG expects one argument, given ' + args.length);
     }
 
     if (call.distinct) {
-        if (args.length !== 1) {
-            throw new QueryError('"sum distinct" only takes one argument');
-        }
         const distinctArg = buildValue(base, args[0]);
         return new SumDistinct(distinctArg);
     }
 
     const what = buildValue(base, args[0]);
-    return new SumExpr(what);
+    return new AvgExpr(what);
 }

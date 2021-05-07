@@ -143,4 +143,61 @@ describe('Aggregations', () => {
                     select array_agg(b) from example group by a`))
             .to.deep.equal([{ array_agg: [3, 4] }, { array_agg: [5] }]);
     });
+
+    it('supports avg()', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (1), (2);
+                    select avg(a) from example`))
+            .to.deep.equal([{ avg: 1.5 }]);
+    });
+
+    it('supports avg() with nulls', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (1), (2), (null);
+                    select avg(a) from example`))
+            .to.deep.equal([{ avg: 1.5 }]);
+    });
+
+    it('supports avg() with multiple groups', () => {
+        expect(many(`create table example(a int, b int);
+                    insert into example values (1, 1), (1, 2), (2, 3);
+                    select avg(b) from example group by a`))
+            .to.deep.equal([{ avg: 1.5 }, { avg: 3 }]);
+    });
+
+    it('avg() returns null when nothing', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (null), (null);
+                    select avg(a) from example`))
+            .to.deep.equal([{ avg: null }]);
+    });
+
+    it('supports avg(distinct)', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (1), (2), (1);
+                    select avg(distinct a) from example`))
+            .to.deep.equal([{ avg: 1.5 }]);
+    });
+
+    it('supports avg(distinct) with nulls', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (1), (2), (null), (1);
+                    select avg(distinct a) from example`))
+            .to.deep.equal([{ avg: 1.5 }]);
+    });
+
+    it('supports avg(distinct) with multiple groups', () => {
+        expect(many(`create table example(a int, b int);
+                    insert into example values (1, 1), (1, 2), (1, 1), (2, 3);
+                    select avg(distinct b) from example group by a`))
+            .to.deep.equal([{ avg: 1.5 }, { avg: 3 }]);
+    });
+
+    it('avg(distinct) returns null when nothing', () => {
+        expect(many(`create table example(a int);
+                    insert into example values (null), (null);
+                    select avg(distinct a) from example`))
+            .to.deep.equal([{ avg: null }]);
+    });
+
 });
