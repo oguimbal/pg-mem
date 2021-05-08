@@ -1,6 +1,6 @@
 import { AggregationComputer, AggregationGroupComputer, IndexKey, IValue, QueryError, _IIndex, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { Expr, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
-import { asSingleQName, isSelectAllArgList, nullIsh } from '../../utils.ts';
+import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { isSelectAllArgList, nullIsh } from '../../utils.ts';
 import { buildValue } from '../../expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
 import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
