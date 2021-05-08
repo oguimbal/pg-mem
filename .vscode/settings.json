@@ -30,5 +30,6 @@
         //  but it is easyier to debug
         //  ( ⚠ set it back to 'false' once you're done)
         "NOCHECKFULLQUERYUSAGE": "false",
-    }
+    },
+    "editor.formatOnSave": true
 }
