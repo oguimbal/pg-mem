@@ -154,6 +154,12 @@ describe('Simple queries', () => {
             .to.deep.equal([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
     });
 
+    it('supports bigserial data type', () => {
+        expect(many(`create table test(id bigserial primary key, val text, nl text);
+                                insert into test(val) values ('a'), ('b') returning id, val;`))
+            .to.deep.equal([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
+    });
+
     it('can create two tables with different casing', () => {
         none(`create table example(id text);
             create table "Example"(val text);
