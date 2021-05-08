@@ -979,7 +979,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                             ...f,
                             name: f.name.name,
                             type: this.getType(f.dataType),
-                            serial: !f.dataType.kind && f.dataType.name === 'serial',
+                            serial: !f.dataType.kind && (f.dataType.name === 'serial' || f.dataType.name === 'bigserial'),
                         };
                         delete (nf as Optional<typeof nf>).dataType;
                         fields.push(nf);
