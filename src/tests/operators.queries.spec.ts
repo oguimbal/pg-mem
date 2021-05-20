@@ -213,6 +213,16 @@ describe('Operators', () => {
                 .to.deep.equal([{ id: 'a' }, { id: 'b' }]);
         })
     });
+    
+    describe('&& operator', () => {
+    
+      it('finds overlap', () => {
+          const result = many(`create table test(id text primary key, data text array);
+                                insert into test values ('id1', '{"a", "b", "c"}'), ('id2', '{"b", "c", "d"}'), ('id4', '{"c", "d", "e"}'), ('id5', null);
+                                select id from test where data && '{"b"}';`);
+          expect(result.map((x) => x.id)).to.deep.equal(['id1', 'id2']);
+        });
+    });
 
     describe('LIKE operators', () => {
 

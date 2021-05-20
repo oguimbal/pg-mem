@@ -283,6 +283,9 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
         case '@>':
             getter = (a, b) => queryJson(b, a);
             break;
+        case '&&':
+            getter = (a, b) => a.some((element: any) => b.includes(element));
+            break;
         case '||':
             getter = (a, b) => a + b;
             returnType = Types.text();
