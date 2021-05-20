@@ -213,15 +213,34 @@ describe('Operators', () => {
                 .to.deep.equal([{ id: 'a' }, { id: 'b' }]);
         })
     });
-    
+
     describe('&& operator', () => {
-    
-      it('finds overlap', () => {
-          const result = many(`create table test(id text primary key, data text array);
-                                insert into test values ('id1', '{"a", "b", "c"}'), ('id2', '{"b", "c", "d"}'), ('id4', '{"c", "d", "e"}'), ('id5', null);
-                                select id from test where data && '{"b"}';`);
-          expect(result.map((x) => x.id)).to.deep.equal(['id1', 'id2']);
+
+        function fill() {
+            none(`create table test(id text primary key, data text array);
+                insert into test values ('id1', '{"a", "b", "c"}'), ('id2', '{"b", "c", "d"}'), ('id4', '{"c", "d", "e"}'), ('id5', null);`)
+        }
+
+        it('finds overlap', () => {
+            fill();
+            const result = many(`select id from test where data && '{"b"}';`);
+            expect(result.map((x) => x.id)).to.deep.equal(['id1', 'id2']);
         });
+
+
+        it('checks that any overlap is okay', () => {
+            fill();
+            const result = many(`select id from test where data && '{"b", "e"}';`);
+            expect(result.map((x) => x.id)).to.deep.equal(['id1', 'id2', 'id4']);
+        });
+
+        it('checks types', () => {
+            fill();
+            assert.throws(() => {
+                none(`select id from test where id && '{"b", "e"}'::text array;`)
+            }, /Operator does not exist: text && text\[\]/);
+        })
+
     });
 
     describe('LIKE operators', () => {
