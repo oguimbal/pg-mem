@@ -200,4 +200,11 @@ describe('Aggregations', () => {
             .to.deep.equal([{ avg: null }]);
     });
 
+
+    it('does not return anything when no rows', () => {
+        expect(many(`create table test(id text, a int);
+                    select id, sum(a) as sum from test group by id`))
+            .to.deep.equal([]);
+    });
+
 });
