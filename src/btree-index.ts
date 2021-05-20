@@ -144,7 +144,14 @@ export class BIndex<T = any> implements _INamedIndex<T> {
             throw new QueryError('Cannot add a null record in index ' + this.name);
         }
         if (this.unique && this.hasKey(key, t)) {
-            throw new QueryError('Unique constraint violated while adding a record to index ' + this.name);
+            const idCols = this.cols.map(it => it.value.id);
+            throw new QueryError({
+                error: `insert into "${this.onTable.name}" (${Object.keys(raw).join(', ')}) `
+                    + `values (${Object.keys(raw).map((_, i) => `$${i + 1}`).join(', ')}) returning "${idCols}" `
+                    + `- duplicate key value violates unique constraint "${this.onTable.name}_pkey"`,
+                details: `Key (${idCols})=(${key}) already exists.`,
+                code: '23505'
+            });
         }
         // get tree
         let tree = this.bin(t);

@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
-import { IMemoryDb } from '../interfaces';
+import { IMemoryDb, QueryError } from '../interfaces';
 
 describe('Test utils', () => {
 
@@ -37,7 +37,7 @@ describe('Test utils', () => {
     it('cannot insert twice', () => {
         const table = simple();
         table.insert({ id: 'x' });
-        assert.throws(() => table.insert({ id: 'x' }), /Unique constraint violated while adding a record to index test_id_idx/);
+        expect(() => table.insert({ id: 'x' })).to.throw().that.satisfies((e: QueryError) => e.data.code === '23505')
     })
 
     it('sets defaults', () => {
