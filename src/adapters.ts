@@ -32,6 +32,7 @@ function toLiteral(val: any): string {
                 return 'null';
             }
             if (Array.isArray(val)) {
+                if (val.length === 0) return `'{}'`;
                 return `ARRAY[${val.map(x => toLiteral(x)).join(', ')}]`;
             }
             if (val instanceof Date) {

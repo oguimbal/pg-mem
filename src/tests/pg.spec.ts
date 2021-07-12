@@ -67,7 +67,6 @@ describe('pg', () => {
         });
     });
 
-
     it('handles any($1)', async () => {
         simpleDb();
         const { Client } = db.adapters.createPg();
@@ -80,4 +79,15 @@ describe('pg', () => {
         await client.end();
     });
 
+    it('handles empty arrays in prepared statements', async () => {
+        simpleDb();
+        const { Client } = db.adapters.createPg();
+        const client = new Client();
+        await client.connect();
+        many('create table mytable (items varchar[]);');
+        await client.query('insert into mytable (items) values ($1);', [[]]);
+        const got = await client.query('select * from mytable;');
+        expect(got.rows).to.deep.equal([{ items: [] }]);
+        await client.end();
+    });
 });
