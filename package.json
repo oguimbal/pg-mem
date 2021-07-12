@@ -1,6 +1,6 @@
 {
   "name": "pg-mem",
-  "version": "1.9.9",
+  "version": "1.9.10",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
