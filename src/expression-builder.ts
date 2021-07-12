@@ -221,6 +221,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
     let returnType: _IType = Types.bool;
     let commutative = true;
     let forcehash: any = null;
+    let rejectNils = true;
     switch (op) {
         case '=': {
             const type = expectSame();
@@ -293,7 +294,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
         case 'AND':
         case 'OR':
             expectBoth(Types.bool);
-
+            rejectNils = false;
             if (op === 'AND') {
                 getter = (a, b) => a && b;
             } else {
@@ -384,7 +385,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
         , (raw, t) => {
             const leftRaw = leftValue.get(raw, t);
             const rightRaw = rightValue.get(raw, t);
-            if (nullIsh(leftRaw) || nullIsh(rightRaw)) {
+            if (rejectNils && (nullIsh(leftRaw) || nullIsh(rightRaw))) {
                 return null;
             }
             return getter(leftRaw, rightRaw);

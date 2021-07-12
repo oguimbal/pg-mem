@@ -148,6 +148,20 @@ describe('Simple queries', () => {
 
 
 
+    it('OR bugfix when there is a null column', () => {
+        expect(many(`CREATE TABLE IF NOT EXISTS test(
+                id varchar(100) not null,
+                val text
+            );
+
+            INSERT INTO test(id, val) VALUES ('a', null), ('b', 'row b');
+
+            SELECT *  FROM test
+                    WHERE id in ('a', 'b') OR val = 'SOMETHING_IRRELEVANT';`))
+            .to.deep.equal([{ id: 'a', val: null }, { id: 'b', val: 'row b' }]);
+    });
+
+
     it('insert returning', () => {
         expect(many(`create table test(id serial primary key, val text, nl text);
                                 insert into test(val) values ('a'), ('b') returning id, val;`))
