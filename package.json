@@ -46,7 +46,7 @@
     "lru-cache": "^6.0.0",
     "moment": "^2.27.0",
     "object-hash": "^2.0.3",
-    "pgsql-ast-parser": "^7.1.0"
+    "pgsql-ast-parser": "^8.1.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.10.5",
