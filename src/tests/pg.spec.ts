@@ -90,4 +90,16 @@ describe('pg', () => {
         expect(got.rows).to.deep.equal([{ items: [] }]);
         await client.end();
     });
+
+    it('does not leak symbol properties in rows', async () => {
+        simpleDb();
+        const { Client } = db.adapters.createPg();
+        const client = new Client();
+        await client.connect();
+        many(`create table mytable (msg varchar);
+            insert into mytable values ('hello'), ('hi');`);
+        const got = await client.query('select * from mytable;');
+        expect(Object.getOwnPropertySymbols(got.rows[0]).length).to.be.equal(0);
+        await client.end();
+    });
 });
