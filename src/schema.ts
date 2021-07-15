@@ -1233,11 +1233,11 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
 
         type V = (Expr | 'default' | { _custom: any });
-        let values: V[][] | nil = p.values;
+        let values: V[][] | nil = p.insert.values;
         let columns: string[];
 
-        if (p.select) {
-            const toInsert = this.buildSelect(p.select);
+        if (p.insert.type === 'select') {
+            const toInsert = this.buildSelect(p.insert);
 
             // check not inserting too many values
             columns = p.columns?.map(x => x.name)

@@ -19,7 +19,8 @@ describe('Datatypes - geometric', () => {
             .to.deep.equal([{ point: { x: 1, y: 2 } }])
     })
 
-    it('should return copies', () => {
+    // TODO: fixing it
+    it.only('should return copies', () => {
         const [{ pt }] = many(`create table test(pt point);
                                 insert into test values ('1,2');
                                 select * from test`);
