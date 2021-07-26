@@ -139,7 +139,7 @@ export class Adapters implements LibAdapters {
                         return Object.entries(row).reduce((obj, [key, val]) => {
                             obj[key] = val;
                             return obj;
-                        }, {});
+                        }, {} as any);
                     }),
                     get fields() {
                         throw new NotSupported('get pg fields');
