@@ -128,16 +128,23 @@ export class Adapters implements LibAdapters {
                 }
             }
 
-            private adaptResults(query: PgQuery, rows: QueryResult) {
+            private adaptResults(query: PgQuery, res: QueryResult) {
                 if (query.rowMode) {
-                    throw new NotSupported('pg rowMode')
+                    throw new NotSupported('pg rowMode');
                 }
                 return {
-                    ...rows,
+                    ...res,
+                    // clone rows to avoid leaking symbols
+                    rows: res.rows.map(row => {
+                        return Object.entries(row).reduce((obj, [key, val]) => {
+                            obj[key] = val;
+                            return obj;
+                        }, {} as any);
+                    }),
                     get fields() {
                         throw new NotSupported('get pg fields');
                     }
-                }
+                };
             }
 
             private adaptQuery(query: string | PgQuery, values: any): PgQuery {
