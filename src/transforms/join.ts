@@ -441,8 +441,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 matches: strategy.onValue.explain(e),
                 ...strategy.othersPredicate ? { filtered: true } : {},
             } : {
-                    seqScan: this.seqScanExpression.explain(e),
-                },
+                seqScan: this.seqScanExpression.explain(e),
+            },
         };
     }
 }
@@ -455,7 +455,6 @@ class JoinMapAlias implements _IAlias {
     }
 
     *listColumns(): Iterable<IValue<any>> {
-        debugger;
         for (const c of this.target.listColumns()) {
             yield c.setWrapper(this.owner, x => (x as any)[this.map]);
         }

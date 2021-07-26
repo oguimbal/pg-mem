@@ -59,9 +59,6 @@ function _buildValue(data: _ISelection | nil, val: Expr): IValue {
 }
 
 function _buildValueReal(data: _ISelection, val: Expr): IValue {
-    if (!data) {
-        debugger;
-    }
     switch (val.type) {
         case 'binary':
             if (val.op === 'IN' || val.op === 'NOT IN') {

@@ -118,7 +118,6 @@ class MemoryDb implements _IDb {
 
     *getFunctions(name: string | QName, arrity: number): Iterable<_FunctionDefinition> {
         const asSingle = asSingleQName(name);
-        debugger;
         if (asSingle) {
             for (const sp of this.searchPath) {
                 yield* this.getSchema(sp).getFunctions(name, arrity, true);
