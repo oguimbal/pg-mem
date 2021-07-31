@@ -142,7 +142,8 @@ export class Adapters implements LibAdapters {
                         }, {} as any);
                     }),
                     get fields() {
-                        throw new NotSupported('get pg fields');
+                        // to implement if needed ? (never seen a lib that uses it)
+                        return [];
                     }
                 };
             }
