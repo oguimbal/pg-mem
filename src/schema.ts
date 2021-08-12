@@ -93,7 +93,7 @@ export class DbSchema implements _ISchema, ISchema {
         };
     }
 
-    private parse(query: string) {
+    private parse(query: string): Statement[] {
         return parseSql(query);
     }
 
@@ -139,6 +139,9 @@ export class DbSchema implements _ISchema, ISchema {
                 : watchUse(_p);
 
             switch (p.type) {
+                // TODO: @rafaelgss
+                // case 'with recursive':
+                // case 'values':
                 case 'start transaction':
                 case 'begin':
                     ignore(p);
@@ -435,6 +438,9 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         switch (p.type) {
             case 'select':
             case 'union':
+            // TODO: @rafaelgss
+            // case 'with recursive':
+            // case 'values':
             case 'union all':
             case 'with':
                 return this.lastSelect = this.buildSelect(p);
@@ -683,6 +689,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             }
             return ret;
         }
+
         if (p.schema) {
             if (p.schema === this.name) {
                 return chk(this.getOwnObject(p.name));
@@ -1036,6 +1043,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             throw new NotSupported('Multiple truncations');
         }
         const table = asTable(this.getObject(p.tables[0]));
+      // TODO: @rafaelgss
+      // What about truncate restart identity?
         table.truncate(t);
         return this.simple('TRUNCATE', p);
     }
@@ -1052,11 +1061,14 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
     buildSelect(p: SelectStatement): _ISelection {
         switch (p.type) {
+            // TODO: @rafaelgss
+            // case 'with recursive':
             case 'union':
             case 'union all':
                 return this.buildUnion(p);
             case 'with':
                 return this.buildWith(p);
+            // case 'values':
             case 'select':
                 break;
             default:
@@ -1071,13 +1083,13 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             let alias: string;
             switch (from.type) {
                 case 'table':
-                    alias = from.alias ?? from.name
+                    alias = from.name.alias ?? from.name.name;
                     break;
                 case 'call':
                     alias = from.alias?.name ?? suggestColumnName(from)!;
                     break;
                 default:
-                    alias = from.alias?.name;
+                    alias = from.alias;
                     break;
             }
 
@@ -1091,19 +1103,24 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             let newT: _ISelection;
             switch (from.type) {
                 case 'table':
-                    const temp = !from.schema
-                        && this.tempBindings.get(from.name);
+                    const temp = !from.name.schema
+                        && this.tempBindings.get(from.name.name);
                     if (temp === 'no returning') {
-                        throw new QueryError(`WITH query "${from.name}" does not have a RETURNING clause`);
+                        throw new QueryError(`WITH query "${from.name.name}" does not have a RETURNING clause`);
                     }
-                    newT = temp || asSelectable(this.getObject(from)).selection;
+                    newT = temp || asSelectable(this.getObject(from.name)).selection;
                     break;
                 case 'statement':
-                    newT = this.buildSelect(from.statement);
+                    if (from.statement.type === 'values') {
+                      newT = new ValuesTable(this, from.alias, from.statement.values, from.columnNames?.map(x => x.name) ?? []).selection;
+                    } else {
+                      newT = this.buildSelect(from.statement);
+                    }
                     break;
-                case 'values':
-                    newT = new ValuesTable(this, from.alias.name, from.values, from.columnNames?.map(x => x.name) ?? []).selection;
-                    break;
+                // TODO @rafaelgss should it be removed?
+                // case 'values':
+                //     newT = new ValuesTable(this, from.alias.name, from.values, from.columnNames?.map(x => x.name) ?? []).selection;
+                //     break;
                 case 'call':
                     const fnName = from.alias?.name ?? from.function?.name;
                     newT = new ValuesTable(this, fnName, [[from]], [fnName]);
@@ -1232,8 +1249,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const returning = p.returning && buildSelection(new ArrayFilter(selection, ret), p.returning);
 
 
-        type V = (Expr | 'default' | { _custom: any });
-        let values: V[][] | nil = p.insert.values;
+        type V = (Expr | { _custom: any });
+        let values: V[][] | nil = [];
         let columns: string[];
 
         if (p.insert.type === 'select') {
@@ -1269,6 +1286,14 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 }
                 values.push(nv);
             }
+        } else if (p.insert.type === 'values') {
+            values = p.insert.values;
+
+            // get columns to insert into
+            columns = p.columns?.map(x => x.name)
+                ?? table.selection.columns
+                    .map(x => x.id!)
+                    .slice(0, values[0].length);
         } else {
 
             if (!values) {
@@ -1281,9 +1306,6 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     .map(x => x.id!)
                     .slice(0, values[0].length);
         }
-
-
-
 
         // build 'on conflict' strategy
         let ignoreConflicts: OnConflictHandler | nil = undefined;
@@ -1340,10 +1362,11 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             const toInsert: any = {};
             for (let i = 0; i < val.length; i++) {
                 const v: V = val[i];
-                const col = table.selection.getColumn(columns[i]);
-                if (v === 'default') {
+                if ('type' in v && v.type === 'default') {
                     continue;
                 }
+
+                const col = table.selection.getColumn(columns[i]);
                 if ('_custom' in v) {
                     toInsert[columns[i]] = v._custom;
                 } else {

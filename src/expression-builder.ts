@@ -68,6 +68,9 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
                 return buildIn(data, val.left, val.right, val.op === 'IN');
             }
             return buildBinary(data, val);
+        // TODO @rafaelgss
+        // case 'values':
+        // case 'default':
         case 'unary':
             return buildUnary(data, val.op, val.operand);
         case 'ref':
