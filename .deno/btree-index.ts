@@ -75,10 +75,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         , readonly unique: boolean
         , readonly notNull: boolean) {
         this.reg = onTable.ownerSchema._reg_register(this);
-        const asBinary = createTree((a: any, b: any) => {
-            return this.compare(a, b);
-        });
-        this.setBin(t, asBinary);
+        this.truncate(t);
         this.expressions = cols.map(x => x.value);
     }
 
@@ -111,6 +108,13 @@ export class BIndex<T = any> implements _INamedIndex<T> {
 
     buildKey(raw: any, t: _Transaction) {
         return this.expressions.map(k => k.get(raw, t));
+    }
+
+    truncate(t: _Transaction) {
+        const asBinary = createTree((a: any, b: any) => {
+            return this.compare(a, b);
+        });
+        this.setBin(t, asBinary);
     }
 
     dropFromData(t: _Transaction) {
