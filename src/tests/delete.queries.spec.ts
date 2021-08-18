@@ -63,4 +63,25 @@ describe('Deletes', () => {
         select * from test;`))
             .to.deep.equal([])
     });
+
+
+    it('cannot query primary key condition after truncate', () => {
+        // this was a bug
+        expect(many(`create table test(a text primary key);
+        insert into test values ('a'), ('b'), ('c');
+        truncate test;
+        select * from test where a='a';`))
+            .to.deep.equal([])
+    });
+
+
+    it('cannot query index condition after truncate', () => {
+        // this was a bug
+        expect(many(`create table test(a text);
+        create index on test(a);
+        insert into test values ('a'), ('b'), ('c');
+        truncate test;
+        select * from test where a='a';`))
+            .to.deep.equal([])
+    });
 });

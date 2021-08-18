@@ -480,8 +480,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     truncate(t: _Transaction): void {
+        // call truncate handlers
         for (const h of this.truncateHandlers) {
             h(t);
+        }
+        // truncate indices
+        for (const k of this.indexByHash.values()) {
+            k.index.truncate(t);
         }
         this.setBin(t, ImMap());
     }
