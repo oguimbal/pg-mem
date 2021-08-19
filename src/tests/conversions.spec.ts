@@ -154,6 +154,27 @@ describe('Conversions', () => {
             .to.deep.equal([{ text: '42.3' }]);
     })
 
+    it('can cast jsonb to float', () => {
+        expect(many(`select '42.3'::jsonb::float val`))
+            .to.deep.equal([{ val: 42.3 }]);
+        expect(many(`select null::jsonb::float val`))
+            .to.deep.equal([{ val: null }]);
+    });
+
+    it('can cast jsonb to int', () => {
+        expect(many(`select '42.3'::jsonb::int val`))
+            .to.deep.equal([{ val: 42 }]);
+        expect(many(`select '42.5'::jsonb::int val`))
+            .to.deep.equal([{ val: 43 }]);
+        expect(many(`select null::jsonb::int val`))
+            .to.deep.equal([{ val: null }]);
+    });
+
+    it('can cast jsonb to bool', () => {
+        expect(many(`select 'true'::jsonb::boolean val`))
+            .to.deep.equal([{ val: true }]);
+    });
+
     it('can cast empty array', () => {
         expect(many(`select array[]::text[] val`))
             .to.deep.equal([{ val: [] }]);
