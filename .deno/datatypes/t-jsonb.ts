@@ -18,22 +18,48 @@ export class JSONBType extends TypeBase<any> {
             case DataType.text:
             case DataType.json:
             case DataType.jsonb:
+            case DataType.float:
+            case DataType.bool:
+            case DataType.integer:
                 return true;
         }
         return null;
     }
 
     doCast(a: Evaluator, to: _IType): Evaluator {
-        if (to.primary === DataType.json) {
-            return a
-                .setType(Types.text())
-                .setConversion(json => JSON.stringify(this.toResult(json))
-                    , toJsonB => ({ toJsonB }))
-                .convert(to) as Evaluator; // <== might need truncation
+        switch (to.primary) {
+            case DataType.json:
+                return a
+                    .setType(Types.text())
+                    .setConversion(json => JSON.stringify(this.toResult(json))
+                        , toJsonB => ({ toJsonB }))
+                    .convert(to) as Evaluator; // <== might need truncation
+            case DataType.jsonb:
+                return a.setType(to);
+            case DataType.float:
+            case DataType.integer:
+                const isInt = to.primary === DataType.integer;
+                return a
+                    .setType(to)
+                    .setConversion(json => {
+                        if (typeof json !== 'number') {
+                            throw new QueryError('cannot cast jsonb string to type ' + isInt ? 'integer' : 'double precision', '22023');
+                        }
+                        return isInt ? Math.round(json) : json;
+                    }, toFloat => ({ toFloat }));
+            case DataType.bool:
+                return a
+                    .setType(to)
+                    .setConversion(json => {
+                        if (typeof json !== 'boolean') {
+                            throw new QueryError('cannot cast jsonb string to type boolean', '22023');
+                        }
+                        return json;
+                    }, toFloat => ({ toFloat }));
+            default:
+                return a.setType(to);
         }
 
-        // json
-        return a.setType(to);
     }
 
 
