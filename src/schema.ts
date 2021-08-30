@@ -1102,7 +1102,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 case 'statement':
                     newT = this.mapColumns(from.alias
                         , this.buildSelect(from.statement)
-                        , from.columnNames)
+                        , from.columnNames
+                        , true)
                         .setAlias(from.alias);
                     break;
                 case 'call':
@@ -1184,7 +1185,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
         let ret = temp || asSelectable(this.getObject(name)).selection;
 
-        ret = this.mapColumns(name.name, ret, name.columnNames);
+        ret = this.mapColumns(name.name, ret, name.columnNames, false);
 
         if (name.alias) {
             ret = ret.setAlias(name.alias);
@@ -1192,21 +1193,33 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return ret;
     }
 
-    private mapColumns(tableName: string, ret: _ISelection, columnNames?: Name[] | nil) {
+    private mapColumns(tableName: string, sel: _ISelection, columnNames: Name[] | nil, appendNonMapped: boolean) {
         if (!columnNames?.length) {
-            return ret;
+            return sel;
         }
-        if (columnNames.length > ret.columns.length) {
-            throw new QueryError(`table "${tableName}" has ${ret.columns.length} columns available but ${columnNames.length} columns specified`, '42P10')
+        if (columnNames.length > sel.columns.length) {
+            throw new QueryError(`table "${tableName}" has ${sel.columns.length} columns available but ${columnNames.length} columns specified`, '42P10')
         }
-        return ret.select(
-            columnNames.map<SelectedColumn>((x, i) => ({
-                expr: {
-                    type: 'ref',
-                    name: ret.columns[i].id!,
-                },
-                alias: x,
-            }))
+
+        const mapped = new Set<string>(columnNames.map(x => x.name));
+        const cols = sel.columns.map<SelectedColumn>((col, i) => ({
+            expr: {
+                type: 'ref',
+                name: col.id!,
+            },
+            // when realiasing table columns, columns which have not been mapped
+            //  must not be removed
+            // see ut "can map column names"
+            alias: columnNames[i]
+                ?? {
+                name: mapped.has(sel.columns[i].id!)
+                    ? `${sel.columns[i].id!}1`
+                    : sel.columns[i].id!,
+            },
+        }));
+
+        return sel.select(
+            cols
         )
     }
 

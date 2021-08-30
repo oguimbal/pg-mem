@@ -285,6 +285,17 @@ describe('Selections', () => {
             ]);
     });
 
+    it('map column names with conflict', () => {
+        expect(many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select * from test newalias(a,value);
+        `))
+            .to.deep.equal([
+                { a: 'id', value: 'name', value1: 'value' },
+            ]);
+    });
+
     it('cannot map column names when too many names specified', () => {
         assert.throws(() => many(`
         create table test(id text, name text, value text);
