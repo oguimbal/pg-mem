@@ -139,6 +139,14 @@ describe('Selections', () => {
 
 
 
+    it('can select for update', () => {
+        expect(many(`create table test (a text);
+                    insert into test(a) values ('v');
+                    select * from test for update`))
+            .to.deep.equal([
+                { a: 'v' },
+            ])
+    })
 
 
     it('can select from values', () => {

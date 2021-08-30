@@ -45,10 +45,6 @@ class UUIDtype extends TypeBase<Date> {
 
 class NullType extends TypeBase<null> {
 
-    // get name() {
-    //     return null;
-    // }
-
     get primary(): DataType {
         return DataType.null;
     }
@@ -58,6 +54,10 @@ class NullType extends TypeBase<null> {
     }
 
     doCanCast(to: _IType): boolean {
+        return true;
+    }
+
+    doCanConvertImplicit() {
         return true;
     }
 
@@ -76,6 +76,9 @@ class NullType extends TypeBase<null> {
     doPrefer(type: _IType) {
         return type; // always prefer notnull types
     }
+}
+
+export class DefaultType extends NullType {
 }
 
 const integers = new Set([DataType.integer, DataType.bigint]);
@@ -554,6 +557,7 @@ export const Types = {
     [DataType.path]: new PathType() as _IType,
     [DataType.polygon]: new PolygonType() as _IType,
     [DataType.circle]: new CircleType() as _IType,
+    default: new DefaultType() as _IType,
 }
 
 export function isGeometric(dt: DataType) {

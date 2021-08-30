@@ -1086,8 +1086,12 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const distinct = !p.distinct || p.distinct === 'all'
             ? null
             : p.distinct;
+
+        // ignore "for update" clause (not useful in non-concurrent environements)
+        ignore(p.for);
+
+        // compute data source
         let sel: _ISelection | undefined = undefined;
-        const aliases = new Set<string>();
         for (const from of p.from ?? []) {
             // find what to select
             let newT: _ISelection;
@@ -1286,10 +1290,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const valueConvertedSource = columns.map((col, i) => {
             const value = valueRawSource.columns[i];
             const insertInto = table.selection.getColumn(col);
-            if (!value.type.canConvert(insertInto.type)) {
+            // It seems that the explicit conversion is only performed when inserting values.
+            const canConvert = p.insert.type === 'values'
+                ? value.type.canConvert(insertInto.type)
+                : value.type.canConvertImplicit(insertInto.type);
+            if (!canConvert) {
                 throw new QueryError(`column "${col}" is of type ${insertInto.type.name} but expression is of type ${value.type.name}`);
             }
-            return value.convert(insertInto.type);
+            return value.type === Types.default
+                ? value  // handle "DEFAULT" values
+                : value.convert(insertInto.type);
         });
 
         // enumerate & get
@@ -1361,8 +1371,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             const toInsert: any = {};
             for (let i = 0; i < val.length; i++) {
                 const v = val[i];
-                const col = table.selection.getColumn(columns[i]);
-                if (col.type === Types.null) {
+                const col = valueConvertedSource[i];
+                if (col.type === Types.default) {
                     continue; // insert a 'DEFAULT' value
                 }
                 toInsert[columns[i]] = v;

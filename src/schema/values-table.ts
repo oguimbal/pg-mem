@@ -51,7 +51,7 @@ export class ValuesTable extends ReadOnlyTable {
             name: alias,
             fields: types.map<SchemaField>((type, i) => {
                 return {
-                    type: type ?? Types.null,
+                    type: type ?? Types.default,
                     name: columnNames?.[i] ?? `column${i + 1}`,
                 }
             })
