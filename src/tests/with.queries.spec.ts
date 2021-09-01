@@ -53,20 +53,15 @@ describe('With statement', () => {
             .to.deep.equal([{ a: 'a' }, { a: 'new' }]);
     });
 
-    it ('must have a returning clause when used', () => {
+    it('must have a returning clause when used', () => {
         assert.throws(() => many(`create table data(a text);
             with test as (insert into data values ('x'))
             select * from test;`), /WITH query "test" does not have a RETURNING clause/)
     });
 
-    it ('must not be able to override "with" aliases', () => {
+    it('must not be able to override "with" aliases', () => {
         assert.throws(() => many(`create table data(a text);
             with test as (insert into data values ('x')), test as (insert into data values ('x'))
             select * from data;`), /WITH query name "test" specified more than once/)
-    })
-
-
-    it('supports with recursive', () => {
-        assert.fail('todo');
-    })
+    });
 });

@@ -163,4 +163,13 @@ describe('Schema manipulation', () => {
         const db = newDb();
         db.public.none('CREATE TABLE "a" ("id" character varying NOT NULL, "b" text NOT NULL, "c" character varying NOT NULL, "d" jsonb array NOT NULL, "e" jsonb NOT NULL, CONSTRAINT "PK_17c3a89f58a2997276084e706e8" PRIMARY KEY ("id"));');
     })
+
+    it('fix: create table with cased constraint on column', () => {
+        newDb().public.none(` CREATE TABLE "my_knowledge_category" (
+            "id" character varying NOT NULL,
+            "knowledgeApplication" character varying NOT NULL,
+            "knowledgeLanguage" character varying NOT NULL,
+            CONSTRAINT "PK_fca04a81c9ec0f8d9527180c80c" PRIMARY KEY ("id", "knowledgeApplication", "knowledgeLanguage")
+          );`);
+    })
 });

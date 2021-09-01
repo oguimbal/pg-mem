@@ -7,6 +7,8 @@ import { preventSeqScan } from './test-utils';
 
 describe('Group-by', () => {
 
+    // ================== ⚠️ NB: many "group by" tests are in the aggregations.spec.ts file.
+
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -32,4 +34,37 @@ describe('Group-by', () => {
             .to.deep.equal([{ ab: 2 }, { ab: 4 }, { ab: 6 }]);
     });
 
+
+    it('does not seq-scan on count(*)', () => {
+
+        preventSeqScan(db);
+
+        expect(many(`create table example(a int, b int);
+                    create index on example(a);
+                    insert into example values (1, 1), (1, 1), (3, 3), (3, 3), (2, 2), (2, 2);
+                    select a, count(*) cnt from example group by a order by a`))
+            .to.deep.equal([{ a: 1, cnt: 2 }, { a: 2, cnt: 2 }, { a: 3, cnt: 2 }]);
+    });
+
+    it('can select from optimized aggregation', () => {
+
+        preventSeqScan(db);
+
+        expect(many(`create table example(a int, b int);
+                    create index on example(a);
+                    insert into example values (1, 1), (1, 1), (3, 3), (3, 3), (2, 2), (2, 2);
+                    select a + cnt sum from (select a, count(*) cnt from example group by a order by a) t`))
+            .to.deep.equal([{ sum: 3 }, { sum: 4 }, { sum: 5 }]);
+    });
+
+
+    it('can select from non grouped optimized aggregation', () => {
+
+        preventSeqScan(db);
+
+        expect(many(`create table example(a int, b int);
+                    insert into example values (1, 1),  (2, 2);
+                    select  cnt * 42 sum from (select count(*) cnt from example) t`))
+            .to.deep.equal([{ sum: 84 }]);
+    })
 });
