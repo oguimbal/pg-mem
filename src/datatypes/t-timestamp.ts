@@ -6,8 +6,15 @@ import moment from 'moment';
 export class TimestampType extends TypeBase<Date> {
 
 
-    constructor(readonly primary: DataType) {
+    constructor(readonly primary: DataType, readonly precision: number | null = null) {
         super();
+    }
+
+    get name(): string {
+        if (!this.precision) {
+            return this.primary;
+        }
+        return `${this.primary}(${this.precision})`;
     }
 
     doCanCast(to: _IType) {
@@ -71,7 +78,7 @@ export class TimestampType extends TypeBase<Date> {
                                 , toDate => ({ toDate }));
                 }
         }
-        return null;    
+        return null;
     }
 
 
