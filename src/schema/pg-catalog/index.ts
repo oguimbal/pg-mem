@@ -17,7 +17,7 @@ export function setupPgCatalog(db: _IDb) {
 
     catalog._registerType(Types.bool)
         ._registerType(Types.citext)
-        ._registerType(Types.timestamp)
+        ._registerTypeSizeable(DataType.timestamp, Types.timestamp)
         ._registerType(Types.uuid)
         ._registerType(Types.date)
         ._registerType(Types.time)

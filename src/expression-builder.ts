@@ -156,7 +156,7 @@ function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IVa
             return Value.constant(schema, Types.date, new Date());
         case 'current_timestamp':
         case 'localtimestamp':
-            return Value.constant(schema, Types.timestamp, new Date());
+            return Value.constant(schema, Types.timestamp(), new Date());
         case 'localtime':
         case 'current_time':
             throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
@@ -709,13 +709,13 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
         case 'doy':
             return extract(Types.date, x => moment.utc(x).dayOfYear());
         case 'epoch':
-            if (from.canConvert(Types.timestamp)) {
-                return extract(Types.timestamp, x => moment.utc(x).unix(), Types.float);
+            if (from.canConvert(Types.timestamp())) {
+                return extract(Types.timestamp(), x => moment.utc(x).unix(), Types.float);
             }
             return extract(Types.interval, (x: Interval) => intervalToSec(x));
         case 'hour':
-            if (from.canConvert(Types.timestamp)) {
-                return extract(Types.timestamp, x => moment.utc(x).hour());
+            if (from.canConvert(Types.timestamp())) {
+                return extract(Types.timestamp(), x => moment.utc(x).hour());
             }
             return extract(Types.interval, (x: Interval) => x.hours ?? 0);
         case 'isoyear':

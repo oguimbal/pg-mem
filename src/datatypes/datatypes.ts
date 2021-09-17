@@ -534,8 +534,8 @@ export const Types = {
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),
-    [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
-    [DataType.timestamptz]: new TimestampType(DataType.timestamptz) as _IType,
+    [DataType.timestamp]: (len: number | nil = null) => makeTimestamp(DataType.timestamp, len) as _IType,
+    [DataType.timestamptz]: (len: number | nil = null) => makeTimestamp(DataType.timestamptz, len) as _IType,
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.interval]: new IntervalType() as _IType,
@@ -580,6 +580,16 @@ function makeText(len: number | nil = null) {
     let got = texts.get(len);
     if (!got) {
         texts.set(len, got = new TextType(len));
+    }
+    return got;
+}
+
+const timestamps = new Map<number | null, _IType>();
+function makeTimestamp(primary: DataType, len: number | nil = null) {
+    len = len ?? null;
+    let got = timestamps.get(len);
+    if (!got) {
+        timestamps.set(len, got = new TimestampType(primary, len));
     }
     return got;
 }

@@ -179,4 +179,9 @@ describe('Conversions', () => {
         expect(many(`select array[]::text[] val`))
             .to.deep.equal([{ val: [] }]);
     })
+
+    it('can cast to timestamp with explicit precision', () => {
+        expect(many(`select '2021-09-18 00:00:00Z'::timestamp(4) with time zone val`))
+            .to.deep.equal([{ val: new Date('2021-09-18 00:00:00Z') }]);
+    })
 });
