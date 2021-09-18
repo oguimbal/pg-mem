@@ -245,11 +245,16 @@ describe('Simple queries', () => {
     });
 
 
-
     it('can select info tables', () => {
         simpleDb();
         expect(many('select table_name from information_schema.tables')).to.deep.equal([{ table_name: 'data' }]);
     });
+
+    it('bugfix on info schema', () => {
+        simpleDb();
+        expect(many(`SELECT count(*) as hasUsersTable FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_catalog = 'test' AND table_name = 'users';`))
+            .to.deep.equal([{ hasuserstable: 0 }]);
+    })
 
 
     it('can select info columns', () => {

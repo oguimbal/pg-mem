@@ -74,7 +74,7 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
     }
 
     getIndex(forValue: IValue<any>): _IIndex<any> | nil {
-        if (forValue.id === 'table_name') {
+        if (forValue?.id === 'table_name') {
             return new TableIndex(this, forValue);
         }
         return null;
