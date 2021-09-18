@@ -31,5 +31,6 @@
         //  ( ⚠ set it back to 'false' once you're done)
         "NOCHECKFULLQUERYUSAGE": "false",
     },
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "typescript.tsdk": "node_modules/typescript/lib"
 }

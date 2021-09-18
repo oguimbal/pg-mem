@@ -56,9 +56,7 @@ export function getAggregator(on: _ISelection | nil): Aggregation<unknown> | nul
     return on.base;
 }
 
-interface AggregItem {
-    [s: symbol]: any;
-}
+type AggregItem = any;
 
 export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 

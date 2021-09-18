@@ -1,6 +1,6 @@
 import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private';
-import { asSingleQName, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
+import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
@@ -304,14 +304,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                         try {
                             msgs.push(`*️⃣ Reconsituted failed SQL statement: ${toSql.statement(_p)}`);
                         } catch (f) {
-                            msgs.push(`*️⃣ <Failed to reconsitute SQL - ${f?.message}>`);
+                            msgs.push(`*️⃣ <Failed to reconsitute SQL - ${errorMessage(f)}>`);
                         }
                     }
                 }
                 msgs.push('👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this error (if you can), and  the stacktrace:')
                 e.message = msgs.join('\n\n') + '\n\n';
             }
-            e.location = this.locOf(_p);
+            if (e && typeof e === 'object') {
+                (e as any).location = this.locOf(_p);
+            }
             throw e;
         }
     }

@@ -3,6 +3,7 @@ import { QueryError } from './interfaces';
 import LRUCache from 'lru-cache';
 import hash from 'object-hash';
 import { Expr, parse, Statement } from 'pgsql-ast-parser';
+import { errorMessage } from './utils';
 
 
 const astCache: LRUCache<any, any> = new LRUCache({
@@ -44,7 +45,8 @@ export function parseSql(sql: string, entry?: string): any {
         return ret;
 
     } catch (e) {
-        if (typeof e?.message !== 'string' || !/Syntax error/.test(e.message)) {
+        const msg = errorMessage(e);
+        if (!/Syntax error/.test(msg)) {
             throw e;
         }
 
@@ -58,7 +60,7 @@ If this is the case, please file an issue at https://github.com/oguimbal/pg-mem 
 
     ${sql}
 
-💀 ${e.message}`);
+💀 ${msg}`);
     }
 
 }

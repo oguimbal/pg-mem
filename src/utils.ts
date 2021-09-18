@@ -645,3 +645,13 @@ export function asSingleQName(col: string | QName, allowedSchema?: string): stri
     }
     return col.name;
 }
+
+export function errorMessage(error: unknown): string {
+    if (typeof error === 'string') {
+        return error;
+    }
+    if (typeof error !== 'object') {
+        return 'Unkown error message';
+    }
+    return (error as any)?.message;
+}

@@ -7,6 +7,7 @@ import {
     MikroORM,
 } from '@mikro-orm/core';
 import { newDb } from '../..';
+import { errorMessage } from '../../utils';
 
 export class Book extends BaseEntity<Book, 'id'> {
     id!: number;
@@ -44,7 +45,7 @@ describe('IRL tests', () => {
             await orm.em.getRepository(bookSchema).findOneOrFail({ id: 1 });
         } catch (e) {
             expect(e).not.to.be.instanceOf(DriverException);
-            expect(e.message).to.match(/Book not found/);
+            expect(errorMessage(e)).to.match(/Book not found/);
             return;
         }
         assert.fail('Should have thrown');
