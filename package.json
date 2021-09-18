@@ -80,7 +80,6 @@
     "monaco-editor": "^0.20.0",
     "monaco-editor-webpack-plugin": "^1.9.0",
     "nyc": "^15.1.0",
-    "objection": "^2.2.15",
     "pg": "^8.5.1",
     "pg-promise": "^10.8.7",
     "react": "^16.13.1",

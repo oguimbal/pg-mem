@@ -1,7 +1,11 @@
 import { newDb } from '../..';
 import * as Knex from 'knex';
 import { expect } from 'chai';
-import { knexSnakeCaseMappers } from 'objection';
+
+// Objection has vulnerabilities: https://github.com/advisories/GHSA-r659-8xfp-j327
+// import { knexSnakeCaseMappers } from 'objection'; 👉  just copy pasted the required utils
+const { knexSnakeCaseMappers } = require('./objection-knexsnakecase.js');
+
 
 async function up(knex: Knex): Promise<void> {
     return knex.schema
