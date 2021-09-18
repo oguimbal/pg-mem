@@ -6,7 +6,7 @@ import { Value, Evaluator } from './evaluator';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
-import { aggregationFunctions, Aggregation } from './transforms/aggregation';
+import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation';
 import moment from 'moment';
 import { IS_PARTIAL_INDEXING } from './clean-results';
 
@@ -87,10 +87,11 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             // }
             const nm = asSingleQName(val.function, 'pg_catalog');
             if (nm && aggregationFunctions.has(nm)) {
-                if (!(data instanceof Aggregation)) {
+                const agg = getAggregator(data);
+                if (!agg) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(nm, val);
+                return agg.getAggregation(nm, val);
             }
             const args = val.args.map(x => _buildValue(data, x));
             const schema = data.db.getSchema(val.function.schema);

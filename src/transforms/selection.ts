@@ -4,7 +4,7 @@ import { buildValue } from '../expression-builder';
 import { Evaluator } from '../evaluator';
 import { TransformBase } from './transform-base';
 import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'pgsql-ast-parser';
-import { aggregationFunctions, buildGroupBy } from './aggregation';
+import { Aggregation, aggregationFunctions, buildGroupBy } from './aggregation';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
 
@@ -23,7 +23,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     // if there is any aggregation function
     // check if there is any aggregation
     for (const col of select ?? []) {
-        if ('expr' in col && hasAggreg(col.expr)) {
+        if (!(on instanceof Aggregation) && 'expr' in col && hasAggreg(col.expr)) {
             // yea, there is an aggregation somewhere in selection
             return buildGroupBy(on, [], select);
         }

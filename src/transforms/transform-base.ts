@@ -129,7 +129,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 export abstract class TransformBase<T> extends DataSourceBase<T> {
 
 
-    constructor(protected base: _ISelection) {
+    constructor(readonly base: _ISelection) {
         super(base.ownerSchema);
     }
 

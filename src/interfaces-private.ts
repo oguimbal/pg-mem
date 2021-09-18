@@ -516,7 +516,7 @@ export interface IValue<TRaw = any> {
     explain(e: _Explainer): _ExprExplanation;
 }
 
-export type IndexKey = any[];
+export type IndexKey = unknown[];
 export interface IndexExpression {
     readonly hash: string;
     readonly type: _IType;
