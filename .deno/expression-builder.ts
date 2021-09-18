@@ -1,12 +1,12 @@
 import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private.ts';
-import { trimNullish, queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils.ts';
+import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils.ts';
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './evaluator.ts';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@9.0.1/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
-import { aggregationFunctions, Aggregation } from './transforms/aggregation.ts';
+import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { IS_PARTIAL_INDEXING } from './clean-results.ts';
 
@@ -87,10 +87,11 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             // }
             const nm = asSingleQName(val.function, 'pg_catalog');
             if (nm && aggregationFunctions.has(nm)) {
-                if (!(data instanceof Aggregation)) {
+                const agg = getAggregator(data);
+                if (!agg) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
-                return data.getAggregation(nm, val);
+                return agg.getAggregation(nm, val);
             }
             const args = val.args.map(x => _buildValue(data, x));
             const schema = data.db.getSchema(val.function.schema);
@@ -112,6 +113,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'union':
         case 'union all':
         case 'with':
+        case 'with recursive':
+        case 'values':
             return buildSelectAsArray(data, val);
         case 'array select':
             return buildSelectAsArray(data, val.select);
@@ -127,6 +130,8 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return buildOverlay(data, val);
         case 'substring':
             return buildSubstring(data, val);
+        case 'default':
+            throw new QueryError(`DEFAULT is not allowed in this context`, '42601');
         default:
             throw NotSupported.never(val);
     }
@@ -152,7 +157,7 @@ function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IVa
             return Value.constant(schema, Types.date, new Date());
         case 'current_timestamp':
         case 'localtimestamp':
-            return Value.constant(schema, Types.timestamp, new Date());
+            return Value.constant(schema, Types.timestamp(), new Date());
         case 'localtime':
         case 'current_time':
             throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
@@ -705,13 +710,13 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
         case 'doy':
             return extract(Types.date, x => moment.utc(x).dayOfYear());
         case 'epoch':
-            if (from.canConvert(Types.timestamp)) {
-                return extract(Types.timestamp, x => moment.utc(x).unix(), Types.float);
+            if (from.canConvert(Types.timestamp())) {
+                return extract(Types.timestamp(), x => moment.utc(x).unix(), Types.float);
             }
             return extract(Types.interval, (x: Interval) => intervalToSec(x));
         case 'hour':
-            if (from.canConvert(Types.timestamp)) {
-                return extract(Types.timestamp, x => moment.utc(x).hour());
+            if (from.canConvert(Types.timestamp())) {
+                return extract(Types.timestamp(), x => moment.utc(x).hour());
             }
             return extract(Types.interval, (x: Interval) => x.hours ?? 0);
         case 'isoyear':

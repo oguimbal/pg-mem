@@ -1,7 +1,7 @@
 import { DataType, nil, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../evaluator.ts';
-import { deepCompare, deepEqual } from '../utils.ts';
+import { deepCompare, deepEqual, errorMessage } from '../utils.ts';
 import { Types } from './datatypes.ts';
 import { JSON_NIL } from '../clean-results.ts';
 import { QueryError } from '../interfaces.ts';
@@ -82,7 +82,7 @@ export class JSONBType extends TypeBase<any> {
                         } catch (e) {
                             throw new QueryError({
                                 error: `invalid input syntax for type json`,
-                                details: e.message,
+                                details: errorMessage(e),
                                 code: '22P02',
                             });
                         }

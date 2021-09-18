@@ -3,8 +3,8 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../expression-builder.ts';
 import { Evaluator } from '../evaluator.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
-import { aggregationFunctions, buildGroupBy } from './aggregation.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.0.1/mod.ts';
+import { Aggregation, aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils.ts';
 
@@ -23,7 +23,7 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     // if there is any aggregation function
     // check if there is any aggregation
     for (const col of select ?? []) {
-        if ('expr' in col && hasAggreg(col.expr)) {
+        if (!(on instanceof Aggregation) && 'expr' in col && hasAggreg(col.expr)) {
             // yea, there is an aggregation somewhere in selection
             return buildGroupBy(on, [], select);
         }

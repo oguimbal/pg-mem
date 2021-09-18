@@ -10,7 +10,7 @@ import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
 import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.0.1/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
@@ -38,6 +38,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
+    // abstract get name(): string;
 
     get db() {
         return this.ownerSchema.db;
@@ -128,7 +129,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 export abstract class TransformBase<T> extends DataSourceBase<T> {
 
 
-    constructor(protected base: _ISelection) {
+    constructor(readonly base: _ISelection) {
         super(base.ownerSchema);
     }
 

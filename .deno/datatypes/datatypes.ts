@@ -2,8 +2,8 @@ import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-pr
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
 import { nullIsh, getContext } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.0.1/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.0.1/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
@@ -45,10 +45,6 @@ class UUIDtype extends TypeBase<Date> {
 
 class NullType extends TypeBase<null> {
 
-    // get name() {
-    //     return null;
-    // }
-
     get primary(): DataType {
         return DataType.null;
     }
@@ -58,6 +54,10 @@ class NullType extends TypeBase<null> {
     }
 
     doCanCast(to: _IType): boolean {
+        return true;
+    }
+
+    doCanConvertImplicit() {
         return true;
     }
 
@@ -76,6 +76,9 @@ class NullType extends TypeBase<null> {
     doPrefer(type: _IType) {
         return type; // always prefer notnull types
     }
+}
+
+export class DefaultType extends NullType {
 }
 
 const integers = new Set([DataType.integer, DataType.bigint]);
@@ -531,8 +534,8 @@ export const Types = {
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),
-    [DataType.timestamp]: new TimestampType(DataType.timestamp) as _IType,
-    [DataType.timestamptz]: new TimestampType(DataType.timestamptz) as _IType,
+    [DataType.timestamp]: (len: number | nil = null) => makeTimestamp(DataType.timestamp, len) as _IType,
+    [DataType.timestamptz]: (len: number | nil = null) => makeTimestamp(DataType.timestamptz, len) as _IType,
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.interval]: new IntervalType() as _IType,
@@ -554,6 +557,7 @@ export const Types = {
     [DataType.path]: new PathType() as _IType,
     [DataType.polygon]: new PolygonType() as _IType,
     [DataType.circle]: new CircleType() as _IType,
+    default: new DefaultType() as _IType,
 }
 
 export function isGeometric(dt: DataType) {
@@ -576,6 +580,16 @@ function makeText(len: number | nil = null) {
     let got = texts.get(len);
     if (!got) {
         texts.set(len, got = new TextType(len));
+    }
+    return got;
+}
+
+const timestamps = new Map<number | null, _IType>();
+function makeTimestamp(primary: DataType, len: number | nil = null) {
+    len = len ?? null;
+    let got = timestamps.get(len);
+    if (!got) {
+        timestamps.set(len, got = new TimestampType(primary, len));
     }
     return got;
 }

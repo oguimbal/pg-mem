@@ -5,7 +5,7 @@ import { BIndex } from './btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, BinaryOperator, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@7.1.0/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.0.1/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
@@ -544,16 +544,15 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
     createIndex(t: _Transaction, expressions: CreateIndexDef): this;
-    createIndex(t: _Transaction, expressions: string[], type: 'primary' | 'unique', indexName?: string): this;
-    createIndex(t: _Transaction, expressions: string[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): this {
+    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string): this;
+    createIndex(t: _Transaction, expressions: Name[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): this {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
             for (const e of expressions) {
-                const parsed = parseSql(e, 'expr');
-                const getter = buildValue(this.selection, parsed);
+                const getter = this.selection.getColumn(e.name);
                 keys.push({
                     value: getter,
                 });
@@ -676,9 +675,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             case 'foreign key':
                 return this.addForeignKey(cst, t);
             case 'primary key':
-                return this.createIndex(t, cst.columns.map(x => x.name), 'primary', cst.constraintName?.name);
+                return this.createIndex(t, cst.columns, 'primary', cst.constraintName?.name);
             case 'unique':
-                return this.createIndex(t, cst.columns.map(x => x.name), 'unique', cst.constraintName?.name);
+                return this.createIndex(t, cst.columns, 'unique', cst.constraintName?.name);
             case 'check':
                 return this.addCheck(t, cst.expr, cst.constraintName?.name);
             default:
