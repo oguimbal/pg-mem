@@ -94,6 +94,16 @@ describe('Indices', () => {
         assert.throws(() => none(`insert into test values ('one')`), /constraint/);
     });
 
+    it('can create partial indexes', () => {
+
+        // https://github.com/oguimbal/pg-mem/issues/89
+        none(`create table my_table(col1 text, col2 text);
+            CREATE UNIQUE INDEX my_idx ON my_table (col1, (col2 IS NULL)) WHERE col2 IS NULL;
+            insert into my_table values ('a', 'a'), ('a', 'b'), ('a', null), ('b', null)`);
+
+        assert.throws(() => none(`insert into my_table values ('a', null)`), /constraint/);
+    })
+
 
     it('can create the same named index twice', () => {
         none(`create table test(col text);

@@ -587,7 +587,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
 
-        const index = new BIndex(t, indexName, expressions.columns, this, ihash, !!expressions.unique, !!expressions.notNull);
+        const index = new BIndex(t
+            , indexName
+            , expressions.columns
+            , this
+            , ihash
+            , !!expressions.unique
+            , !!expressions.notNull
+            , expressions.predicate);
 
         // fill index (might throw if constraint not respected)
         const bin = this.bin(t);

@@ -429,6 +429,7 @@ export interface CreateIndexDef {
     unique?: boolean;
     notNull?: boolean;
     primary?: boolean;
+    predicate?: IValue;
 }
 export interface CreateIndexColDef {
     value: IValue;

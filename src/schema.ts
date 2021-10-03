@@ -269,6 +269,9 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'raise':
                     ignore(p);
                     break;
+                case 'create composite type':
+                    // todo: implement composite types
+                    throw new NotSupported('create composite type');
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
@@ -818,6 +821,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
     executeCreateIndex(t: _Transaction, p: CreateIndexStatement): QueryResult {
+
+        // check that index algorithm is supported
         const indexName = p.indexName?.name;
         const onTable = asTable(this.getObject(p.table));
         if (p.using && p.using.name.toLowerCase() !== 'btree') {
@@ -827,6 +832,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             ignore(p);
             return this.simple('CREATE', p);
         }
+
+        // index columns
         const columns = p.expressions
             .map<CreateIndexColDef>(x => {
                 return {
@@ -835,12 +842,18 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     desc: x.order === 'desc',
                 }
             });
+
+        // compile predicate (if any)
+        const predicate = p.where && buildValue(onTable.selection, p.where);
+
+        // create index
         onTable
             .createIndex(t, {
                 columns,
                 indexName,
                 unique: p.unique,
                 ifNotExists: p.ifNotExists,
+                predicate,
             });
         return this.simple('CREATE', p);
     }
