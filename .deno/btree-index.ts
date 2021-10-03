@@ -73,7 +73,8 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         , readonly onTable: _ITable<T>
         , readonly hash: string
         , readonly unique: boolean
-        , readonly notNull: boolean) {
+        , readonly notNull: boolean
+        , readonly predicate: IValue | nil) {
         this.reg = onTable.ownerSchema._reg_register(this);
         this.truncate(t);
         this.expressions = cols.map(x => x.value);
@@ -141,6 +142,11 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     }
 
     add(raw: T, t: _Transaction) {
+        // check that predicate is OK
+        if (this.predicate && !this.predicate.get(raw, t)) {
+            return;
+        }
+
         // build key and object id
         const id = getId(raw);
         const key = this.buildKey(raw, t);
