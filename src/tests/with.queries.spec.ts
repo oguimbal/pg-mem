@@ -64,4 +64,23 @@ describe('With statement', () => {
             with test as (insert into data values ('x')), test as (insert into data values ('x'))
             select * from data;`), /WITH query name "test" specified more than once/)
     });
+
+
+    it('can use WITH in subqueries', () => {
+        expect(many(`create table data(a text);
+                    insert into data values ('a'), ('b'), ('c');
+
+                    SELECT nm FROM (
+                        WITH sel AS (SELECT a FROM data WHERE a != 'c')
+                        (SELECT sel.a || '1' FROM sel)
+                         UNION
+                        (SELECT a || '2' FROM sel)
+                    ) sub(nm)`))
+            .to.deep.equal([
+                { nm: 'a1' },
+                { nm: 'b1' },
+                { nm: 'a2' },
+                { nm: 'b2' },
+            ])
+    });
 });
