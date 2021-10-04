@@ -434,9 +434,34 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
     private buildWith(p: WithStatement): _ISelection {
-        throw new NotSupported('"WITH" statements');
+        try {
+            // declare temp bindings
+            for (const { alias, statement } of p.bind) {
+                const prepared = this.buildSelect(this.checkReadonlyWithable(statement))
+                    .setAlias(alias.name);
+                if (this.tempBindings.has(alias.name)) {
+                    throw new QueryError(` WITH query name "${alias.name}" specified more than once`);
+                }
+                this.tempBindings.set(alias.name, typeof prepared === 'number' ? 'no returning' : prepared);
+            }
+            return this.buildSelect(this.checkReadonlyWithable(p.in));
+        } finally {
+            // remove temp bindings
+            for (const { alias } of p.bind) {
+                this.tempBindings.delete(alias.name);
+            }
+        }
     }
 
+    private checkReadonlyWithable(st: WithStatementBinding) {
+        switch (st.type) {
+            case 'delete':
+            case 'insert':
+            case 'update':
+                throw new NotSupported(`"WITH" nested statement with query type '${st.type}'`);
+        }
+        return st;
+    }
 
     private prepareWithable(t: _Transaction, p: WithStatementBinding): WithableResult {
         switch (p.type) {
