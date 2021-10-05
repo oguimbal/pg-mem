@@ -19,7 +19,7 @@ export function cleanResults(results: any[]): any {
             return;
         }
         for (const [k, v] of Object.entries(obj)) {
-            if (v === JSON_NIL || v === nullIsh.DEFAULT_NULL) {
+            if (v === JSON_NIL) {
                 obj[k] = null;
             } else if (Array.isArray(v)) {
                 if ((v as any)[IS_PARTIAL_INDEXING]) {
