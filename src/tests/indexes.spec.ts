@@ -105,9 +105,9 @@ describe('Indices', () => {
     });
 
 
-    describe('[bufix #160] partial indexes with default values', () => {
+    describe('[bugfix #160] indexes with default values', () => {
         // checks issue described in https://github.com/oguimbal/pg-mem/issues/160
-        function begin160() {
+        function begin160(condition = 'deleted_at IS NULL') {
             none(`create table "test_table" (
                 "id" character varying(36) NOT NULL,
                 "unique_data" character varying(36),
@@ -116,16 +116,20 @@ describe('Indices', () => {
                 PRIMARY KEY ("id")
               );
 
-              CREATE UNIQUE INDEX "UXtest_table_unique_data" ON "public"."test_table" ("unique_data") WHERE deleted_at IS NULL;
+              CREATE UNIQUE INDEX "UXtest_table_unique_data" ON "public"."test_table" ("unique_data") WHERE ${condition};
 
               insert into test_table ("id", "unique_data", "deleted_at") VALUES('1', default, default );`);
         }
 
-        it('can insert multiple default values on partial indexes ', () => {
-            begin160();
+        function simple160(condition = 'deleted_at IS NULL') {
+            begin160(condition);
 
             // this was throwing:
             none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', default, default );`)
+        }
+
+        it('can insert multiple default values on partial indexes ', () => {
+            simple160();
         });
 
         it('can update to default value on partial indexes ', () => {
@@ -147,7 +151,85 @@ describe('Indices', () => {
 
             // was throwing n°2
             none(`insert into test_table(id,unique_data,deleted_at) (select id || 'bis', unique_data, deleted_at from test_table)`);
+        });
+
+
+        it('behaves the same on notnulls', () => {
+            simple160('deleted_at NOTNULL');
+        });
+
+        it('behaves the same on not isnull', () => {
+            simple160('NOT(deleted_at ISNULL)');
+        });
+
+        it('behaves the same on not notnull', () => {
+            simple160('NOT(deleted_at NOTNULL)');
+        });
+
+        it('throws when unique is not default', () => {
+            none(`
+            drop table if exists test_table;
+            create table "test_table" (
+              "id" character varying(36) NOT NULL,
+              "unique_data" character varying(36),
+              "deleted_at" timestamp without time zone,
+              CONSTRAINT "PK_test_table_id"
+              PRIMARY KEY ("id")
+            );
+
+            CREATE UNIQUE INDEX "UXtest_table_unique_data" ON "public"."test_table" ("unique_data") where deleted_at isnull;
+
+            insert into test_table ("id", "unique_data", "deleted_at") VALUES('1', 'x', default );
+            `)
+
+            assert.throws(() => none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', 'x', default );`), /duplicate key value violates unique constraint/);
+        });
+
+
+        it('accepts two default not set values on non partial', () => {
+            none(`
+                        create table "test_table" (
+                        "id" text not null primary key,
+                        "unique_data" text
+                        );
+
+                        CREATE UNIQUE INDEX ON test_table (unique_data);
+
+                        insert into test_table ("id", "unique_data") VALUES('1', default);
+                        insert into test_table ("id", "unique_data") VALUES('2', default);
+                `);
         })
+
+
+        it('accepts two default null values on non partial', () => {
+            none(`
+                    create table "test_table" (
+                    "id" text not null primary key,
+                    "unique_data" text default null
+                    );
+
+                    CREATE UNIQUE INDEX ON test_table (unique_data);
+
+                    insert into test_table ("id", "unique_data") VALUES('1', default);
+                    insert into test_table ("id", "unique_data") VALUES('2', default);
+                `);
+        });
+
+
+        it('rejects two default not null values on non partial', () => {
+            none(`
+                        create table "test_table" (
+                        "id" text not null primary key,
+                        "unique_data" text default 'some default'
+                        );
+
+                        CREATE UNIQUE INDEX ON test_table (unique_data);
+
+                        insert into test_table ("id", "unique_data") VALUES('1', default);
+                `);
+
+            assert.throws(() => none(`insert into test_table ("id", "unique_data") VALUES('2', default)`), /duplicate key value violates unique constraint/);
+        });
     });
 
     it('can create the same named index twice', () => {

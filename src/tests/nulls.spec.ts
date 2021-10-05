@@ -84,6 +84,12 @@ describe('Null values', () => {
             .to.deep.equal([{ id: 'a', val: null }]);
     });
 
+    it('returns nothing on notnull when setting to default', () => {
+        expect(many(`create table test(id text primary key, val text);
+            insert into test values ('a', default);
+            select * from test where val notnull`))
+            .to.deep.equal([]);
+    });
 
     it('can select jsonb null', () => {
         expect(many(`drop table if exists test;

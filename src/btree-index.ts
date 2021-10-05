@@ -4,7 +4,6 @@ import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
 import { deepCloneSimple, nullIsh } from './utils';
-import { noDefaultsAsNull } from './evaluator';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -111,8 +110,12 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return 0;
     }
 
-    buildKey(raw: any, t: _Transaction) {
-        return this.expressions.map(k => k.get(raw, t));
+    buildKey(raw: any, t: _Transaction): any[] | null {
+        const key = this.expressions.map(k => k.get(raw, t));
+        if (key.some(x => x === nullIsh.DEFAULT_NULL)) {
+            return null;
+        }
+        return key;
     }
 
     truncate(t: _Transaction) {
@@ -148,7 +151,8 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     add(raw: T, t: _Transaction) {
         // check that predicate is OK
         if (this.predicate) {
-            if (!noDefaultsAsNull(() => this.predicate?.get(raw, t))) {
+            const val = this.predicate.get(raw, t);
+            if (nullIsh(val) || val === false) {
                 return;
             }
         }
@@ -156,6 +160,9 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         // build key and object id
         const id = getId(raw);
         const key = this.buildKey(raw, t);
+        if (!key) {
+            return; // cannot index default null values (see #160 & UT "bugfix #160")
+        }
         if (this.notNull && key.some(x => nullIsh(x))) {
             throw new QueryError('Cannot add a null record in index ' + this.name);
         }
@@ -188,6 +195,9 @@ export class BIndex<T = any> implements _INamedIndex<T> {
 
     delete(raw: any, t: _Transaction) {
         const key = this.buildKey(raw, t);
+        if (!key) {
+            return;
+        }
         let tree = this.bin(t);
         let keyValues = tree.find(key);
         if (!keyValues.valid) {

@@ -126,6 +126,10 @@ export class ColRef implements _Column {
                 this.default = null;
                 break;
             case 'set default':
+                if (alter.default.type === 'null') {
+                    this.default = null;
+                    break;
+                }
                 const df = buildValue(this.table.selection, alter.default);
                 if (!df.isConstant) {
                     throw new QueryError('cannot use column references in default expression');
