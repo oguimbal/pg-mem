@@ -1,7 +1,7 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@9.1.0/mod.ts';
+import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@9.1.2/mod.ts';
 import { nullIsh } from './utils.ts';
 import { buildValue } from './expression-builder.ts';
 import { columnEvaluator } from './transforms/selection.ts';
@@ -210,7 +210,7 @@ export class ColRef implements _Column {
             return;
         }
         if (!this.default) {
-            toInsert[this.expression.id!] = null
+            toInsert[this.expression.id!] = nullIsh.DEFAULT_NULL;
         } else {
             toInsert[this.expression.id!] = this.default.get();
         }

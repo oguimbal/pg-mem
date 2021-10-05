@@ -1,3 +1,5 @@
+import { nullIsh } from './utils.ts';
+
 export const JSON_NIL = Symbol('null');
 export const IS_PARTIAL_INDEXING = Symbol('partial_indexing');
 export const SELECT_ALL = Symbol('select *');
@@ -17,7 +19,7 @@ export function cleanResults(results: any[]): any {
             return;
         }
         for (const [k, v] of Object.entries(obj)) {
-            if (v === JSON_NIL) {
+            if (v === JSON_NIL || v === nullIsh.DEFAULT_NULL) {
                 obj[k] = null;
             } else if (Array.isArray(v)) {
                 if ((v as any)[IS_PARTIAL_INDEXING]) {

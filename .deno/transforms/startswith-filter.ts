@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { DataType, CastError, QueryError } from '../interfaces.ts';
+import { nullIsh } from '../utils.ts';
 
 export class StartsWithFilter<T = any> extends FilterBase<T> {
 
@@ -43,7 +43,7 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
             t,
         })) {
             const got: string = this.onValue.get(item, t);
-            if (got === null || !got.startsWith(this.startWith)) {
+            if (nullIsh(got) || !got.startsWith(this.startWith)) {
                 break;
             }
             yield item;

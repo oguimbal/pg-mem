@@ -1,6 +1,7 @@
 import { FunctionDefinition } from '../interfaces.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { DataType, QueryError } from '../interfaces-private.ts';
+import { nullIsh } from '../utils.ts';
 
 
 export const dateFunctions: FunctionDefinition[] = [
@@ -9,7 +10,7 @@ export const dateFunctions: FunctionDefinition[] = [
         args: [DataType.text, DataType.text],
         returns: DataType.date,
         implementation: (data, format) => {
-            if ((data ?? null) === null || (format ?? null) === null) {
+            if (nullIsh(data) || nullIsh(format)) {
                 return null; // if one argument is null => null
             }
             const ret = moment.utc(data, format);
