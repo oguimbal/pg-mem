@@ -230,6 +230,34 @@ describe('Indices', () => {
 
             assert.throws(() => none(`insert into test_table ("id", "unique_data") VALUES('2', default)`), /duplicate key value violates unique constraint/);
         });
+
+        it('allows multiple null values in unique index', () => {
+            none(`
+                    create table "test_table" (
+                    "id" text not null primary key,
+                    "unique_data" text default null
+                    );
+
+                    CREATE UNIQUE INDEX ON test_table (unique_data);
+
+                    insert into test_table ("id", "unique_data") VALUES('1', default);
+                    insert into test_table ("id", "unique_data") VALUES('2', default);
+                    insert into test_table ("id", "unique_data") VALUES('3', null);
+                    insert into test_table ("id", "unique_data") VALUES('4', null);
+                                    `);
+        });
+
+        it('prevens inserting nulls on compound primary keys even when defaults', () => {
+            none(`
+            create table "test_table" (
+             "u1" text default null,
+             "u2" text default null,
+             primary key (u1, u2)
+            );`);
+
+            assert.throws(() => none(`insert into test_table ("u1", "u2") VALUES('1', default)`), /\s+null\s+/);
+            assert.throws(() => none(`insert into test_table ("u1", "u2") VALUES('1', null)`), /\s+null\s+/);
+        });
     });
 
     it('can create the same named index twice', () => {

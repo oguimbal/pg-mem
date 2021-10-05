@@ -302,13 +302,11 @@ export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
 }
 
 export function nullIsh(v: any): boolean {
-    return v === null || v === undefined || v === nullIsh.DEFAULT_NULL;
+    return v === null || v === undefined;
 }
-/** represents a "default" value, which is equivalent to null MOST OF THE TIME (see https://github.com/oguimbal/pg-mem/issues/160) */
-nullIsh.DEFAULT_NULL = Symbol('DEFAULT_NULL');
 
 export function hasNullish(...vals: any[]): boolean {
-    return vals.some(nullIsh);
+    return vals.some(v => nullIsh(v));
 }
 
 export function sum(v: number[]): number {

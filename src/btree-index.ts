@@ -3,7 +3,7 @@ import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transact
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
-import { deepCloneSimple, nullIsh } from './utils';
+import { deepCloneSimple, nullIsh, hasNullish } from './utils';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -110,12 +110,8 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return 0;
     }
 
-    buildKey(raw: any, t: _Transaction): any[] | null {
-        const key = this.expressions.map(k => k.get(raw, t));
-        if (key.some(x => x === nullIsh.DEFAULT_NULL)) {
-            return null;
-        }
-        return key;
+    buildKey(raw: any, t: _Transaction): any[] {
+        return this.expressions.map(k => k.get(raw, t));
     }
 
     truncate(t: _Transaction) {
@@ -160,13 +156,11 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         // build key and object id
         const id = getId(raw);
         const key = this.buildKey(raw, t);
-        if (!key) {
-            return; // cannot index default null values (see #160 & UT "bugfix #160")
-        }
-        if (this.notNull && key.some(x => nullIsh(x))) {
+        const hasNil = hasNullish(...key);
+        if (this.notNull && hasNil) {
             throw new QueryError('Cannot add a null record in index ' + this.name);
         }
-        if (this.unique && this.hasKey(key, t)) {
+        if (this.unique && !hasNil && this.hasKey(key, t)) {
             const idCols = this.cols.map(it => it.value.id);
             throw new QueryError({
                 error: `insert into "${this.onTable.name}" (${Object.keys(raw).join(', ')}) `
@@ -195,9 +189,6 @@ export class BIndex<T = any> implements _INamedIndex<T> {
 
     delete(raw: any, t: _Transaction) {
         const key = this.buildKey(raw, t);
-        if (!key) {
-            return;
-        }
         let tree = this.bin(t);
         let keyValues = tree.find(key);
         if (!keyValues.valid) {
