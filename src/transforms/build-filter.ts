@@ -70,7 +70,7 @@ function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary):
     return null;
 }
 
-function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null{
+function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null {
     const { left, right, op } = filter;
     switch (op) {
         case '=':
@@ -121,7 +121,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
                 const valueToCompare = buildValue(on, right);
                 if (valueToCompare.isConstant) {
                     const str = valueToCompare.get();
-                    if (str === null) {
+                    if (nullIsh(str)) {
                         return new FalseFilter(on);
                     }
                     const got = /^([^%_]+)([%_]?.+)$/.exec(str);

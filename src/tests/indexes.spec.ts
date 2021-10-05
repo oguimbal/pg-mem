@@ -102,8 +102,53 @@ describe('Indices', () => {
             insert into my_table values ('a', 'a'), ('a', 'b'), ('a', null), ('b', null)`);
 
         assert.throws(() => none(`insert into my_table values ('a', null)`), /constraint/);
-    })
+    });
 
+
+    describe('[bufix #160] partial indexes with default values', () => {
+        // checks issue described in https://github.com/oguimbal/pg-mem/issues/160
+        function begin160() {
+            none(`create table "test_table" (
+                "id" character varying(36) NOT NULL,
+                "unique_data" character varying(36),
+                "deleted_at" timestamp without time zone,
+                CONSTRAINT "PK_test_table_id"
+                PRIMARY KEY ("id")
+              );
+
+              CREATE UNIQUE INDEX "UXtest_table_unique_data" ON "public"."test_table" ("unique_data") WHERE deleted_at IS NULL;
+
+              insert into test_table ("id", "unique_data", "deleted_at") VALUES('1', default, default );`);
+        }
+
+        it('can insert multiple default values on partial indexes ', () => {
+            begin160();
+
+            // this was throwing:
+            none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', default, default );`)
+        });
+
+        it('can update to default value on partial indexes ', () => {
+            // checks issue described in https://github.com/oguimbal/pg-mem/issues/160
+            begin160();
+            none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', 'x', default );`);
+
+
+            // this was throwing:
+            none(`update test_table set unique_data=default where id='2'`)
+        });
+
+        it('insert into select is OK with partial indexes', () => {
+            // checks issue described in https://github.com/oguimbal/pg-mem/issues/160
+            begin160();
+
+            // was throwing n°1
+            none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', default, default );`)
+
+            // was throwing n°2
+            none(`insert into test_table(id,unique_data,deleted_at) (select id || 'bis', unique_data, deleted_at from test_table)`);
+        })
+    });
 
     it('can create the same named index twice', () => {
         none(`create table test(col text);

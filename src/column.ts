@@ -210,7 +210,7 @@ export class ColRef implements _Column {
             return;
         }
         if (!this.default) {
-            toInsert[this.expression.id!] = null
+            toInsert[this.expression.id!] = nullIsh.DEFAULT_NULL;
         } else {
             toInsert[this.expression.id!] = this.default.get();
         }

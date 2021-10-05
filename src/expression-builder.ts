@@ -328,7 +328,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             const not = op === 'NOT ILIKE' || op === 'NOT LIKE';
             if (rightValue.isConstant) {
                 const pattern = rightValue.get();
-                if (pattern === null) {
+                if (nullIsh(pattern)) {
                     return Value.null(data.ownerSchema, Types.bool);
                 }
                 let matcher: (str: string | number) => boolean | nil;

@@ -293,6 +293,19 @@ export class Evaluator<T = any> implements IValue<T> {
 //     }
 // }
 
+let _defaultsAsNull = true;
+export function noDefaultsAsNull<T>(fn: () => T): T {
+    if (!_defaultsAsNull) {
+        return fn();
+    }
+    try {
+        _defaultsAsNull = false;
+        return fn();
+    } finally {
+        _defaultsAsNull = true;
+    }
+}
+
 
 export const Value = {
     null(owner: _ISchema, ofType?: _IType): IValue {
@@ -331,7 +344,7 @@ export const Value = {
     },
     /** @deprecated Use with care */
     constant(owner: _ISchema, _type: _IType, value: any): IValue {
-        const type = value === null
+        const type = nullIsh(value)
             ? Types.null
             : _type;
         return new Evaluator(
@@ -373,13 +386,11 @@ export const Value = {
             , null
             , hash({ isNull: leftValue.hash, expectNull })
             , leftValue
-            , expectNull ? ((raw, t) => {
+            , (raw, t) => {
                 const left = leftValue.get(raw, t);
-                return left === null;
-            }) : ((raw, t) => {
-                const left = leftValue.get(raw, t);
-                return left !== null && left !== undefined;
-            }))
+                const ret = left === null || _defaultsAsNull && left === nullIsh.DEFAULT_NULL;
+                return expectNull ? ret : !ret;
+            })
     },
     isTrue(owner: _ISchema, leftValue: IValue, expectTrue: boolean): IValue {
         leftValue = leftValue.convert(Types.bool);

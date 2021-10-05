@@ -4,6 +4,7 @@ import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from './interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
 import { deepCloneSimple, nullIsh } from './utils';
+import { noDefaultsAsNull } from './evaluator';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree
@@ -48,7 +49,8 @@ interface BIterator<T> {
     readonly hasPrev: boolean;
 }
 
-type RawTree<T> = BTree<ImMap<string, T>>;;
+type RawTree<T> = BTree<ImMap<string, T>>;
+
 export class BIndex<T = any> implements _INamedIndex<T> {
 
     get type(): 'index' {
@@ -89,11 +91,13 @@ export class BIndex<T = any> implements _INamedIndex<T> {
             const k = this.cols[i];
             const a = _a[i];
             const b = _b[i];
-            if (a === null || b === null) {
-                if (a === b) {
+            const an = nullIsh(a);
+            const bn = nullIsh(b);
+            if (an || bn) {
+                if (an === bn) {
                     continue;
                 }
-                return (a === null
+                return (an
                     ? -1
                     : 1) * (k.nullsLast ? 1 : -1);
             }
@@ -143,8 +147,10 @@ export class BIndex<T = any> implements _INamedIndex<T> {
 
     add(raw: T, t: _Transaction) {
         // check that predicate is OK
-        if (this.predicate && !this.predicate.get(raw, t)) {
-            return;
+        if (this.predicate) {
+            if (!noDefaultsAsNull(() => this.predicate?.get(raw, t))) {
+                return;
+            }
         }
 
         // build key and object id

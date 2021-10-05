@@ -3,6 +3,7 @@ import 'chai';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb, QueryError } from '../interfaces';
+import { cleanResults } from '../clean-results';
 
 describe('Test utils', () => {
 
@@ -42,7 +43,7 @@ describe('Test utils', () => {
 
     it('sets defaults', () => {
         const table = simple();
-        const got = table.insert({ id: 'x' });
+        const [got] = cleanResults([table.insert({ id: 'x' })]);
         expect(got).to.deep.equal({
             id: 'x',
             obj: null,
@@ -55,7 +56,7 @@ describe('Test utils', () => {
 
     it('does not set default when explicitely null', () => {
         const table = simple();
-        const got = table.insert({ id: 'x', });
+        const [got] = cleanResults([table.insert({ id: 'x', })]);
         expect(got).to.deep.equal({
             id: 'x',
             obj: null,
@@ -116,7 +117,7 @@ describe('Test utils', () => {
     it('copies input', () => {
         const table = simple();
         const orig: Partial<R> = { id: 'id', obj: { sub: 42 }, n: 42 };
-        const check = () => expect([...table.find()]).to.deep.equal([{
+        const check = () => expect(cleanResults([...table.find()])).to.deep.equal([{
             id: 'id',
             obj: { sub: 42 },
             i: null,

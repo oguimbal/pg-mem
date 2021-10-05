@@ -1290,7 +1290,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             return {
                 col,
                 value: x.value,
-                getter: x.value !== 'default'
+                getter: x.value.type !== 'default'
                     ? buildValue(setSelection, x.value).convert(col.expression.type)
                     : null,
             };
@@ -1298,8 +1298,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
         return (target: any, source: any) => {
             for (const s of sets) {
-                if (s.value === 'default') {
-                    target[s.col.expression.id!] = s.col.default?.get() ?? null;
+                if (s.value.type === 'default') {
+                    target[s.col.expression.id!] = s.col.default?.get() ?? undefined;
                 } else {
                     target[s.col.expression.id!] = s.getter?.get(source, t) ?? null;
                 }

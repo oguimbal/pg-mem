@@ -302,8 +302,10 @@ export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
 }
 
 export function nullIsh(v: any): boolean {
-    return v === null || v === undefined;
+    return v === null || v === undefined || v === nullIsh.DEFAULT_NULL;
 }
+nullIsh.DEFAULT_NULL = Symbol('DEFAULT_NULL');
+
 export function hasNullish(...vals: any[]): boolean {
     return vals.some(nullIsh);
 }

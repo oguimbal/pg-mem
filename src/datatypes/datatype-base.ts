@@ -79,20 +79,20 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     equals(a: TRaw, b: TRaw): boolean | null {
-        if (a === null || b === null) {
+        if (nullIsh(a) || nullIsh(b)) {
             return null;
         }
         return this.doEquals(a, b);
     }
 
     gt(a: TRaw, b: TRaw): boolean | null {
-        if (a === null || b === null) {
+        if (nullIsh(a) || nullIsh(b)) {
             return null;
         }
         return this.doGt(a, b);
     }
     lt(a: TRaw, b: TRaw): boolean | null {
-        if (a === null || b === null) {
+        if (nullIsh(a) || nullIsh(b)) {
             return null;
         }
         return this.doLt(a, b);
