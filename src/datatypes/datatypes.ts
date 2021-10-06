@@ -413,6 +413,9 @@ class BoolType extends TypeBase<boolean> {
 
 export class ArrayType extends TypeBase<any[]> {
     get primary(): DataType {
+        if (this.list) {
+            return DataType.list;
+        }
         return DataType.array;
     }
 

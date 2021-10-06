@@ -206,5 +206,4 @@ describe('Aggregations', () => {
                     select id, sum(a) as sum from test group by id`))
             .to.deep.equal([]);
     });
-
 });

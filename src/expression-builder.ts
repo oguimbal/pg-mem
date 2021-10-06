@@ -76,7 +76,9 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
         case 'list':
         case 'array':
             const vals = val.expressions.map(x => _buildValue(data, x));
-            return Value.array(data.ownerSchema, vals, val.type === 'list');
+            return val.type === 'list'
+                ? Value.list(data.ownerSchema, vals)
+                : Value.array(data.ownerSchema, vals);
         case 'numeric':
             return Value.number(data.ownerSchema, val.value);
         case 'integer':
@@ -209,6 +211,30 @@ function buildBinary(data: _ISelection, val: ExprBinary): IValue {
 
 export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: BinaryOperator, rightValue: IValue): IValue {
     function expectSame() {
+        const ll = leftValue.type.primary === DataType.list;
+        const rl = rightValue.type.primary === DataType.list;
+        if (ll !== rl) {
+            function doMap(v: IValue): IValue {
+                return v.map(x => {
+                    if (!x) {
+                        return x;
+                    }
+                    if (!Array.isArray(x)) {
+                        // not supposed to happen
+                        throw new Error(`Was expecting an array. Got instead ${x}`);
+                    }
+                    if (x.length > 1) {
+                        throw new QueryError('more than one row returned by a subquery used as an expression', '21000');
+                    }
+                    return x[0];
+                }, (v.type as ArrayType).of);
+            }
+            if (ll) {
+                leftValue = doMap(leftValue);
+            } else {
+                rightValue = doMap(rightValue);
+            }
+        }
         const type: _IType = reconciliateTypes([leftValue, rightValue]);
         leftValue = leftValue.convert(type);
         rightValue = rightValue.convert(type);
@@ -618,7 +644,7 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
 function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
     const onData = data.subquery(data, op);
     if (onData.columns.length !== 1) {
-        throw new QueryError('subquery has too many columns');
+        throw new QueryError('subquery must return only one column', '42601');
     }
     return new Evaluator(
         data.ownerSchema

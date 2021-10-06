@@ -159,14 +159,36 @@ export class Evaluator<T = any> implements IValue<T> {
         );
     }
 
-
-    setWrapper(newOrigin: _ISelection, unwrap: (val: any) => any): IValue<T> {
+    map<TNew>(mapper: (val: T) => TNew, newType?: _IType<TNew>): IValue<TNew> {
         if (this.isAny) {
             throw new QueryError('Unexpected use of ANY()');
         }
-        const ret = new Evaluator<T>(
+        const ret = new Evaluator<TNew>(
             this.owner
-            , this.type
+            , (newType ?? this.type) as _IType
+            , this.id
+            , this.hash
+            , this
+            , (raw, t) => {
+                const got = this.get(raw, t);
+                if (nullIsh(got)) {
+                    return null;
+                }
+                return mapper(got);
+            }
+            , this.opts
+        );
+        ret.origin = this.origin;
+        return ret;
+    }
+
+    setWrapper<TNew>(newOrigin: _ISelection, unwrap: (val: T) => TNew, newType?: _IType<TNew>): IValue<TNew> {
+        if (this.isAny) {
+            throw new QueryError('Unexpected use of ANY()');
+        }
+        const ret = new Evaluator<TNew>(
+            this.owner
+            , (newType ?? this.type) as _IType
             , this.id
             , this.hash
             , this
@@ -346,8 +368,8 @@ export const Value = {
         if (!value) {
             throw new Error('Argument null');
         }
-        if (array.type.primary !== DataType.array) {
-            array = Value.array(owner, [array], false);
+        if (array.type.primary !== DataType.list && array.type) {
+            array = Value.list(owner, [array]);
         }
         const of = (array.type as ArrayType).of;
         return new Evaluator(
@@ -423,27 +445,35 @@ export const Value = {
         return (value as Evaluator)
             .setConversion(x => -x, x => ({ neg: x }));
     },
-    array(owner: _ISchema, values: IValue[], list: boolean = false): IValue {
-        const type = values.reduce((t, v) => {
-            if (v.canConvert(t)) {
-                return t;
-            }
-            if (!t.canConvert(v.type)) {
-                throw new CastError(t.primary, v.type.primary);
-            }
-            return v.type;
-        }, Types.null);
-        // const sel = values.find(x => !!x.selection)?.selection;
-        const converted = values.map(x => x.convert(type));
-        return new Evaluator(
-            owner
-            , list ? type.asList() : type.asArray()
-            , null
-            , hash(converted.map(x => x.hash))
-            , converted
-            , (raw, t) => {
-                const arr = values.map(x => x.get(raw, t));
-                return arr;
-            });
+    array(owner: _ISchema, values: IValue[]): IValue {
+        return arrayOrList(owner, values, false);
+    },
+    list(owner: _ISchema, values: IValue[]): IValue {
+        return arrayOrList(owner, values, true);
     }
 } as const;
+
+
+function arrayOrList(owner: _ISchema, values: IValue[], list: boolean) {
+    const type = values.reduce((t, v) => {
+        if (v.canConvert(t)) {
+            return t;
+        }
+        if (!t.canConvert(v.type)) {
+            throw new CastError(t.primary, v.type.primary);
+        }
+        return v.type;
+    }, Types.null);
+    // const sel = values.find(x => !!x.selection)?.selection;
+    const converted = values.map(x => x.convert(type));
+    return new Evaluator(
+        owner
+        , list ? type.asList() : type.asArray()
+        , null
+        , hash(converted.map(x => x.hash))
+        , converted
+        , (raw, t) => {
+            const arr = values.map(x => x.get(raw, t));
+            return arr;
+        });
+}

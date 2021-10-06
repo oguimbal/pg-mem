@@ -96,11 +96,11 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             const value = buildValue(on, left);
             let arrayValue = buildValue(on, right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
-            if (arrayValue.type.primary !== DataType.array) {
-                arrayValue = Value.array(on.ownerSchema, [arrayValue], false);
+            if (arrayValue.type.primary !== DataType.list) {
+                arrayValue = Value.list(on.ownerSchema, [arrayValue]);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
-            const array = arrayValue.convert(elementType!.asArray());
+            const array = arrayValue.convert(elementType!.asList());
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
                 const arrCst = array.get();

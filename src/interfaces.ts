@@ -36,6 +36,7 @@ export enum DataType {
     text = 'text',
     citext = 'citext',
     array = 'array',
+    list = 'list',
     bigint = 'bigint',
     float = 'float',
     decimal = 'decimal',

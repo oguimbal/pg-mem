@@ -510,7 +510,10 @@ export interface IValue<TRaw = any> {
     /**
      * Creates a copy of this column that can
      **/
-    setWrapper<TNewRaw>(newOrigin: _ISelection, unwrap: (val: TNewRaw) => TRaw): IValue<TRaw>;
+    setWrapper<TNew>(newOrigin: _ISelection, unwrap: (val: TRaw) => TNew, newType: _IType<TNew>): IValue<TNew>;
+    setWrapper(newOrigin: _ISelection, unwrap: (val: TRaw) => TRaw): IValue<TRaw>;
+    map(unwrap: (val: TRaw) => TRaw): IValue<TRaw>;
+    map<TNew>(unwrap: (val: TRaw) => TNew, newType: _IType<TNew>): IValue<TNew>;
     setOrigin(origin: _ISelection): IValue<TRaw>;
     clone(): IValue<any>;
 
