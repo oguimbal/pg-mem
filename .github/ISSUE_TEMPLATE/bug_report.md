@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**Describe the bug**
+# Describe the bug
 
 (Describe your issue here).
 
@@ -15,7 +15,7 @@ assignees: ''
 (pg-mem tries to throw nice error messages when possible... so paste it here if you have one !)
 ```
 
-**To Reproduce**
+# To Reproduce
 
 ```sql
 
@@ -24,5 +24,8 @@ assignees: ''
 ```
 
 
-**pg-mem version**
-(nb: the version in your package.json version is not enough... please run "cat ./node_modules/pg-mem/package.json | grep version" to tell which minor version is actually installed)
+# pg-mem version
+
+(paste your pg-mem version here)
+
+(nb: the version in your package.json version is often not precise enough... please run "cat ./node_modules/pg-mem/package.json | grep version" to tell which minor version is actually installed)
