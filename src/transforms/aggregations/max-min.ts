@@ -1,8 +1,8 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private';
 import { Expr } from 'pgsql-ast-parser';
 import { buildValue } from '../../expression-builder';
-import { Types } from '../../datatypes';
 import { nullIsh } from '../../utils';
+import { DataType } from '../../interfaces';
 
 
 class MinMax implements AggregationComputer<number> {
@@ -11,7 +11,7 @@ class MinMax implements AggregationComputer<number> {
     }
 
     get type(): _IType<any> {
-        return Types.bigint;
+        return this.exp.type;
     }
 
     createGroup(t: _Transaction): AggregationGroupComputer<number> {
@@ -39,5 +39,20 @@ export function buildMinMax(this: void, base: _ISelection, args: Expr[], op: 'ma
     }
 
     const what = buildValue(base, args[0]);
+
+    switch (what.type.primary) {
+        case DataType.bigint:
+        case DataType.integer:
+        case DataType.decimal:
+        case DataType.date:
+        case DataType.float:
+        case DataType.text:
+        case DataType.time:
+        case DataType.timestamp:
+        case DataType.timestamptz:
+            break;
+        default:
+            throw new QueryError(`function min(${what.type.primary}) does not exist`, '42883');
+    }
     return new MinMax(what, op === 'max');
 }

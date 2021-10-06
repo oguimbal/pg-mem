@@ -206,4 +206,11 @@ describe('Aggregations', () => {
                     select id, sum(a) as sum from test group by id`))
             .to.deep.equal([]);
     });
+
+
+    it('[bugfix] fix min() on timestamptz', () => {
+        // checks https://github.com/oguimbal/pg-mem/issues/162
+        none(`create table books(name text, created_at timestamptz);
+                        SELECT name FROM books WHERE created_at = (SELECT MIN(created_at) FROM books);`);
+    });
 });
