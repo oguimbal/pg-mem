@@ -232,13 +232,18 @@ export class Evaluator<T = any> implements IValue<T> {
         return this.val(raw, t)
     }
 
-    canConvert(to: _IType<T>): boolean {
-        return !!this.type.canConvert(to);
+    canCast(to: _IType<T>): boolean {
+        return !!this.type.canCast(to);
     }
 
-    convert<T = any>(to: _IType<T>): IValue<T> {
-        return this.type.convert(this, to);
+    cast<T = any>(to: _IType<T>): IValue<T> {
+        return this.type.cast(this, to);
     }
+
+    convertImplicit<T = any>(to: _IType<T>): IValue<T> {
+        return this.type.convertImplicit(this, to);
+    }
+
 
     explain(e: _Explainer): _ExprExplanation {
         if (!this.origin) {
@@ -306,12 +311,12 @@ export class Evaluator<T = any> implements IValue<T> {
 //         );
 //     }
 
-//     canConvert(to: DataType | _IType<T>): boolean {
-//         return this.type.canConvert(to);
+//     canCast(to: DataType | _IType<T>): boolean {
+//         return this.type.canCast(to);
 //     }
 
-//     convert<T = any>(to: DataType | _IType<T>): IValue<T> {
-//         return this.type.convert(this, to);
+//     cast<T = any>(to: DataType | _IType<T>): IValue<T> {
+//         return this.type.cast(this, to);
 //     }
 // }
 
@@ -403,7 +408,7 @@ export const Value = {
             })
     },
     isTrue(owner: _ISchema, leftValue: IValue, expectTrue: boolean): IValue {
-        leftValue = leftValue.convert(Types.bool);
+        leftValue = leftValue.cast(Types.bool);
         return new Evaluator(
             owner
             , Types.bool
@@ -419,7 +424,7 @@ export const Value = {
             }));
     },
     isFalse(owner: _ISchema, leftValue: IValue, expectFalse: boolean): IValue {
-        leftValue = leftValue.convert(Types.bool);
+        leftValue = leftValue.cast(Types.bool);
         return new Evaluator(
             owner
             , Types.bool
@@ -456,16 +461,16 @@ export const Value = {
 
 function arrayOrList(owner: _ISchema, values: IValue[], list: boolean) {
     const type = values.reduce((t, v) => {
-        if (v.canConvert(t)) {
+        if (v.canCast(t)) {
             return t;
         }
-        if (!t.canConvert(v.type)) {
+        if (!t.canCast(v.type)) {
             throw new CastError(t.primary, v.type.primary);
         }
         return v.type;
     }, Types.null);
     // const sel = values.find(x => !!x.selection)?.selection;
-    const converted = values.map(x => x.convert(type));
+    const converted = values.map(x => x.cast(type));
     return new Evaluator(
         owner
         , list ? type.asList() : type.asArray()

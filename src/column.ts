@@ -148,7 +148,7 @@ export class ColRef implements _Column {
                 break;
             case 'set type':
                 const newType = this.table.ownerSchema.getType(alter.dataType);
-                const conv = this.expression.convert(newType);
+                const conv = this.expression.cast(newType);
                 const eid = this.expression.id;
 
                 this.table.remapData(t, x => x[this.expression.id!] = conv.get(x, t));

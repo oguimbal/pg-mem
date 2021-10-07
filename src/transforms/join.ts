@@ -162,7 +162,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
 
         // build seq-scan expression
-        this.seqScanExpression = buildValue(this, _on).convert(Types.bool);
+        this.seqScanExpression = buildValue(this, _on).cast(Types.bool);
     }
 
     private fetchUsingStrategies(_using: Name[]) {
@@ -441,8 +441,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 matches: strategy.onValue.explain(e),
                 ...strategy.othersPredicate ? { filtered: true } : {},
             } : {
-                seqScan: this.seqScanExpression.explain(e),
-            },
+                    seqScan: this.seqScanExpression.explain(e),
+                },
         };
     }
 }

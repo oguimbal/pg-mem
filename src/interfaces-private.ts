@@ -453,8 +453,9 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     lt(a: TRaw, b: TRaw): boolean | null;
     le(a: TRaw, b: TRaw): boolean | null;
     canConvertImplicit(to: _IType<TRaw>): boolean | nil;
-    canConvert(to: _IType<TRaw>): boolean | nil;
-    convert<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue<T>;
+    canCast(to: _IType<TRaw>): boolean | nil;
+    cast<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue<T>;
+    convertImplicit<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue<T>;
     prefer(type: _IType<any>): _IType | nil;
 
     /** Build an array type for this type */
@@ -504,8 +505,9 @@ export interface IValue<TRaw = any> {
     get(raw: TRaw, t?: _Transaction | nil): any;
 
     setId(newId: string): IValue;
-    canConvert(to: _IType): boolean;
-    convert<T = any>(to: _IType<T>): IValue<T>;
+    canCast(to: _IType): boolean;
+    cast<T = any>(to: _IType<T>): IValue<T>;
+    convertImplicit<T = any>(to: _IType<T>): IValue<T>;
 
     /**
      * Creates a copy of this column that can

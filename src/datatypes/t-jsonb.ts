@@ -33,7 +33,7 @@ export class JSONBType extends TypeBase<any> {
                     .setType(Types.text())
                     .setConversion(json => JSON.stringify(this.toResult(json))
                         , toJsonB => ({ toJsonB }))
-                    .convert(to) as Evaluator; // <== might need truncation
+                    .cast(to) as Evaluator; // <== might need truncation
             case DataType.jsonb:
                 return a.setType(to);
             case DataType.float:
