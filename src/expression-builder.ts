@@ -560,7 +560,10 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
                 if (!Array.isArray(value)) {
                     return null;
                 }
-                return conv(value[op.member as number]);
+                const i = op.member < 0
+                    ? value.length + (op.member as number)
+                    : op.member as number;
+                return conv(value[i]);
             });
 }
 
