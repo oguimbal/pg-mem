@@ -63,7 +63,7 @@ export class ValuesTable extends ReadOnlyTable {
                 const v = vals[i];
                 ret[this._schema.fields[i].name] = v === 'default'
                     ? null
-                    : v.convert(types[i]!).get();
+                    : v.cast(types[i]!).get();
             }
             return ret;
         });

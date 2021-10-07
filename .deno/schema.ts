@@ -1291,7 +1291,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 col,
                 value: x.value,
                 getter: x.value.type !== 'default'
-                    ? buildValue(setSelection, x.value).convert(col.expression.type)
+                    ? buildValue(setSelection, x.value).cast(col.expression.type)
                     : null,
             };
         });
@@ -1345,14 +1345,14 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             const insertInto = table.selection.getColumn(col);
             // It seems that the explicit conversion is only performed when inserting values.
             const canConvert = p.insert.type === 'values'
-                ? value.type.canConvert(insertInto.type)
+                ? value.type.canCast(insertInto.type)
                 : value.type.canConvertImplicit(insertInto.type);
             if (!canConvert) {
                 throw new QueryError(`column "${col}" is of type ${insertInto.type.name} but expression is of type ${value.type.name}`);
             }
             return value.type === Types.default
                 ? value  // handle "DEFAULT" values
-                : value.convert(insertInto.type);
+                : value.cast(insertInto.type);
         });
 
         // enumerate & get
@@ -1433,7 +1433,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 //      toInsert[columns[i]] = v._custom;
                 // } else {
                 //     const notConv = buildValue(table.selection, v);
-                //     const converted = notConv.convert(col.type);
+                //     const converted = notConv.cast(col.type);
                 //     if (!converted.isConstant) {
                 //         throw new QueryError('Cannot insert non constant expression');
                 //     }

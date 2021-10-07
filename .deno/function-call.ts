@@ -46,7 +46,7 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
             break;
         case 'coalesce':
             acceptNulls = true;
-            args = args.map(x => x.convert(args[0].type));
+            args = args.map(x => x.cast(args[0].type));
             type = args[0].type;
             get = (...args: any[]) => args.find(x => !nullIsh(x));
             break;
@@ -58,14 +58,14 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
                 for (let i = 0; i < args.length; i++) {
                     const t = o.args[i]?.type ?? o.argsVariadic;
                     // calling 'out' arguments not supported
-                    if (!t || !args[i].canConvert(t) || o.args[i]?.mode === 'out') {
+                    if (!t || !args[i].canCast(t) || o.args[i]?.mode === 'out') {
                         ok = false;
                         break;
                     }
                 }
 
                 if (ok) {
-                    args = args.map((x, i) => x.convert(o.args[i]?.type ?? o.argsVariadic));
+                    args = args.map((x, i) => x.cast(o.args[i]?.type ?? o.argsVariadic));
                     type = o.returns;
                     get = o.implementation;
                     impure = !!o.impure;

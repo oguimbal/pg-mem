@@ -79,7 +79,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         if (!filter) {
             return this;
         }
-        const plan = fns.buildFilter(this, filter);
+        const plan = fns.buildFilter(this, filter, 'WHERE');
         return plan;
     }
 

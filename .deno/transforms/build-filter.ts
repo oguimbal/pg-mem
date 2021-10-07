@@ -1,4 +1,4 @@
-import { _ISelection, CastError, DataType, NotSupported } from '../interfaces-private.ts';
+import { _ISelection, CastError, DataType, NotSupported, IValue } from '../interfaces-private.ts';
 import { buildValue } from '../expression-builder.ts';
 import { Types, ArrayType } from '../datatypes/index.ts';
 import { EqFilter } from './eq-filter.ts';
@@ -14,14 +14,18 @@ import { StartsWithFilter } from './startswith-filter.ts';
 import { IneqFilter } from './ineq-filter.ts';
 import { hasNullish, nullIsh } from '../utils.ts';
 import { BetweenFilter } from './between-filter.ts';
+import { QueryError } from '../interfaces.ts';
 
-export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> {
-    return _buildFilter(on, filter) ?? new SeqScanFilter(on, buildValue(on, filter))
+export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, parentName: string): _ISelection<T> {
+    const where = buildValue(on, filter);
+    if (!where.type.canConvertImplicit(Types.bool)) {
+        throw new QueryError(`argument of ${parentName} must be type boolean, not type jsonb`, '42804');
+    }
+    return _buildFilter(on, filter, where) ?? new SeqScanFilter(on, where)
 }
 
-function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelection<T> | null {
+function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, built: IValue): _ISelection<T> | null {
     // check if there is a direct index
-    const built = buildValue(on, filter);
     if (built.index) {
         if (built.index.expressions.length !== 1) {
             throw new Error('Was not expecing multiples expressions filter');
@@ -36,7 +40,7 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr): _ISelect
     // if this filter is a constant expression (ex: 1 = 1)
     // then return directly
     if (built.isConstant) {
-        const val = built.convert(Types.bool)
+        const val = built.cast(Types.bool)
             .get();
         if (val) {
             return on;
@@ -82,8 +86,8 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             return buildComparison(on, filter);
         case 'AND':
         case 'OR': {
-            const leftFilter = buildFilter(on, left);
-            const rightFilter = buildFilter(on, right);
+            const leftFilter = buildFilter(on, left, op);
+            const rightFilter = buildFilter(on, right, op);
             if (op === 'OR' && (leftFilter instanceof SeqScanFilter || rightFilter instanceof SeqScanFilter)) {
                 return null;
             }
@@ -100,7 +104,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
                 arrayValue = Value.list(on.ownerSchema, [arrayValue]);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
-            const array = arrayValue.convert(elementType!.asList());
+            const array = arrayValue.cast(elementType!.asList());
             // only support scanning indexes with one expression
             if (array.isConstant && value.index?.expressions.length === 1) {
                 const arrCst = array.get();
@@ -167,9 +171,9 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
     }
 
     if (rightValue.isConstant) {
-        rightValue = rightValue.convert(leftValue.type);
+        rightValue = rightValue.cast(leftValue.type);
     } else if (leftValue.isConstant) {
-        leftValue = leftValue.convert(rightValue.type);
+        leftValue = leftValue.cast(rightValue.type);
     }
 
     switch (op) {

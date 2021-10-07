@@ -100,7 +100,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
             return Value.function(schema, val.function, args);
         case 'cast':
             return _buildValue(data, val.operand)
-                .convert(data.ownerSchema.getType(val.to))
+                .cast(data.ownerSchema.getType(val.to))
         case 'case':
             return buildCase(data, val);
         case 'member':
@@ -236,13 +236,13 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             }
         }
         const type: _IType = reconciliateTypes([leftValue, rightValue]);
-        leftValue = leftValue.convert(type);
-        rightValue = rightValue.convert(type);
+        leftValue = leftValue.cast(type);
+        rightValue = rightValue.cast(type);
         return type;
     }
     function expectBoth(t: _IType) {
-        leftValue = leftValue.convert(t);
-        rightValue = rightValue.convert(t);
+        leftValue = leftValue.cast(t);
+        rightValue = rightValue.cast(t);
     }
 
     let getter: (a: any, b: any) => any;
@@ -334,10 +334,10 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             getter = (a, b) => queryJson(b, a);
             break;
         case '&&':
-            if (leftValue.type.primary !== DataType.array || !rightValue.canConvert(leftValue.type)) {
+            if (leftValue.type.primary !== DataType.array || !rightValue.canCast(leftValue.type)) {
                 throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
             }
-            rightValue = rightValue.convert(leftValue.type);
+            rightValue = rightValue.cast(leftValue.type);
             getter = (a, b) => a.some((element: any) => b.includes(element));
             break;
         case '||':
@@ -490,13 +490,13 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
     }
 
     const whenExprs = whens.map(x => ({
-        when: buildValue(data, x.when).convert(Types.bool),
+        when: buildValue(data, x.when).cast(Types.bool),
         then: buildValue(data, x.value)
     }));
 
     const valueType = reconciliateTypes(whenExprs.map(x => x.then));
     for (const v of whenExprs) {
-        v.then = v.then.convert(valueType);
+        v.then = v.then.cast(valueType);
     }
 
     return new Evaluator(
@@ -560,7 +560,10 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
                 if (!Array.isArray(value)) {
                     return null;
                 }
-                return conv(value[op.member as number]);
+                const i = op.member < 0
+                    ? value.length + (op.member as number)
+                    : op.member as number;
+                return conv(value[i]);
             });
 }
 
@@ -570,7 +573,7 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
     if (onExpr.type.primary !== DataType.array) {
         throw new QueryError(`Cannot use [] expression on type ${onExpr.type.primary}`);
     }
-    const index = _buildValue(data, op.index).convert(Types.integer);
+    const index = _buildValue(data, op.index).cast(Types.integer);
     return new Evaluator(
         data.ownerSchema
         , (onExpr.type as ArrayType).of
@@ -606,9 +609,9 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
     let hi = _buildValue(data, op.hi);
     let lo = _buildValue(data, op.lo);
     const type = reconciliateTypes([value, hi, lo]);
-    value = value.convert(type);
-    hi = hi.convert(type);
-    lo = lo.convert(type);
+    value = value.cast(type);
+    hi = hi.cast(type);
+    lo = lo.cast(type);
     const conv = oop === 'NOT BETWEEN'
         ? (x: boolean) => !x
         : (x: boolean) => x;
@@ -667,7 +670,7 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
 function buildExtract(data: _ISelection, op: ExprExtract): IValue {
     const from = _buildValue(data, op.from);
     function extract(as: _IType, fn: (v: any) => any, result = Types.integer) {
-        const conv = from.convert(as);
+        const conv = from.cast(as);
         return new Evaluator(
             data.ownerSchema
             , result
@@ -691,12 +694,12 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
         case 'decade':
             return extract(Types.date, x => Math.floor(moment.utc(x).year() / 10));
         case 'day':
-            if (from.canConvert(Types.date)) {
+            if (from.canCast(Types.date)) {
                 return extract(Types.date, x => moment.utc(x).date());
             }
             return extract(Types.interval, (x: Interval) => x.days ?? 0);
         case 'second':
-            if (from.canConvert(Types.time)) {
+            if (from.canCast(Types.time)) {
                 return extract(Types.time, x => {
                     const t = parseTime(x);
                     return t.second() + t.milliseconds() / 1000;
@@ -704,12 +707,12 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
             }
             return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) + (x.milliseconds ?? 0) / 1000, Types.float);
         case 'minute':
-            if (from.canConvert(Types.time)) {
+            if (from.canCast(Types.time)) {
                 return extract(Types.time, x => parseTime(x).minute());
             }
             return extract(Types.interval, (x: Interval) => x.minutes ?? 0);
         case 'milliseconds':
-            if (from.canConvert(Types.time)) {
+            if (from.canCast(Types.time)) {
                 return extract(Types.time, x => {
                     const t = parseTime(x);
                     return t.seconds() * 1000 + t.milliseconds();
@@ -717,12 +720,12 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
             }
             return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000 + (x.milliseconds ?? 0), Types.float);
         case 'month':
-            if (from.canConvert(Types.date)) {
+            if (from.canCast(Types.date)) {
                 return extract(Types.date, x => moment.utc(x).month() + 1);
             }
             return extract(Types.interval, (x: Interval) => x.months ?? 0);
         case 'year':
-            if (from.canConvert(Types.date)) {
+            if (from.canCast(Types.date)) {
                 return extract(Types.date, x => moment.utc(x).year());
             }
             return extract(Types.interval, (x: Interval) => x.years ?? 0);
@@ -736,12 +739,12 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
         case 'doy':
             return extract(Types.date, x => moment.utc(x).dayOfYear());
         case 'epoch':
-            if (from.canConvert(Types.timestamp())) {
+            if (from.canCast(Types.timestamp())) {
                 return extract(Types.timestamp(), x => moment.utc(x).unix(), Types.float);
             }
             return extract(Types.interval, (x: Interval) => intervalToSec(x));
         case 'hour':
-            if (from.canConvert(Types.timestamp())) {
+            if (from.canCast(Types.timestamp())) {
                 return extract(Types.timestamp(), x => moment.utc(x).hour());
             }
             return extract(Types.interval, (x: Interval) => x.hours ?? 0);
@@ -755,7 +758,7 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
         case 'week':
             return extract(Types.date, x => moment.utc(x).week());
         case 'microseconds':
-            if (from.canConvert(Types.time)) {
+            if (from.canCast(Types.time)) {
                 return extract(Types.time, x => {
                     const t = parseTime(x);
                     return t.seconds() * 1000000 + t.milliseconds() * 1000;
@@ -769,10 +772,10 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
 
 
 function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
-    const value = _buildValue(data, op.value).convert(Types.text());
-    const placing = _buildValue(data, op.placing).convert(Types.text());
-    const from = _buildValue(data, op.from).convert(Types.integer);
-    const forr = op.for && _buildValue(data, op.for).convert(Types.integer);
+    const value = _buildValue(data, op.value).cast(Types.text());
+    const placing = _buildValue(data, op.placing).cast(Types.text());
+    const from = _buildValue(data, op.from).cast(Types.integer);
+    const forr = op.for && _buildValue(data, op.for).cast(Types.integer);
 
     return new Evaluator(
         data.ownerSchema
@@ -812,10 +815,10 @@ function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
 }
 
 function buildSubstring(data: _ISelection, op: ExprSubstring): IValue {
-    const value = _buildValue(data, op.value).convert(Types.text());
+    const value = _buildValue(data, op.value).cast(Types.text());
     const vals = [value];
-    const from = op.from && _buildValue(data, op.from).convert(Types.integer);
-    const forr = op.for && _buildValue(data, op.for).convert(Types.integer);
+    const from = op.from && _buildValue(data, op.from).cast(Types.integer);
+    const forr = op.for && _buildValue(data, op.for).cast(Types.integer);
     if (forr) {
         vals.push(forr);
     }

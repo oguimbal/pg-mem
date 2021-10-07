@@ -19,7 +19,7 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
 
     constructor(private selection: _ISelection<T>, private getter: IValue<T>) {
         super(selection);
-        this.getter = getter.convert(Types.bool);
+        this.getter = getter.cast(Types.bool);
     }
 
 

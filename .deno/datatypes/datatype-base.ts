@@ -135,7 +135,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     /** Can be explicitely casted to */
-    canConvert(to: _IType<TRaw>): boolean | nil {
+    canCast(to: _IType<TRaw>): boolean | nil {
         if (to === this) {
             return true;
         }
@@ -153,8 +153,27 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         return false;
     }
 
-    /** Perform conversion */
-    convert(a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+    /** Perform cast */
+    cast(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+        return this._convert(_a, _to, (a, to) => {
+            if (!this.doCanCast?.(to) || !this.doCast) {
+                throw new CastError(this.primary, to.primary);
+            }
+            return this.doCast(a, to);
+        })
+    }
+
+    /** Perform implicit conversion */
+    convertImplicit(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+        return this._convert(_a, _to, (a, to) => {
+            if (!this.doCanConvertImplicit?.(to) || !this.doCast) {
+                throw new CastError(this.primary, to.primary);
+            }
+            return this.doCast(a, to);
+        })
+    }
+
+    private _convert(a: IValue<TRaw>, _to: _IType<any>, perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil): IValue<any> {
         const to = _to as TypeBase;
         if (to === this) {
             return a;
@@ -170,10 +189,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
             }
             converted = to.doBuildFrom(a, this);
         } else {
-            if (!this.doCanCast?.(to) || !this.doCast) {
-                throw new CastError(this.primary, to.primary);
-            }
-            converted = this.doCast(a, to);
+            converted = perform(a, to);
         }
 
         if (!converted) {
