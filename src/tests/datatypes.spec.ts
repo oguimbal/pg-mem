@@ -93,25 +93,25 @@ describe('Data types', () => {
 
     describe('time', () => {
         it("2019-01-02T06:00:00.000Z = 2019-01-02T06:00:00.000Z is true", () => {
-          expect(
-            many(`create table test(val timestamp with time zone NOT NULL);
+            expect(
+                many(`create table test(val timestamp with time zone NOT NULL);
                     insert into test values ('2019-01-02T06:00:00.000Z');
                     select extract(epoch FROM val) as epoch from test WHERE val = '2019-01-02T06:00:00.000Z';`)
-          ).to.deep.equal([{ epoch: 1546408800 }]);
+            ).to.deep.equal([{ epoch: 1546408800 }]);
         });
         it("2019-01-02T05:00:00.000Z = 2019-01-02T06:00:00.000Z is false", () => {
-          expect(
-            many(`create table test(val timestamp with time zone NOT NULL);
+            expect(
+                many(`create table test(val timestamp with time zone NOT NULL);
                     insert into test values ('2019-01-02T05:00:00.000Z');
                     select extract(epoch FROM val) as epoch from test WHERE val = '2019-01-02T06:00:00.000Z';`)
-          ).to.deep.equal([]);
+            ).to.deep.equal([]);
         });
         it("2019-01-02T07:00:00.000Z = 2019-01-02T06:00:00.000Z is false", () => {
-          expect(
-            many(`create table test(val timestamp with time zone NOT NULL);
+            expect(
+                many(`create table test(val timestamp with time zone NOT NULL);
                     insert into test values ('2019-01-02T07:00:00.000Z');
                     select extract(epoch FROM val) as epoch from test WHERE val = '2019-01-02T06:00:00.000Z';`)
-          ).to.deep.equal([]);
+            ).to.deep.equal([]);
         });
     })
 
@@ -130,5 +130,13 @@ describe('Data types', () => {
                                 insert into example values ('${i}')`), /invalid input syntax for type inet:/);
             })
         }
+    })
+
+
+    describe('jsonb', () => {
+        it('[bugfix] supports negative array indexation', () => {
+            expect(many(`select data -> 'val' ->  -1 as value from (values ('{"val": [1,2]}'::jsonb)) v(data)`))
+                .to.deep.equal([{ value: 2 }]);
+        })
     })
 });
