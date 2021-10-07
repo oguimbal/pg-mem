@@ -23,8 +23,8 @@ export function buildUnion(left: _ISelection, right: _ISelection) {
         cols[i] = {
             name: l.id ?? ('column' + i),
             type,
-            lval: l.convert(type),
-            rval: r.convert(type),
+            lval: l.cast(type),
+            rval: r.cast(type),
         };
     }
     return new Union(cols, left, right);

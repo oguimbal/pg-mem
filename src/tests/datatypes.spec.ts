@@ -137,6 +137,15 @@ describe('Data types', () => {
         it('[bugfix] supports negative array indexation', () => {
             expect(many(`select data -> 'val' ->  -1 as value from (values ('{"val": [1,2]}'::jsonb)) v(data)`))
                 .to.deep.equal([{ value: 2 }]);
+        });
+
+        it('[bugfix] cannot cast implicitely jsonb boolean to pg boolean', () => {
+            many(`create table test(data jsonb);
+            insert into test values ('{"val": true}'), ('{"val": false}'), ('{}');`);
+
+            // this was throwing
+            assert.throws(() => many(`select * from test where data -> 'val'`), /argument of WHERE must be type boolean, not type jsonb/);
+            assert.throws(() => many(`select * from test where data -> 'val' OR 1=1`), /argument of OR must be type boolean, not type jsonb/);
         })
     })
 });

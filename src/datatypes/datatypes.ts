@@ -247,7 +247,7 @@ class TextType extends TypeBase<string> {
     }
 
     doPrefer(to: _IType) {
-        if (this.canConvert(to)) {
+        if (this.canCast(to)) {
             return to;
         }
         return null;
@@ -276,7 +276,7 @@ class TextType extends TypeBase<string> {
             case DataType.bool:
                 return true;
             case DataType.array:
-                return this.canConvert((to as ArrayType).of);
+                return this.canCast((to as ArrayType).of);
             case DataType.bytea:
                 return true;
         }
@@ -430,10 +430,10 @@ export class ArrayType extends TypeBase<any[]> {
 
     doCanCast(to: _IType) {
         if (to.primary === DataType.text) {
-            return this.of.canConvert(to);
+            return this.of.canCast(to);
         }
         return to instanceof ArrayType
-            && this.of.canConvert(to.of);
+            && this.of.canCast(to.of);
     }
 
     doCast(value: Evaluator, _to: _IType) {
@@ -451,7 +451,7 @@ export class ArrayType extends TypeBase<any[]> {
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(value.owner, valueType.of, x).convert(to.of).get(raw, t));
+                return arr.map(x => Value.constant(value.owner, valueType.of, x).cast(to.of).get(raw, t));
             });
     }
 
@@ -465,7 +465,7 @@ export class ArrayType extends TypeBase<any[]> {
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                const strs = arr.map(x => Value.constant(value.owner, valueType.of, x).convert(Types.text()).get(raw, t));
+                const strs = arr.map(x => Value.constant(value.owner, valueType.of, x).cast(Types.text()).get(raw, t));
                 const data = strs.join(',');
                 return this.list
                     ? '(' + data + ')'
@@ -522,7 +522,7 @@ export class ArrayType extends TypeBase<any[]> {
                     throw new QueryError('Array depth mismatch: was not expecting an array item.');
                 }
                 elts[i] = Value.text(owner, elts[i])
-                    .convert(this.of)
+                    .cast(this.of)
                     .get();
             }
         }
