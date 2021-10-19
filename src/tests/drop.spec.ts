@@ -45,7 +45,7 @@ describe('Drop', () => {
     });
 
 
-    it ('can drop index', () => {
+    it('can drop index', () => {
         none(`create table test(a text);
             create index idx on test(a);`);
 
@@ -68,4 +68,44 @@ describe('Drop', () => {
         none(`create table test(a text)`);
         assert.throws(() => none(`drop index test;`), /"test" is not an index/);
     });
+
+    it('throws an error on ambiguous function drop', () => {
+        db.registerLanguage('sql', () => () => assert.fail('not supposed to be called'));
+        none(`
+            create function my_function(txt text) returns text as $$select '42'$$ language sql;
+            create function my_function() returns text as $$select '42'$$ language sql;
+            `);
+        assert.throws(() => none(`drop function my_function`), /function name "my_function" is not unique/);
+    });
+
+    it('throws an error when no function to drop', () => {
+        assert.throws(() => none(`drop function my_function`), /could not find a function named "my_function"/);
+        assert.throws(() => none(`drop function my_function(text)`), /function my_function\(text\) does not exist/);
+    });
+
+    it('accepts a function drop when not existing', () => {
+        none(`drop function if exists my_function;`);
+    });
+
+    it('drops a function', () => {
+        db.registerLanguage('sql', () => () => '42');
+        none(`create function my_function() returns text as $$select '42'$$ language sql;
+            select my_function();
+            drop function my_function;`);
+
+        assert.throws(() => none(`select my_function()`), /function my_function\(\) does not exist/);
+    });
+
+    it('drops the right overload', () => {
+        db.registerLanguage('sql', code => () => code.code);
+        expect(many(`
+            create function my_function(txt text) returns text as $$with arg$$ language sql;
+            create function my_function() returns text as $$without arg$$ language sql;
+            drop function my_function(text);
+            select my_function() data;
+            `))
+            .to.deep.equal([{ data: 'without arg' }])
+
+    });
+
 });

@@ -1,10 +1,10 @@
-import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError } from './interfaces';
+import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr } from './interfaces';
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private';
-import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse } from './utils';
+import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse, nullIsh } from './utils';
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -262,6 +262,9 @@ export class DbSchema implements _ISchema, ISchema {
                 case 'create function':
                     last = this.createFunction(p);
                     break;
+                case 'drop function':
+                    last = this.dropFunction(p);
+                    break;
                 case 'do':
                     last = this.do(p);
                     break;
@@ -330,6 +333,47 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         // TODO ACCESS OUTER TRANSACTION WITHIN THIS CALL
         compiled();
         return this.simple('DO', st);
+    }
+
+    private dropFunction(fn: DropFunctionStatement): QueryResult {
+        if (fn.name.schema && fn.name.schema !== this.name) {
+            return (this.db.getSchema(fn.name.schema) as DbSchema).dropFunction(fn);
+        }
+        let fns = this.fns.get(fn.name.name);
+
+        // === determine which function to delete
+        let toRemove: _FunctionDefinition;
+        if (fn.arguments) {
+            const targetArgs = fn.arguments;
+            const match = fns?.filter(x => x.args.length === targetArgs.length
+                && !x.args.some((a, i) => a.type !== this.getType(targetArgs[i].type)));
+            if (!match?.length) {
+                if (fn.ifExists) {
+                    return this.simple('DROP', fn);
+                }
+                throw new QueryError(`function ${fn.name.name}(${targetArgs.map(t => typeDefToStr(t.type)).join(',')}) does not exist`, '42883');
+            }
+        } else {
+            if (!fns?.length) {
+                if (fn.ifExists) {
+                    return this.simple('DROP', fn);
+                }
+                throw new QueryError(`could not find a function named "${fn.name.name}"`, '42883');
+            }
+            if (fns?.length !== 1) {
+                throw new QueryError(`function name "${fn.name.name}" is not unique`, '42725');
+            }
+            toRemove = fns[0];
+        }
+
+
+        fns = fns!.filter(x => x !== toRemove);
+        if (!fns.length) {
+            this.fns.delete(fn.name.name);
+        } else {
+            this.fns.set(fn.name.name, fns);
+        }
+        return this.simple('DROP', fn);
     }
 
     private createFunction(fn: CreateFunctionStatement) {
@@ -1580,16 +1624,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return this;
     }
 
-    getFunctions(name: string | QName, arrity: number, forceOwn?: boolean): Iterable<_FunctionDefinition> {
+    getFunctions(name: string | QName, arrity: number | nil, forceOwn?: boolean): Iterable<_FunctionDefinition> {
         const asSingle = asSingleQName(name, this.name);
         if (!asSingle || !forceOwn) {
             return this.db.getFunctions(name, arrity);
         }
         const matches = this.fns.get(asSingle);
-        return !matches
-            ? []
+        return !matches || nullIsh(arrity)
+            ? matches ?? []
             : matches.filter(m => m.args.length === arrity
-                || m.args.length < arrity && m.argsVariadic);
+                || m.args.length < arrity! && m.argsVariadic);
     }
 
 

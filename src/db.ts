@@ -1,4 +1,4 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler } from './interfaces';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS } from './interfaces-private';
 import { DbSchema } from './schema';
 import { initialize } from './transforms/transform-base';
@@ -116,7 +116,7 @@ class MemoryDb implements _IDb {
         return this.public.getTable(name, nullIfNotExists);
     }
 
-    *getFunctions(name: string | QName, arrity: number): Iterable<_FunctionDefinition> {
+    *getFunctions(name: string | QName, arrity: number | nil): Iterable<_FunctionDefinition> {
         const asSingle = asSingleQName(name);
         if (asSingle) {
             for (const sp of this.searchPath) {
