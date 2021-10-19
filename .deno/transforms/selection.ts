@@ -3,7 +3,7 @@ import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, 
 import { buildValue } from '../expression-builder.ts';
 import { Evaluator } from '../evaluator.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.1.2/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.2.0/mod.ts';
 import { Aggregation, aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils.ts';

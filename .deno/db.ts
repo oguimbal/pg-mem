@@ -1,4 +1,4 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler } from './interfaces.ts';
+import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces.ts';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS } from './interfaces-private.ts';
 import { DbSchema } from './schema.ts';
 import { initialize } from './transforms/transform-base.ts';
@@ -14,7 +14,7 @@ import { buildDistinct } from './transforms/distinct.ts';
 import { buildOrderBy } from './transforms/order-by.ts';
 import { setupPgCatalog } from './schema/pg-catalog/index.ts';
 import { setupInformationSchema } from './schema/information-schema/index.ts';
-import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.1.2/mod.ts';
+import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.2.0/mod.ts';
 import { asSingleQName } from './utils.ts';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
@@ -116,7 +116,7 @@ class MemoryDb implements _IDb {
         return this.public.getTable(name, nullIfNotExists);
     }
 
-    *getFunctions(name: string | QName, arrity: number): Iterable<_FunctionDefinition> {
+    *getFunctions(name: string | QName, arrity: number | nil): Iterable<_FunctionDefinition> {
         const asSingle = asSingleQName(name);
         if (asSingle) {
             for (const sp of this.searchPath) {
