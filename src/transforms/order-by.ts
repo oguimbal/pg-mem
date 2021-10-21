@@ -9,7 +9,11 @@ export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {
 }
 
 class OrderBy<T> extends FilterBase<any> {
-    order: { by: IValue<any>; order: 'ASC' | 'DESC'; }[];
+    order: {
+        by: IValue<any>;
+        order: 'ASC' | 'DESC';
+        nullsLast: boolean;
+    }[];
 
     get index() {
         return null;
@@ -30,6 +34,7 @@ class OrderBy<T> extends FilterBase<any> {
         this.order = order.map(x => ({
             by: buildValue(selection, x.by),
             order: x.order ?? 'ASC',
+            nullsLast: x.nulls === 'LAST',
         }))
     }
 
@@ -50,7 +55,7 @@ class OrderBy<T> extends FilterBase<any> {
                     continue;
                 }
                 if (na || nb) {
-                    return (o.order === 'ASC') === na ? 1 : -1;
+                    return (o.order === 'ASC') === (nb === o.nullsLast) ? 1 : -1;
                 }
                 if (o.by.type.equals(aval, bval)) {
                     continue;
