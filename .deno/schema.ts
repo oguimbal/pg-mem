@@ -4,7 +4,7 @@ import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, p
 import { buildValue } from './expression-builder.ts';
 import { ArrayType, Types, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@9.2.0/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -1443,11 +1443,23 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     }
                     , false
                 );
-                const setter = this.createSetter(t, table, subject, p.onConflict.do.sets);
+                const setter = this.createSetter(t, table, subject, p.onConflict.do.sets,);
+                const where = p.onConflict.where && buildValue(subject, p.onConflict.where);
                 ignoreConflicts = {
                     onIndex,
                     update: (item, excluded) => {
+                        // build setter context
                         const jitem = subject.buildItem(item, excluded);
+
+                        // check "WHERE" clause on conflict
+                        if (where) {
+                            const whereClause = where.get(jitem, t);
+                            if (whereClause !== true) {
+                                return;
+                            }
+                        }
+
+                        // execute set
                         setter(item, jitem);
                     },
                 }
