@@ -1443,11 +1443,23 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     }
                     , false
                 );
-                const setter = this.createSetter(t, table, subject, p.onConflict.do.sets);
+                const setter = this.createSetter(t, table, subject, p.onConflict.do.sets,);
+                const where = p.onConflict.where && buildValue(subject, p.onConflict.where);
                 ignoreConflicts = {
                     onIndex,
                     update: (item, excluded) => {
+                        // build setter context
                         const jitem = subject.buildItem(item, excluded);
+
+                        // check "WHERE" clause on conflict
+                        if (where) {
+                            const whereClause = where.get(jitem, t);
+                            if (whereClause !== true) {
+                                return;
+                            }
+                        }
+
+                        // execute set
                         setter(item, jitem);
                     },
                 }

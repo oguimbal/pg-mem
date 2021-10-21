@@ -76,6 +76,58 @@ describe('Inserts', () => {
             .to.deep.equal([{ id: 'x', val: { new: true } }]);
     });
 
+    function onConflictWhere() {
+        none(`CREATE TABLE test (
+            id serial PRIMARY KEY,
+            version INT,
+            name TEXT UNIQUE,
+            stuff TEXT
+          );
+
+          INSERT INTO test (version, name, stuff)
+            VALUES (1, 'example', 'some stuff');
+          `);
+    }
+
+    it('updates when where is OK on conflict', () => {
+        // https://github.com/oguimbal/pg-mem/issues/168
+        onConflictWhere();
+        none(`INSERT INTO test (version, name, stuff)
+          VALUES (2, 'example', 'other stuff')
+          ON CONFLICT (name) DO UPDATE SET
+            version = excluded.version,
+            stuff = excluded.stuff
+          WHERE test.version < excluded.version;`);
+        expect(many('select stuff from test')).to.deep.equal([{
+            stuff: 'other stuff'
+        }]);
+    });
+
+    it('does not update when where is NOK on conflict', () => {
+        // https://github.com/oguimbal/pg-mem/issues/168
+        onConflictWhere();
+        none(`INSERT INTO test (version, name, stuff)
+          VALUES (2, 'example', 'other stuff')
+          ON CONFLICT (name) DO UPDATE SET
+            version = excluded.version,
+            stuff = excluded.stuff
+          WHERE test.version > excluded.version;`);
+        expect(many('select stuff from test')).to.deep.equal([{
+            stuff: 'some stuff'
+        }]);
+    });
+
+    it('must explicitely specify context in  where clause on conflict', () => {
+        // https://github.com/oguimbal/pg-mem/issues/168
+        onConflictWhere();
+        assert.throws(() => none(`INSERT INTO test (version, name, stuff)
+          VALUES (2, 'example', 'other stuff')
+          ON CONFLICT (name) DO UPDATE SET
+            version = excluded.version,
+            stuff = excluded.stuff
+          WHERE version < excluded.version;`), /column reference "version" is ambiguous/);
+    });
+
     it('handles referencing excluded values in update', () => {
         expect(many(`create table test(id text primary key, a text, b text);
                         insert into test values ('x', 'oldA', 'oldB');
