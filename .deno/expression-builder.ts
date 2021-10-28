@@ -3,7 +3,7 @@ import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseT
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './evaluator.ts';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType } from './datatypes/index.ts';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDataType } from './datatypes/index.ts';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation.ts';
@@ -292,6 +292,25 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
         case '-':
         case '*':
         case '/': {
+            // === special case for dates to support DATE + INTERVAL
+            // this is shitty. Todo: proper overload resolution on binary operators.
+            if ((op === '+' || op === '-') && isDataType(leftValue.type) && rightValue.type.primary === DataType.interval) {
+                const r = op === '-' ? -1 : 1;
+                getter = (a, b) => moment(a).add(r * intervalToSec(b), 'seconds').toDate();
+                commutative = op === '+';
+                returnType = Types.timestamp();
+                break;
+            }
+            if (op === '+' && isDataType(rightValue.type) && leftValue.type.primary === DataType.interval) {
+                getter = (a, b) => moment(b).add(intervalToSec(a), 'seconds').toDate();
+                commutative = true;
+                returnType = Types.timestamp();
+                break;
+            }
+
+
+            // === general case binary operations
+            // assume binary operators are applied on same types
             const type = expectSame();
             if (!isNumeric(type)) {
                 throw new QueryError(`Cannot apply ${op} on non numeric type ${type.primary}`);
