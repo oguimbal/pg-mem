@@ -563,6 +563,18 @@ export const Types = {
     default: new DefaultType() as _IType,
 }
 
+export function isDataType(_type: _IType | DataType) {
+    const t = typeof _type === 'string' ? _type : _type.primary;
+    switch (t) {
+        case DataType.timestamp:
+        case DataType.timestamptz:
+        case DataType.date:
+        case DataType.time:
+            return true;
+    }
+    return false;
+}
+
 export function isGeometric(dt: DataType) {
     switch (dt) {
         case DataType.point:

@@ -6,6 +6,7 @@ import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
 import { _IDb } from '../interfaces-private';
+import moment from 'moment';
 
 describe('Operators', () => {
 
@@ -44,6 +45,36 @@ describe('Operators', () => {
                             insert into test values (1, 2);
                             select a+b as res from test`);
         expect(result.map(x => x.res)).to.deep.equal([3]);
+    });
+
+    it('date + interval', () => {
+        const result = many(`select  interval '1 day' + now()::date as dt`);
+        const dt = result[0]?.dt
+        assert.instanceOf(dt, Date);
+        expect(dt.toString()).to.equal(moment.utc().startOf('day').add(1, 'day').toDate().toString());
+    });
+
+
+    it('timestamp + interval', () => {
+        const result = many(`select now() + interval '1 day' as dt`);
+        const dt = result[0]?.dt
+        assert.instanceOf(dt, Date);
+        expect(moment(dt).startOf('second').toISOString()).to.equal(moment.utc().startOf('second').add(1, 'day').toISOString());
+    });
+
+
+    it('interval + timestamp', () => {
+        const result = many(`select interval '1 day' + now() as dt`);
+        const dt = result[0]?.dt
+        assert.instanceOf(dt, Date);
+        expect(moment(dt).startOf('second').toISOString()).to.equal(moment.utc().startOf('second').add(1, 'day').toISOString());
+    });
+
+    it('timestamp - interval', () => {
+        const result = many(`select now() - interval '1 day' as dt`);
+        const dt = result[0]?.dt
+        assert.instanceOf(dt, Date);
+        expect(moment(dt).startOf('second').toISOString()).to.equal(moment.utc().startOf('second').add(-1, 'day').toISOString());
     });
 
     it('- on ints', () => {
