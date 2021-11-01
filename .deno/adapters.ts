@@ -6,7 +6,21 @@ import { bufToString, isBuf } from './buffer-deno.ts';
 import { compareVersions, nullIsh } from './utils.ts';
 declare var __non_webpack_require__: any;
 
-const delay = (time: number | undefined) => new Promise(done => setTimeout(done, time ?? 0));
+
+// setImmediate does not exist in Deno
+declare var setImmediate: any;
+
+// see https://github.com/oguimbal/pg-mem/issues/170
+function timeoutOrImmediate(fn: () => void, time: number) {
+    if (time || typeof setImmediate === 'undefined') {
+        return setTimeout(fn, time);
+    }
+    // nothing to wait for, but still executing "later"
+    //  in case calling code relies on some actual async behavior
+    return setImmediate(fn);
+}
+
+const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
 
 function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     return sql.replace(/\$(\d+)/g, (str: any, istr: any) => {
@@ -79,7 +93,7 @@ export class Adapters implements LibAdapters {
 
             once(what: string, handler: () => void) {
                 if (what === 'connect') {
-                    setTimeout(handler, queryLatency ?? 0);
+                    timeoutOrImmediate(handler, queryLatency ?? 0);
                 }
             }
 
@@ -113,17 +127,17 @@ export class Adapters implements LibAdapters {
                 try {
                     const result = this.adaptResults(query, that.db.public.query(pgquery.text));
                     if (callback) {
-                        setTimeout(() => callback(null, result), queryLatency ?? 0);
+                        timeoutOrImmediate(() => callback(null, result), queryLatency ?? 0);
                         return null;
                     } else {
-                        return new Promise(res => setTimeout(() => res(result), queryLatency ?? 0));
+                        return new Promise(res => timeoutOrImmediate(() => res(result), queryLatency ?? 0));
                     }
                 } catch (e) {
                     if (callback) {
-                        setTimeout(() => callback(e), queryLatency ?? 0);
+                        timeoutOrImmediate(() => callback(e), queryLatency ?? 0);
                         return null;
                     } else {
-                        return new Promise((_, rej) => setTimeout(() => rej(e), queryLatency ?? 0));
+                        return new Promise((_, rej) => timeoutOrImmediate(() => rej(e), queryLatency ?? 0));
                     }
                 }
             }
