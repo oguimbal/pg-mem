@@ -659,7 +659,7 @@ export function errorMessage(error: unknown): string {
 
 export function it<T>(iterable: Iterable<T>): IteratorHelper<T> {
     return iterable instanceof IteratorHelper
-        ? iterable
+        ? iterable as any
         : new IteratorHelper(() => iterable);
 }
 
