@@ -39,4 +39,20 @@ describe('Binary operators', () => {
         assert.throws(() => many(`select CURRENT_DATE - 7.5::float`), /operator does not exist: date - float/);
     })
 
+
+    it('supports remove key on json', () => {
+        // bugfix of https://github.com/oguimbal/pg-mem/issues/77
+        expect(one(`select '["a", "b", "b", "c"]'::jsonb - 'b' as test`))
+            .to.deep.equal({ test: ['a', 'c'] });
+        expect(one(`select '{"a": "a", "b":"b"}'::jsonb - 'b' as test`))
+            .to.deep.equal({ test: { 'a': 'a' } });
+    });
+
+    it('supports remove index', () => {
+        expect(one(`select '["a", "b", "b", "c"]'::jsonb - 0 as test`))
+            .to.deep.equal({ test: ['b', 'b', 'c'] });
+        expect(one(`select '["a", "b", "b", "c"]'::jsonb - 3 as test`))
+            .to.deep.equal({ test: ['a', 'b', 'b'] });
+    })
+
 });
