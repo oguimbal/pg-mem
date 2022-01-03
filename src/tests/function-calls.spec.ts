@@ -124,4 +124,15 @@ describe('Functions', () => {
         expect(many(`select myfn(null)`))
             .to.deep.equal([{ myfn: 'hi !' }]);
     });
+
+    it('[bugfix] supports coalesce() with implicit cast arguments', () => {
+        // this was throwing ("cannot cast type timestamp to text"):
+        const val1 = one(`select COALESCE('2021-12-07T13:49:53.458Z', '2021-12-07T13:49:53.458Z'::timestamp) x`).x;
+        assert.instanceOf(val1, Date);
+        // this one was not
+        const val2 = one(`select COALESCE('2021-12-07T13:49:53.458Z'::timestamp, '2021-12-07T13:49:53.458Z') x`).x;
+        assert.instanceOf(val2, Date);
+
+        assert.throws(() => none(`select COALESCE(42, '2021-12-07T13:49:53.458Z'::timestamp)`), /COALESCE types integer and timestamp cannot be matched/);
+    })
 });

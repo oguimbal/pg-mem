@@ -46,8 +46,22 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
             break;
         case 'coalesce':
             acceptNulls = true;
-            args = args.map(x => x.cast(args[0].type));
-            type = args[0].type;
+            if (!args.length) {
+                throw new QueryError('coalesce expects at least 1 argument');
+            }
+            type = args.reduce<_IType>((a, b) => {
+                if (a === b.type) {
+                    return a;
+                }
+                if (b.type.canCast(a)) {
+                    return a;
+                }
+                if (a.canCast(b.type)) {
+                    return b.type;
+                }
+                throw new QueryError(`COALESCE types ${a.name} and ${b.type.name} cannot be matched`, '42804');
+            }, args[0].type);
+            args = args.map(x => x.cast(type!));
             get = (...args: any[]) => args.find(x => !nullIsh(x));
             break;
         default:
