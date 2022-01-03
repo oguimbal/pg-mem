@@ -10,6 +10,7 @@ describe('Conversions', () => {
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
+    let one: (str: string) => any;
     function all(table = 'test') {
         return many(`select * from ${table}`);
     }
@@ -17,6 +18,7 @@ describe('Conversions', () => {
         db = newDb();
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
+        one = db.public.one.bind(db.public);
     });
 
     it('varchar(n) with insert too long', () => {
@@ -183,5 +185,16 @@ describe('Conversions', () => {
     it('can cast to timestamp with explicit precision', () => {
         expect(many(`select '2021-09-18 00:00:00Z'::timestamp(4) with time zone val`))
             .to.deep.equal([{ val: new Date('2021-09-18 00:00:00Z') }]);
+    })
+
+
+    it('[bugfix] can substract date & ints', () => {
+        // was throwing (cannot cast type integer to date)
+        //  => https://github.com/oguimbal/pg-mem/issues/172
+        const { dt } = one(`select CURRENT_DATE - 7 as dt`);
+        assert.instanceOf(dt, Date);
+
+        // only works with ints
+        assert.throws(() => many(`select CURRENT_DATE - 7.5`), /operator does not exist: date - numeric/);
     })
 });

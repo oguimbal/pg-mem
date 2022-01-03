@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces';
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode } from 'pgsql-ast-parser';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'pgsql-ast-parser';
 
 
 export type nil = undefined | null;
@@ -252,6 +252,10 @@ export interface ISchema {
     /** Register a function */
     registerFunction(fn: FunctionDefinition): this;
 
+
+    /** Register a binary operator */
+    registerOperator(fn: OperatorDefinition): this;
+
     /** Register a simple type, which is equivalent to another */
     registerEquivalentType(type: IEquivalentType): IType;
 
@@ -304,6 +308,35 @@ export interface FunctionDefinition {
     /** Actual implementation of the function */
     implementation: CompiledFunction;
 }
+
+export interface OperatorDefinition {
+    /** Function name (casing doesnt matter) */
+    operator: BinaryOperator;
+
+    /** Expected left argument */
+    left: DataType | IType;
+
+    /** Expected right argument */
+    right: DataType | IType;
+
+    /** True if the operator is commutative (if left & right can be inverted) */
+    commutative: boolean;
+
+    /** Returned data type */
+    returns: DataType | IType;
+
+    /**
+     * If the function is marked as impure, it will not be simplified
+     * (ex: "select myFn(1) from myTable" will call myFn() for each row in myTable, even if it does not depend on its result) */
+    impure?: boolean;
+
+    /** If true, the function will also be called when passing null arguments */
+    allowNullArguments?: boolean;
+
+    /** Actual implementation of the function */
+    implementation: CompiledFunction;
+}
+
 
 export interface QueryResult {
     /** Last command that has been executed */

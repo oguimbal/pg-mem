@@ -247,6 +247,16 @@ class TextType extends TypeBase<string> {
     }
 
     doPrefer(to: _IType) {
+        if (to instanceof TextType) {
+            // returns the broader type
+            if (!to.len) {
+                return to;
+            }
+            if (!this.len) {
+                return this;
+            }
+            return to.len > this.len ? to : this;
+        }
         if (this.canCast(to)) {
             return to;
         }

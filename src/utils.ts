@@ -656,3 +656,39 @@ export function errorMessage(error: unknown): string {
     }
     return (error as any)?.message;
 }
+
+export function it<T>(iterable: Iterable<T>): IteratorHelper<T> {
+    return iterable instanceof IteratorHelper
+        ? iterable
+        : new IteratorHelper(() => iterable);
+}
+
+export class IteratorHelper<T> implements Iterable<T> {
+    constructor(private underlying: () => Iterable<T>) { }
+
+    [Symbol.iterator]() {
+        return this.underlying()[Symbol.iterator]();
+    }
+
+    flatten(): T extends Iterable<infer X> ? IteratorHelper<X> : never {
+        const that = this;
+        function* wrap() {
+            for (const v of that.underlying() as any ?? []) {
+                for (const x of v) {
+                    yield x;
+                }
+            }
+        }
+        return new IteratorHelper(wrap) as any;
+    }
+
+    reduce<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number) => U, initialValue: U): U {
+        let acc = initialValue;
+        let i = 0;
+        for (const v of this.underlying()) {
+            acc = callbackfn(acc, v, i);
+            i++;
+        }
+        return acc;
+    }
+}
