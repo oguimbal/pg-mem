@@ -10,7 +10,7 @@ import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../expression-builder';
 import { PgDatabaseTable } from './pg-database';
-import { registerCommonOperators } from './operators';
+import { registerCommonOperators } from './binary-operators';
 
 
 export function setupPgCatalog(db: _IDb) {

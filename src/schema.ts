@@ -34,7 +34,7 @@ export class DbSchema implements _ISchema, ISchema {
 
     private lastSelect?: _ISelection<any>;
     private fns = new OverloadResolver<_FunctionDefinition>(false);
-    private ops = new OverloadResolver<_OperatorDefinition>(true);
+    private ops = new OverloadResolver<_OperatorDefinition>(false);
     private installedExtensions = new Set<string>();
     private readonly: any;
     private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
@@ -1650,16 +1650,19 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
     private _registerOperator(fn: OperatorDefinition, replace: boolean): this {
+        const args = [fn.left, fn.right].map<ArgDefDetails>(x => {
+            if (typeof x === 'string' || isType(x)) {
+                return {
+                    type: this.getTypePub(x),
+                };
+            }
+            return x;
+        }) as _ArgDefDetails[];
         const def: _OperatorDefinition = {
             name: fn.operator,
-            args: ([fn.left, fn.right].map<ArgDefDetails>(x => {
-                if (typeof x === 'string' || isType(x)) {
-                    return {
-                        type: this.getTypePub(x),
-                    };
-                }
-                return x;
-            }) ?? []) as _ArgDefDetails[],
+            args,
+            left: args[0].type,
+            right: args[1].type,
             returns: fn.returns && this.getTypePub(fn.returns),
             impure: !!fn.impure,
             implementation: fn.implementation,
@@ -1672,15 +1675,15 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
 
-    resolveFunction(name: string | QName, types: _IType[], forceOwn?: boolean): _FunctionDefinition | nil {
+    resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil {
         const asSingle = asSingleQName(name, this.name);
         if (!asSingle || !forceOwn) {
-            return this.db.resolveFunction(name, types);
+            return this.db.resolveFunction(name, args);
         }
-        return this.fns.resolve(asSingle, types);
+        return this.fns.resolve(asSingle, args);
     }
 
-    resolveOperator(name: BinaryOperator, left: _IType, right: _IType, forceOwn?: boolean): _OperatorDefinition | nil {
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue, forceOwn?: boolean): _OperatorDefinition | nil {
         if (!forceOwn) {
             return this.db.resolveOperator(name, left, right);
         }

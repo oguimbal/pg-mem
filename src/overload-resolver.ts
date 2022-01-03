@@ -1,4 +1,4 @@
-import { _IType, _ArgDefDetails, nil, DataType } from './interfaces-private';
+import { _IType, _ArgDefDetails, nil, DataType, IValue } from './interfaces-private';
 import { Types } from './datatypes';
 import { it } from './utils';
 import { QueryError } from './interfaces';
@@ -35,7 +35,7 @@ export class OverloadResolver<T extends HasSig> {
         this.byName.get(value.name)?.unindex(value);
     }
 
-    resolve(name: string, args: _IType[]) {
+    resolve(name: string, args: IValue[]) {
         return this.byName.get(name)?.resolve(args, 0);
     }
 }
@@ -96,7 +96,7 @@ class OverloadNode<T extends HasSig> {
         }
     }
 
-    resolve(args: _IType[], at: number): T | nil {
+    resolve(args: IValue[], at: number): T | nil {
         if (at >= args.length) {
             return this.leaf;
         }
@@ -105,7 +105,7 @@ class OverloadNode<T extends HasSig> {
         const arg = args[at];
         const sigsToCheck = it(
             this.nexts // perf tweak: search by primary type
-                .get(arg.primary)
+                .get(arg.type.primary)
             ?? it(this.nexts.values()).flatten() // else, search all registered overloads
         );
 
@@ -135,7 +135,13 @@ class OverloadNode<T extends HasSig> {
         return null;
     }
 
-    private compatible(arg: _IType<any>, type: _IType<any>) {
-        return this.implicitCastOnly ? arg.canConvertImplicit(type) : arg.canCast(type)
+    private compatible(arg: IValue<any>, type: _IType<any>) {
+        if (arg.type === type) {
+            return true;
+        }
+        if (this.implicitCastOnly) {
+            return arg.isConstantLiteral && arg.type.canConvertImplicit(type);
+        }
+        return arg.type.canCast(type);
     }
 }

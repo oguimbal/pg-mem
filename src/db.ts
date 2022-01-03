@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition } from './interfaces-private';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue } from './interfaces-private';
 import { DbSchema } from './schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -116,7 +116,7 @@ class MemoryDb implements _IDb {
         return this.public.getTable(name, nullIfNotExists);
     }
 
-    resolveFunction(name: string | QName, types: _IType[]): _FunctionDefinition | nil {
+    resolveFunction(name: string | QName, types: IValue[]): _FunctionDefinition | nil {
         const asSingle = asSingleQName(name);
         if (asSingle) {
             for (const sp of this.searchPath) {
@@ -132,7 +132,7 @@ class MemoryDb implements _IDb {
         }
     }
 
-    resolveOperator(name: BinaryOperator, left: _IType, right: _IType): _OperatorDefinition | nil {
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue): _OperatorDefinition | nil {
         for (const sp of this.searchPath) {
             const found = this.getSchema(sp).resolveOperator(name, left, right, true);
             if (found) {

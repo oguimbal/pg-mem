@@ -12,6 +12,7 @@ describe('Operators', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];
+    let one: (str: string) => any;
     let none: (str: string) => void;
     function all(table = 'data') {
         return many(`select * from ${table}`);
@@ -20,6 +21,7 @@ describe('Operators', () => {
         db = newDb() as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
+        one = db.public.one.bind(db.public);
     });
 
     function simpleDb() {
@@ -97,6 +99,15 @@ describe('Operators', () => {
                             select a/b as res from test`);
         expect(result.map(x => x.res)).to.deep.equal([-1]); // trunc is used on divisions
     });
+
+    it('/ on int literals', () => {
+        expect(one(`select 17/10 as res`)).to.deep.equal({ res: 1 });
+    })
+
+    it('/ on float literals', () => {
+        expect(one(`select 17/10.0 as res`)).to.deep.equal({ res: 1.7 });
+        expect(one(`select 18.0/10 as res`)).to.deep.equal({ res: 1.8 });
+    })
 
     it('/ on floats', () => {
         const result = many(`create table test(a float, b float);

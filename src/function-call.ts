@@ -67,7 +67,7 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
         default:
             // try to find a matching custom function overloads
             acceptNulls = true;
-            const resolved = schema.resolveFunction(name, args.map(x => x.type));
+            const resolved = schema.resolveFunction(name, args);
             if (resolved) {
                 args = args.map((x, i) => x.cast(resolved.args[i]?.type ?? resolved.argsVariadic));
                 type = resolved.returns;

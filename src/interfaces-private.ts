@@ -49,9 +49,9 @@ export interface _ISchema extends ISchema {
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this overload */
-    resolveFunction(name: string | QName, types: _IType[], forceOwn?: boolean): _FunctionDefinition | nil;
+    resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil;
     /** Get operator matching this overload */
-    resolveOperator(name: BinaryOperator, left: _IType, right: _IType, forceOwn?: boolean): _OperatorDefinition | nil;
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue, forceOwn?: boolean): _OperatorDefinition | nil;
 
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts: BeingCreated): _IRelation;
@@ -108,6 +108,8 @@ export interface _FunctionDefinition {
 
 export interface _OperatorDefinition extends _FunctionDefinition {
     commutative: boolean;
+    left: _IType;
+    right: _IType;
     returns: _IType;
 }
 
@@ -340,9 +342,9 @@ export interface _IDb extends IMemoryDb {
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
     getExtension(name: string): (schema: ISchema) => void;
     /** Get functions matching this overload */
-    resolveFunction(name: string | QName, types: _IType[]): _FunctionDefinition | nil;
+    resolveFunction(name: string | QName, types: IValue[]): _FunctionDefinition | nil;
     /** Get operators matching this overload */
-    resolveOperator(name: BinaryOperator, left: _IType, right: _IType): _OperatorDefinition | nil;
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue): _OperatorDefinition | nil;
     getLanguage(name: string): LanguageCompiler;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {

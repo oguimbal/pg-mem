@@ -288,19 +288,6 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             forcehash = { op: '>=', left: rightValue.hash, right: leftValue.hash };
             break;
         }
-        case '+':
-        case '-':
-        case '*':
-        case '/': {
-            const resolved = data.ownerSchema.resolveOperator(op, leftValue.type, rightValue.type);
-            if (!resolved) {
-                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
-            }
-            commutative = resolved.commutative;
-            returnType = resolved.returns;
-            getter = resolved.implementation;
-            break;
-        }
         case 'AND':
         case 'OR':
             expectBoth(Types.bool);
@@ -311,21 +298,12 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
                 getter = (a, b) => a || b;
             }
             break;
-        case '@>':
-            expectBoth(Types.jsonb);
-            getter = (a, b) => queryJson(b, a);
-            break;
         case '&&':
             if (leftValue.type.primary !== DataType.array || !rightValue.canCast(leftValue.type)) {
                 throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
             }
             rightValue = rightValue.cast(leftValue.type);
             getter = (a, b) => a.some((element: any) => b.includes(element));
-            break;
-        case '||':
-            expectBoth(Types.text());
-            getter = (a, b) => a + b;
-            returnType = Types.text();
             break;
         case 'LIKE':
         case 'ILIKE':
@@ -371,9 +349,18 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
                     };
             }
             break;
-        default:
-            // throw NotSupported.never(op, 'operator');
-            throw new NotSupported('operator ' + op);
+        default: {
+            const resolved = data.ownerSchema.resolveOperator(op, leftValue, rightValue);
+            if (!resolved) {
+                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
+            }
+            leftValue = leftValue.cast(resolved.left);
+            rightValue = rightValue.cast(resolved.right);
+            commutative = resolved.commutative;
+            returnType = resolved.returns;
+            getter = resolved.implementation;
+            break;
+        }
     }
 
     const hashed = hash(forcehash
