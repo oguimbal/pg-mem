@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType } from './interfaces-private';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition } from './interfaces-private';
 import { DbSchema } from './schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -14,7 +14,7 @@ import { buildDistinct } from './transforms/distinct';
 import { buildOrderBy } from './transforms/order-by';
 import { setupPgCatalog } from './schema/pg-catalog';
 import { setupInformationSchema } from './schema/information-schema';
-import { QName } from 'pgsql-ast-parser';
+import { QName, BinaryOperator } from 'pgsql-ast-parser';
 import { asSingleQName } from './utils';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
@@ -131,6 +131,17 @@ class MemoryDb implements _IDb {
             return this.getSchema(q.schema!).resolveFunction(q.name, types, true);
         }
     }
+
+    resolveOperator(name: BinaryOperator, left: _IType, right: _IType): _OperatorDefinition | nil {
+        for (const sp of this.searchPath) {
+            const found = this.getSchema(sp).resolveOperator(name, left, right, true);
+            if (found) {
+                return found;
+            }
+        }
+        return null;
+    }
+
 
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any): ISubscription {

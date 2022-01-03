@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
@@ -50,6 +50,8 @@ export interface _ISchema extends ISchema {
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this overload */
     resolveFunction(name: string | QName, types: _IType[], forceOwn?: boolean): _FunctionDefinition | nil;
+    /** Get operator matching this overload */
+    resolveOperator(name: BinaryOperator, left: _IType, right: _IType, forceOwn?: boolean): _OperatorDefinition | nil;
 
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts: BeingCreated): _IRelation;
@@ -104,6 +106,10 @@ export interface _FunctionDefinition {
     implementation: (...args: any[]) => any;
 }
 
+export interface _OperatorDefinition extends _FunctionDefinition {
+    commutative: boolean;
+    returns: _IType;
+}
 
 export type _ArgDefDetails = ArgDefDetails & {
     type: _IType;
@@ -333,8 +339,10 @@ export interface _IDb extends IMemoryDb {
     onSchemaChange(): void;
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
     getExtension(name: string): (schema: ISchema) => void;
-    /** Get functions matching this arrity */
+    /** Get functions matching this overload */
     resolveFunction(name: string | QName, types: _IType[]): _FunctionDefinition | nil;
+    /** Get operators matching this overload */
+    resolveOperator(name: BinaryOperator, left: _IType, right: _IType): _OperatorDefinition | nil;
     getLanguage(name: string): LanguageCompiler;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {

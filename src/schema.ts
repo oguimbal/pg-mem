@@ -1,10 +1,10 @@
 import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from './interfaces';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable, _FunctionDefinition } from './interfaces-private';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable, _FunctionDefinition, _OperatorDefinition } from './interfaces-private';
 import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse, nullIsh } from './utils';
 import { buildValue } from './expression-builder';
 import { ArrayType, Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement, BinaryOperator } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
 import { buildSelection } from './transforms/selection';
 import { ArrayFilter } from './transforms/array-filter';
@@ -33,8 +33,8 @@ export class DbSchema implements _ISchema, ISchema {
     private _tables = new Set<_ITable>();
 
     private lastSelect?: _ISelection<any>;
-    private fns = new OverloadResolver<_FunctionDefinition>();
-    private ops = new OverloadResolver<_FunctionDefinition>();
+    private fns = new OverloadResolver<_FunctionDefinition>(false);
+    private ops = new OverloadResolver<_OperatorDefinition>(true);
     private installedExtensions = new Set<string>();
     private readonly: any;
     private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
@@ -1636,21 +1636,21 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return this;
     }
 
-    registerOperator(op: OperatorDefinition): this {
-        this._registerOperator(op);
+    registerOperator(op: OperatorDefinition, replace?: boolean): this {
+        this._registerOperator(op, replace ?? true);
         if (op.commutative && op.left !== op.right) {
             this._registerOperator({
                 ...op,
                 left: op.right,
                 right: op.left,
                 implementation: (a, b) => op.implementation(b, a),
-            });
+            }, replace ?? true);
         }
         return this;
     }
 
-    private _registerOperator(fn: OperatorDefinition): this {
-        const def: _FunctionDefinition = {
+    private _registerOperator(fn: OperatorDefinition, replace: boolean): this {
+        const def: _OperatorDefinition = {
             name: fn.operator,
             args: ([fn.left, fn.right].map<ArgDefDetails>(x => {
                 if (typeof x === 'string' || isType(x)) {
@@ -1664,9 +1664,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             impure: !!fn.impure,
             implementation: fn.implementation,
             allowNullArguments: fn.allowNullArguments,
+            commutative: fn.commutative ?? false,
         };
 
-        this.ops.add(def, false);
+        this.ops.add(def, replace);
         return this;
     }
 
@@ -1677,6 +1678,13 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             return this.db.resolveFunction(name, types);
         }
         return this.fns.resolve(asSingle, types);
+    }
+
+    resolveOperator(name: BinaryOperator, left: _IType, right: _IType, forceOwn?: boolean): _OperatorDefinition | nil {
+        if (!forceOwn) {
+            return this.db.resolveOperator(name, left, right);
+        }
+        return this.ops.resolve(name, [left, right]);
     }
 
 

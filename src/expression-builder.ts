@@ -3,7 +3,7 @@ import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseT
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from './evaluator';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDataType } from './datatypes';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from './datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation';
@@ -292,50 +292,13 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
         case '-':
         case '*':
         case '/': {
-            // === special case for dates to support DATE + INTERVAL
-            // this is shitty. Todo: proper overload resolution on binary operators.
-            if ((op === '+' || op === '-') && isDataType(leftValue.type) && rightValue.type.primary === DataType.interval) {
-                const r = op === '-' ? -1 : 1;
-                getter = (a, b) => moment(a).add(r * intervalToSec(b), 'seconds').toDate();
-                commutative = op === '+';
-                returnType = Types.timestamp();
-                break;
+            const resolved = data.ownerSchema.resolveOperator(op, leftValue.type, rightValue.type);
+            if (!resolved) {
+                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
             }
-            if (op === '+' && isDataType(rightValue.type) && leftValue.type.primary === DataType.interval) {
-                getter = (a, b) => moment(b).add(intervalToSec(a), 'seconds').toDate();
-                commutative = true;
-                returnType = Types.timestamp();
-                break;
-            }
-
-
-            // === general case binary operations
-            // assume binary operators are applied on same types
-            const type = expectSame();
-            if (!isNumeric(type)) {
-                throw new QueryError(`Cannot apply ${op} on non numeric type ${type.primary}`);
-            }
-            returnType = type;
-            switch (op) {
-                case '+':
-                    getter = (a, b) => a + b;
-                    commutative = true;
-                    break;
-                case '-':
-                    getter = (a, b) => a - b;
-                    break;
-                case '*':
-                    getter = (a, b) => a * b;
-                    commutative = true;
-                    break;
-                case '/':
-                    if (isInteger(type)) {
-                        getter = (a, b) => Math.trunc(a / b);
-                    } else {
-                        getter = (a, b) => a / b;
-                    }
-                    break;
-            }
+            commutative = resolved.commutative;
+            returnType = resolved.returns;
+            getter = resolved.implementation;
             break;
         }
         case 'AND':

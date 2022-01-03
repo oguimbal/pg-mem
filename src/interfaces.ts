@@ -320,7 +320,7 @@ export interface OperatorDefinition {
     right: DataType | IType;
 
     /** True if the operator is commutative (if left & right can be inverted) */
-    commutative: boolean;
+    commutative?: boolean;
 
     /** Returned data type */
     returns: DataType | IType;

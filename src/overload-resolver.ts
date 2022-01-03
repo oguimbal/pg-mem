@@ -13,10 +13,12 @@ export class OverloadResolver<T extends HasSig> {
 
     private byName = new Map<string, OverloadNode<T>>();
 
+    constructor(private implicitCastOnly: boolean) { }
+
     add(value: T, replaceIfExists: boolean) {
         let ret = this.byName.get(value.name);
         if (!ret) {
-            this.byName.set(value.name, ret = new OverloadNode<T>(Types.null));
+            this.byName.set(value.name, ret = new OverloadNode<T>(Types.null, this.implicitCastOnly));
         }
         ret.index(value, 0, replaceIfExists);
     }
@@ -44,7 +46,7 @@ class OverloadNode<T extends HasSig> {
     private nexts = new Map<DataType, OverloadNode<T>[]>();
     private leaf: T | nil;
 
-    constructor(readonly type: _IType) {
+    constructor(readonly type: _IType, private implicitCastOnly: boolean) {
     }
 
     *all(): IterableIterator<T> {
@@ -75,7 +77,7 @@ class OverloadNode<T extends HasSig> {
         // get or add corresponding node
         let node = lst.find(x => x.type === arg.type);
         if (!node) {
-            lst.push(node = new OverloadNode(arg.type));
+            lst.push(node = new OverloadNode(arg.type, this.implicitCastOnly));
         }
 
         // process arg list
@@ -109,7 +111,7 @@ class OverloadNode<T extends HasSig> {
 
         const match = sigsToCheck.reduce<OverloadNode<T> | nil>((acc, x) => {
             // check that arg can be converted to the target type
-            if (!arg.canCast(x.type)) {
+            if (!this.compatible(arg, x.type)) {
                 return acc;
             }
             // first match
@@ -125,11 +127,15 @@ class OverloadNode<T extends HasSig> {
         }
 
         // handle variadic args
-        if (this.leaf && this.leaf.argsVariadic && arg.canCast(this.leaf.argsVariadic)) {
+        if (this.leaf && this.leaf.argsVariadic && this.compatible(arg, this.leaf.argsVariadic)) {
             return this.leaf;
         }
 
         // not found
         return null;
+    }
+
+    private compatible(arg: _IType<any>, type: _IType<any>) {
+        return this.implicitCastOnly ? arg.canConvertImplicit(type) : arg.canCast(type)
     }
 }

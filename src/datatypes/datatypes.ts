@@ -81,14 +81,17 @@ class NullType extends TypeBase<null> {
 export class DefaultType extends NullType {
 }
 
-const integers = new Set([DataType.integer, DataType.bigint]);
-const numbers = new Set([DataType.integer, DataType.bigint, DataType.decimal, DataType.float]);
+export const integers: ReadonlySet<DataType> = new Set([DataType.integer, DataType.bigint]);
+export const floats: ReadonlySet<DataType> = new Set([DataType.decimal, DataType.float]);
+export const numbers: ReadonlySet<DataType> = new Set([...integers, ...floats]);
 
-export function isNumeric(t: IType) {
-    return numbers.has(t.primary);
+export function isNumeric(t: DataType | IType) {
+    const type = typeof t === 'string' ? t : t.primary;
+    return numbers.has(type);
 }
-export function isInteger(t: IType) {
-    return integers.has(t.primary);
+export function isInteger(t: DataType | IType) {
+    const type = typeof t === 'string' ? t : t.primary;
+    return integers.has(type);
 }
 
 class NumberType extends TypeBase<number> {
@@ -573,16 +576,16 @@ export const Types = {
     default: new DefaultType() as _IType,
 }
 
-export function isDataType(_type: _IType | DataType) {
+export const dateTypes: ReadonlySet<DataType> = new Set([
+    DataType.timestamp
+    , DataType.timestamptz
+    , DataType.date
+    , DataType.time
+]);
+
+export function isDateType(_type: _IType | DataType) {
     const t = typeof _type === 'string' ? _type : _type.primary;
-    switch (t) {
-        case DataType.timestamp:
-        case DataType.timestamptz:
-        case DataType.date:
-        case DataType.time:
-            return true;
-    }
-    return false;
+    return dateTypes.has(t);
 }
 
 export function isGeometric(dt: DataType) {

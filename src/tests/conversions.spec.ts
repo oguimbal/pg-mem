@@ -186,15 +186,4 @@ describe('Conversions', () => {
         expect(many(`select '2021-09-18 00:00:00Z'::timestamp(4) with time zone val`))
             .to.deep.equal([{ val: new Date('2021-09-18 00:00:00Z') }]);
     })
-
-
-    it('[bugfix] can substract date & ints', () => {
-        // was throwing (cannot cast type integer to date)
-        //  => https://github.com/oguimbal/pg-mem/issues/172
-        const { dt } = one(`select CURRENT_DATE - 7 as dt`);
-        assert.instanceOf(dt, Date);
-
-        // only works with ints
-        assert.throws(() => many(`select CURRENT_DATE - 7.5`), /operator does not exist: date - numeric/);
-    })
 });
