@@ -84,6 +84,11 @@ export class DefaultType extends NullType {
 export const integers: ReadonlySet<DataType> = new Set([DataType.integer, DataType.bigint]);
 export const floats: ReadonlySet<DataType> = new Set([DataType.decimal, DataType.float]);
 export const numbers: ReadonlySet<DataType> = new Set([...integers, ...floats]);
+export const numberPriorities = [DataType.integer, DataType.bigint, DataType.decimal, DataType.float]
+    .reduce<Record<DataType, number>>((a, x, i) => ({
+        ...a,
+        [x]: i
+    }), {} as Record<DataType, number>);
 
 export function isNumeric(t: DataType | IType) {
     const type = typeof t === 'string' ? t : t.primary;

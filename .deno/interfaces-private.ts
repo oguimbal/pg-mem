@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -48,8 +48,10 @@ export interface _ISchema extends ISchema {
     listTables(t: _Transaction): Iterable<_ITable>;
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
-    /** Get functions matching this arrity */
-    getFunctions(name: string | QName, arrity: number | nil, forceOwn?: boolean): Iterable<_FunctionDefinition>;
+    /** Get functions matching this overload */
+    resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil;
+    /** Get operator matching this overload */
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue, forceOwn?: boolean): _OperatorDefinition | nil;
 
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts: BeingCreated): _IRelation;
@@ -95,6 +97,7 @@ export interface BeingCreated {
 }
 
 export interface _FunctionDefinition {
+    name: string;
     args: _ArgDefDetails[];
     argsVariadic?: _IType | nil;
     returns?: _IType | nil;
@@ -103,6 +106,12 @@ export interface _FunctionDefinition {
     implementation: (...args: any[]) => any;
 }
 
+export interface _OperatorDefinition extends _FunctionDefinition {
+    commutative: boolean;
+    left: _IType;
+    right: _IType;
+    returns: _IType;
+}
 
 export type _ArgDefDetails = ArgDefDetails & {
     type: _IType;
@@ -332,8 +341,10 @@ export interface _IDb extends IMemoryDb {
     onSchemaChange(): void;
     getTable(name: string, nullIfNotExists?: boolean): _ITable;
     getExtension(name: string): (schema: ISchema) => void;
-    /** Get functions matching this arrity */
-    getFunctions(name: string | QName, arrity: number | nil): Iterable<_FunctionDefinition>;
+    /** Get functions matching this overload */
+    resolveFunction(name: string | QName, types: IValue[]): _FunctionDefinition | nil;
+    /** Get operators matching this overload */
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue): _OperatorDefinition | nil;
     getLanguage(name: string): LanguageCompiler;
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {

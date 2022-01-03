@@ -46,34 +46,36 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
             break;
         case 'coalesce':
             acceptNulls = true;
-            args = args.map(x => x.cast(args[0].type));
-            type = args[0].type;
+            if (!args.length) {
+                throw new QueryError('coalesce expects at least 1 argument');
+            }
+            type = args.reduce<_IType>((a, b) => {
+                if (a === b.type) {
+                    return a;
+                }
+                if (b.type.canCast(a)) {
+                    return a;
+                }
+                if (a.canCast(b.type)) {
+                    return b.type;
+                }
+                throw new QueryError(`COALESCE types ${a.name} and ${b.type.name} cannot be matched`, '42804');
+            }, args[0].type);
+            args = args.map(x => x.cast(type!));
             get = (...args: any[]) => args.find(x => !nullIsh(x));
             break;
         default:
             // try to find a matching custom function overloads
             acceptNulls = true;
-            for (const o of schema.getFunctions(name, args.length)) {
-                let ok = true;
-                for (let i = 0; i < args.length; i++) {
-                    const t = o.args[i]?.type ?? o.argsVariadic;
-                    // calling 'out' arguments not supported
-                    if (!t || !args[i].canCast(t) || o.args[i]?.mode === 'out') {
-                        ok = false;
-                        break;
-                    }
-                }
-
-                if (ok) {
-                    args = args.map((x, i) => x.cast(o.args[i]?.type ?? o.argsVariadic));
-                    type = o.returns;
-                    get = o.implementation;
-                    impure = !!o.impure;
-                    acceptNulls = !!o.allowNullArguments;
-                    break;
-                }
+            const resolved = schema.resolveFunction(name, args);
+            if (resolved) {
+                args = args.map((x, i) => x.cast(resolved.args[i]?.type ?? resolved.argsVariadic));
+                type = resolved.returns;
+                get = resolved.implementation;
+                impure = !!resolved.impure;
+                acceptNulls = !!resolved.allowNullArguments;
             }
-
+            break;
 
     }
     if (!get!) {

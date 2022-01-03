@@ -104,8 +104,11 @@ describe('Operators', () => {
         expect(one(`select 17/10 as res`)).to.deep.equal({ res: 1 });
     })
 
-    it('/ on float literals', () => {
+    it('/ on float literals on second arg', () => {
         expect(one(`select 17/10.0 as res`)).to.deep.equal({ res: 1.7 });
+    });
+
+    it('/ on float literals on first arg arg', () => {
         expect(one(`select 18.0/10 as res`)).to.deep.equal({ res: 1.8 });
     })
 

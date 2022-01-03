@@ -1,10 +1,10 @@
-import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr } from './interfaces.ts';
-import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _FunctionDefinition, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable } from './interfaces-private.ts';
+import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from './interfaces.ts';
+import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable, _FunctionDefinition, _OperatorDefinition } from './interfaces-private.ts';
 import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse, nullIsh } from './utils.ts';
 import { buildValue } from './expression-builder.ts';
 import { ArrayType, Types, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -18,6 +18,7 @@ import { ValuesTable } from './schema/values-table.ts';
 import { cleanResults } from './clean-results.ts';
 import { EquivalentType } from './datatypes/t-equivalent.ts';
 import { View } from './view.ts';
+import { OverloadResolver, HasSig } from './overload-resolver.ts';
 
 
 type WithableResult = number | _ISelection;
@@ -32,7 +33,8 @@ export class DbSchema implements _ISchema, ISchema {
     private _tables = new Set<_ITable>();
 
     private lastSelect?: _ISelection<any>;
-    private fns = new Map<string, _FunctionDefinition[]>();
+    private fns = new OverloadResolver<_FunctionDefinition>(false);
+    private ops = new OverloadResolver<_OperatorDefinition>(false);
     private installedExtensions = new Set<string>();
     private readonly: any;
     private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
@@ -339,7 +341,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         if (fn.name.schema && fn.name.schema !== this.name) {
             return (this.db.getSchema(fn.name.schema) as DbSchema).dropFunction(fn);
         }
-        let fns = this.fns.get(fn.name.name);
+        const fns = this.fns.getOverloads(fn.name.name);
 
         // === determine which function to delete
         let toRemove: _FunctionDefinition;
@@ -353,6 +355,10 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 }
                 throw new QueryError(`function ${fn.name.name}(${targetArgs.map(t => typeDefToStr(t.type)).join(',')}) does not exist`, '42883');
             }
+            if (match.length > 1) {
+                throw new QueryError(`function name "${fn.name.name}" is ambiguous`, '42725');
+            }
+            toRemove = match[0];
         } else {
             if (!fns?.length) {
                 if (fn.ifExists) {
@@ -367,12 +373,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         }
 
 
-        fns = fns!.filter(x => x !== toRemove);
-        if (!fns.length) {
-            this.fns.delete(fn.name.name);
-        } else {
-            this.fns.set(fn.name.name, fns);
-        }
+        this.fns.remove(toRemove);
         return this.simple('DROP', fn);
     }
 
@@ -433,7 +434,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             argsVariadic,
             impure: fn.purity !== 'immutable',
             allowNullArguments: fn.onNullInput === 'call',
-        }, fn.orReplace);
+        }, fn.orReplace ?? false);
         return this.simple('CREATE', fn);
     }
 
@@ -1614,11 +1615,8 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
     registerFunction(fn: FunctionDefinition, replace?: boolean): this {
-        let fns = this.fns.get(fn.name);
-        if (!fns) {
-            this.fns.set(fn.name, fns = []);
-        }
-        fns.push({
+        const def: _FunctionDefinition = {
+            name: fn.name,
             args: (fn.args?.map<ArgDefDetails>(x => {
                 if (typeof x === 'string' || isType(x)) {
                     return {
@@ -1632,20 +1630,64 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             impure: !!fn.impure,
             implementation: fn.implementation,
             allowNullArguments: fn.allowNullArguments,
-        });
+        };
+
+        this.fns.add(def, replace ?? true);
         return this;
     }
 
-    getFunctions(name: string | QName, arrity: number | nil, forceOwn?: boolean): Iterable<_FunctionDefinition> {
+    registerOperator(op: OperatorDefinition, replace?: boolean): this {
+        this._registerOperator(op, replace ?? true);
+        if (op.commutative && op.left !== op.right) {
+            this._registerOperator({
+                ...op,
+                left: op.right,
+                right: op.left,
+                implementation: (a, b) => op.implementation(b, a),
+            }, replace ?? true);
+        }
+        return this;
+    }
+
+    private _registerOperator(fn: OperatorDefinition, replace: boolean): this {
+        const args = [fn.left, fn.right].map<ArgDefDetails>(x => {
+            if (typeof x === 'string' || isType(x)) {
+                return {
+                    type: this.getTypePub(x),
+                };
+            }
+            return x;
+        }) as _ArgDefDetails[];
+        const def: _OperatorDefinition = {
+            name: fn.operator,
+            args,
+            left: args[0].type,
+            right: args[1].type,
+            returns: fn.returns && this.getTypePub(fn.returns),
+            impure: !!fn.impure,
+            implementation: fn.implementation,
+            allowNullArguments: fn.allowNullArguments,
+            commutative: fn.commutative ?? false,
+        };
+
+        this.ops.add(def, replace);
+        return this;
+    }
+
+
+    resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil {
         const asSingle = asSingleQName(name, this.name);
         if (!asSingle || !forceOwn) {
-            return this.db.getFunctions(name, arrity);
+            return this.db.resolveFunction(name, args);
         }
-        const matches = this.fns.get(asSingle);
-        return !matches || nullIsh(arrity)
-            ? matches ?? []
-            : matches.filter(m => m.args.length === arrity
-                || m.args.length < arrity! && m.argsVariadic);
+        return this.fns.resolve(asSingle, args);
+    }
+
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue, forceOwn?: boolean): _OperatorDefinition | nil {
+        if (!forceOwn) {
+            return this.db.resolveOperator(name, left, right);
+        }
+        return this.ops.resolve(name, [left, right]);
     }
 
 

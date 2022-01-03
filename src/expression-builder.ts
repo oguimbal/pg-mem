@@ -250,6 +250,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
     let commutative = true;
     let forcehash: any = null;
     let rejectNils = true;
+    let impure = false;
     switch (op) {
         case '=': {
             const type = expectSame();
@@ -359,6 +360,8 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             commutative = resolved.commutative;
             returnType = resolved.returns;
             getter = resolved.implementation;
+            rejectNils = !resolved.allowNullArguments;
+            impure = !!resolved.impure;
             break;
         }
     }
@@ -386,7 +389,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
                 return null;
             }
             return getter(leftRaw, rightRaw);
-        });
+        }, impure ? { unpure: impure } : undefined);
 
 }
 

@@ -3,7 +3,7 @@ import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseT
 import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from './evaluator.ts';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDataType } from './datatypes/index.ts';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from './datatypes/index.ts';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation.ts';
@@ -250,6 +250,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
     let commutative = true;
     let forcehash: any = null;
     let rejectNils = true;
+    let impure = false;
     switch (op) {
         case '=': {
             const type = expectSame();
@@ -288,56 +289,6 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             forcehash = { op: '>=', left: rightValue.hash, right: leftValue.hash };
             break;
         }
-        case '+':
-        case '-':
-        case '*':
-        case '/': {
-            // === special case for dates to support DATE + INTERVAL
-            // this is shitty. Todo: proper overload resolution on binary operators.
-            if ((op === '+' || op === '-') && isDataType(leftValue.type) && rightValue.type.primary === DataType.interval) {
-                const r = op === '-' ? -1 : 1;
-                getter = (a, b) => moment(a).add(r * intervalToSec(b), 'seconds').toDate();
-                commutative = op === '+';
-                returnType = Types.timestamp();
-                break;
-            }
-            if (op === '+' && isDataType(rightValue.type) && leftValue.type.primary === DataType.interval) {
-                getter = (a, b) => moment(b).add(intervalToSec(a), 'seconds').toDate();
-                commutative = true;
-                returnType = Types.timestamp();
-                break;
-            }
-
-
-            // === general case binary operations
-            // assume binary operators are applied on same types
-            const type = expectSame();
-            if (!isNumeric(type)) {
-                throw new QueryError(`Cannot apply ${op} on non numeric type ${type.primary}`);
-            }
-            returnType = type;
-            switch (op) {
-                case '+':
-                    getter = (a, b) => a + b;
-                    commutative = true;
-                    break;
-                case '-':
-                    getter = (a, b) => a - b;
-                    break;
-                case '*':
-                    getter = (a, b) => a * b;
-                    commutative = true;
-                    break;
-                case '/':
-                    if (isInteger(type)) {
-                        getter = (a, b) => Math.trunc(a / b);
-                    } else {
-                        getter = (a, b) => a / b;
-                    }
-                    break;
-            }
-            break;
-        }
         case 'AND':
         case 'OR':
             expectBoth(Types.bool);
@@ -348,21 +299,12 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
                 getter = (a, b) => a || b;
             }
             break;
-        case '@>':
-            expectBoth(Types.jsonb);
-            getter = (a, b) => queryJson(b, a);
-            break;
         case '&&':
             if (leftValue.type.primary !== DataType.array || !rightValue.canCast(leftValue.type)) {
                 throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
             }
             rightValue = rightValue.cast(leftValue.type);
             getter = (a, b) => a.some((element: any) => b.includes(element));
-            break;
-        case '||':
-            expectBoth(Types.text());
-            getter = (a, b) => a + b;
-            returnType = Types.text();
             break;
         case 'LIKE':
         case 'ILIKE':
@@ -408,9 +350,20 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
                     };
             }
             break;
-        default:
-            // throw NotSupported.never(op, 'operator');
-            throw new NotSupported('operator ' + op);
+        default: {
+            const resolved = data.ownerSchema.resolveOperator(op, leftValue, rightValue);
+            if (!resolved) {
+                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
+            }
+            leftValue = leftValue.cast(resolved.left);
+            rightValue = rightValue.cast(resolved.right);
+            commutative = resolved.commutative;
+            returnType = resolved.returns;
+            getter = resolved.implementation;
+            rejectNils = !resolved.allowNullArguments;
+            impure = !!resolved.impure;
+            break;
+        }
     }
 
     const hashed = hash(forcehash
@@ -436,7 +389,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
                 return null;
             }
             return getter(leftRaw, rightRaw);
-        });
+        }, impure ? { unpure: impure } : undefined);
 
 }
 

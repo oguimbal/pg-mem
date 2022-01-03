@@ -1,7 +1,7 @@
-import { _ISchema, QueryError } from '../../interfaces-private';
-import { numbers, isInteger, dateTypes, Types, numberPriorities } from '../../datatypes';
-import { intervalToSec, queryJson } from '../../utils';
-import moment from 'moment';
+import { _ISchema, QueryError } from '../../interfaces-private.ts';
+import { numbers, isInteger, dateTypes, Types, numberPriorities } from '../../datatypes/index.ts';
+import { intervalToSec, queryJson } from '../../utils.ts';
+import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 
 export function registerCommonOperators(schema: _ISchema) {
     registerNumericOperators(schema);

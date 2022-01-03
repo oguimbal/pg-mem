@@ -10,6 +10,7 @@ import { allFunctions } from '../../functions/index.ts';
 import { PgRange } from './pg-range.ts';
 import { sqlSubstring } from '../../expression-builder.ts';
 import { PgDatabaseTable } from './pg-database.ts';
+import { registerCommonOperators } from './binary-operators.ts';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -99,6 +100,9 @@ export function setupPgCatalog(db: _IDb) {
         returns: DataType.text,
         implementation: x => 'Fake description provided by pg-mem',
     });
+
+    registerCommonOperators(catalog);
+
     catalog.setReadonly()
 }
 

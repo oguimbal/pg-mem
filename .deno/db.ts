@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces.ts';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS } from './interfaces-private.ts';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue } from './interfaces-private.ts';
 import { DbSchema } from './schema.ts';
 import { initialize } from './transforms/transform-base.ts';
 import { buildSelection } from './transforms/selection.ts';
@@ -14,7 +14,7 @@ import { buildDistinct } from './transforms/distinct.ts';
 import { buildOrderBy } from './transforms/order-by.ts';
 import { setupPgCatalog } from './schema/pg-catalog/index.ts';
 import { setupInformationSchema } from './schema/information-schema/index.ts';
-import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { QName, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import { asSingleQName } from './utils.ts';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
@@ -116,17 +116,32 @@ class MemoryDb implements _IDb {
         return this.public.getTable(name, nullIfNotExists);
     }
 
-    *getFunctions(name: string | QName, arrity: number | nil): Iterable<_FunctionDefinition> {
+    resolveFunction(name: string | QName, types: IValue[]): _FunctionDefinition | nil {
         const asSingle = asSingleQName(name);
         if (asSingle) {
             for (const sp of this.searchPath) {
-                yield* this.getSchema(sp).getFunctions(name, arrity, true);
+                const found = this.getSchema(sp).resolveFunction(name, types, true);
+                if (found) {
+                    return found;
+                }
             }
+            return null;
         } else {
             const q = name as QName;
-            yield* this.getSchema(q.schema!).getFunctions(q.name, arrity, true);
+            return this.getSchema(q.schema!).resolveFunction(q.name, types, true);
         }
     }
+
+    resolveOperator(name: BinaryOperator, left: IValue, right: IValue): _OperatorDefinition | nil {
+        for (const sp of this.searchPath) {
+            const found = this.getSchema(sp).resolveOperator(name, left, right, true);
+            if (found) {
+                return found;
+            }
+        }
+        return null;
+    }
+
 
 
     on(event: GlobalEvent | TableEvent, handler: (...args: any[]) => any): ISubscription {
