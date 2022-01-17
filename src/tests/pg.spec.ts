@@ -102,4 +102,26 @@ describe('pg', () => {
         expect(Object.getOwnPropertySymbols(got.rows[0]).length).to.be.equal(0);
         await client.end();
     });
+
+
+    it('supports .toPosgres() on query args', async () => {
+        // see
+        simpleDb();
+        const { Client } = db.adapters.createPg();
+        const client = new Client();
+        await client.connect();
+        const complexValue = {
+            toPostgres() {
+                return 'str'
+            },
+        };
+        const got = await client.query('select * from data where id = $1', [complexValue]);
+        assert.deepEqual(got.rows, [{
+            id: 'str',
+            data: { data: true },
+            num: 42,
+            var: 'varchar',
+        }]);
+        await client.end();
+    });
 });

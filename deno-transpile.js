@@ -85,7 +85,8 @@ if (process.argv.includes('--copy')) {
     }
     const localBindings = {
         './buffer-node': './buffer-deno',
-        '../buffer-node': '../buffer-deno',
+        './misc/buffer-node': './misc/buffer-deno',
+        '../misc/buffer-node': '../misc/buffer-deno',
     }
     function handleTs(ipath, rpath) {
         const content = fs.readFileSync(ipath, 'utf-8');

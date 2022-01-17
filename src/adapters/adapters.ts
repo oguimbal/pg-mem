@@ -1,9 +1,7 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from './interfaces';
-import { literal } from './pg-escape';
-import moment from 'moment';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from '../interfaces';
 import lru from 'lru-cache';
-import { bufToString, isBuf } from './buffer-node';
-import { compareVersions, nullIsh } from './utils';
+import { compareVersions } from '../utils';
+import { toLiteral } from '../misc/pg-utils';
 declare var __non_webpack_require__: any;
 
 
@@ -33,34 +31,6 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     });
 }
 
-function toLiteral(val: any): string {
-    switch (typeof val) {
-        case 'string':
-            return literal(val);
-        case 'boolean':
-            return val ? 'true' : 'false';
-        case 'number':
-            return val.toString(10);
-        default:
-            if (nullIsh(val)) {
-                return 'null';
-            }
-            if (Array.isArray(val)) {
-                if (val.length === 0) return `'{}'`;
-                return `ARRAY[${val.map(x => toLiteral(x)).join(', ')}]`;
-            }
-            if (val instanceof Date) {
-                return `'${moment.utc(val).toISOString()}'`;
-            }
-            if (isBuf(val)) {
-                return literal(bufToString(val));
-            }
-            if (typeof val === 'object') {
-                return literal(JSON.stringify(val));
-            }
-            throw new Error('Invalid query parameter')
-    }
-}
 
 export class Adapters implements LibAdapters {
     private _mikroPatched?: boolean;
@@ -122,6 +92,8 @@ export class Adapters implements LibAdapters {
                 if (callback == null && typeof valuesOrCallback === 'function') {
                     callback = valuesOrCallback;
                 }
+
+                // adapt results
 
                 const pgquery = this.adaptQuery(query, values);
                 try {

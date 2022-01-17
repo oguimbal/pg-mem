@@ -4,7 +4,7 @@ import { nullIsh, getContext } from '../utils';
 import { Evaluator, Value } from '../evaluator';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { parseGeometricLiteral } from 'pgsql-ast-parser';
-import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-node';
+import { bufCompare, bufFromString, bufToString, TBuffer } from '../misc/buffer-node';
 import { TypeBase } from './datatype-base';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric';
 import { IntervalType } from './t-interval';

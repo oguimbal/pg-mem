@@ -3,7 +3,7 @@ import { List } from 'immutable';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private';
 import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'pgsql-ast-parser';
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces';
-import { bufClone, bufCompare, isBuf } from './buffer-node';
+import { bufClone, bufCompare, isBuf } from './misc/buffer-node';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
