@@ -8,6 +8,7 @@ describe('Sequences', () => {
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
+    let one: (str: string) => any;
     function all(table = 'data') {
         return many(`select * from ${table}`);
     }
@@ -15,6 +16,7 @@ describe('Sequences', () => {
         db = newDb();
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
+        one = db.public.one.bind(db.public);
     });
 
 
@@ -126,4 +128,75 @@ describe('Sequences', () => {
         ])
     })
 
+
+    it('can restart sequence with 0', () => {
+
+        none(`create sequence test minvalue -1;`);
+        // restart sequence
+        none(`ALTER SEQUENCE test RESTART WITH 0;`);
+
+        // checks on currval & nextval
+        assert.throws(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
+        expect(one(`select nextval('test');`))
+            .to.deep.equal({ nextval: 0 });
+        expect(one(`select currval('test');`))
+            .to.deep.equal({ currval: 0 });
+
+    });
+
+
+    it('cannot restart sequence with too low value', () => {
+
+        none(`create sequence test minvalue 5;`);
+        // restart sequence
+        assert.throws(() => none(`ALTER SEQUENCE test RESTART WITH 4;`), /RESTART value \(4\) cannot be less than MINVALUE \(5\)/);
+
+        none(`ALTER SEQUENCE test RESTART WITH 5;`);
+
+        expect(one(`select nextval('test');`))
+            .to.deep.equal({ nextval: 5 });
+
+    });
+
+
+
+    it('can restart sequence after usage', () => {
+        expect(one(`create sequence test;
+                    select setval('test', 41);`))
+            .to.deep.equal({ setval: 41 });
+
+        // checks on currval & nextval
+        expect(one(`select currval('test');`))
+            .to.deep.equal({ currval: 41 });
+        expect(one(`select nextval('test');`))
+            .to.deep.equal({ nextval: 42 });
+        expect(one(`select currval('test');`))
+            .to.deep.equal({ currval: 42 });
+
+        // restart sequence
+        none(`ALTER SEQUENCE test RESTART WITH 1;`);
+
+        // checks on currval & nextval
+        expect(one(`select currval('test');`))
+            .to.deep.equal({ currval: 42 }, 'Current value should not have moved after reset');
+        expect(one(`select nextval('test');`))
+            .to.deep.equal({ nextval: 1 });
+        expect(one(`select currval('test');`))
+            .to.deep.equal({ currval: 1 });
+    });
+
+    it('can restart sequence when not used', () => {
+        none(`create sequence test`);
+        // restart sequence
+        none(`ALTER SEQUENCE test RESTART WITH 5;`);
+
+        // checks on currval & nextval
+        assert.throws(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
+        expect(one(`select nextval('test');`))
+            .to.deep.equal({ nextval: 5 });
+        expect(one(`select currval('test');`))
+            .to.deep.equal({ currval: 5 });
+
+
+    })
 });
