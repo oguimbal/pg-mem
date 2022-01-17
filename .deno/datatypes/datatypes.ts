@@ -4,7 +4,7 @@ import { nullIsh, getContext } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
 import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
-import { bufCompare, bufFromString, bufToString, TBuffer } from '../buffer-deno.ts';
+import { bufCompare, bufFromString, bufToString, TBuffer } from '../misc/buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
 import { IntervalType } from './t-interval.ts';

@@ -5,7 +5,7 @@ import { initialize } from './transforms/transform-base.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { buildAlias } from './transforms/alias.ts';
 import { buildFilter } from './transforms/build-filter.ts';
-import { Adapters } from './adapters.ts';
+import { Adapters } from './adapters/index.ts';
 import { Transaction } from './transaction.ts';
 import { buildGroupBy } from './transforms/aggregation.ts';
 import { buildLimit } from './transforms/limit.ts';

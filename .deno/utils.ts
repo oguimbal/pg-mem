@@ -3,7 +3,7 @@ import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
 import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
-import { bufClone, bufCompare, isBuf } from './buffer-deno.ts';
+import { bufClone, bufCompare, isBuf } from './misc/buffer-deno.ts';
 
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;

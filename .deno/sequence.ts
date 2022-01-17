@@ -1,8 +1,13 @@
 import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
-import { combineSubs, ignore } from './utils.ts';
+import { combineSubs, ignore, nullIsh } from './utils.ts';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private.ts';
 import { ISubscription, nil, QueryError } from './interfaces.ts';
 import { Types } from './datatypes/index.ts';
+
+interface SeqData {
+    currval: number | undefined;
+    nextval: number;
+}
 
 export class Sequence implements _ISequence {
 
@@ -74,8 +79,18 @@ export class Sequence implements _ISequence {
             switch (opts.type) {
                 case 'set options':
                     this.alterOpts(t, opts);
-                    if (opts.restart) {
-                        t.set(this.symbol, this.start);
+                    if (opts.restart === true || typeof opts.restart === 'number') {
+                        if (typeof opts.restart === 'number') {
+                            if (opts.restart < this.min) {
+                                throw new QueryError(`RESTART value (${opts.restart}) cannot be less than MINVALUE (${this.min})`, '22023');
+                            }
+                            this.cfg.start = opts.restart;
+                        }
+                        const data: SeqData = {
+                            currval: t.get<SeqData>(this.symbol)?.currval,
+                            nextval: this.start,
+                        }
+                        t.set(this.symbol, data);
                     }
                     return this;
                 case 'set schema':
@@ -102,11 +117,9 @@ export class Sequence implements _ISequence {
     }
 
     nextValue(t: _Transaction): number {
-        let v = t.get<number>(this.symbol);
+        let v = t.get<SeqData>(this.symbol)?.nextval;
         if (v === undefined) {
             v = this.start;
-        } else {
-            v += this.inc;
         }
         this.setValue(t, v);
         return v;
@@ -119,13 +132,17 @@ export class Sequence implements _ISequence {
         if (value < this.min) {
             throw new QueryError(`reached minimum value of sequence "${this.name}"`);
         }
-        t.set(this.symbol, value);
+        const data: SeqData = {
+            currval: value,
+            nextval: value + this.inc,
+        };
+        t.set(this.symbol, data);
     }
 
     currentValue(t: _Transaction): number {
-        const v = t.get<number>(this.symbol);
+        const v = t.get<SeqData>(this.symbol)?.currval;
         if (v === undefined) {
-            throw new QueryError(`currval of sequence "${this.name}" is not yet defined in this session`);
+            throw new QueryError(`currval of sequence "${this.name}" is not yet defined in this session`, '55000');
         }
         return v;
     }

@@ -5,12 +5,12 @@ import { IMigrate } from './migrate-interfaces.ts';
 import MigrationFile = IMigrate.MigrationFile
 import MigrationParams = IMigrate.MigrationParams
 import MigrationData = IMigrate.MigrationData
-import { literal } from '../pg-escape.ts';
+import { literal } from '../misc/pg-escape.ts';
 
 declare var __non_webpack_require__: any;
 declare var process: any;
 
-export async function readMigrations (migrationPath?: string) {
+export async function readMigrations(migrationPath?: string) {
   const path = __non_webpack_require__('path');
   const fs = __non_webpack_require__('fs');
   const migrationsPath = migrationPath || path.join(process.cwd(), 'migrations')
@@ -69,7 +69,7 @@ export async function readMigrations (migrationPath?: string) {
 /**
  * Migrates database schema to the latest version
  */
-export async function migrate (db: _ISchema, config: MigrationParams = {}) {
+export async function migrate(db: _ISchema, config: MigrationParams = {}) {
   config.force = config.force || false
   config.table = config.table || 'migrations'
 
