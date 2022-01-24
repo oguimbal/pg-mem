@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint } from '../interfaces-private';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
@@ -92,7 +92,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
         throw new PermissionDeniedError(this.name);
     }
-    addConstraint(constraint: TableConstraint, t: _Transaction) {
+    getConstraint(constraint: string): _IConstraint | nil {
+        return null;
+    }
+    addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint {
         throw new PermissionDeniedError(this.name);
     }
     insert(item: any) {
@@ -108,7 +111,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         throw new PermissionDeniedError(this.name);
     }
 
-    createIndex(): this {
+    createIndex(): _IConstraint {
         throw new PermissionDeniedError(this.name);
     }
     dropIndex(t: _Transaction, name: string): void {

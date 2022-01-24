@@ -864,6 +864,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                     }
                     col.drop(t);
                     break;
+                case 'drop constraint':
+                    const cst = table.getConstraint(change.constraint.name);
+                    if (change.ifExists && !cst) {
+                        return _ignore();
+                    }
+                    if (!cst) {
+                        throw new QueryError(`constraint "${change.constraint.name}" of relation "${table.name}" does not exist`, '42704')
+                    }
+                    cst.uninstall(t);
+                    break;
                 case 'rename column':
                     table.getColumnRef(change.column.name)
                         .rename(change.to.name, t);

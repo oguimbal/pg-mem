@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint } from './interfaces-private';
 import { buildValue } from './expression-builder';
 import { BIndex } from './btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -9,7 +9,6 @@ import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name
 import { ColRef } from './column';
 import { buildAlias, Alias } from './transforms/alias';
 import { DataSourceBase } from './transforms/transform-base';
-import { parseSql } from './parse-cache';
 import { ForeignKey } from './constraints/foreign-key';
 import { Types } from './datatypes';
 
@@ -79,6 +78,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     hidden = false;
     private dataId = Symbol();
     private serialsId: symbol = Symbol();
+    private constraintsByName = new Map<string, _IConstraint>();
     private indexByHash = new Map<string, {
         index: BIndex<T>;
         expressions: IValue[];
@@ -519,8 +519,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             ?? (this.name + '_constraint_' + (++this.cstGen));
     }
 
-    addCheck(_t: _Transaction, check: Expr, constraintName?: string) {
+    addCheck(_t: _Transaction, check: Expr, constraintName?: string): _IConstraint {
         constraintName = this.constraintNameGen(constraintName);
+        this.checkNoConstraint(constraintName);
         const getter = buildValue(this.selection, check).cast(Types.bool);
 
         const checkVal = (t: _Transaction, v: any) => {
@@ -536,18 +537,21 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
 
         // add a check for future updates
-        this.onBeforeChange([], (old, neu, ct) => {
+        const sub = this.onBeforeChange('all', (old, neu, ct) => {
             if (!neu) {
                 return;
             }
             checkVal(ct, neu);
         });
+
+        const ret = new SubscriptionConstraint(constraintName, () => sub.unsubscribe());
+        return new ConstraintWrapper(this.constraintsByName, ret);
     }
 
 
-    createIndex(t: _Transaction, expressions: CreateIndexDef): this;
-    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string): this;
-    createIndex(t: _Transaction, expressions: Name[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): this {
+    createIndex(t: _Transaction, expressions: CreateIndexDef): _IConstraint | nil;
+    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string): _IConstraint;
+    createIndex(t: _Transaction, expressions: Name[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): _IConstraint | nil {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -585,8 +589,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         const indexName = this.determineIndexRelName(expressions.indexName, ihash, expressions.ifNotExists, 'idx');
         if (!indexName) {
-            return this;
+            return null;
         }
+        this.checkNoConstraint(indexName);
 
 
         const index = new BIndex(t
@@ -616,7 +621,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (expressions.primary) {
             this.hasPrimary = true;
         }
-        return this;
+        const ret = new SubscriptionConstraint(indexName, t => this.dropIndex(t, indexName));
+        return new ConstraintWrapper(this.constraintsByName, ret);
     }
 
     private determineIndexRelName(indexName: string | nil, ihash: string, ifNotExists: boolean | nil, sufix: string): string | nil {
@@ -665,21 +671,22 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction) {
+    private addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
         const ihash = indexHash(cst.localColumns.map(x => x.name));
         const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
         if (!constraintName) {
-            return this;
+            return null;
         }
-        const got = new ForeignKey(constraintName)
+        const ret = new ForeignKey(constraintName)
             .install(t, cst, this);
-
-        // todo;
-        return this;
+        return new ConstraintWrapper(this.constraintsByName, ret);
     }
 
-    addConstraint(cst: TableConstraint, t: _Transaction) {
-        // todo add constraint name
+    getConstraint(constraint: string): _IConstraint | nil {
+        return this.constraintsByName.get(constraint);
+    }
+
+    addConstraint(cst: TableConstraint, t: _Transaction): _IConstraint | nil {
         switch (cst.type) {
             case 'foreign key':
                 return this.addForeignKey(cst, t);
@@ -694,20 +701,23 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription {
+    private checkNoConstraint(name: string) {
+        if (this.constraintsByName.has(name)) {
+            throw new QueryError(`relation "${name}" already exists`, '42P07');
+        }
+    }
+
+    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription {
         return this._subChange('before', columns, check);
     }
     onCheckChange(columns: string[], check: ChangeHandler<T>): ISubscription {
         return this._subChange('before', columns, check);
     }
 
-    private _subChange(key: keyof ChangeSub<T>, columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription {
+    private _subChange(key: keyof ChangeSub<T>, columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription {
         const unsubs: (() => void)[] = [];
-        for (const c of columns) {
-            const ref = typeof c === 'string'
-                ? this.getColumnRef(c)
-                : c;
 
+        const add = (ref: _Column | ColRef | null) => {
             let ch = this.changeHandlers.get(ref);
             if (!ch) {
                 this.changeHandlers.set(ref, ch = {
@@ -717,6 +727,16 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
             ch[key].add(check);
             unsubs.push(() => ch![key].delete(check));
+        }
+        if (columns === 'all') {
+            add(null);
+        } else {
+            for (const c of columns) {
+                const ref = typeof c === 'string'
+                    ? this.getColumnRef(c)
+                    : c;
+                add(ref);
+            }
         }
         return {
             unsubscribe: () => {
@@ -755,5 +775,27 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
         }
 
+    }
+}
+
+class SubscriptionConstraint implements _IConstraint {
+    constructor(readonly name: string, readonly uninstall: (t: _Transaction) => void) {
+    }
+}
+
+class ConstraintWrapper implements _IConstraint {
+    constructor(private refs: Map<string, _IConstraint>, private inner: _IConstraint) {
+        if (inner.name) {
+            refs.set(inner.name, this);
+        }
+    }
+    get name() {
+        return this.inner.name;
+    }
+    uninstall(t: _Transaction): void {
+        this.inner.uninstall(t);
+        if (this.name) {
+            this.refs.delete(this.name);
+        }
     }
 }
