@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
 import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -382,8 +382,8 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
     update(t: _Transaction, toUpdate: T): T;
-    createIndex(t: _Transaction, expressions: CreateIndexDef): this;
-    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string): this;
+    createIndex(t: _Transaction, expressions: CreateIndexDef): _IConstraint | nil;
+    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string): _IConstraint;
     setReadonly(): this;
     /** Create a column */
     addColumn(column: SchemaField | CreateColumnDef, t: _Transaction): _Column;
@@ -391,14 +391,15 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     getColumnRef(column: string): _Column;
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column | nil;
     rename(to: string): this;
-    addConstraint(constraint: TableConstraint, t: _Transaction): void;
+    getConstraint(constraint: string): _IConstraint | nil;
+    addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint | nil;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
     onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
-    onCheckChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
+    onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
     onTruncate(sub: DropHandler): ISubscription;

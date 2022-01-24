@@ -1,5 +1,5 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg } from '../interfaces-private.ts';
-import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint } from '../interfaces-private.ts';
+import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
@@ -92,7 +92,10 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     getColumnRef(column: string, nullIfNotFound?: boolean): _Column {
         throw new PermissionDeniedError(this.name);
     }
-    addConstraint(constraint: TableConstraint, t: _Transaction) {
+    getConstraint(constraint: string): _IConstraint | nil {
+        return null;
+    }
+    addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint {
         throw new PermissionDeniedError(this.name);
     }
     insert(item: any) {
@@ -108,7 +111,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         throw new PermissionDeniedError(this.name);
     }
 
-    createIndex(): this {
+    createIndex(): _IConstraint {
         throw new PermissionDeniedError(this.name);
     }
     dropIndex(t: _Transaction, name: string): void {

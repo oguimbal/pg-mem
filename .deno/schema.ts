@@ -4,7 +4,7 @@ import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, p
 import { buildValue } from './expression-builder.ts';
 import { ArrayType, Types, typeSynonyms } from './datatypes/index.ts';
 import { JoinSelection } from './transforms/join.ts';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
 import { MemoryTable } from './table.ts';
 import { buildSelection } from './transforms/selection.ts';
 import { ArrayFilter } from './transforms/array-filter.ts';
@@ -863,6 +863,16 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                         return _ignore();
                     }
                     col.drop(t);
+                    break;
+                case 'drop constraint':
+                    const cst = table.getConstraint(change.constraint.name);
+                    if (change.ifExists && !cst) {
+                        return _ignore();
+                    }
+                    if (!cst) {
+                        throw new QueryError(`constraint "${change.constraint.name}" of relation "${table.name}" does not exist`, '42704')
+                    }
+                    cst.uninstall(t);
                     break;
                 case 'rename column':
                     table.getColumnRef(change.column.name)

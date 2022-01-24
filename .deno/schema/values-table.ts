@@ -1,6 +1,6 @@
 import { nil, QueryError, Schema, SchemaField } from '../interfaces.ts';
 import { IValue, setId, _ISchema, _IType, _Transaction } from '../interfaces-private.ts';
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
 import { ReadOnlyTable } from './readonly-table.ts';
 import { buildValue } from '../expression-builder.ts';
 import { Types } from '../datatypes/index.ts';

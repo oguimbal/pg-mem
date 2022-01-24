@@ -4,7 +4,7 @@ import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Types, ArrayType, isNumeric } from './datatypes/index.ts';
 import { buildCall } from './function-call.ts';
 import { nullIsh } from './utils.ts';
-import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
 
 
 export class Evaluator<T = any> implements IValue<T> {

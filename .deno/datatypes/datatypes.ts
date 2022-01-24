@@ -2,8 +2,8 @@ import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-pr
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
 import { nullIsh, getContext } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.1/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../misc/buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
@@ -316,6 +316,11 @@ class TextType extends TypeBase<string> {
                     .setConversion(rawStr => {
                         if (nullIsh(rawStr)) {
                             return null;
+                        }
+                        if (rawStr === '0') {
+                            return false;
+                        } else if (rawStr === '1') {
+                            return true;
                         }
                         const str = (rawStr as string).toLowerCase();
                         if ('true'.startsWith(str)) {
