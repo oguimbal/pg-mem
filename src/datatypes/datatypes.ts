@@ -317,6 +317,11 @@ class TextType extends TypeBase<string> {
                         if (nullIsh(rawStr)) {
                             return null;
                         }
+                        if (rawStr === '0') {
+                            return false;
+                        } else if (rawStr === '1') {
+                            return true;
+                        }
                         const str = (rawStr as string).toLowerCase();
                         if ('true'.startsWith(str)) {
                             return true;

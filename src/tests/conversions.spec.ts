@@ -185,5 +185,17 @@ describe('Conversions', () => {
     it('can cast to timestamp with explicit precision', () => {
         expect(many(`select '2021-09-18 00:00:00Z'::timestamp(4) with time zone val`))
             .to.deep.equal([{ val: new Date('2021-09-18 00:00:00Z') }]);
-    })
+    });
+
+
+    it('implicitely converts 0 & 1 to boolean', () => {
+        expect(many(`create table test(id text, value boolean);
+            insert into test(id, value) values ('zero', '0');
+            insert into test(id, value) values ('one', '1');
+            select * from test`))
+            .to.deep.equal([{ id: 'zero', value: false }, { id: 'one', value: true }]);
+
+        expect(many(`select id from test where value = '1'`)).to.deep.equal([{ id: 'one' }]);
+        expect(many(`select id from test where value = '0'`)).to.deep.equal([{ id: 'zero' }]);
+    });
 });
