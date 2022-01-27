@@ -44,6 +44,10 @@ function chooseStrategy(this: void, t: _Transaction, strategies: JoinStrategy[])
 
 export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
 
+    get isExecutionWithNoResult(): boolean {
+        return false;
+    }
+
     private _columns: IValue<any>[] = [];
     private seqScanExpression!: IValue<any>;
     private joinId: number;

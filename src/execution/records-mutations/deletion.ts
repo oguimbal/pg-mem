@@ -4,13 +4,14 @@ import { MutationDataSourceBase } from './mutation-base';
 
 export class Deletion extends MutationDataSourceBase<any> {
 
-    constructor({ schema }: _IStatement, statement: DeleteStatement) {
-        const table = asTable(schema.getObject(statement.from));
+
+    constructor(statement: _IStatement, ast: DeleteStatement) {
+        const table = asTable(statement.schema.getObject(ast.from));
         const mutatedSel = table
             .selection
-            .filter(statement.where);
+            .filter(ast.where);
 
-        super(table, mutatedSel, statement);
+        super(statement, table, mutatedSel, ast);
     }
 
     protected performMutation(t: _Transaction): any[] {

@@ -22,7 +22,7 @@ export class Insert extends MutationDataSourceBase<any> {
             .setAlias(ast.into.alias);
 
         // init super
-        super(table, selection, ast);
+        super(statement, table, selection, ast);
 
         // get data to insert
         this.valueRawSource = ast.insert.type === 'values'

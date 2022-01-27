@@ -6,15 +6,15 @@ export class Update extends MutationDataSourceBase<any> {
 
     private setter: Setter;
 
-    constructor({ schema }: _IStatement, statement: UpdateStatement) {
-        const into = asTable(schema.getObject(statement.table));
+    constructor(statement: _IStatement, ast: UpdateStatement) {
+        const into = asTable(statement.schema.getObject(ast.table));
         const mutatedSel = into
             .selection
-            .filter(statement.where);
+            .filter(ast.where);
 
-        super(into, mutatedSel, statement);
+        super(statement, into, mutatedSel, ast);
 
-        this.setter = createSetter(this.table, this.mutatedSel, statement.sets);
+        this.setter = createSetter(this.table, this.mutatedSel, ast.sets);
 
     }
 

@@ -38,6 +38,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
+    abstract get isExecutionWithNoResult(): boolean
     // abstract get name(): string;
 
 
@@ -127,6 +128,10 @@ export abstract class TransformBase<T> extends DataSourceBase<T> {
 
     constructor(readonly base: _ISelection) {
         super(base.ownerSchema);
+    }
+
+    get isExecutionWithNoResult(): boolean {
+        return false;
     }
 
     entropy(t: _Transaction): number {

@@ -57,8 +57,9 @@ class ColumnManager {
 }
 
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
-
-
+    get isExecutionWithNoResult(): boolean {
+        return false;
+    }
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
     private _reg?: Reg;

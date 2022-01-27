@@ -93,7 +93,10 @@ export interface _IStatement {
     readonly schema: _ISchema;
     buildSelect(p: SelectStatement): _ISelection;
     buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection;
+    onExecuted(callback: OnStatementExecuted): void;
 }
+
+export type OnStatementExecuted = (t: _Transaction) => void;
 
 export interface QueryObjOpts extends Partial<BeingCreated> {
     /** Returns null instead of throwing error if not found */
@@ -161,6 +164,8 @@ export interface _ISelection<T = any> extends _IAlias {
 
     readonly ownerSchema: _ISchema;
     readonly db: _IDb;
+    /** Tells if this statement is an execution without any meaningful result ("update" with no "returning", etc...) */
+    readonly isExecutionWithNoResult: boolean;
     /** Column list (those visible when select *) */
     readonly columns: ReadonlyArray<IValue>;
     /** Statistical measure of how many items will be returned by this selection */

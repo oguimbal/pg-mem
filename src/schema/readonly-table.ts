@@ -9,6 +9,10 @@ import { colByName, findTemplate } from '../utils';
 export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection<any> {
 
 
+    get isExecutionWithNoResult(): boolean {
+        return false;
+    }
+
     abstract entropy(t: _Transaction): number;
     abstract enumerate(t: _Transaction): Iterable<T>;
     abstract hasItem(value: T, t: _Transaction): boolean;

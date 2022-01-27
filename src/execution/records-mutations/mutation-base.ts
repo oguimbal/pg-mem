@@ -1,7 +1,7 @@
 import { DataSourceBase } from '../../transforms/transform-base';
 import { ArrayFilter } from '../../transforms/array-filter';
 import { cleanResults } from '../clean-results';
-import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer } from '../../interfaces-private';
+import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement } from '../../interfaces-private';
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement } from 'pgsql-ast-parser';
 import { buildSelection } from '../../transforms/selection';
 import { MemoryTable } from '../../table';
@@ -20,11 +20,15 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
     private returning?: _ISelection;
     private mutationResult = Symbol('mutationResult');
 
+    get isExecutionWithNoResult(): boolean {
+        return !this.returning;
+    }
+
     get columns() {
         return this.returning?.columns ?? [];
     }
 
-    constructor(protected table: _ITable, protected mutatedSel: _ISelection, p: MutationStatement) {
+    constructor(protected statement: _IStatement, protected table: _ITable, protected mutatedSel: _ISelection, p: MutationStatement) {
         super(table.ownerSchema);
 
         // prepare "returning" statement
@@ -32,9 +36,15 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
             this.returningRows = new ArrayFilter(this.mutatedSel, [])
             this.returning = buildSelection(this.returningRows, p.returning);
         }
+
+        // force execution if it has not yet been executed once the current statement finishes its execution.
+        // see "only inserts once with statement is executed" test
+        statement.onExecuted(t => {
+            this._doExecuteOnce(t);
+        });
     }
 
-    *enumerate(t: _Transaction): Iterable<any> {
+    private _doExecuteOnce(t: _Transaction): any[] {
         // check if this mutation has already been executed in the statement being executed
         // and get the result from cache to avoid re-excuting it
         // see unit test "can use delete result multiple times in select"
@@ -48,6 +58,13 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
 
         // set the result count
         t.setTransient(MutationDataSourceBase.affectedRows, affected.length);
+        return affected;
+    }
+
+    *enumerate(t: _Transaction): Iterable<any> {
+
+        const affected = this._doExecuteOnce(t);
+
         if (!this.returning) {
             return;
         }

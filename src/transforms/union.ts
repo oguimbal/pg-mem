@@ -39,6 +39,10 @@ interface UCol {
 
 class Union<T = any> extends DataSourceBase<T> {
 
+    get isExecutionWithNoResult(): boolean {
+        return false;
+    }
+
     readonly columns: ReadonlyArray<IValue<any>>;
     private readonly colsByName = new Map<string, IValue>();
 

@@ -1,5 +1,5 @@
 import { watchUse, ignore, errorMessage, suggestColumnName } from '../utils';
-import { GLOBAL_VARS, _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, IType, _IType, _ISelection, asTable, _IStatement, asView, asSeq, asIndex, CreateIndexColDef, asSelectable, NotSupported, QueryResult, QueryError, nil } from '../interfaces-private';
+import { GLOBAL_VARS, _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, IType, _IType, _ISelection, asTable, _IStatement, asView, asSeq, asIndex, CreateIndexColDef, asSelectable, NotSupported, QueryResult, QueryError, nil, OnStatementExecuted } from '../interfaces-private';
 import { toSql, Statement, DoStatement, CreateFunctionStatement, ShowStatement, WithStatement, WithStatementBinding, TruncateTableStatement, SelectFromUnion, SelectStatement, ValuesStatement, SelectFromStatement, CreateViewStatement, SelectedColumn, CreateMaterializedViewStatement, AlterSequenceStatement, DropIndexStatement, DropTableStatement, DropSequenceStatement, CreateIndexStatement, AlterTableStatement, NodeLocation, QNameMapped, Name } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { Types } from '../datatypes';
@@ -21,6 +21,7 @@ export interface StatementResult {
 
 export class StatementExec implements _IStatement {
     private tempBindings = new Map<string, _ISelection | 'no returning'>();
+    private onExecutedCallbacks: OnStatementExecuted[] = []
     lastSelect?: _ISelection<any>;
 
     constructor(readonly schema: _ISchema, private statement: Statement, private pAsSql: string | nil) {
@@ -30,9 +31,11 @@ export class StatementExec implements _IStatement {
         return this.schema.db;
     }
 
-    prepare() {
-
+    onExecuted(callback: OnStatementExecuted): void {
+        this.onExecutedCallbacks.push(callback);
     }
+
+
 
     executeStatement(t: _Transaction): StatementResult {
         try {
@@ -193,6 +196,11 @@ export class StatementExec implements _IStatement {
                 default:
                     throw NotSupported.never(p, 'statement type');
             }
+
+            for (const s of this.onExecutedCallbacks) {
+                s(t);
+            }
+
             result = result ?? this.simple(p.type.toUpperCase(), p);
             if (!result.ignored && check) {
                 const ret = check();
@@ -390,7 +398,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 if (this.tempBindings.has(alias.name)) {
                     throw new QueryError(` WITH query name "${alias.name}" specified more than once`);
                 }
-                this.tempBindings.set(alias.name, typeof prepared === 'number' ? 'no returning' : prepared);
+                this.tempBindings.set(alias.name, prepared.isExecutionWithNoResult ? 'no returning' : prepared);
             }
             // execute statement
             return this.executeWithable(selTrans, p.in);
@@ -411,7 +419,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
                 if (this.tempBindings.has(alias.name)) {
                     throw new QueryError(` WITH query name "${alias.name}" specified more than once`);
                 }
-                this.tempBindings.set(alias.name, typeof prepared === 'number' ? 'no returning' : prepared);
+                this.tempBindings.set(alias.name, prepared.isExecutionWithNoResult ? 'no returning' : prepared);
             }
             return this.buildSelect(this.checkReadonlyWithable(p.in));
         } finally {
@@ -455,9 +463,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     private executeWithable(t: _Transaction, p: WithStatementBinding) {
         let last = this.prepareWithable(p);
 
-        const rows = typeof last === 'number'
-            ? []
-            : cleanResults([...last.enumerate(t)]);
+        const rows = cleanResults([...last.enumerate(t)]);
         return {
             rows,
             rowCount: t.getTransient(MutationDataSourceBase.affectedRows) ?? rows.length,
