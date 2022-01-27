@@ -131,11 +131,17 @@ export interface _Transaction {
     fullCommit(): _Transaction;
     rollback(): _Transaction;
     delete(identity: symbol): void;
+    /** Set data persisted in this transaction */
     set<T>(identity: symbol, data: T): T;
+    /** Get data persisted in this transaction */
     get<T>(identity: symbol): T;
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
     getSet<T>(identity: symbol): ImSet<T>;
-    affectedRows: number;
+    /** Get transient data, which will only exist within the scope of the current statement */
+    setTransient<T>(identity: symbol, data: T): T;
+    /** Set transient data, which will only exist within the scope of the current statement */
+    getTransient<T>(identity: symbol): T;
+    clearTransientData(): void;
 }
 
 export interface Stats {

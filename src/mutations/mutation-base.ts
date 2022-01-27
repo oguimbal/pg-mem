@@ -9,13 +9,16 @@ import { buildValue } from '../expression-builder';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 
+
 export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
+    public static readonly affectedRows = Symbol('affectedRows');
 
     /** Perform the mutation, and returns the affected elements */
     protected abstract performMutation(t: _Transaction): T[];
 
     private returningRows?: ArrayFilter;
     private returning?: _ISelection;
+    private mutationResult = Symbol('mutationResult');
 
     get columns() {
         return this.returning?.columns ?? [];
@@ -32,9 +35,19 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
     }
 
     *enumerate(t: _Transaction): Iterable<any> {
-        const affected = this.performMutation(t);
+        // check if this mutation has already been executed in the statement being executed
+        // and get the result from cache to avoid re-excuting it
+        // see unit test "can use delete result multiple times in select"
+        let affected = t.getTransient<T[]>(this.mutationResult);
+        if (!affected) {
+            // execute mutation if nescessary
+            affected = this.performMutation(t);
+            t.setTransient(this.mutationResult, affected);
+        }
 
-        t.affectedRows = affected.length;
+
+        // set the result count
+        t.setTransient(MutationDataSourceBase.affectedRows, affected.length);
         if (!this.returning) {
             return;
         }

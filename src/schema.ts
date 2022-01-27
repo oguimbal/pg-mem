@@ -20,6 +20,7 @@ import { OverloadResolver } from './overload-resolver';
 import { Deletion } from './mutations/deletion';
 import { Update } from './mutations/update';
 import { Insert } from './mutations/insert';
+import { MutationDataSourceBase } from './mutations/mutation-base';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -137,6 +138,7 @@ export class DbSchema implements _ISchema, ISchema {
             const { checked: p, check } = this.db.options.noAstCoverageCheck
                 ? { checked: _p, check: null }
                 : watchUse(_p);
+            t.clearTransientData();
 
             switch (p.type) {
                 case 'start transaction':
@@ -536,7 +538,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             : cleanResults([...last.enumerate(t)]);
         return {
             rows,
-            rowCount: typeof last === 'number' ? last : rows.length,
+            rowCount: t.getTransient(MutationDataSourceBase.affectedRows) ?? rows.length,
             command: p.type.toUpperCase(),
             fields: [],
             location: this.locOf(p),
