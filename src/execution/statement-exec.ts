@@ -1,7 +1,7 @@
 import { watchUse, ignore, errorMessage, suggestColumnName } from '../utils';
 import { GLOBAL_VARS, _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, IType, _IType, _ISelection, asTable, _IStatement, asView, asSeq, asIndex, CreateIndexColDef, asSelectable, NotSupported, QueryResult, QueryError, nil } from '../interfaces-private';
 import { toSql, Statement, DoStatement, CreateFunctionStatement, ShowStatement, WithStatement, WithStatementBinding, TruncateTableStatement, SelectFromUnion, SelectStatement, ValuesStatement, SelectFromStatement, CreateViewStatement, SelectedColumn, CreateMaterializedViewStatement, AlterSequenceStatement, DropIndexStatement, DropTableStatement, DropSequenceStatement, CreateIndexStatement, AlterTableStatement, NodeLocation, QNameMapped, Name } from 'pgsql-ast-parser';
-import { buildValue } from '../expression-builder';
+import { buildValue } from '../parser/expression-builder';
 import { Types } from '../datatypes';
 import { Deletion } from './records-mutations/deletion';
 import { Update } from './records-mutations/update';
@@ -10,7 +10,7 @@ import { cleanResults } from './clean-results';
 import { MutationDataSourceBase } from './records-mutations/mutation-base';
 import { ValuesTable } from '../schema/values-table';
 import { JoinSelection } from '../transforms/join';
-import { View } from '../view';
+import { View } from '../schema/view';
 import { ExecuteCreateTable } from './create-table';
 import { ExecuteCreateSequence } from './create-sequence';
 

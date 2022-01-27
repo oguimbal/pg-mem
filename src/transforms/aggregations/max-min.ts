@@ -1,6 +1,6 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private';
 import { Expr } from 'pgsql-ast-parser';
-import { buildValue } from '../../expression-builder';
+import { buildValue } from '../../parser/expression-builder';
 import { nullIsh } from '../../utils';
 import { DataType } from '../../interfaces';
 

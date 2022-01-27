@@ -1,10 +1,10 @@
-import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from './interfaces-private';
-import { Types, ArrayType } from './datatypes';
-import { QueryError, NotSupported, nil } from './interfaces';
-import { Evaluator } from './evaluator';
+import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from '../interfaces-private';
+import { Types, ArrayType } from '../datatypes';
+import { QueryError, NotSupported, nil } from '../interfaces';
+import { Evaluator } from '../evaluator';
 import hash from 'object-hash';
 import { parseArrayLiteral, QName } from 'pgsql-ast-parser';
-import { asSingleQName, colToStr, nullIsh, qnameToStr } from './utils';
+import { asSingleQName, colToStr, nullIsh, qnameToStr } from '../utils';
 
 
 export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]) {

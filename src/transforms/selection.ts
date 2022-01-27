@@ -1,6 +1,6 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces';
-import { buildValue } from '../expression-builder';
+import { buildValue } from '../parser/expression-builder';
 import { Evaluator } from '../evaluator';
 import { TransformBase } from './transform-base';
 import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'pgsql-ast-parser';

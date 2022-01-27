@@ -2,7 +2,7 @@ import { nil, QueryError, Schema, SchemaField } from '../interfaces';
 import { IValue, setId, _ISchema, _IType, _Transaction } from '../interfaces-private';
 import { Expr } from 'pgsql-ast-parser';
 import { ReadOnlyTable } from './readonly-table';
-import { buildValue } from '../expression-builder';
+import { buildValue } from '../parser/expression-builder';
 import { Types } from '../datatypes';
 
 let cnt = 0;

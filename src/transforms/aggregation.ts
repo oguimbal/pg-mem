@@ -1,7 +1,7 @@
 import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId } from '../interfaces-private';
 import { SelectedColumn, Expr, ExprRef, ExprCall } from 'pgsql-ast-parser';
-import { buildValue, uncache } from '../expression-builder';
+import { buildValue, uncache } from '../parser/expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
 import { colByName, suggestColumnName } from '../utils';
 import hash from 'object-hash';

@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias, TR, _IStatement } from '../interfaces-private';
-import { buildBinaryValue, buildValue, uncache } from '../expression-builder';
+import { buildBinaryValue, buildValue, uncache } from '../parser/expression-builder';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces';
 import { DataSourceBase, TransformBase } from './transform-base';
 import { Expr, ExprRef, JoinClause, Name, SelectedColumn } from 'pgsql-ast-parser';

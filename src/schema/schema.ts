@@ -1,18 +1,18 @@
-import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from './interfaces';
-import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from './interfaces-private';
-import { asSingleQName, isType, parseRegClass, pushContext, randomString, schemaOf } from './utils';
-import { typeSynonyms } from './datatypes';
+import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from '../interfaces';
+import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private';
+import { asSingleQName, isType, parseRegClass, pushContext, randomString, schemaOf } from '../utils';
+import { typeSynonyms } from '../datatypes';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'pgsql-ast-parser';
-import { MemoryTable } from './table';
-import { parseSql } from './parse-cache';
-import { IMigrate } from './migrate/migrate-interfaces';
-import { migrate } from './migrate/migrate';
-import { CustomEnumType } from './datatypes/t-custom-enum';
-import { regGen } from './datatypes/datatype-base';
-import { EquivalentType } from './datatypes/t-equivalent';
+import { MemoryTable } from '../table';
+import { parseSql } from '../parser/parse-cache';
+import { IMigrate } from '../migrate/migrate-interfaces';
+import { migrate } from '../migrate/migrate';
+import { CustomEnumType } from '../datatypes/t-custom-enum';
+import { regGen } from '../datatypes/datatype-base';
+import { EquivalentType } from '../datatypes/t-equivalent';
 import { OverloadResolver } from './overload-resolver';
-import { ExecuteCreateSequence } from './execution/create-sequence';
-import { StatementExec } from './execution/statement-exec';
+import { ExecuteCreateSequence } from '../execution/create-sequence';
+import { StatementExec } from '../execution/statement-exec';
 
 export class DbSchema implements _ISchema, ISchema {
 

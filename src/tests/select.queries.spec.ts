@@ -5,8 +5,8 @@ import { expect, assert } from 'chai';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
 import { SelectFromStatement, SelectStatement } from 'pgsql-ast-parser';
-import { buildValue } from '../expression-builder';
-import { parseSql } from '../parse-cache';
+import { buildValue } from '../parser/expression-builder';
+import { parseSql } from '../parser/parse-cache';
 
 describe('Selections', () => {
 

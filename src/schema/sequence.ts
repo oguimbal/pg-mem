@@ -1,8 +1,8 @@
 import { AlterSequenceChange, CreateSequenceOptions } from 'pgsql-ast-parser';
-import { combineSubs, ignore, nullIsh } from './utils';
-import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private';
-import { ISubscription, nil, QueryError } from './interfaces';
-import { Types } from './datatypes';
+import { combineSubs, ignore, nullIsh } from '../utils';
+import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from '../interfaces-private';
+import { ISubscription, nil, QueryError } from '../interfaces';
+import { Types } from '../datatypes';
 
 interface SeqData {
     currval: number | undefined;

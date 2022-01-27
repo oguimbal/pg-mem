@@ -1,7 +1,7 @@
-import { _IType, _ArgDefDetails, nil, DataType, IValue } from './interfaces-private';
-import { Types } from './datatypes';
-import { it } from './utils';
-import { QueryError } from './interfaces';
+import { _IType, _ArgDefDetails, nil, DataType, IValue } from '../interfaces-private';
+import { Types } from '../datatypes';
+import { it } from '../utils';
+import { QueryError } from '../interfaces';
 
 export interface HasSig {
     name: string;

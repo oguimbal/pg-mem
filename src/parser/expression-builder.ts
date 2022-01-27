@@ -1,15 +1,15 @@
-import { _ISelection, IValue, _IType, _ISchema } from './interfaces-private';
-import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from './utils';
-import { DataType, CastError, QueryError, IType, NotSupported, nil } from './interfaces';
+import { _ISelection, IValue, _IType, _ISchema } from '../interfaces-private';
+import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from '../utils';
+import { DataType, CastError, QueryError, IType, NotSupported, nil } from '../interfaces';
 import hash from 'object-hash';
-import { Value, Evaluator } from './evaluator';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from './datatypes';
+import { Value, Evaluator } from '../evaluator';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from '../datatypes';
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
-import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation';
+import { aggregationFunctions, Aggregation, getAggregator } from '../transforms/aggregation';
 import moment from 'moment';
-import { IS_PARTIAL_INDEXING } from './execution/clean-results';
-import { StatementExec } from './execution/statement-exec';
+import { IS_PARTIAL_INDEXING } from '../execution/clean-results';
+import { StatementExec } from '../execution/statement-exec';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({

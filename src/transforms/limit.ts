@@ -1,7 +1,7 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { LimitStatement } from 'pgsql-ast-parser';
-import { buildValue } from '../expression-builder';
+import { buildValue } from '../parser/expression-builder';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
     const l = limit.limit && buildValue(on, limit.limit);

@@ -8,7 +8,7 @@ import { PgNamespaceTable } from './pg-namespace-list';
 import { PgTypeTable } from './pg-type-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
-import { sqlSubstring } from '../../expression-builder';
+import { sqlSubstring } from '../../parser/expression-builder';
 import { PgDatabaseTable } from './pg-database';
 import { registerCommonOperators } from './binary-operators';
 import { registerSqlFunctionLanguage } from './sql-function-language';

@@ -1,5 +1,5 @@
 import { Expr } from 'pgsql-ast-parser';
-import { buildValue } from '../expression-builder';
+import { buildValue } from '../parser/expression-builder';
 import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import objectHash from 'object-hash';

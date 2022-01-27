@@ -1,9 +1,9 @@
 
-import { QueryError } from './interfaces';
+import { QueryError } from '../interfaces';
 import LRUCache from 'lru-cache';
 import hash from 'object-hash';
 import { Expr, parse, Statement } from 'pgsql-ast-parser';
-import { errorMessage } from './utils';
+import { errorMessage } from '../utils';
 
 
 const astCache: LRUCache<any, any> = new LRUCache({

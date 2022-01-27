@@ -1,6 +1,6 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue } from './interfaces-private';
-import { DbSchema } from './schema';
+import { DbSchema } from './schema/schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
 import { buildAlias } from './transforms/alias';

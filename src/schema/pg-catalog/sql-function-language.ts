@@ -1,5 +1,5 @@
 import { _IDb, _ISchema } from '../../interfaces-private';
-import { parseSql } from '../../parse-cache';
+import { parseSql } from '../../parser/parse-cache';
 import { QueryError, NotSupported } from '../../interfaces';
 import { Statement } from 'pgsql-ast-parser';
 import { watchUse } from '../../utils';

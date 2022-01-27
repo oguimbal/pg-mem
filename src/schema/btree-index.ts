@@ -1,9 +1,9 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from './interfaces-private';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from '../interfaces-private';
 // @ts-ignore
 import createTree from 'functional-red-black-tree';
-import { QueryError, NotSupported, nil } from './interfaces';
+import { QueryError, NotSupported, nil } from '../interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
-import { deepCloneSimple, nullIsh, hasNullish } from './utils';
+import { deepCloneSimple, nullIsh, hasNullish } from '../utils';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree

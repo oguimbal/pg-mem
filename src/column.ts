@@ -3,9 +3,9 @@ import type { MemoryTable } from './table';
 import { Evaluator } from './evaluator';
 import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
-import { buildValue } from './expression-builder';
+import { buildValue } from './parser/expression-builder';
 import { columnEvaluator } from './transforms/selection';
-import { BIndex } from './btree-index';
+import { BIndex } from './schema/btree-index';
 import { GeneratedIdentityConstraint } from './constraints/generated';
 import { DataType } from './interfaces';
 

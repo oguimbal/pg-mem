@@ -5,7 +5,7 @@ import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explain
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement } from 'pgsql-ast-parser';
 import { buildSelection } from '../../transforms/selection';
 import { MemoryTable } from '../../table';
-import { buildValue } from '../../expression-builder';
+import { buildValue } from '../../parser/expression-builder';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 

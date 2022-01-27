@@ -1,5 +1,5 @@
 import { _ISelection, CastError, DataType, NotSupported, IValue } from '../interfaces-private';
-import { buildValue } from '../expression-builder';
+import { buildValue } from '../parser/expression-builder';
 import { Types, ArrayType } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../evaluator';

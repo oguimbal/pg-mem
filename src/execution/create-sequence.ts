@@ -1,6 +1,6 @@
 import { _ISchema, _Transaction, NotSupported, _ISequence } from '../interfaces-private';
 import { QName, CreateSequenceStatement } from 'pgsql-ast-parser';
-import { Sequence } from '../sequence';
+import { Sequence } from '../schema/sequence';
 import { checkExistence } from './exec-utils';
 
 export class ExecuteCreateSequence {

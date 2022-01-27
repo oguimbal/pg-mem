@@ -1,6 +1,6 @@
 import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement } from '../../interfaces-private';
 import { InsertStatement } from 'pgsql-ast-parser';
-import { buildValue } from '../../expression-builder';
+import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
 import { JoinSelection } from '../../transforms/join';
 import { MutationDataSourceBase, createSetter } from './mutation-base';

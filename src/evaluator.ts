@@ -2,7 +2,7 @@ import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprEx
 import { DataType, QueryError, CastError, nil, ISchema } from './interfaces';
 import hash from 'object-hash';
 import { Types, ArrayType, isNumeric } from './datatypes';
-import { buildCall } from './function-call';
+import { buildCall } from './parser/function-call';
 import { nullIsh } from './utils';
 import { QName } from 'pgsql-ast-parser';
 

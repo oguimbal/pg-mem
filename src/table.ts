@@ -1,7 +1,7 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint } from './interfaces-private';
-import { buildValue } from './expression-builder';
-import { BIndex } from './btree-index';
+import { buildValue } from './parser/expression-builder';
+import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils';
 import { Map as ImMap } from 'immutable';
