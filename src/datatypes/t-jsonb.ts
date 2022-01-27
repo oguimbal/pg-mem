@@ -3,7 +3,7 @@ import { TypeBase } from './datatype-base';
 import { Evaluator } from '../evaluator';
 import { deepCompare, deepEqual, errorMessage } from '../utils';
 import { Types } from './datatypes';
-import { JSON_NIL } from '../clean-results';
+import { JSON_NIL } from '../execution/clean-results';
 import { QueryError } from '../interfaces';
 
 export class JSONBType extends TypeBase<any> {

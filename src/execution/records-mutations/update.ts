@@ -1,4 +1,4 @@
-import { _ITable, _Transaction, _Explainer, _ISchema, asTable, _ISelection, _IIndex } from '../interfaces-private';
+import { _ITable, _Transaction, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private';
 import { UpdateStatement } from 'pgsql-ast-parser';
 import { MutationDataSourceBase, Setter, createSetter } from './mutation-base';
 
@@ -6,7 +6,7 @@ export class Update extends MutationDataSourceBase<any> {
 
     private setter: Setter;
 
-    constructor(schema: _ISchema, statement: UpdateStatement) {
+    constructor({ schema }: _IStatement, statement: UpdateStatement) {
         const into = asTable(schema.getObject(statement.table));
         const mutatedSel = into
             .selection

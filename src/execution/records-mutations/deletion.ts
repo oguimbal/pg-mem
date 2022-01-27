@@ -1,10 +1,10 @@
-import { _ITable, _Transaction, IValue, _Explainer, _ISchema, asTable, _ISelection, _IIndex } from '../interfaces-private';
+import { _ITable, _Transaction, IValue, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private';
 import { DeleteStatement } from 'pgsql-ast-parser';
 import { MutationDataSourceBase } from './mutation-base';
 
 export class Deletion extends MutationDataSourceBase<any> {
 
-    constructor(schema: _ISchema, statement: DeleteStatement) {
+    constructor({ schema }: _IStatement, statement: DeleteStatement) {
         const table = asTable(schema.getObject(statement.from));
         const mutatedSel = table
             .selection

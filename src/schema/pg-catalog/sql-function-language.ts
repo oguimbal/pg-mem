@@ -34,7 +34,7 @@ export function registerSqlFunctionLanguage(db: _IDb) {
             ? { checked: parsed, check: null }
             : watchUse(parsed);
 
-        const selection = (schema as _ISchema).buildSelect(p);
+        // const selection = (schema as _ISchema).buildSelect(p);
 
         check?.();
 

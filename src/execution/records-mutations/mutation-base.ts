@@ -1,11 +1,11 @@
-import { DataSourceBase } from '../transforms/transform-base';
-import { ArrayFilter } from '../transforms/array-filter';
+import { DataSourceBase } from '../../transforms/transform-base';
+import { ArrayFilter } from '../../transforms/array-filter';
 import { cleanResults } from '../clean-results';
-import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer } from '../interfaces-private';
+import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer } from '../../interfaces-private';
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement } from 'pgsql-ast-parser';
-import { buildSelection } from '../transforms/selection';
-import { MemoryTable } from '../table';
-import { buildValue } from '../expression-builder';
+import { buildSelection } from '../../transforms/selection';
+import { MemoryTable } from '../../table';
+import { buildValue } from '../../expression-builder';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 

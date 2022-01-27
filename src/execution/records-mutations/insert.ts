@@ -1,10 +1,10 @@
-import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts } from '../interfaces-private';
+import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement } from '../../interfaces-private';
 import { InsertStatement } from 'pgsql-ast-parser';
-import { buildValue } from '../expression-builder';
-import { Types } from '../datatypes';
-import { JoinSelection } from '../transforms/join';
+import { buildValue } from '../../expression-builder';
+import { Types } from '../../datatypes';
+import { JoinSelection } from '../../transforms/join';
 import { MutationDataSourceBase, createSetter } from './mutation-base';
-import { ArrayFilter } from '../transforms/array-filter';
+import { ArrayFilter } from '../../transforms/array-filter';
 
 export class Insert extends MutationDataSourceBase<any> {
 
@@ -14,23 +14,23 @@ export class Insert extends MutationDataSourceBase<any> {
     private opts: ChangeOpts;
 
 
-    constructor(schema: _ISchema, p: InsertStatement) {
+    constructor(statement: _IStatement, ast: InsertStatement) {
         // get table to insert into
-        const table = asTable(schema.getObject(p.into));
+        const table = asTable(statement.schema.getObject(ast.into));
         const selection = table
             .selection
-            .setAlias(p.into.alias);
+            .setAlias(ast.into.alias);
 
         // init super
-        super(table, selection, p);
+        super(table, selection, ast);
 
         // get data to insert
-        this.valueRawSource = p.insert.type === 'values'
-            ? schema.buildValues(p.insert, true)
-            : schema.buildSelect(p.insert);
+        this.valueRawSource = ast.insert.type === 'values'
+            ? statement.buildValues(ast.insert, true)
+            : statement.buildSelect(ast.insert);
 
         // check not inserting too many values
-        this.insertColumns = p.columns?.map(x => x.name)
+        this.insertColumns = ast.columns?.map(x => x.name)
             ?? this.table.selection.columns.map(x => x.id!)
                 .slice(0, this.valueRawSource.columns.length);
         if (this.valueRawSource.columns.length > this.insertColumns.length) {
@@ -42,7 +42,7 @@ export class Insert extends MutationDataSourceBase<any> {
             const value = this.valueRawSource.columns[i];
             const insertInto = this.table.selection.getColumn(col);
             // It seems that the explicit conversion is only performed when inserting values.
-            const canConvert = p.insert.type === 'values'
+            const canConvert = ast.insert.type === 'values'
                 ? value.type.canCast(insertInto.type)
                 : value.type.canConvertImplicit(insertInto.type);
             if (!canConvert) {
@@ -56,9 +56,9 @@ export class Insert extends MutationDataSourceBase<any> {
 
         // build 'on conflict' strategy
         let ignoreConflicts: OnConflictHandler | nil = undefined;
-        if (p.onConflict) {
+        if (ast.onConflict) {
             // find the targeted index
-            const on = p.onConflict.on?.map(x => buildValue(this.table.selection, x));
+            const on = ast.onConflict.on?.map(x => buildValue(this.table.selection, x));
             let onIndex: _IIndex | nil = null;
             if (on) {
                 onIndex = this.table.getIndex(...on);
@@ -68,13 +68,13 @@ export class Insert extends MutationDataSourceBase<any> {
             }
 
             // check if 'do nothing'
-            if (p.onConflict.do === 'do nothing') {
+            if (ast.onConflict.do === 'do nothing') {
                 ignoreConflicts = { ignore: onIndex ?? 'all' };
             } else {
                 if (!onIndex) {
                     throw new QueryError(`ON CONFLICT DO UPDATE requires inference specification or constraint name`);
                 }
-                const subject = new JoinSelection(this.ownerSchema
+                const subject = new JoinSelection(statement
                     , this.mutatedSel
                     // fake data... we're only using this to get the multi table column resolution:
                     , new ArrayFilter(this.table.selection, []).setAlias('excluded')
@@ -84,8 +84,8 @@ export class Insert extends MutationDataSourceBase<any> {
                     }
                     , false
                 );
-                const setter = createSetter(this.table, subject, p.onConflict.do.sets,);
-                const where = p.onConflict.where && buildValue(subject, p.onConflict.where);
+                const setter = createSetter(this.table, subject, ast.onConflict.do.sets,);
+                const where = ast.onConflict.where && buildValue(subject, ast.onConflict.where);
                 ignoreConflicts = {
                     onIndex,
                     update: (item, excluded, t) => {
@@ -109,7 +109,7 @@ export class Insert extends MutationDataSourceBase<any> {
 
         this.opts = {
             onConflict: ignoreConflicts,
-            overriding: p.overriding
+            overriding: ast.overriding
         };
 
     }

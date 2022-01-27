@@ -1,6 +1,6 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, WithStatementBinding, ValuesStatement } from 'pgsql-ast-parser';
-import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement } from 'pgsql-ast-parser';
+import { Map as ImMap, Record, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
 
@@ -39,8 +39,10 @@ export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
     readonly dualTable: _ITable;
-    buildSelect(p: SelectStatement): _ISelection;
-    buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection;
+    /** If the given name refers to another schema, then get it. Else, get this */
+    getThisOrSiblingFor(name: QName): _ISchema;
+    executeCreateExtension(p: CreateExtensionStatement): void;
+    dropFunction(fn: DropFunctionStatement): void;
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
     getTable(table: string): _ITable;
@@ -87,6 +89,11 @@ export interface _ISchema extends ISchema {
 
 }
 
+export interface _IStatement {
+    readonly schema: _ISchema;
+    buildSelect(p: SelectStatement): _ISelection;
+    buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection;
+}
 
 export interface QueryObjOpts extends Partial<BeingCreated> {
     /** Returns null instead of throwing error if not found */
@@ -178,7 +185,6 @@ export interface _ISelection<T = any> extends _IAlias {
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
-    subquery(data: _ISelection, op: SelectStatement): _ISelection;
     isOriginOf(a: IValue): boolean;
     explain(e: _Explainer): _SelectExplanation;
 

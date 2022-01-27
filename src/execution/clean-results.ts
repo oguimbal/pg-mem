@@ -1,4 +1,4 @@
-import { nullIsh } from './utils';
+import { nullIsh } from '../utils';
 
 export const JSON_NIL = Symbol('null');
 export const IS_PARTIAL_INDEXING = Symbol('partial_indexing');

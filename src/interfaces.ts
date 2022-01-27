@@ -251,7 +251,7 @@ export interface ISchema {
     getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
 
     /** Register a function */
-    registerFunction(fn: FunctionDefinition): this;
+    registerFunction(fn: FunctionDefinition, orReplace?: boolean): this;
 
 
     /** Register a binary operator */

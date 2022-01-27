@@ -3,7 +3,7 @@ import 'chai';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb, QueryError } from '../interfaces';
-import { cleanResults } from '../clean-results';
+import { cleanResults } from '../execution/clean-results';
 
 describe('Test utils', () => {
 

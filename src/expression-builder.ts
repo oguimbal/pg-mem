@@ -8,7 +8,8 @@ import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprAr
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation, getAggregator } from './transforms/aggregation';
 import moment from 'moment';
-import { IS_PARTIAL_INDEXING } from './clean-results';
+import { IS_PARTIAL_INDEXING } from './execution/clean-results';
+import { StatementExec } from './execution/statement-exec';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
@@ -617,7 +618,10 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
 
 
 function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
-    const onData = data.subquery(data, op);
+    // todo: handle refs to 'data' in op statement.
+    //  ... and refactor this. This is way too hacky to be maintainable
+    //   (this wont allow the subrequest to access outer context, for instance)
+    const onData = new StatementExec(data.ownerSchema, op, null).buildSelect(op);
     if (onData.columns.length !== 1) {
         throw new QueryError('subquery must return only one column', '42601');
     }

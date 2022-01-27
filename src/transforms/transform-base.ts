@@ -97,12 +97,6 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return fns.buildAlias(this, alias);
     }
 
-
-    subquery(data: _ISelection<any>, op: SelectStatement): _ISelection {
-        // todo: handle refs to 'data' in op statement.
-        return this.ownerSchema.buildSelect(op);
-    }
-
     limit(limit: LimitStatement): _ISelection {
         if (!limit?.limit && !limit?.offset) {
             return this;
