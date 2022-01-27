@@ -11,6 +11,7 @@ import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../expression-builder';
 import { PgDatabaseTable } from './pg-database';
 import { registerCommonOperators } from './binary-operators';
+import { registerSqlFunctionLanguage } from './sql-function-language';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -102,6 +103,9 @@ export function setupPgCatalog(db: _IDb) {
     });
 
     registerCommonOperators(catalog);
+
+
+    registerSqlFunctionLanguage(db);
 
     catalog.setReadonly()
 }

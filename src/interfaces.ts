@@ -161,6 +161,7 @@ export interface ToCompile {
     functioName?: string | nil;
     /** Code to compile */
     code: string;
+    schema: ISchema;
     /** Expected arguments */
     args: ArgDefDetails[];
     /** Expected return type (if any) */

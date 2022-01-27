@@ -2,12 +2,10 @@ import { ISchema, DataType, IType, NotSupported, RelationNotFound, Schema, Query
 import { _IDb, _ISelection, CreateIndexColDef, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, OnConflictHandler, _IType, _IRelation, QueryObjOpts, _ISequence, asSeq, asTable, _INamedIndex, asIndex, RegClass, Reg, TypeQuery, asType, ChangeOpts, GLOBAL_VARS, _ArgDefDetails, BeingCreated, asView, asSelectable, _FunctionDefinition, _OperatorDefinition } from './interfaces-private';
 import { asSingleQName, errorMessage, ignore, isType, Optional, parseRegClass, pushContext, randomString, schemaOf, suggestColumnName, watchUse, nullIsh } from './utils';
 import { buildValue } from './expression-builder';
-import { ArrayType, Types, typeSynonyms } from './datatypes';
+import { Types, typeSynonyms } from './datatypes';
 import { JoinSelection } from './transforms/join';
-import { Statement, CreateTableStatement, SelectStatement, InsertStatement, CreateIndexStatement, UpdateStatement, AlterTableStatement, DeleteStatement, SetStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement, BinaryOperator } from 'pgsql-ast-parser';
+import { Statement, CreateTableStatement, SelectStatement, CreateIndexStatement, AlterTableStatement, CreateExtensionStatement, CreateSequenceStatement, AlterSequenceStatement, QName, QNameAliased, astMapper, DropIndexStatement, DropTableStatement, DropSequenceStatement, toSql, TruncateTableStatement, CreateSequenceOptions, DataTypeDef, ArrayDataTypeDef, BasicDataTypeDef, Expr, WithStatement, WithStatementBinding, SelectFromUnion, ShowStatement, CreateViewStatement, CreateMaterializedViewStatement, CreateFunctionStatement, DoStatement, ColumnConstraint, CreateColumnsLikeTableOpt, NodeLocation, SelectedColumn, SelectFromStatement, ValuesStatement, QNameMapped, Name, DropFunctionStatement, BinaryOperator } from 'pgsql-ast-parser';
 import { MemoryTable } from './table';
-import { buildSelection } from './transforms/selection';
-import { ArrayFilter } from './transforms/array-filter';
 import { parseSql } from './parse-cache';
 import { Sequence } from './sequence';
 import { IMigrate } from './migrate/migrate-interfaces';
@@ -18,10 +16,10 @@ import { ValuesTable } from './schema/values-table';
 import { cleanResults } from './clean-results';
 import { EquivalentType } from './datatypes/t-equivalent';
 import { View } from './view';
-import { OverloadResolver, HasSig } from './overload-resolver';
-
-
-type WithableResult = number | _ISelection;
+import { OverloadResolver } from './overload-resolver';
+import { Deletion } from './mutations/deletion';
+import { Update } from './mutations/update';
+import { Insert } from './mutations/insert';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -331,6 +329,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         const compiled = lang({
             args: [],
             code: st.code,
+            schema: this,
         });
         // TODO ACCESS OUTER TRANSACTION WITHIN THIS CALL
         compiled();
@@ -425,6 +424,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             code: fn.code,
             returns,
             functioName: fn.name.name,
+            schema: this,
         });
         this.registerFunction({
             name: fn.name.name,
@@ -462,7 +462,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
 
             // declare temp bindings
             for (const { alias, statement } of p.bind) {
-                const prepared = this.prepareWithable(t, statement);
+                const prepared = this.prepareWithable(statement);
                 if (this.tempBindings.has(alias.name)) {
                     throw new QueryError(` WITH query name "${alias.name}" specified more than once`);
                 }
@@ -508,7 +508,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return st;
     }
 
-    private prepareWithable(t: _Transaction, p: WithStatementBinding): WithableResult {
+    private prepareWithable(p: WithStatementBinding): _ISelection {
         switch (p.type) {
             case 'select':
             case 'union':
@@ -518,18 +518,18 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             case 'values':
                 return this.lastSelect = this.buildSelect(p);
             case 'delete':
-                return this.executeDelete(t, p);
+                return this.lastSelect = new Deletion(this, p);
             case 'update':
-                return this.executeUpdate(t, p);
+                return this.lastSelect = new Update(this, p);
             case 'insert':
-                return this.executeInsert(t, p);
+                return this.lastSelect = new Insert(this, p);
             default:
                 throw NotSupported.never(p);
         }
     }
 
     private executeWithable(t: _Transaction, p: WithStatementBinding) {
-        let last = this.prepareWithable(t, p);
+        let last = this.prepareWithable(p);
 
         const rows = typeof last === 'number'
             ? []
@@ -1117,22 +1117,6 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             .explain(new Explainer(this.db.data))
     }
 
-    private executeDelete(t: _Transaction, p: DeleteStatement): WithableResult {
-        const table = asTable(this.getObject(p.from));
-        const toDelete = table
-            .selection
-            .filter(p.where);
-        const rows = [];
-        for (const item of toDelete.enumerate(t)) {
-            table.delete(t, item);
-            rows.push(item);
-        }
-        cleanResults(rows);
-        return p.returning
-            ? buildSelection(new ArrayFilter(table.selection, rows), p.returning)
-            : rows.length;
-    }
-
     executeTruncateTable(t: _Transaction, p: TruncateTableStatement): QueryResult {
         if (p.tables.length !== 1) {
             throw new NotSupported('Multiple truncations');
@@ -1171,7 +1155,7 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
     }
 
 
-    private buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection {
+    buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection {
         const ret = new ValuesTable(this, '', p.values, null, acceptDefault);
         return ret.selection;
     }
@@ -1316,201 +1300,6 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
         return sel.select(
             cols
         )
-    }
-
-    private executeUpdate(t: _Transaction, p: UpdateStatement): WithableResult {
-        const into = asTable(this.getObject(p.table));
-
-        const items = into
-            .selection
-            .filter(p.where);
-
-        const setter = this.createSetter(t, into, items, p.sets);
-        const ret: any[] = [];
-        let rowCount = 0;
-        const returning = p.returning && buildSelection(new ArrayFilter(items, ret), p.returning);
-        for (const i of items.enumerate(t)) {
-            rowCount++;
-            setter(i, i);
-            ret.push(into.update(t, i));
-        }
-
-        return returning ?? rowCount;
-    }
-
-    private createSetter(t: _Transaction, setTable: _ITable, setSelection: _ISelection, _sets: SetStatement[]) {
-
-        const sets = _sets.map(x => {
-            const col = (setTable as MemoryTable).getColumnRef(x.column.name);
-            return {
-                col,
-                value: x.value,
-                getter: x.value.type !== 'default'
-                    ? buildValue(setSelection, x.value).cast(col.expression.type)
-                    : null,
-            };
-        });
-
-        return (target: any, source: any) => {
-            for (const s of sets) {
-                if (s.value.type === 'default') {
-                    target[s.col.expression.id!] = s.col.default?.get() ?? undefined;
-                } else {
-                    target[s.col.expression.id!] = s.getter?.get(source, t) ?? null;
-                }
-            }
-        }
-    }
-
-    private executeInsert(t: _Transaction, p: InsertStatement): WithableResult {
-        if (p.type !== 'insert') {
-            throw new NotSupported();
-        }
-
-        // get table to insert into
-        const table = asTable(this.getObject(p.into));
-        const selection = table
-            .selection
-            .setAlias(p.into.alias);
-
-
-        const ret: any[] = [];
-        const returning = p.returning && buildSelection(new ArrayFilter(selection, ret), p.returning);
-
-
-
-
-
-        const valueRawSource = p.insert.type === 'values'
-            ? this.buildValues(p.insert, true)
-            : this.buildSelect(p.insert);
-
-        // check not inserting too many values
-        const columns: string[] = p.columns?.map(x => x.name)
-            ?? table.selection.columns.map(x => x.id!)
-                .slice(0, valueRawSource.columns.length);
-        if (valueRawSource.columns.length > columns.length) {
-            throw new QueryError(`INSERT has more expressions than target columns`);
-        }
-
-
-        // check insert types
-        const valueConvertedSource = columns.map((col, i) => {
-            const value = valueRawSource.columns[i];
-            const insertInto = table.selection.getColumn(col);
-            // It seems that the explicit conversion is only performed when inserting values.
-            const canConvert = p.insert.type === 'values'
-                ? value.type.canCast(insertInto.type)
-                : value.type.canConvertImplicit(insertInto.type);
-            if (!canConvert) {
-                throw new QueryError(`column "${col}" is of type ${insertInto.type.name} but expression is of type ${value.type.name}`);
-            }
-            return value.type === Types.default
-                ? value  // handle "DEFAULT" values
-                : value.cast(insertInto.type);
-        });
-
-        // enumerate & get
-        const values: any[][] = [];
-        for (const o of valueRawSource.enumerate(t)) {
-            const nv = [];
-            for (let i = 0; i < columns.length; i++) {
-                const _custom = valueConvertedSource[i].get(o, t);
-                nv.push(_custom);
-            }
-            values.push(nv);
-        }
-
-
-
-
-        // build 'on conflict' strategy
-        let ignoreConflicts: OnConflictHandler | nil = undefined;
-        if (p.onConflict) {
-            // find the targeted index
-            const on = p.onConflict.on?.map(x => buildValue(table.selection, x));
-            let onIndex: _IIndex | nil = null;
-            if (on) {
-                onIndex = table.getIndex(...on);
-                if (!onIndex?.unique) {
-                    throw new QueryError(`There is no unique or exclusion constraint matching the ON CONFLICT specification`);
-                }
-            }
-
-            // check if 'do nothing'
-            if (p.onConflict.do === 'do nothing') {
-                ignoreConflicts = { ignore: onIndex ?? 'all' };
-            } else {
-                if (!onIndex) {
-                    throw new QueryError(`ON CONFLICT DO UPDATE requires inference specification or constraint name`);
-                }
-                const subject = new JoinSelection(this
-                    , selection
-                    // fake data... we're only using this to get the multi table column resolution:
-                    , new ArrayFilter(table.selection, []).setAlias('excluded')
-                    , {
-                        type: 'LEFT JOIN',
-                        on: { type: 'boolean', value: false }
-                    }
-                    , false
-                );
-                const setter = this.createSetter(t, table, subject, p.onConflict.do.sets,);
-                const where = p.onConflict.where && buildValue(subject, p.onConflict.where);
-                ignoreConflicts = {
-                    onIndex,
-                    update: (item, excluded) => {
-                        // build setter context
-                        const jitem = subject.buildItem(item, excluded);
-
-                        // check "WHERE" clause on conflict
-                        if (where) {
-                            const whereClause = where.get(jitem, t);
-                            if (whereClause !== true) {
-                                return;
-                            }
-                        }
-
-                        // execute set
-                        setter(item, jitem);
-                    },
-                }
-            }
-        }
-
-        // insert values
-        let rowCount = 0;
-        const opts: ChangeOpts = {
-            onConflict: ignoreConflicts,
-            overriding: p.overriding
-        };
-        for (const val of values) {
-            rowCount++;
-            if (val.length !== columns.length) {
-                throw new QueryError('Insert columns / values count mismatch');
-            }
-            const toInsert: any = {};
-            for (let i = 0; i < val.length; i++) {
-                const v = val[i];
-                const col = valueConvertedSource[i];
-                if (col.type === Types.default) {
-                    continue; // insert a 'DEFAULT' value
-                }
-                toInsert[columns[i]] = v;
-                // if ('_custom' in v) {
-                //      toInsert[columns[i]] = v._custom;
-                // } else {
-                //     const notConv = buildValue(table.selection, v);
-                //     const converted = notConv.cast(col.type);
-                //     if (!converted.isConstant) {
-                //         throw new QueryError('Cannot insert non constant expression');
-                //     }
-                //     toInsert[columns[i]] = converted.get();
-                // }
-            }
-            ret.push(table.doInsert(t, toInsert, opts));
-        }
-
-        return returning ?? rowCount;
     }
 
 

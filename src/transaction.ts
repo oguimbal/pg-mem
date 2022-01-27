@@ -4,6 +4,7 @@ import { NotSupported, QueryError } from './interfaces';
 
 export class Transaction implements _Transaction {
     private origData: ImMap<symbol, any>;
+    affectedRows: number = 0;
 
     static root() {
         return new Transaction(null, ImMap());
@@ -73,7 +74,8 @@ export class Transaction implements _Transaction {
             : ret;
     }
 
-    rollback () {
+    rollback() {
         return this.parent ?? this;
     }
+
 }

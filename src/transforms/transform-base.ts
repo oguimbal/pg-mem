@@ -40,6 +40,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract stats(t: _Transaction): Stats | null;
     // abstract get name(): string;
 
+
     get db() {
         return this.ownerSchema.db;
     }
@@ -125,6 +126,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     }
 
 }
+
 
 export abstract class TransformBase<T> extends DataSourceBase<T> {
 

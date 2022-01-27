@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema, _Transaction } from '../../interfaces-private';
-import {  nil, Schema } from '../../interfaces';
+import { nil, Schema } from '../../interfaces';
 import { Types } from '../../datatypes';
 import { TableIndex } from '../table-index';
 import { ReadOnlyTable } from '../readonly-table';

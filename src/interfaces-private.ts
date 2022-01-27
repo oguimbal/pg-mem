@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, WithStatementBinding, ValuesStatement } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, List, Set as ImSet } from 'immutable';
 
 export * from './interfaces';
@@ -40,6 +40,7 @@ export interface _ISchema extends ISchema {
     readonly db: _IDb;
     readonly dualTable: _ITable;
     buildSelect(p: SelectStatement): _ISelection;
+    buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection;
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
     getTable(table: string): _ITable;
@@ -83,7 +84,9 @@ export interface _ISchema extends ISchema {
     _reg_register(rel: _IRelation): Reg;
     _reg_unregister(rel: _IRelation): void;
     _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
+
 }
+
 
 export interface QueryObjOpts extends Partial<BeingCreated> {
     /** Returns null instead of throwing error if not found */
@@ -132,6 +135,7 @@ export interface _Transaction {
     get<T>(identity: symbol): T;
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
     getSet<T>(identity: symbol): ImSet<T>;
+    affectedRows: number;
 }
 
 export interface Stats {
@@ -349,7 +353,7 @@ export interface _IDb extends IMemoryDb {
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     onIndex: _IIndex;
-    update: (item: any, excluded: any) => void;
+    update: (item: any, excluded: any, t: _Transaction) => void;
 }
 
 export type DropHandler = (t: _Transaction) => void;

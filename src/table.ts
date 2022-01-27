@@ -345,7 +345,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 const got = index.eqFirst(key, t);
                 if (got) {
                     // update !
-                    onConflict.update(got, toInsert);
+                    onConflict.update(got, toInsert, t);
                     return this.update(t, got);
                 }
             }
