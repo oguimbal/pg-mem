@@ -1,4 +1,4 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
 
@@ -89,11 +89,21 @@ export interface _ISchema extends ISchema {
 
 }
 
+
 export interface _IStatement {
     readonly schema: _ISchema;
+    onExecuted(callback: OnStatementExecuted): void;
     buildSelect(p: SelectStatement): _ISelection;
     buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection;
-    onExecuted(callback: OnStatementExecuted): void;
+}
+
+export interface _IStatementExecutor {
+    execute(t: _Transaction): StatementResult;
+}
+
+export interface StatementResult {
+    result: QueryResult;
+    state: _Transaction;
 }
 
 export type OnStatementExecuted = (t: _Transaction) => void;

@@ -1,16 +1,19 @@
-import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable } from '../interfaces-private';
+import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor } from '../../interfaces-private';
 import { CreateTableStatement, QName } from 'pgsql-ast-parser';
-import { ignore, Optional } from '../utils';
-import { checkExistence } from './exec-utils';
+import { ignore, Optional } from '../../utils';
+import { checkExistence, resultNoData } from '../exec-utils';
 
-export class ExecuteCreateTable {
-    schema: _ISchema;
-    constructor(inSchema: _ISchema, private statement: CreateTableStatement) {
-        const name: QName = statement.name;
-        this.schema = inSchema.getThisOrSiblingFor(name);
+export class ExecuteCreateTable implements _IStatementExecutor {
+    constructor(private schema: _ISchema, private statement: CreateTableStatement) {
     }
 
     execute(t: _Transaction) {
+
+        // commit pending data before making changes
+        //  (because the creation does not support further rollbacks)
+        t = t.fullCommit();
+
+        // delete table
         const p = this.statement;
         const name: QName = p.name;
         let table: _ITable | null = null;
@@ -44,6 +47,11 @@ export class ExecuteCreateTable {
                 fields,
             });
         });
-        return table;
+
+
+
+        // new implicit transaction
+        t = t.fork();
+        return resultNoData('CREATE', this.statement, t, table === null);
     }
 }

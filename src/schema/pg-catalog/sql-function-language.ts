@@ -1,11 +1,12 @@
-import { _IDb, _ISchema } from '../../interfaces-private';
+import { _IDb, _ISchema, _Transaction } from '../../interfaces-private';
 import { parseSql } from '../../parser/parse-cache';
-import { QueryError, NotSupported } from '../../interfaces';
+import { QueryError, NotSupported, DataType } from '../../interfaces';
 import { Statement } from 'pgsql-ast-parser';
-import { watchUse } from '../../utils';
+import { getContext } from '../../utils';
+import { StatementExec } from '../../execution/statement-exec';
 
 export function registerSqlFunctionLanguage(db: _IDb) {
-    db.registerLanguage('sql', ({ code, schema }) => {
+    db.registerLanguage('sql', ({ code, schema, args, returns }) => {
         // parse SQL
         const _parsed = parseSql(code);
         let parsed: Statement;
@@ -30,21 +31,32 @@ export function registerSqlFunctionLanguage(db: _IDb) {
         }
 
         // visit & compile tree
-        const { checked: p, check } = db.options.noAstCoverageCheck
-            ? { checked: parsed, check: null }
-            : watchUse(parsed);
+        const statement = new StatementExec(schema as _ISchema, parsed, code);
+        const selection = statement.buildSelect(parsed);
 
-        // const selection = (schema as _ISchema).buildSelect(p);
+        // todo: prepare statement here, to avoid optimization on each call.
 
-        check?.();
+
+        // get the result transformer, based on the expected function output type
+        let transformResult: (values: any[], t: _Transaction) => any;
+        if (!returns || returns.primary === DataType.null) {
+            transformResult = () => null;
+        } else if (returns.primary === DataType.array) {
+            transformResult = v => v;
+        } else {
+            if (selection.columns.length !== 1) {
+                throw new QueryError(`return type mismatch in function declared to return ${returns.toString()}`, '42P13');
+            }
+            const col = selection.columns[0];
+            transformResult = (v, t) => v[0] ? col.get(v[0], t) : null;
+        }
+
 
         // return compiled function
         return (...args: any[]) => {
-            // selection.enumerate(currentTransaction())
-
-
-            // check?.();
-            // reutrn return;
+            const ctx = getContext();
+            const result = statement.executeStatement(ctx.transaction);
+            return transformResult(result.result.rows, ctx.transaction);
         }
     });
 }

@@ -11,7 +11,7 @@ import { CustomEnumType } from '../datatypes/t-custom-enum';
 import { regGen } from '../datatypes/datatype-base';
 import { EquivalentType } from '../datatypes/t-equivalent';
 import { OverloadResolver } from './overload-resolver';
-import { ExecuteCreateSequence } from '../execution/create-sequence';
+import { ExecuteCreateSequence } from '../execution/schema-amends/create-sequence';
 import { StatementExec } from '../execution/statement-exec';
 
 export class DbSchema implements _ISchema, ISchema {
@@ -325,7 +325,7 @@ export class DbSchema implements _ISchema, ISchema {
             type: 'create sequence',
             name: _name,
             options: opts ?? {},
-        }, true).execute(t)!;
+        }, true).createSeq(t)!;
     }
 
     explainLastSelect(): _SelectExplanation | undefined {
