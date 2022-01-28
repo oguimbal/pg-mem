@@ -11,9 +11,6 @@ describe('Custom functions', () => {
     let many: (str: string) => any[];
     let one: (str: string) => any;
     let none: (str: string) => void;
-    function all(table = 'data') {
-        return many(`select * from ${table}`);
-    }
     beforeEach(() => {
         db = newDb();
         many = db.public.many.bind(db.public);
@@ -69,6 +66,13 @@ describe('Custom functions', () => {
         expect(one(`SELECT test_fn('hello');`)).to.deep.equal({ test_fn: 'hello world' });
     });
 
+    it('can use sql language positional arguments in single value', () => {
+        none(`CREATE FUNCTION test_fn(hello text) RETURNS text
+                AS $$ select $1 || ' world' $$
+                LANGUAGE SQL;`)
+
+        expect(one(`SELECT test_fn('hello');`)).to.deep.equal({ test_fn: 'hello world' });
+    });
 
     it('can override sql language', () => {
         db.registerLanguage('sql', ({ code, args, returns }) => {
@@ -107,61 +111,61 @@ describe('Custom functions', () => {
 
 
 
-    it('can use table function of custom languages', () => {
-        none(`CREATE FUNCTION test_fn(arg text) RETURNS  table (val text) stable
-                AS $$ whatever $$
-                LANGUAGE custom;`)
+    it('does not take parameters into account when overriden', () => {
+        expect(one(`
+        CREATE FUNCTION test_fn(hello text) RETURNS text
+                AS $$ select hello from (values ('inner')) as tbl(hello) $$
+                LANGUAGE SQL;
 
-        db.registerLanguage('plpgsql', ({ code, args, returns }) => {
-            expect(code).to.equal('whatever');
-            return arg => [{ val: 'bye ' + arg }, { val: 'hello ' + arg }];
+
+               select test_fn('hello');
+        `)).to.deep.equal({ test_fn: 'inner' });
+    })
+
+    describe('should check things', () => {
+
+        it('cannot change type of function', () => {
+            none(`CREATE FUNCTION test_fn() RETURNS TEXT
+                    AS $$ select 'hello' $$
+                    LANGUAGE SQL;`);
+
+            assert.throws(() => none(`CREATE OR REPLACE FUNCTION test_fn() RETURNS INT
+                AS $$ select 42 $$
+                LANGUAGE SQL;`), /cannot change return type of existing function/);
         });
 
-        expect(one(`SELECT * from test_fn('world') WHERE val like 'hello%';`)).to.deep.equal({ val: 'hello world' });
-    });
+        it('cannot change args of function', () => {
+            none(`CREATE FUNCTION test_fn(arg text) RETURNS TEXT
+                    AS $$ select 'hello' $$
+                    LANGUAGE SQL;`);
 
-
-    it('cannot change type of function', () => {
-        none(`CREATE FUNCTION test_fn() RETURNS TEXT
+            assert.throws(() => none(`CREATE OR REPLACE FUNCTION test_fn(new_arg text) RETURNS TEXT
                 AS $$ select 'hello' $$
-                LANGUAGE SQL;`);
+                LANGUAGE SQL;`), /cannot change name of input parameter "arg"/);
+        });
 
-        assert.throws(() => none(`CREATE OR REPLACE FUNCTION test_fn() RETURNS INT
-            AS $$ select 42 $$
-            LANGUAGE SQL;`), /cannot change return type of existing function/);
-    });
-
-    it('cannot change args of function', () => {
-        none(`CREATE FUNCTION test_fn(arg text) RETURNS TEXT
-                AS $$ select 'hello' $$
-                LANGUAGE SQL;`);
-
-        assert.throws(() => none(`CREATE OR REPLACE FUNCTION test_fn(new_arg text) RETURNS TEXT
+        it('checks return type on single values', () => {
+            assert.throws(() => none(`CREATE or replace FUNCTION test_fn() RETURNS INT
             AS $$ select 'hello' $$
-            LANGUAGE SQL;`), /cannot change name of input parameter "arg"/);
-    });
+            LANGUAGE SQL`), /return type mismatch in function declared to return integer/); // error 42P13
+        });
 
-    it('checks return type on single values', () => {
-        assert.throws(() => none(`CREATE or replace FUNCTION test_fn() RETURNS INT
-        AS $$ select 'hello' $$
-        LANGUAGE SQL`), /return type mismatch in function declared to return integer/); // error 42P13
-    });
+        it('checks column count on single values', () => {
+            assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS INT
+            AS $$ select * from (values(42, 'a') ) as foo(a,b) $$
+            LANGUAGE SQL`), /return type mismatch in function declared to return integer/); // error 42P13
+        });
 
-    it('checks column count on single values', () => {
-        assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS INT
-        AS $$ select * from (values(42, 'a') ) as foo(a,b) $$
-        LANGUAGE SQL`), /return type mismatch in function declared to return integer/); // error 42P13
-    });
+        it('checks column count on table values', () => {
+            assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
+            AS $$ select * from (values('a') ) as foo(val) $$
+            LANGUAGE SQL`), /return type mismatch in function declared to return record/); // error 42P13
+        });
 
-    it('checks column count on table values', () => {
-        assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
-        AS $$ select * from (values('a') ) as foo(val) $$
-        LANGUAGE SQL`), /return type mismatch in function declared to return record/); // error 42P13
-    });
-
-    it('checks column types on table values', () => {
-        assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
-        AS $$ select * from (values(42, 'a') ) as foo(a,b) $$
-        LANGUAGE SQL`), /return type mismatch in function declared to return record/); // error 42P13
-    });
+        it('checks column types on table values', () => {
+            assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
+            AS $$ select * from (values(42, 'a') ) as foo(a,b) $$
+            LANGUAGE SQL`), /return type mismatch in function declared to return record/); // error 42P13
+        });
+    })
 });

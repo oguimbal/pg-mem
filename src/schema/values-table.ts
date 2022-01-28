@@ -11,13 +11,27 @@ export class ValuesTable extends ReadOnlyTable {
     private symbol = Symbol();
     private items!: any[];
     _schema!: Schema;
+    private assignments!: (IValue<any> | "default")[][];
 
     entropy(t: _Transaction): number {
         return this.items.length;
     }
+
     enumerate(t: _Transaction): Iterable<any> {
+        this.items = this.items ?? this.assignments.map(vals => {
+            const ret = { [this.symbol]: true } as any;
+            setId(ret, 'vtbl' + (++cnt));
+            for (let i = 0; i < vals.length; i++) {
+                const v = vals[i];
+                ret[this._schema.fields[i].name] = v === 'default'
+                    ? null
+                    : v.get(null, t);
+            }
+            return ret;
+        });
         return this.items;
     }
+
     hasItem(value: any, t: _Transaction): boolean {
         return !!value[this.symbol];
     }
@@ -56,17 +70,7 @@ export class ValuesTable extends ReadOnlyTable {
                     }
                 })
             };
-            this.items = builtVals.map(vals => {
-                const ret = { [this.symbol]: true } as any;
-                setId(ret, 'vtbl' + (++cnt));
-                for (let i = 0; i < vals.length; i++) {
-                    const v = vals[i];
-                    ret[this._schema.fields[i].name] = v === 'default'
-                        ? null
-                        : v.cast(types[i]!).get();
-                }
-                return ret;
-            });
+            this.assignments = builtVals.map(vals => vals.map((v, i) => v === 'default' ? v : v.cast(types[i]!)))
         });
     }
 }

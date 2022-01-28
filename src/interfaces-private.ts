@@ -509,6 +509,11 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     drop(t: _Transaction): void;
 }
 
+export interface Parameter {
+    readonly index: number;
+    readonly value: IValue;
+}
+
 export interface IValue<TRaw = any> {
     /** Columns used in this expression (if any) */
     readonly usedColumns: ReadonlySet<IValue>;

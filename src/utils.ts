@@ -372,6 +372,7 @@ export function combineSubs(...vals: ISubscription[]): ISubscription {
 interface Ctx {
     readonly schema: _ISchema;
     readonly transaction: _Transaction;
+    readonly parametersValues?: any[];
 }
 const curCtx: Ctx[] = [];
 export function executionCtx(): Ctx {
@@ -691,4 +692,12 @@ export class IteratorHelper<T> implements Iterable<T> {
         }
         return acc;
     }
+}
+
+export function fromEntries<K, V>(iterable: [K, V][]): Map<K, V> {
+    const ret = new Map<K, V>();
+    for (const [k, v] of iterable) {
+        ret.set(k, v);
+    }
+    return ret;
 }

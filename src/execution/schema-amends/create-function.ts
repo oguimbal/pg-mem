@@ -30,21 +30,25 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
 
         // determine return type
         let returns: IType | null = null;
-        if (fn.returns) {
-            switch (fn.returns.kind) {
-                case 'table':
-                    // Todo: we're losing the typing here :(
-                    returns = Types.record.asArray();
-                    ignore(fn.returns.columns);
-                    break;
-                case 'array':
-                case null:
-                case undefined:
-                    returns = schema.getType(fn.returns);
-                    break;
-                default:
-                    throw NotSupported.never(fn.returns);
-            }
+        if (!fn.returns) {
+            throw new QueryError('Unspecified function return type');
+        }
+        if (typeof fn.code !== 'string') {
+            throw new QueryError('no function body specified');
+        }
+        switch (fn.returns.kind) {
+            case 'table':
+                // Todo: we're losing the typing here :(
+                returns = Types.record.asArray();
+                ignore(fn.returns.columns);
+                break;
+            case 'array':
+            case null:
+            case undefined:
+                returns = schema.getType(fn.returns);
+                break;
+            default:
+                throw NotSupported.never(fn.returns);
         }
 
         let argsVariadic: _IType | nil;

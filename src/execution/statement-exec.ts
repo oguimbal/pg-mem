@@ -1,6 +1,6 @@
-import { watchUse, ignore, errorMessage, pushExecutionCtx } from '../utils';
-import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult } from '../interfaces-private';
-import { toSql, Statement, SelectStatement, ValuesStatement } from 'pgsql-ast-parser';
+import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils';
+import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private';
+import { toSql, Statement } from 'pgsql-ast-parser';
 import { ExecuteCreateTable } from './schema-amends/create-table';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence';
 import { locOf, ExecHelper } from './exec-utils';
@@ -21,7 +21,7 @@ import { CreateSchema } from './schema-amends/create-schema';
 import { CreateFunction } from './schema-amends/create-function';
 import { DoStatementExec } from './schema-amends/do';
 import { SelectExec } from './select';
-import { withSelection, withStatement } from '../parser/context';
+import { withSelection, withStatement, withNameResolver, INameResolver } from '../parser/context';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -35,12 +35,20 @@ export class SimpleExecutor extends ExecHelper implements _IStatementExecutor {
     }
 }
 
+class MapNameResolver implements INameResolver {
+    constructor(private map: Map<string, any>, readonly isolated: boolean) {
+    }
+    resolve(name: string): IValue | nil {
+        return this.map.get(name);
+    }
+}
+
 export class StatementExec implements _IStatement {
     private onExecutedCallbacks: OnStatementExecuted[] = []
     private executor?: _IStatementExecutor;
     private checkAstCoverage?: (() => void);
 
-    constructor(readonly schema: _ISchema, private statement: Statement, private pAsSql: string | nil) {
+    constructor(readonly schema: _ISchema, private statement: Statement, private pAsSql: string | nil, private parameters?: Parameter[]) {
     }
 
     onExecuted(callback: OnStatementExecuted): void {
@@ -148,12 +156,19 @@ export class StatementExec implements _IStatement {
                 };
             }
 
+            // build parameters context
+            const namedParams = fromEntries(this.parameters?.filter(p => !!p.value.id).map(x => [x.value.id!, x]) ?? []);
+            const nameResolver = new MapNameResolver(namedParams, true);
+
+
             // parse the AST
-            withStatement(this, () => {
-                withSelection(this.schema.dualTable.selection, () => {
-                    this.executor = this._getExecutor(p);
-                });
-            })
+            withNameResolver(nameResolver,
+                () => withStatement(this,
+                    () => withSelection(this.schema.dualTable.selection,
+                        () => this.executor = this._getExecutor(p)
+                    )
+                )
+            );
 
             return this.executor!;
         });

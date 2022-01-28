@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IType, _ISchema } from '../interfaces-private';
-import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName } from '../utils';
-import { DataType, CastError, QueryError, IType, NotSupported, nil } from '../interfaces';
+import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils';
+import { DataType, CastError, QueryError, IType, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
 import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from '../datatypes';
@@ -62,7 +62,7 @@ function _buildValue(val: Expr): IValue {
 }
 
 function _buildValueReal(val: Expr): IValue {
-    const { schema } = buildCtx();
+    const { schema, getParameter, selection } = buildCtx();
     switch (val.type) {
         case 'binary':
             if (val.op === 'IN' || val.op === 'NOT IN') {
@@ -72,7 +72,18 @@ function _buildValueReal(val: Expr): IValue {
         case 'unary':
             return buildUnary(val.op, val.operand);
         case 'ref':
-            return buildCtx().selection.getColumn(val);
+            // try to get a column reference
+            // todo refactor getColumn() to NameResolvers
+            const found = selection.getColumn(val, true);
+            if (found) {
+                return found;
+            }
+            // try to get a parameter reference
+            const arg = !val.table && getParameter(val.name);
+            if (arg) {
+                return arg;
+            }
+            throw new ColumnNotFound(colToStr(val));
         case 'string':
             return Value.text(val.value);
         case 'null':
@@ -128,7 +139,11 @@ function _buildValueReal(val: Expr): IValue {
         case 'keyword':
             return buildKeyword(val, []);
         case 'parameter':
-            throw new NotSupported('Parameters expressions');
+            const [_, n] = /^\$(\d+)$/.exec(val.name) ?? [];
+            if (!n) {
+                throw new Error('Unexpected parameter ref shape: ' + val.name);
+            }
+            return getParameter(parseInt(n) - 1)!;
         case 'extract':
             return buildExtract(val);
         case 'overlay':

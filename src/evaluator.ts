@@ -1,9 +1,9 @@
-import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema } from './interfaces-private';
-import { DataType, QueryError, CastError, nil, ISchema } from './interfaces';
+import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema, Parameter } from './interfaces-private';
+import { DataType, QueryError, CastError, nil, ISchema, IType, ArgDefDetails } from './interfaces';
 import hash from 'object-hash';
 import { Types, ArrayType, isNumeric } from './datatypes';
 import { buildCall } from './parser/function-call';
-import { nullIsh } from './utils';
+import { nullIsh, executionCtx } from './utils';
 import { QName } from 'pgsql-ast-parser';
 
 
@@ -462,4 +462,25 @@ function arrayOrList(values: IValue[], list: boolean) {
             const arr = values.map(x => x.get(raw, t));
             return arr;
         });
+}
+
+
+export function buildParameterList(statementName: string | null, args: ArgDefDetails[]) {
+    return args.map<Parameter>(({ type, name }, i) => {
+        const value = new Evaluator(
+            type as _IType
+            , name
+            , hash({ param: name })
+            , null
+            , () => {
+                const { parametersValues } = executionCtx();
+                if (!parametersValues || parametersValues.length <= i) {
+                    throw new QueryError(`bind message supplies ${parametersValues?.length ?? 0} parameters, but prepared statement "${statementName}" requires ${args.length}`, '08P01');
+                }
+                return parametersValues[i];
+            }, {
+            forceNotConstant: true,
+        });
+        return { value, index: i };
+    })
 }
