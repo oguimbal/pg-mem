@@ -15,13 +15,16 @@ import { IneqFilter } from './ineq-filter';
 import { hasNullish, nullIsh } from '../utils';
 import { BetweenFilter } from './between-filter';
 import { QueryError } from '../interfaces';
+import { withSelection } from '../parser/context';
 
 export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, parentName: string): _ISelection<T> {
-    const where = buildValue(on, filter);
-    if (!where.type.canConvertImplicit(Types.bool)) {
-        throw new QueryError(`argument of ${parentName} must be type boolean, not type jsonb`, '42804');
-    }
-    return _buildFilter(on, filter, where) ?? new SeqScanFilter(on, where)
+    return withSelection(on, () => {
+        const where = buildValue(filter);
+        if (!where.type.canConvertImplicit(Types.bool)) {
+            throw new QueryError(`argument of ${parentName} must be type boolean, not type jsonb`, '42804');
+        }
+        return _buildFilter(on, filter, where) ?? new SeqScanFilter(on, where)
+    });
 }
 
 function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, built: IValue): _ISelection<T> | null {
@@ -64,11 +67,11 @@ function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary):
     switch (op) {
         case 'IS NULL':
         case 'IS NOT NULL': {
-            const leftValue = buildValue(on, operand);
+            const leftValue = buildValue(operand);
             if (leftValue.index) {
                 return new EqFilter(leftValue, null, op === 'IS NULL' ? 'eq' : 'neq', true);
             }
-            return new SeqScanFilter(on, Value.isNull(on.ownerSchema, leftValue, op === 'IS NULL'));
+            return new SeqScanFilter(on, Value.isNull(leftValue, op === 'IS NULL'));
         }
     }
     return null;
@@ -97,11 +100,11 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
         }
         case 'IN':
         case 'NOT IN': {
-            const value = buildValue(on, left);
-            let arrayValue = buildValue(on, right);
+            const value = buildValue(left);
+            let arrayValue = buildValue(right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
             if (arrayValue.type.primary !== DataType.list) {
-                arrayValue = Value.list(on.ownerSchema, [arrayValue]);
+                arrayValue = Value.list([arrayValue]);
             }
             const elementType = (arrayValue.type as ArrayType).of.prefer(value.type);
             const array = arrayValue.cast(elementType!.asList());
@@ -117,12 +120,12 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             }
             // todo use indexes on queries like "WHERE 'whatever' in (indexedOne, indexedTwo)"
             //   => this is an OrFilter
-            return new SeqScanFilter(on, Value.in(on.ownerSchema, value, array, op === 'IN'));
+            return new SeqScanFilter(on, Value.in(value, array, op === 'IN'));
         }
         case 'LIKE': {
-            const value = buildValue(on, left);
+            const value = buildValue(left);
             if (value.index && value.index.expressions[0].hash === value.hash) {
-                const valueToCompare = buildValue(on, right);
+                const valueToCompare = buildValue(right);
                 if (valueToCompare.isConstant) {
                     const str = valueToCompare.get();
                     if (nullIsh(str)) {
@@ -147,7 +150,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
                             return indexed;
                         }
                         // use index, but filter again on it.
-                        return new SeqScanFilter(indexed, buildValue(on, filter));
+                        return new SeqScanFilter(indexed, buildValue(filter));
                     }
                 }
             }
@@ -158,11 +161,11 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
 
 function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null {
     const { op, left, right } = filter;
-    let leftValue = buildValue(on, left);
-    let rightValue = buildValue(on, right);
+    let leftValue = buildValue(left);
+    let rightValue = buildValue(right);
 
     if (leftValue.isConstant && rightValue.isConstant) {
-        const global = buildValue(on, filter);
+        const global = buildValue(filter);
         const got = global.get();
         if (got) {
             return on;
@@ -214,9 +217,9 @@ function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTerna
     switch (filter.op) {
         case 'BETWEEN':
         case 'NOT BETWEEN': {
-            const value = buildValue(on, filter.value);
-            const lo = buildValue(on, filter.lo);
-            const hi = buildValue(on, filter.hi);
+            const value = buildValue(filter.value);
+            const lo = buildValue(filter.lo);
+            const hi = buildValue(filter.hi);
             const valueIndex = value.index;
             if (valueIndex && valueIndex.expressions[0].hash === value.hash && lo.isConstant && hi.isConstant) {
                 const lov = lo.get();

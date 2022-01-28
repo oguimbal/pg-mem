@@ -3,6 +3,7 @@ import { FilterBase } from './transform-base';
 import { OrderByStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { nullIsh } from '../utils';
+import { withSelection } from '../parser/context';
 
 export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {
     return new OrderBy(on, order);
@@ -31,11 +32,12 @@ class OrderBy<T> extends FilterBase<any> {
 
     constructor(private selection: _ISelection<T>, order: OrderByStatement[]) {
         super(selection);
-        this.order = order.map(x => ({
-            by: buildValue(selection, x.by),
-            order: x.order ?? 'ASC',
-            nullsLast: x.nulls === 'LAST',
-        }))
+        this.order = withSelection(selection,
+            () => order.map(x => ({
+                by: buildValue(x.by),
+                order: x.order ?? 'ASC',
+                nullsLast: x.nulls === 'LAST',
+            })));
     }
 
 

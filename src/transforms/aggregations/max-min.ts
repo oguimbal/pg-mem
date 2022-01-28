@@ -3,6 +3,7 @@ import { Expr } from 'pgsql-ast-parser';
 import { buildValue } from '../../parser/expression-builder';
 import { nullIsh } from '../../utils';
 import { DataType } from '../../interfaces';
+import { withSelection } from '../../parser/context';
 
 
 class MinMax implements AggregationComputer<number> {
@@ -34,25 +35,27 @@ class MinMax implements AggregationComputer<number> {
 
 
 export function buildMinMax(this: void, base: _ISelection, args: Expr[], op: 'max' | 'min') {
-    if (args.length !== 1) {
-        throw new QueryError(op.toUpperCase() + ' expects one argument, given ' + args.length);
-    }
+    return withSelection(base, () => {
+        if (args.length !== 1) {
+            throw new QueryError(op.toUpperCase() + ' expects one argument, given ' + args.length);
+        }
 
-    const what = buildValue(base, args[0]);
+        const what = buildValue(args[0]);
 
-    switch (what.type.primary) {
-        case DataType.bigint:
-        case DataType.integer:
-        case DataType.decimal:
-        case DataType.date:
-        case DataType.float:
-        case DataType.text:
-        case DataType.time:
-        case DataType.timestamp:
-        case DataType.timestamptz:
-            break;
-        default:
-            throw new QueryError(`function min(${what.type.primary}) does not exist`, '42883');
-    }
-    return new MinMax(what, op === 'max');
+        switch (what.type.primary) {
+            case DataType.bigint:
+            case DataType.integer:
+            case DataType.decimal:
+            case DataType.date:
+            case DataType.float:
+            case DataType.text:
+            case DataType.time:
+            case DataType.timestamp:
+            case DataType.timestamptz:
+                break;
+            default:
+                throw new QueryError(`function min(${what.type.primary}) does not exist`, '42883');
+        }
+        return new MinMax(what, op === 'max');
+    });
 }

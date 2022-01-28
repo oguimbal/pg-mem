@@ -9,14 +9,15 @@ import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation, getAggregator } from '../transforms/aggregation';
 import moment from 'moment';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results';
-import { StatementExec } from '../execution/statement-exec';
+import { buildCtx } from './context';
+import { buildSelect } from '../execution/select';
 
 
 const builtLru = new lru<_ISelection | null, lru<Expr, IValue>>({
     max: 30,
 });
-export function buildValue(data: _ISelection, val: Expr): IValue {
-    const ret = _buildValue(data, val);
+export function buildValue(val: Expr): IValue {
+    const ret = _buildValue(val);
     checkNotUntypedArray(ret);
     return ret;
 }
@@ -36,8 +37,9 @@ export function uncache(data: _ISelection) {
     builtLru.del(data);
 }
 
-function _buildValue(data: _ISelection | nil, val: Expr): IValue {
+function _buildValue(val: Expr): IValue {
     // cache expressions build (they almost are always rebuilt several times in a row)
+    const data = buildCtx().selection;
     let selLru = builtLru.get(data ?? null);
     let got: IValue | nil;
     if (selLru) {
@@ -46,7 +48,7 @@ function _buildValue(data: _ISelection | nil, val: Expr): IValue {
             return got;
         }
     }
-    got = _buildValueReal(data!, val);
+    got = _buildValueReal(val);
     if (data instanceof Aggregation) {
         got = data.checkIfIsKey(got);
     }
@@ -59,80 +61,80 @@ function _buildValue(data: _ISelection | nil, val: Expr): IValue {
     return got;
 }
 
-function _buildValueReal(data: _ISelection, val: Expr): IValue {
+function _buildValueReal(val: Expr): IValue {
+    const { schema } = buildCtx();
     switch (val.type) {
         case 'binary':
             if (val.op === 'IN' || val.op === 'NOT IN') {
-                return buildIn(data, val.left, val.right, val.op === 'IN');
+                return buildIn(val.left, val.right, val.op === 'IN');
             }
-            return buildBinary(data, val);
+            return buildBinary(val);
         case 'unary':
-            return buildUnary(data, val.op, val.operand);
+            return buildUnary(val.op, val.operand);
         case 'ref':
-            return data.getColumn(val);
+            return buildCtx().selection.getColumn(val);
         case 'string':
-            return Value.text(data.ownerSchema, val.value);
+            return Value.text(val.value);
         case 'null':
-            return Value.null(data.ownerSchema);
+            return Value.null();
         case 'list':
         case 'array':
-            const vals = val.expressions.map(x => _buildValue(data, x));
+            const vals = val.expressions.map(x => _buildValue(x));
             return val.type === 'list'
-                ? Value.list(data.ownerSchema, vals)
-                : Value.array(data.ownerSchema, vals);
+                ? Value.list(vals)
+                : Value.array(vals);
         case 'numeric':
-            return Value.number(data.ownerSchema, val.value);
+            return Value.number(val.value);
         case 'integer':
-            return Value.number(data.ownerSchema, val.value, Types.integer);
+            return Value.number(val.value, Types.integer);
         case 'call':
             // if (typeof val.function !== 'string') {
-            //     return buildKeyword(data.ownerSchema, val.function, val.args);
+            //     return buildKeyword( val.function, val.args);
             // }
             const nm = asSingleQName(val.function, 'pg_catalog');
             if (nm && aggregationFunctions.has(nm)) {
-                const agg = getAggregator(data);
+                const agg = getAggregator();
                 if (!agg) {
                     throw new QueryError(`aggregate functions are not allowed in WHERE`);
                 }
                 return agg.getAggregation(nm, val);
             }
-            const args = val.args.map(x => _buildValue(data, x));
-            const schema = data.db.getSchema(val.function.schema);
-            return Value.function(schema, val.function, args);
+            const args = val.args.map(x => _buildValue(x));
+            return Value.function(val.function, args);
         case 'cast':
-            return _buildValue(data, val.operand)
-                .cast(data.ownerSchema.getType(val.to))
+            return _buildValue(val.operand)
+                .cast(schema.getType(val.to))
         case 'case':
-            return buildCase(data, val);
+            return buildCase(val);
         case 'member':
-            return buildMember(data, val);
+            return buildMember(val);
         case 'arrayIndex':
-            return buildArrayIndex(data, val);
+            return buildArrayIndex(val);
         case 'boolean':
-            return Value.bool(data.ownerSchema, val.value);
+            return Value.bool(val.value);
         case 'ternary':
-            return buildTernary(data, val);
+            return buildTernary(val);
         case 'select':
         case 'union':
         case 'union all':
         case 'with':
         case 'with recursive':
         case 'values':
-            return buildSelectAsArray(data, val);
+            return buildSelectAsArray(val);
         case 'array select':
-            return buildSelectAsArray(data, val.select);
+            return buildSelectAsArray(val.select);
         case 'constant':
-            return Value.constant(data.ownerSchema, val.dataType as any, val.value);
+            return Value.constant(val.dataType as any, val.value);
         case 'keyword':
-            return buildKeyword(data.ownerSchema, val, []);
+            return buildKeyword(val, []);
         case 'parameter':
             throw new NotSupported('Parameters expressions');
         case 'extract':
-            return buildExtract(data, val);
+            return buildExtract(val);
         case 'overlay':
-            return buildOverlay(data, val);
+            return buildOverlay(val);
         case 'substring':
-            return buildSubstring(data, val);
+            return buildSubstring(val);
         case 'default':
             throw new QueryError(`DEFAULT is not allowed in this context`, '42601');
         default:
@@ -140,7 +142,7 @@ function _buildValueReal(data: _ISelection, val: Expr): IValue {
     }
 }
 
-function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IValue {
+function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
     if (args.length) {
         throw new NotSupported(`usage of "${kw.keyword}" keyword with arguments, please file an issue in https://github.com/oguimbal/pg-mem if you need it !`);
     }
@@ -153,14 +155,14 @@ function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IVa
         case 'current_user':
         case 'session_user':
         case 'user':
-            return Value.constant(schema, Types.text(), 'pg_mem');
+            return Value.constant(Types.text(), 'pg_mem');
         case 'current_schema':
-            return Value.constant(schema, Types.text(), 'public');
+            return Value.constant(Types.text(), 'public');
         case 'current_date':
-            return Value.constant(schema, Types.date, new Date());
+            return Value.constant(Types.date, new Date());
         case 'current_timestamp':
         case 'localtimestamp':
-            return Value.constant(schema, Types.timestamp(), new Date());
+            return Value.constant(Types.timestamp(), new Date());
         case 'localtime':
         case 'current_time':
             throw new NotSupported('"date" data type, please file an issue in https://github.com/oguimbal/pg-mem if you need it !');
@@ -171,19 +173,19 @@ function buildKeyword(schema: _ISchema, kw: ExprValueKeyword, args: Expr[]): IVa
     }
 }
 
-function buildUnary(data: _ISelection, op: UnaryOperator, operand: Expr) {
-    const expr = _buildValue(data, operand);
+function buildUnary(op: UnaryOperator, operand: Expr) {
+    const expr = _buildValue(operand);
 
     switch (op) {
         case 'IS NULL':
         case 'IS NOT NULL':
-            return Value.isNull(data.ownerSchema, expr, op === 'IS NULL');
+            return Value.isNull(expr, op === 'IS NULL');
         case 'IS TRUE':
         case 'IS NOT TRUE':
-            return Value.isTrue(data.ownerSchema, expr, op === 'IS TRUE');
+            return Value.isTrue(expr, op === 'IS TRUE');
         case 'IS FALSE':
         case 'IS NOT FALSE':
-            return Value.isFalse(data.ownerSchema, expr, op === 'IS FALSE');
+            return Value.isFalse(expr, op === 'IS FALSE');
         case '+':
             if (!isNumeric(expr.type)) {
                 throw new CastError(expr.type.primary, DataType.float);
@@ -197,20 +199,20 @@ function buildUnary(data: _ISelection, op: UnaryOperator, operand: Expr) {
     }
 }
 
-function buildIn(data: _ISelection, left: Expr, array: Expr, inclusive: boolean): IValue {
-    let leftValue = _buildValue(data, left);
-    let rightValue = _buildValue(data, array);
-    return Value.in(data.ownerSchema, leftValue, rightValue, inclusive);
+function buildIn(left: Expr, array: Expr, inclusive: boolean): IValue {
+    let leftValue = _buildValue(left);
+    let rightValue = _buildValue(array);
+    return Value.in(leftValue, rightValue, inclusive);
 }
 
 
-function buildBinary(data: _ISelection, val: ExprBinary): IValue {
-    let leftValue = _buildValue(data, val.left);
-    let rightValue = _buildValue(data, val.right);
-    return buildBinaryValue(data, leftValue, val.op, rightValue);
+function buildBinary(val: ExprBinary): IValue {
+    let leftValue = _buildValue(val.left);
+    let rightValue = _buildValue(val.right);
+    return buildBinaryValue(leftValue, val.op, rightValue);
 }
 
-export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: BinaryOperator, rightValue: IValue): IValue {
+export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightValue: IValue): IValue {
     function expectSame() {
         const ll = leftValue.type.primary === DataType.list;
         const rl = rightValue.type.primary === DataType.list;
@@ -317,7 +319,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             if (rightValue.isConstant) {
                 const pattern = rightValue.get();
                 if (nullIsh(pattern)) {
-                    return Value.null(data.ownerSchema, Types.bool);
+                    return Value.null(Types.bool);
                 }
                 let matcher: (str: string | number) => boolean | nil;
                 if (rightValue.isAny) {
@@ -352,7 +354,8 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
             }
             break;
         default: {
-            const resolved = data.ownerSchema.resolveOperator(op, leftValue, rightValue);
+            const { schema } = buildCtx();
+            const resolved = schema.resolveOperator(op, leftValue, rightValue);
             if (!resolved) {
                 throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
             }
@@ -374,12 +377,11 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
 
     // handle cases like:  blah = ANY(stuff)
     if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(data.ownerSchema, leftValue, op, rightValue, returnType, getter, hashed);
+        return buildBinaryAny(leftValue, op, rightValue, returnType, getter, hashed);
     }
 
     return new Evaluator(
-        data.ownerSchema
-        , returnType
+        returnType
         , null
         , hashed
         , [leftValue, rightValue]
@@ -394,7 +396,7 @@ export function buildBinaryValue(data: _ISelection, leftValue: IValue, op: Binar
 
 }
 
-function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
+function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
     if (leftValue.isAny && rightValue.isAny) {
         throw new QueryError('ANY() cannot be compared to ANY()');
     }
@@ -402,8 +404,7 @@ function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator,
         throw new QueryError('Invalid ANY() usage');
     }
     return new Evaluator(
-        schema
-        , returnType
+        returnType
         , null
         , hashed
         , [leftValue, rightValue]
@@ -443,7 +444,7 @@ function buildBinaryAny(schema: _ISchema, leftValue: IValue, op: BinaryOperator,
 }
 
 
-function buildCase(data: _ISelection, op: ExprCase): IValue {
+function buildCase(op: ExprCase): IValue {
     const whens = !op.value
         ? op.whens
         : op.whens.map<ExprWhen>(v => ({
@@ -463,8 +464,8 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
     }
 
     const whenExprs = whens.map(x => ({
-        when: buildValue(data, x.when).cast(Types.bool),
-        then: buildValue(data, x.value)
+        when: buildValue(x.when).cast(Types.bool),
+        then: buildValue(x.value)
     }));
 
     const valueType = reconciliateTypes(whenExprs.map(x => x.then));
@@ -473,8 +474,7 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
     }
 
     return new Evaluator(
-        data.ownerSchema
-        , valueType
+        valueType
         , null
         , hash({ when: whenExprs.map(x => ({ when: x.when.hash, then: x.then.hash })) })
         , [
@@ -492,12 +492,12 @@ function buildCase(data: _ISelection, op: ExprCase): IValue {
         });
 }
 
-function buildMember(data: _ISelection, op: ExprMember): IValue {
+function buildMember(op: ExprMember): IValue {
     const oop = op.op;
     if (oop !== '->>' && oop !== '->') {
         throw NotSupported.never(oop);
     }
-    const onExpr = buildValue(data, op.operand);
+    const onExpr = buildValue(op.operand);
     if (onExpr.type !== Types.json && onExpr.type !== Types.jsonb) {
         throw new QueryError(`Cannot use member expression ${op.op} on type ${onExpr.type.primary}`);
     }
@@ -515,8 +515,7 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
         });
 
     return new Evaluator(
-        data.ownerSchema
-        , op.op === '->' ? onExpr.type : Types.text()
+        op.op === '->' ? onExpr.type : Types.text()
         , null
         , hash([onExpr.hash, op.op, op.member])
         , onExpr
@@ -541,15 +540,14 @@ function buildMember(data: _ISelection, op: ExprMember): IValue {
 }
 
 
-function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
-    const onExpr = _buildValue(data, op.array);
+function buildArrayIndex(op: ExprArrayIndex): IValue {
+    const onExpr = _buildValue(op.array);
     if (onExpr.type.primary !== DataType.array) {
         throw new QueryError(`Cannot use [] expression on type ${onExpr.type.primary}`);
     }
-    const index = _buildValue(data, op.index).cast(Types.integer);
+    const index = _buildValue(op.index).cast(Types.integer);
     return new Evaluator(
-        data.ownerSchema
-        , (onExpr.type as ArrayType).of
+        (onExpr.type as ArrayType).of
         , null
         , hash({ array: onExpr.hash, index: index.hash })
         , [onExpr, index]
@@ -573,14 +571,14 @@ function buildArrayIndex(data: _ISelection, op: ExprArrayIndex): IValue {
 }
 
 
-function buildTernary(data: _ISelection, op: ExprTernary): IValue {
+function buildTernary(op: ExprTernary): IValue {
     const oop = op.op;
     if (oop !== 'NOT BETWEEN' && oop !== 'BETWEEN') {
         throw NotSupported.never(oop);
     }
-    let value = _buildValue(data, op.value);
-    let hi = _buildValue(data, op.hi);
-    let lo = _buildValue(data, op.lo);
+    let value = _buildValue(op.value);
+    let hi = _buildValue(op.hi);
+    let lo = _buildValue(op.lo);
     const type = reconciliateTypes([value, hi, lo]);
     value = value.cast(type);
     hi = hi.cast(type);
@@ -590,8 +588,7 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
         : (x: boolean) => x;
 
     return new Evaluator(
-        data.ownerSchema
-        , Types.bool
+        Types.bool
         , null
         , hash({ value: value.hash, lo: lo.hash, hi: hi.hash })
         , [value, hi, lo]
@@ -617,17 +614,16 @@ function buildTernary(data: _ISelection, op: ExprTernary): IValue {
 }
 
 
-function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
+function buildSelectAsArray(op: SelectStatement): IValue {
     // todo: handle refs to 'data' in op statement.
     //  ... and refactor this. This is way too hacky to be maintainable
     //   (this wont allow the subrequest to access outer context, for instance)
-    const onData = new StatementExec(data.ownerSchema, op, null).buildSelect(op);
+    const onData = buildSelect(op);
     if (onData.columns.length !== 1) {
         throw new QueryError('subquery must return only one column', '42601');
     }
     return new Evaluator(
-        data.ownerSchema
-        , onData.columns[0].type.asList()
+        onData.columns[0].type.asList()
         , null
         , Math.random().toString() // must not be indexable => always different hash
         , null // , onData.columns[0]
@@ -643,13 +639,12 @@ function buildSelectAsArray(data: _ISelection, op: SelectStatement): IValue {
 }
 
 
-function buildExtract(data: _ISelection, op: ExprExtract): IValue {
-    const from = _buildValue(data, op.from);
+function buildExtract(op: ExprExtract): IValue {
+    const from = _buildValue(op.from);
     function extract(as: _IType, fn: (v: any) => any, result = Types.integer) {
         const conv = from.cast(as);
         return new Evaluator(
-            data.ownerSchema
-            , result
+            result
             , null
             , hash({ extract: from.hash, field: op.field })
             , [conv]
@@ -747,15 +742,14 @@ function buildExtract(data: _ISelection, op: ExprExtract): IValue {
 }
 
 
-function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
-    const value = _buildValue(data, op.value).cast(Types.text());
-    const placing = _buildValue(data, op.placing).cast(Types.text());
-    const from = _buildValue(data, op.from).cast(Types.integer);
-    const forr = op.for && _buildValue(data, op.for).cast(Types.integer);
+function buildOverlay(op: ExprOverlay): IValue {
+    const value = _buildValue(op.value).cast(Types.text());
+    const placing = _buildValue(op.placing).cast(Types.text());
+    const from = _buildValue(op.from).cast(Types.integer);
+    const forr = op.for && _buildValue(op.for).cast(Types.integer);
 
     return new Evaluator(
-        data.ownerSchema
-        , Types.text()
+        Types.text()
         , null
         , hash({ overlay: value.hash, placing: placing.hash, from: from.hash, for: forr?.hash })
         , forr ? [value, placing, from, forr] : [value, placing, from]
@@ -790,11 +784,11 @@ function buildOverlay(data: _ISelection, op: ExprOverlay): IValue {
         });
 }
 
-function buildSubstring(data: _ISelection, op: ExprSubstring): IValue {
-    const value = _buildValue(data, op.value).cast(Types.text());
+function buildSubstring(op: ExprSubstring): IValue {
+    const value = _buildValue(op.value).cast(Types.text());
     const vals = [value];
-    const from = op.from && _buildValue(data, op.from).cast(Types.integer);
-    const forr = op.for && _buildValue(data, op.for).cast(Types.integer);
+    const from = op.from && _buildValue(op.from).cast(Types.integer);
+    const forr = op.for && _buildValue(op.for).cast(Types.integer);
     if (forr) {
         vals.push(forr);
     }
@@ -803,8 +797,7 @@ function buildSubstring(data: _ISelection, op: ExprSubstring): IValue {
     }
 
     return new Evaluator(
-        data.ownerSchema
-        , Types.text()
+        Types.text()
         , null
         , hash({ substr: value.hash, from: from?.hash, for: forr?.hash })
         , vals

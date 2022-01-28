@@ -1,7 +1,7 @@
 import { _IStatementExecutor, _Transaction, StatementResult, GLOBAL_VARS, QueryError } from '../interfaces-private';
 import { SetGlobalStatement, SetTimezone } from 'pgsql-ast-parser';
 import { resultNoData } from './exec-utils';
-import { ignore } from 'utils';
+import { ignore } from '../utils';
 
 export class SetExecutor implements _IStatementExecutor {
 

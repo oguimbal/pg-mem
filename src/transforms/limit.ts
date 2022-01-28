@@ -2,11 +2,14 @@ import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stat
 import { FilterBase } from './transform-base';
 import { LimitStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
+import { withSelection } from '../parser/context';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
-    const l = limit.limit && buildValue(on, limit.limit);
-    const o = limit.offset && buildValue(on, limit.offset);
-    return new LimitFilter(on, l, o);
+    return withSelection(on, () => {
+        const l = limit.limit && buildValue(limit.limit);
+        const o = limit.offset && buildValue(limit.offset);
+        return new LimitFilter(on, l, o);
+    });
 }
 
 class LimitFilter<T = any> extends FilterBase<T> {

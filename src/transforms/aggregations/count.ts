@@ -4,31 +4,34 @@ import { isSelectAllArgList, nullIsh } from '../../utils';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
 import objectHash from 'object-hash';
+import { withSelection } from '../../parser/context';
 
 export function buildCount(this: void, base: _ISelection, call: ExprCall) {
-    const args = call.args;
-    if (isSelectAllArgList(args)) {
-        return new CountStar(base);
-    }
-    if (args.length !== 1) {
-        throw new QueryError('COUNT expects one argument, given ' + args.length);
-    }
-    if (call.distinct) {
-        if (!args.length) {
-            throw new QueryError('distinct() must take at least one argument');
+    return withSelection(base, () => {
+        const args = call.args;
+        if (isSelectAllArgList(args)) {
+            return new CountStar(base);
         }
-        if (args.length === 1 && args[0].type === 'list') {
-            // hack in case we get a record-like thing - ex: select count(distinct (a,b))
-            // cf UT behaves nicely with nulls on multiple count
-            const distinctArgs = args[0].expressions.map(x => buildValue(base, x));
-            return new CountDistinct(distinctArgs);
-        } else {
-            const distinctArgs = args.map(x => buildValue(base, x));
-            return new CountDistinct(distinctArgs);
+        if (args.length !== 1) {
+            throw new QueryError('COUNT expects one argument, given ' + args.length);
         }
-    }
-    const what = buildValue(base, args[0]);
-    return new CountExpr(what);
+        if (call.distinct) {
+            if (!args.length) {
+                throw new QueryError('distinct() must take at least one argument');
+            }
+            if (args.length === 1 && args[0].type === 'list') {
+                // hack in case we get a record-like thing - ex: select count(distinct (a,b))
+                // cf UT behaves nicely with nulls on multiple count
+                const distinctArgs = args[0].expressions.map(x => buildValue(x));
+                return new CountDistinct(distinctArgs);
+            } else {
+                const distinctArgs = args.map(x => buildValue(x));
+                return new CountDistinct(distinctArgs);
+            }
+        }
+        const what = buildValue(args[0]);
+        return new CountExpr(what);
+    });
 }
 
 class CountStar implements AggregationComputer<number> {

@@ -2,6 +2,7 @@ import { DataType, nil, QueryError, RegClass, RegType, _IType } from '../interfa
 import { TypeBase } from './datatype-base';
 import { Evaluator } from '../evaluator';
 import { Types } from './datatypes';
+import { buildCtx } from '../parser/context';
 
 export class RegTypeImpl extends TypeBase<RegType> {
 
@@ -27,13 +28,14 @@ export class RegTypeImpl extends TypeBase<RegType> {
                     .setConversion(raw => raw.toString(10)
                         , toText => ({ toText }))
             case DataType.integer:
+                const { schema } = buildCtx();
                 return a
                     .setType(to)
                     .setConversion((raw: RegType) => {
                         if (typeof raw === 'number') {
                             return raw;
                         }
-                        const t = a.owner.parseType(raw);
+                        const t = schema.parseType(raw);
                         return t.reg.typeId;
                     }
                         , toText => ({ toText }))
@@ -53,6 +55,7 @@ export class RegTypeImpl extends TypeBase<RegType> {
     doBuildFrom(value: Evaluator, from: _IType): Evaluator<RegClass> | nil {
         switch (from.primary) {
             case DataType.text:
+                const { schema } = buildCtx();
                 return value
                     .setType(Types.regtype)
                     .setConversion((str: string) => {
@@ -60,7 +63,7 @@ export class RegTypeImpl extends TypeBase<RegType> {
                         if (repl.startsWith('pg_catalog.')) {
                             repl = repl.substr('pg_catalog.'.length);
                         }
-                        return value.owner.parseType(repl).name;
+                        return schema.parseType(repl).name;
                     }
                         , strToRegType => ({ strToRegType }));
         }

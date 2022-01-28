@@ -3,6 +3,7 @@ import { CreateViewStatement, SelectedColumn } from 'pgsql-ast-parser';
 import { resultNoData } from '../exec-utils';
 import { ignore } from '../../utils';
 import { View } from '../../schema/view';
+import { buildSelect } from '../select';
 
 export class CreateView implements _IStatementExecutor {
     private schema: _ISchema;
@@ -18,7 +19,7 @@ export class CreateView implements _IStatementExecutor {
         ignore(p.orReplace);
         this.drop = !!(p.orReplace && this.existing);
 
-        let view = st.buildSelect(p.query);
+        let view = buildSelect(p.query);
 
         // optional column mapping
         if (p.columnNames?.length) {

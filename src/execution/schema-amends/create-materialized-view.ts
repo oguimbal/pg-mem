@@ -1,8 +1,8 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor, asView, _IView, QueryError } from '../../interfaces-private';
 import { CreateMaterializedViewStatement } from 'pgsql-ast-parser';
 import { resultNoData } from '../exec-utils';
-import { ignore } from '../../utils';
 import { View } from '../../schema/view';
+import { buildSelect } from '../select';
 
 export class CreateMaterializedView implements _IStatementExecutor {
     private schema: _ISchema;
@@ -20,7 +20,7 @@ export class CreateMaterializedView implements _IStatementExecutor {
             throw new QueryError(`Name already exists: ${p.name.name}`);
         }
 
-        const view = st.buildSelect(p.query);
+        const view = buildSelect(p.query);
 
         // hack: materialized views are implemented as simple views :/  (todo ?)
         this.toRegister = new View(this.schema, p.name.name, view);

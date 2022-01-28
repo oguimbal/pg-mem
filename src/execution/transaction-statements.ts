@@ -1,7 +1,7 @@
 import { _IStatementExecutor, _Transaction, StatementResult } from '../interfaces-private';
 import { resultNoData } from './exec-utils';
-import { CommitStatement, RollbackStatement } from 'pgsql-ast-parser';
-import { ignore } from 'utils';
+import { CommitStatement, RollbackStatement, StartTransactionStatement, BeginStatement } from 'pgsql-ast-parser';
+import { ignore } from '../utils';
 
 export class CommitExecutor implements _IStatementExecutor {
 
@@ -31,13 +31,13 @@ export class RollbackExecutor implements _IStatementExecutor {
 }
 
 
-export class BeginStatement implements _IStatementExecutor {
-    constructor(private statement: RollbackStatement) {
+export class BeginStatementExec implements _IStatementExecutor {
+    constructor(private statement: BeginStatement | StartTransactionStatement) {
         ignore(statement);
     }
 
     execute(t: _Transaction): StatementResult {
         t = t.fork();
-        return resultNoData('ROLLBACK', this.statement, t);
+        return resultNoData('BEGIN', this.statement, t);
     }
 }

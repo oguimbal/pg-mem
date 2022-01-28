@@ -370,18 +370,18 @@ export function combineSubs(...vals: ISubscription[]): ISubscription {
 
 
 interface Ctx {
-    schema: _ISchema;
-    transaction: _Transaction;
+    readonly schema: _ISchema;
+    readonly transaction: _Transaction;
 }
 const curCtx: Ctx[] = [];
-export function getContext(): Ctx {
+export function executionCtx(): Ctx {
     if (!curCtx.length) {
-        throw new Error('Cannot call getFunctionContext() in this context');
+        throw new Error('No execution context available');
     }
     return curCtx[curCtx.length - 1];
 }
 
-export function pushContext<T>(ctx: Ctx, act: () => T): T {
+export function pushExecutionCtx<T>(ctx: Ctx, act: () => T): T {
     try {
         curCtx.push(ctx)
         return act();

@@ -7,6 +7,7 @@ import { colToStr, nullIsh, SRecord } from '../utils';
 import { Types } from '../datatypes';
 import { SELECT_ALL } from '../execution/clean-results';
 import { CustomAlias, Selection } from './selection';
+import { withSelection, buildCtx } from '../parser/context';
 
 let jCnt = 0;
 
@@ -15,7 +16,7 @@ interface JoinRaw<TLeft, TRight> {
     '>joined': TRight;
 }
 interface JoinStrategy {
-    iterate: _ISelection<any>;
+    iterate: _ISelection;
     iterateSide: 'joined' | 'restrictive';
     joinIndex: _IIndex<any>;
     onValue: IValue;
@@ -83,12 +84,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return ret;
     }
 
-    constructor({ schema }: _IStatement
-        , readonly restrictive: _ISelection<TLeft>
+    constructor(readonly restrictive: _ISelection<TLeft>
         , readonly joined: _ISelection<TRight>
         , on: JoinClause
         , private innerJoin: boolean) {
-        super(schema);
+        super(buildCtx().schema);
 
 
         this.joinId = jCnt++;
@@ -117,13 +117,15 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             });
         }
 
-        if (on.on) {
-            this.fetchOnStrategies(on.on);
-        } else if (on.using?.length) {
-            this.fetchUsingStrategies(on.using);
-        } else {
-            throw new Error('Unspecified join ON clause');
-        }
+        withSelection(this, () => {
+            if (on.on) {
+                this.fetchOnStrategies(on.on);
+            } else if (on.using?.length) {
+                this.fetchUsingStrategies(on.using);
+            } else {
+                throw new Error('Unspecified join ON clause');
+            }
+        });
     }
 
     private wrap(v: IValue) {
@@ -145,19 +147,19 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         for (const on of extractAnds(_on)) {
             if (on.type !== 'binary' || on.op !== '=') {
                 // join 'ON' clause not compatible with an indexed strategy
-                others.push(buildValue(this, on));
+                others.push(buildValue(on));
                 continue;
             }
             this.building = true;
-            const left = buildValue(this, on.left);
-            const right = buildValue(this, on.right);
+            const left = buildValue(on.left);
+            const right = buildValue(on.right);
             this.building = false;
             // necessary because of the 'this.building' hack
             uncache(this);
             ands.push({
                 left,
                 right,
-                eq: buildValue(this, on),
+                eq: buildValue(on),
             });
         }
 
@@ -166,7 +168,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
 
         // build seq-scan expression
-        this.seqScanExpression = buildValue(this, _on).cast(Types.bool);
+        this.seqScanExpression = buildValue(_on).cast(Types.bool);
     }
 
     private fetchUsingStrategies(_using: Name[]) {
@@ -177,8 +179,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             return {
                 left,
                 right,
-                eq: buildBinaryValue(this
-                    , this.wrap(left)
+                eq: buildBinaryValue(
+                    this.wrap(left)
                     , '='
                     , this.wrap(right))
             }
@@ -190,7 +192,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
         // build seq-scan expression
         this.seqScanExpression = ands.slice(1)
-            .reduce((a, b) => buildBinaryValue(this, a, 'AND', b.eq), ands[0].eq);
+            .reduce((a, b) => buildBinaryValue(a, 'AND', b.eq), ands[0].eq);
     }
 
     private fetchAndStrategies(ands: Equality[], otherPredicates: IValue[]) {
@@ -208,7 +210,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             ];
             if (others.length) {
                 const and = others.slice(1)
-                    .reduce<IValue>((v, c) => buildBinaryValue(this, c, 'AND', v)
+                    .reduce<IValue>((v, c) => buildBinaryValue(c, 'AND', v)
                         , others[0]);
                 for (const s of strats) {
                     s.othersPredicate = and;

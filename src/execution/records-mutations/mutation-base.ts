@@ -6,6 +6,7 @@ import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement } from 
 import { buildSelection } from '../../transforms/selection';
 import { MemoryTable } from '../../table';
 import { buildValue } from '../../parser/expression-builder';
+import { withSelection, buildCtx } from '../../parser/context';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 
@@ -28,7 +29,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return this.returning?.columns ?? [];
     }
 
-    constructor(protected statement: _IStatement, protected table: _ITable, protected mutatedSel: _ISelection, p: MutationStatement) {
+    constructor(protected table: _ITable, protected mutatedSel: _ISelection, p: MutationStatement) {
         super(table.ownerSchema);
 
         // prepare "returning" statement
@@ -37,9 +38,10 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
             this.returning = buildSelection(this.returningRows, p.returning);
         }
 
+        const { onFinishExecution } = buildCtx();
         // force execution if it has not yet been executed once the current statement finishes its execution.
         // see "only inserts once with statement is executed" test
-        statement.onExecuted(t => {
+        onFinishExecution(t => {
             this._doExecuteOnce(t);
         });
     }
@@ -116,25 +118,26 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
 
 export type Setter = (t: _Transaction, target: any, source: any) => void;
 export function createSetter(this: void, setTable: _ITable, setSelection: _ISelection, _sets: SetStatement[]): Setter {
+    return withSelection(setSelection, () => {
+        const sets = _sets.map(x => {
+            const col = (setTable as MemoryTable).getColumnRef(x.column.name);
+            return {
+                col,
+                value: x.value,
+                getter: x.value.type !== 'default'
+                    ? buildValue(x.value).cast(col.expression.type)
+                    : null,
+            };
+        });
 
-    const sets = _sets.map(x => {
-        const col = (setTable as MemoryTable).getColumnRef(x.column.name);
-        return {
-            col,
-            value: x.value,
-            getter: x.value.type !== 'default'
-                ? buildValue(setSelection, x.value).cast(col.expression.type)
-                : null,
-        };
-    });
-
-    return (t: _Transaction, target: any, source: any) => {
-        for (const s of sets) {
-            if (s.value.type === 'default') {
-                target[s.col.expression.id!] = s.col.default?.get() ?? undefined;
-            } else {
-                target[s.col.expression.id!] = s.getter?.get(source, t) ?? null;
+        return (t: _Transaction, target: any, source: any) => {
+            for (const s of sets) {
+                if (s.value.type === 'default') {
+                    target[s.col.expression.id!] = s.col.default?.get() ?? undefined;
+                } else {
+                    target[s.col.expression.id!] = s.getter?.get(source, t) ?? null;
+                }
             }
         }
-    }
+    });
 }

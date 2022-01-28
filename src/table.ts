@@ -11,6 +11,7 @@ import { buildAlias, Alias } from './transforms/alias';
 import { DataSourceBase } from './transforms/transform-base';
 import { ForeignKey } from './constraints/foreign-key';
 import { Types } from './datatypes';
+import { withSelection } from './parser/context';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -523,7 +524,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     addCheck(_t: _Transaction, check: Expr, constraintName?: string): _IConstraint {
         constraintName = this.constraintNameGen(constraintName);
         this.checkNoConstraint(constraintName);
-        const getter = buildValue(this.selection, check).cast(Types.bool);
+        const getter = withSelection(this.selection, () => buildValue(check).cast(Types.bool));
 
         const checkVal = (t: _Transaction, v: any) => {
             const value = getter.get(v, t);

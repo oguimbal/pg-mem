@@ -1,6 +1,6 @@
 import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from '../interfaces';
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private';
-import { asSingleQName, isType, parseRegClass, pushContext, randomString, schemaOf } from '../utils';
+import { asSingleQName, isType, parseRegClass, pushExecutionCtx, randomString, schemaOf } from '../utils';
 import { typeSynonyms } from '../datatypes';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'pgsql-ast-parser';
 import { MemoryTable } from '../table';
@@ -13,6 +13,7 @@ import { EquivalentType } from '../datatypes/t-equivalent';
 import { OverloadResolver } from './overload-resolver';
 import { ExecuteCreateSequence } from '../execution/schema-amends/create-sequence';
 import { StatementExec } from '../execution/statement-exec';
+import { SelectExec } from '../execution/select';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -111,13 +112,13 @@ export class DbSchema implements _ISchema, ISchema {
 
             // Execute statements
             for (const p of prepared) {
-                const { transaction, result } = pushContext({
+                const { state, result } = pushExecutionCtx({
                     transaction: t,
                     schema: this
                 }, () => p.executeStatement(t));
                 this.lastOp = p;
                 yield result;
-                t = transaction;
+                t = state;
             }
 
             // implicit final commit
@@ -331,6 +332,7 @@ export class DbSchema implements _ISchema, ISchema {
     explainLastSelect(): _SelectExplanation | undefined {
         return this.lastOp?.lastSelect?.explain(new Explainer(this.db.data));
     }
+
     explainSelect(sql: string): _SelectExplanation {
         let parsed = this.parse(sql);
         if (parsed.length !== 1) {
@@ -339,8 +341,13 @@ export class DbSchema implements _ISchema, ISchema {
         if (parsed[0].type !== 'select') {
             throw new Error('Expecting a select statement');
         }
-        return new StatementExec(this, parsed[0], null)
-            .buildSelect(parsed[0])  // todo replace this by a .prepare()
+        const prepared = new StatementExec(this, parsed[0], sql)
+            .compile();
+        if (!(prepared instanceof SelectExec)) {
+            throw new Error('Can only explain selection executors');
+        }
+        return prepared
+            .selection
             .explain(new Explainer(this.db.data))
     }
 
@@ -610,7 +617,7 @@ class Explainer implements _Explainer {
     constructor(readonly transaction: _Transaction) {
     }
 
-    idFor(sel: _ISelection<any>): string | number {
+    idFor(sel: _ISelection): string | number {
         if (sel.debugId) {
             return sel.debugId;
         }

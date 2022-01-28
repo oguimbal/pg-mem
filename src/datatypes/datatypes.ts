@@ -1,6 +1,6 @@
 import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces';
-import { nullIsh, getContext } from '../utils';
+import { nullIsh } from '../utils';
 import { Evaluator, Value } from '../evaluator';
 import { parseArrayLiteral } from 'pgsql-ast-parser';
 import { parseGeometricLiteral } from 'pgsql-ast-parser';
@@ -15,6 +15,7 @@ import { RegTypeImpl } from './t-regtype';
 import { RegClassImpl } from './t-regclass';
 import { RecordType } from './t-record';
 import { INetType } from './t-inet';
+import { buildCtx } from '../parser/context';
 
 
 class UUIDtype extends TypeBase<Date> {
@@ -50,7 +51,7 @@ class NullType extends TypeBase<null> {
     }
 
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
-        return new Evaluator(value.owner, to, null, 'null', null, null);
+        return new Evaluator(to, null, 'null', null, null);
     }
 
     doCanCast(to: _IType): boolean {
@@ -149,8 +150,7 @@ class NumberType extends TypeBase<number> {
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
         if (!integers.has(value.type.primary) && integers.has(to.primary)) {
             return new Evaluator(
-                value.owner
-                , to
+                to
                 , value.id
                 , value.hash
                 , value
@@ -162,12 +162,13 @@ class NumberType extends TypeBase<number> {
                 }
             );
         }
+        const { schema } = buildCtx();
         switch (to.primary) {
             case DataType.regtype:
                 return value
                     .setType(Types.regtype)
                     .setConversion((int: number) => {
-                        const got = value.owner.getType(int, { nullIfNotFound: true });
+                        const got = schema.getType(int, { nullIfNotFound: true });
                         if (!got) {
                             throw new CastError(DataType.integer, DataType.regtype);
                         }
@@ -179,7 +180,6 @@ class NumberType extends TypeBase<number> {
                     .setType(Types.regclass)
                     .setConversion((int: number) => {
                         // === int -> regclass
-                        const { schema } = getContext();
                         const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
                         return obj?.reg.classId ?? int;
                     }
@@ -379,7 +379,7 @@ class TextType extends TypeBase<string> {
                     .setType(to)
                     .setConversion((str: string) => {
                         const array = parseArrayLiteral(str);
-                        (to as ArrayType).convertLiteral(value.owner, array);
+                        (to as ArrayType).convertLiteral(array);
                         return array;
                     }
                         , parseArray => ({ parseArray }));
@@ -467,28 +467,26 @@ export class ArrayType extends TypeBase<any[]> {
         const to = _to as ArrayType;
         const valueType = value.type as ArrayType;
         return new Evaluator(
-            value.owner
-            , to
+            to
             , value.id
             , value.hash!
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(value.owner, valueType.of, x).cast(to.of).get(raw, t));
+                return arr.map(x => Value.constant(valueType.of, x).cast(to.of).get(raw, t));
             });
     }
 
     toText(to: _IType, value: Evaluator) {
         const valueType = value.type as ArrayType;
         return new Evaluator(
-            value.owner
-            , to
+            to
             , value.id
             , value.hash!
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                const strs = arr.map(x => Value.constant(value.owner, valueType.of, x).cast(Types.text()).get(raw, t));
+                const strs = arr.map(x => Value.constant(valueType.of, x).cast(Types.text()).get(raw, t));
                 const data = strs.join(',');
                 return this.list
                     ? '(' + data + ')'
@@ -528,7 +526,7 @@ export class ArrayType extends TypeBase<any[]> {
         return a.length < b.length;
     }
 
-    convertLiteral(owner: _ISchema, elts: any) {
+    convertLiteral(elts: any) {
         if (nullIsh(elts)) {
             return;
         }
@@ -537,14 +535,14 @@ export class ArrayType extends TypeBase<any[]> {
         }
         if (this.of instanceof ArrayType) {
             for (let i = 0; i < elts.length; i++) {
-                this.of.convertLiteral(owner, elts[i]);
+                this.of.convertLiteral(elts[i]);
             }
         } else {
             for (let i = 0; i < elts.length; i++) {
                 if (Array.isArray(elts[i])) {
                     throw new QueryError('Array depth mismatch: was not expecting an array item.');
                 }
-                elts[i] = Value.text(owner, elts[i])
+                elts[i] = Value.text(elts[i])
                     .cast(this.of)
                     .get();
             }

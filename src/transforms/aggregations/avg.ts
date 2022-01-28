@@ -3,6 +3,7 @@ import { ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
 import { nullIsh, sum } from '../../utils';
+import { withSelection } from '../../parser/context';
 
 
 class AvgExpr implements AggregationComputer<number> {
@@ -52,16 +53,18 @@ class SumDistinct implements AggregationComputer<number> {
 }
 
 export function buildAvg(this: void, base: _ISelection, call: ExprCall) {
-    const args = call.args;
-    if (args.length !== 1) {
-        throw new QueryError('AVG expects one argument, given ' + args.length);
-    }
+    return withSelection(base, () => {
+        const args = call.args;
+        if (args.length !== 1) {
+            throw new QueryError('AVG expects one argument, given ' + args.length);
+        }
 
-    if (call.distinct) {
-        const distinctArg = buildValue(base, args[0]);
-        return new SumDistinct(distinctArg);
-    }
+        if (call.distinct) {
+            const distinctArg = buildValue(args[0]);
+            return new SumDistinct(distinctArg);
+        }
 
-    const what = buildValue(base, args[0]);
-    return new AvgExpr(what);
+        const what = buildValue(args[0]);
+        return new AvgExpr(what);
+    });
 }

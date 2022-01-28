@@ -1,7 +1,7 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex } from '../../interfaces-private';
 import { DropIndexStatement } from 'pgsql-ast-parser';
 import { resultNoData } from '../exec-utils';
-import { ignore } from 'utils';
+import { ignore } from '../../utils';
 
 export class DropIndex implements _IStatementExecutor {
     private idx: _INamedIndex<any> | null;

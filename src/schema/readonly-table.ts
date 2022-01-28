@@ -6,7 +6,7 @@ import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
 
-export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection<any> {
+export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection {
 
 
     get isExecutionWithNoResult(): boolean {

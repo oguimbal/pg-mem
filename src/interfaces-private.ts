@@ -93,8 +93,6 @@ export interface _ISchema extends ISchema {
 export interface _IStatement {
     readonly schema: _ISchema;
     onExecuted(callback: OnStatementExecuted): void;
-    buildSelect(p: SelectStatement): _ISelection;
-    buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection;
 }
 
 export interface _IStatementExecutor {

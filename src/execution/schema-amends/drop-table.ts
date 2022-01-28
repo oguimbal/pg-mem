@@ -1,7 +1,7 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex, _ITable, asTable } from '../../interfaces-private';
 import { DropTableStatement } from 'pgsql-ast-parser';
 import { resultNoData } from '../exec-utils';
-import { ignore } from 'utils';
+import { ignore } from '../../utils';
 
 export class DropTable implements _IStatementExecutor {
     private table: _ITable | null;

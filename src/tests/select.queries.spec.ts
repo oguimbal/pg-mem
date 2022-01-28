@@ -7,6 +7,7 @@ import { _IDb } from '../interfaces-private';
 import { SelectFromStatement, SelectStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { parseSql } from '../parser/parse-cache';
+import { withSelection } from '../parser/context';
 
 describe('Selections', () => {
 
@@ -126,7 +127,8 @@ describe('Selections', () => {
         if (!where || where.type !== 'binary') {
             assert.fail('Should be a binary');
         }
-        const built = buildValue(db.getTable('data').selection, where.left);
+        const data = db.getTable('data').selection;
+        const built = withSelection(data, () => buildValue(where.left));
         assert.exists(built.index);
     });
 

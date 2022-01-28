@@ -1,13 +1,6 @@
-import { watchUse, ignore, errorMessage, suggestColumnName } from '../utils';
-import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, asSelectable, NotSupported, QueryResult, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult } from '../interfaces-private';
-import { toSql, Statement, WithStatement, WithStatementBinding, SelectFromUnion, SelectStatement, ValuesStatement, SelectFromStatement, SelectedColumn, QNameMapped, Name } from 'pgsql-ast-parser';
-import { Deletion } from './records-mutations/deletion';
-import { Update } from './records-mutations/update';
-import { Insert } from './records-mutations/insert';
-import { cleanResults } from './clean-results';
-import { MutationDataSourceBase } from './records-mutations/mutation-base';
-import { ValuesTable } from '../schema/values-table';
-import { JoinSelection } from '../transforms/join';
+import { watchUse, ignore, errorMessage } from '../utils';
+import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult } from '../interfaces-private';
+import { toSql, Statement, SelectStatement, ValuesStatement } from 'pgsql-ast-parser';
 import { ExecuteCreateTable } from './schema-amends/create-table';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence';
 import { resultNoData, locOf } from './exec-utils';
@@ -17,7 +10,7 @@ import { AlterSequence } from './schema-amends/alter-sequence';
 import { DropIndex } from './schema-amends/drop-index';
 import { DropTable } from './schema-amends/drop-table';
 import { DropSequence } from './schema-amends/drop-sequence';
-import { CommitExecutor, RollbackExecutor, BeginStatement } from './transaction-statements';
+import { CommitExecutor, RollbackExecutor, BeginStatementExec } from './transaction-statements';
 import { TruncateTable } from './records-mutations/truncate-table';
 import { ShowExecutor } from './show';
 import { SetExecutor } from './set';
@@ -28,6 +21,7 @@ import { CreateSchema } from './schema-amends/create-schema';
 import { CreateFunction } from './schema-amends/create-function';
 import { DoStatementExec } from './schema-amends/do';
 import { SelectExec } from './select';
+import { withSelection, withStatement } from '../parser/context';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -42,23 +36,24 @@ export class SimpleExecutor implements _IStatementExecutor {
 
 export class StatementExec implements _IStatement {
     private onExecutedCallbacks: OnStatementExecuted[] = []
-    lastSelect?: _ISelection<any>;
+    lastSelect?: _ISelection;
     private executor?: _IStatementExecutor;
 
     constructor(readonly schema: _ISchema, private statement: Statement, private pAsSql: string | nil) {
-    }
-
-    private get db() {
-        return this.schema.db;
     }
 
     onExecuted(callback: OnStatementExecuted): void {
         this.onExecutedCallbacks.push(callback);
     }
 
-    compile() {
+    private get db() {
+        return this.schema.db;
+    }
+
+
+    compile(): _IStatementExecutor {
         if (this.executor) {
-            return;
+            return this.executor!;
         }
         const _p = this.statement;
         // build the AST coverage checker
@@ -67,13 +62,19 @@ export class StatementExec implements _IStatement {
             : watchUse(_p);
 
         // parse the AST
-        this.executor = this._getExecutor();
+        withStatement(this, () => {
+            withSelection(this.schema.dualTable.selection, () => {
+                this.executor = this._getExecutor();
+            });
+        })
 
         // check AST coverage
-        const err = check?.();
-        if (err) {
-            throw new NotSupported(err);
-        }
+        // const err = check?.();
+        // if (err) {
+        //     throw new NotSupported(err);
+        // }
+
+        return this.executor!;
     }
 
 
@@ -82,7 +83,7 @@ export class StatementExec implements _IStatement {
         switch (p.type) {
             case 'start transaction':
             case 'begin':
-                return new BeginStatement(p);
+                return new BeginStatementExec(p);
             case 'commit':
                 return new CommitExecutor(p);
             case 'rollback':
@@ -100,7 +101,7 @@ export class StatementExec implements _IStatement {
             // case 'with':
             // result = this.executeWith(t, p);
             case 'truncate table':
-                return new TruncateTable(this, p);
+                return new TruncateTable(p);
             case 'create table':
                 return new ExecuteCreateTable(this.schema, p);
             case 'create index':
@@ -217,19 +218,4 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             throw e;
         }
     }
-
-
-
-
-    buildSelect(p: SelectStatement): _ISelection {
-        return new SelectExec(this, p);
-    }
-
-
-    buildValues(p: ValuesStatement, acceptDefault?: boolean | undefined): _ISelection<any> {
-
-    }
-
-
-
 }

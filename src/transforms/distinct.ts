@@ -3,12 +3,15 @@ import { buildValue } from '../parser/expression-builder';
 import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import objectHash from 'object-hash';
+import { withSelection } from '../parser/context';
 
 export function buildDistinct(on: _ISelection, exprs?: Expr[]) {
-    const vals = exprs && exprs.length > 0
-        ? exprs.map(v => buildValue(on, v))
-        : on.columns
-    return new Distinct(on, vals);
+    return withSelection(on, () => {
+        const vals = exprs && exprs.length > 0
+            ? exprs.map(v => buildValue(v))
+            : on.columns
+        return new Distinct(on, vals);
+    });
 }
 
 
@@ -30,7 +33,7 @@ class Distinct<T> extends FilterBase<any> {
         return this.base.hasItem(raw, t);
     }
 
-    constructor(selection: _ISelection<any>, private exprs: ReadonlyArray<IValue>) {
+    constructor(selection: _ISelection, private exprs: ReadonlyArray<IValue>) {
         super(selection);
     }
 

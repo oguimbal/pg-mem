@@ -2,8 +2,9 @@ import { _IDb, _ISchema, _Transaction } from '../../interfaces-private';
 import { parseSql } from '../../parser/parse-cache';
 import { QueryError, NotSupported, DataType } from '../../interfaces';
 import { Statement } from 'pgsql-ast-parser';
-import { getContext } from '../../utils';
+import { executionCtx as executionCtx } from '../../utils';
 import { StatementExec } from '../../execution/statement-exec';
+import { buildSelect } from '../../execution/select';
 
 export function registerSqlFunctionLanguage(db: _IDb) {
     db.registerLanguage('sql', ({ code, schema, args, returns }) => {
@@ -31,8 +32,7 @@ export function registerSqlFunctionLanguage(db: _IDb) {
         }
 
         // visit & compile tree
-        const statement = new StatementExec(schema as _ISchema, parsed, code);
-        const selection = statement.buildSelect(parsed);
+        const selection = buildSelect(parsed);
 
         // todo: prepare statement here, to avoid optimization on each call.
 
@@ -54,9 +54,9 @@ export function registerSqlFunctionLanguage(db: _IDb) {
 
         // return compiled function
         return (...args: any[]) => {
-            const ctx = getContext();
-            const result = statement.executeStatement(ctx.transaction);
-            return transformResult(result.result.rows, ctx.transaction);
+            const { transaction } = executionCtx();
+            const rows = [...selection.enumerate(transaction)];
+            return transformResult(rows, transaction);
         }
     });
 }

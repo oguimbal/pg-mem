@@ -3,11 +3,12 @@ import type { MemoryTable } from './table';
 import { Evaluator } from './evaluator';
 import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
-import { buildValue } from './parser/expression-builder';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './schema/btree-index';
 import { GeneratedIdentityConstraint } from './constraints/generated';
 import { DataType } from './interfaces';
+import { buildValue } from './parser/expression-builder';
+import { withSelection } from './parser/context';
 
 
 
@@ -130,7 +131,7 @@ export class ColRef implements _Column {
                     this.default = null;
                     break;
                 }
-                const df = buildValue(this.table.selection, alter.default);
+                const df = withSelection(this.table.selection, () => buildValue(alter.default));
                 if (!df.isConstant) {
                     throw new QueryError('cannot use column references in default expression');
                 }

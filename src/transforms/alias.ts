@@ -6,7 +6,7 @@ import { ExprRef } from 'pgsql-ast-parser';
 import { asSingleName, colToStr } from '../utils';
 import { ColumnNotFound } from '../interfaces';
 
-export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
+export function buildAlias(on: _ISelection, alias?: string): _ISelection {
     if (!alias) {
         return on as any;
     }
@@ -71,8 +71,7 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
             return ret;
         });
 
-        this.asRecord = new Evaluator(this.ownerSchema
-            , Types.record
+        this.asRecord = new Evaluator(Types.record
             , this.name
             , Math.random().toString()
             , this._columns

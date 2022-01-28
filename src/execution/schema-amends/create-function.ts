@@ -4,6 +4,7 @@ import { resultNoData } from '../exec-utils';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
 import { ignore } from '../../utils';
+import { withSelection } from '../../parser/context';
 
 export class CreateFunction implements _IStatementExecutor {
     private onSchema: _ISchema;
@@ -19,12 +20,12 @@ export class CreateFunction implements _IStatementExecutor {
         const lang = schema.db.getLanguage(fn.language.name);
 
         // determine arg types
-        const args = fn.arguments.map<_ArgDefDetails>(a => ({
+        const args = withSelection(schema.dualTable.selection, () => fn.arguments.map<_ArgDefDetails>(a => ({
             name: a.name?.name,
             type: schema.getType(a.type),
-            default: a.default && buildValue(schema.dualTable.selection, a.default),
+            default: a.default && buildValue(a.default),
             mode: a.mode,
-        }));
+        })));
 
         // determine return type
         let returns: IType | null = null;

@@ -2,6 +2,7 @@ import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError,
 import { ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
+import { withSelection } from '../../parser/context';
 
 
 class ArrayAggExpr implements AggregationComputer<any[]> {
@@ -26,11 +27,13 @@ class ArrayAggExpr implements AggregationComputer<any[]> {
 }
 
 export function buildArrayAgg(this: void, base: _ISelection, call: ExprCall) {
-    const args = call.args;
-    if (args.length !== 1) {
-        throw new QueryError('ARRAY_AGG expects one argument, given ' + args.length);
-    }
+    return withSelection(base, () => {
+        const args = call.args;
+        if (args.length !== 1) {
+            throw new QueryError('ARRAY_AGG expects one argument, given ' + args.length);
+        }
 
-    const what = buildValue(base, args[0]);
-    return new ArrayAggExpr(what);
+        const what = buildValue(args[0]);
+        return new ArrayAggExpr(what);
+    })
 }

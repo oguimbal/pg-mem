@@ -4,10 +4,11 @@ import { QueryError, NotSupported, nil } from '../interfaces';
 import { Evaluator } from '../evaluator';
 import hash from 'object-hash';
 import { parseArrayLiteral, QName } from 'pgsql-ast-parser';
-import { asSingleQName, colToStr, nullIsh, qnameToStr } from '../utils';
+import { asSingleQName, nullIsh, qnameToStr } from '../utils';
+import { buildCtx } from './context';
 
 
-export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]) {
+export function buildCall(name: string | QName, args: IValue[]) {
     let type: _IType | nil = null;
     let get: (...args: any[]) => any;
 
@@ -17,7 +18,7 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
     // put your ugly hack here 😶 🏴‍☠️ ...
     switch (asSingleQName(name)) {
         case 'any':
-            return buildAnyCall(schema, args);
+            return buildAnyCall(args);
         case 'current_schema':
             type = Types.text();
             get = () => 'public';
@@ -67,6 +68,7 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
         default:
             // try to find a matching custom function overloads
             acceptNulls = true;
+            const { schema } = buildCtx();
             const resolved = schema.resolveFunction(name, args);
             if (resolved) {
                 args = args.map((x, i) => x.cast(resolved.args[i]?.type ?? resolved.argsVariadic));
@@ -87,8 +89,7 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
         })
     }
     return new Evaluator(
-        schema
-        , type ?? Types.null
+        type ?? Types.null
         , null
         , hash({ call: name, args: args.map(x => x.hash) })
         , args
@@ -102,7 +103,7 @@ export function buildCall(schema: _ISchema, name: string | QName, args: IValue[]
 }
 
 
-function buildAnyCall(schema: _ISchema, args: IValue[]) {
+function buildAnyCall(args: IValue[]) {
     if (args.length !== 1) {
         throw new QueryError('ANY() expects 1 argument, given ' + args.length);
     }
@@ -111,8 +112,7 @@ function buildAnyCall(schema: _ISchema, args: IValue[]) {
     // == if ANY(select something) ... get the element type
     if (array.type instanceof ArrayType) {
         return new Evaluator(
-            schema
-            , array.type.of
+            array.type.of
             , null
             , hash({ any: array.hash })
             , args
@@ -131,8 +131,7 @@ function buildAnyCall(schema: _ISchema, args: IValue[]) {
     // parse ANY() array literal
     const arrayValue = parseArrayLiteral(array.get());
     return new Evaluator(
-        schema
-        , Types.text()
+        Types.text()
         , null
         , hash({ any: array.hash })
         , args

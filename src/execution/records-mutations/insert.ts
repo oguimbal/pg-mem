@@ -5,29 +5,38 @@ import { Types } from '../../datatypes';
 import { JoinSelection } from '../../transforms/join';
 import { MutationDataSourceBase, createSetter } from './mutation-base';
 import { ArrayFilter } from '../../transforms/array-filter';
+import { withSelection, buildCtx } from '../../parser/context';
+import { buildValues, buildSelect } from '../../execution/select';
 
 export class Insert extends MutationDataSourceBase<any> {
 
     private valueRawSource: _ISelection;
-    private insertColumns: string[];
-    private valueConvertedSource: IValue<any>[];
-    private opts: ChangeOpts;
+    private insertColumns!: string[];
+    private valueConvertedSource!: IValue<any>[];
+    private opts!: ChangeOpts;
 
 
-    constructor(statement: _IStatement, ast: InsertStatement) {
+    constructor(ast: InsertStatement) {
+        const { schema } = buildCtx();
         // get table to insert into
-        const table = asTable(statement.schema.getObject(ast.into));
+        const table = asTable(schema.getObject(ast.into));
         const selection = table
             .selection
             .setAlias(ast.into.alias);
 
         // init super
-        super(statement, table, selection, ast);
+        super(table, selection, ast);
 
         // get data to insert
         this.valueRawSource = ast.insert.type === 'values'
-            ? statement.buildValues(ast.insert, true)
-            : statement.buildSelect(ast.insert);
+            ? buildValues(ast.insert, true)
+            : buildSelect(ast.insert);
+
+
+        withSelection(this, () => this.visit(ast));
+    }
+
+    private visit(ast: InsertStatement) {
 
         // check not inserting too many values
         this.insertColumns = ast.columns?.map(x => x.name)
@@ -58,7 +67,7 @@ export class Insert extends MutationDataSourceBase<any> {
         let ignoreConflicts: OnConflictHandler | nil = undefined;
         if (ast.onConflict) {
             // find the targeted index
-            const on = ast.onConflict.on?.map(x => buildValue(this.table.selection, x));
+            const on = ast.onConflict.on?.map(x => buildValue(x));
             let onIndex: _IIndex | nil = null;
             if (on) {
                 onIndex = this.table.getIndex(...on);
@@ -74,8 +83,8 @@ export class Insert extends MutationDataSourceBase<any> {
                 if (!onIndex) {
                     throw new QueryError(`ON CONFLICT DO UPDATE requires inference specification or constraint name`);
                 }
-                const subject = new JoinSelection(statement
-                    , this.mutatedSel
+                const subject = new JoinSelection(
+                    this.mutatedSel
                     // fake data... we're only using this to get the multi table column resolution:
                     , new ArrayFilter(this.table.selection, []).setAlias('excluded')
                     , {
@@ -85,7 +94,7 @@ export class Insert extends MutationDataSourceBase<any> {
                     , false
                 );
                 const setter = createSetter(this.table, subject, ast.onConflict.do.sets,);
-                const where = ast.onConflict.where && buildValue(subject, ast.onConflict.where);
+                const where = ast.onConflict.where && buildValue(ast.onConflict.where);
                 ignoreConflicts = {
                     onIndex,
                     update: (item, excluded, t) => {
@@ -111,7 +120,6 @@ export class Insert extends MutationDataSourceBase<any> {
             onConflict: ignoreConflicts,
             overriding: ast.overriding
         };
-
     }
 
     protected performMutation(t: _Transaction): any[] {

@@ -1,7 +1,7 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq } from '../../interfaces-private';
 import { AlterSequenceStatement } from 'pgsql-ast-parser';
 import { resultNoData } from '../exec-utils';
-import { ignore } from 'utils';
+import { ignore } from '../../utils';
 
 export class AlterSequence implements _IStatementExecutor {
     private seq: _ISequence | null;
