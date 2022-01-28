@@ -1,15 +1,16 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor, asView, _IView, QueryError } from '../../interfaces-private';
 import { CreateMaterializedViewStatement } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { View } from '../../schema/view';
 import { buildSelect } from '../select';
 
-export class CreateMaterializedView implements _IStatementExecutor {
+export class CreateMaterializedView extends ExecHelper implements _IStatementExecutor {
     private schema: _ISchema;
     private toRegister?: View;
 
 
-    constructor(st: _IStatement, private p: CreateMaterializedViewStatement) {
+    constructor(st: _IStatement, p: CreateMaterializedViewStatement) {
+        super(p);
         this.schema = st.schema.getThisOrSiblingFor(p.name);
         // check existence
         const existing = this.schema.getObject(p.name, { nullIfNotFound: true });
@@ -29,7 +30,7 @@ export class CreateMaterializedView implements _IStatementExecutor {
 
     execute(t: _Transaction) {
         if (!this.toRegister) {
-            return resultNoData('CREATE', this.p, t, true);
+            return this.noData(t, 'CREATE');
         }
 
         // commit pending data before making changes
@@ -41,6 +42,6 @@ export class CreateMaterializedView implements _IStatementExecutor {
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('CREATE', this.p, t);
+        return this.noData(t, 'CREATE');
     }
 }

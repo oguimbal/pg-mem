@@ -46,7 +46,7 @@ export function buildSelect(p: SelectStatement): _ISelection {
         case 'union all':
             return buildUnion(p);
         case 'with':
-            return buildWith(p);
+            return buildWith(p, false);
         case 'select':
             return buildRawSelect(p);
         case 'values':
@@ -69,18 +69,20 @@ function buildUnion(p: SelectFromUnion): _ISelection {
     return ret.distinct();
 }
 
-function buildWith(p: WithStatement): _ISelection {
+export function buildWith(p: WithStatement, topLevel: boolean): _ISelection {
     return withBindingScope(() => {
         const { setTempBinding } = buildCtx();
         // declare temp bindings
         for (const { alias, statement } of p.bind) {
-            const prepared = buildSelect(checkReadonlyWithable(statement))
+            const prepared = topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement))
                 .setAlias(alias.name);
             setTempBinding(alias.name, prepared);
         }
         return buildSelect(checkReadonlyWithable(p.in));
     })
 }
+
+
 
 function buildRawSelect(p: SelectFromStatement): _ISelection {
     const distinct = !p.distinct || p.distinct === 'all'
@@ -225,41 +227,13 @@ export class SelectExec implements _IStatementExecutor {
     readonly selection: _ISelection;
 
     constructor(private statement: _IStatement, private p: WithStatementBinding) {
-        this.selection = buildWithable(p);
+        // a bit of a special case for top level withs.
+        this.selection = p.type === 'with' ? buildWith(p, true) : buildWithable(p);
     }
 
     get schema() {
         return this.statement.schema;
     }
-
-
-
-
-    // private executeWith(t: _Transaction, p: WithStatement): QueryResult {
-
-    //     try {
-    //         // ugly hack to ensure that the insert/select behaviour of postgres is OK
-    //         // see unit test "only inserts once with statement is executed" for an example.
-    //         const selTrans = p.in.type === 'select' || p.in.type === 'union' ? t.fork() : t;
-
-    //         // declare temp bindings
-    //         for (const { alias, statement } of p.bind) {
-    //             const prepared = this.prepareWithable(statement);
-    //             if (this.tempBindings.has(alias.name)) {
-    //                 throw new QueryError(` WITH query name "${alias.name}" specified more than once`);
-    //             }
-    //             this.tempBindings.set(alias.name, prepared.isExecutionWithNoResult ? 'no returning' : prepared);
-    //         }
-    //         // execute statement
-    //         return this.executeWithable(selTrans, p.in);
-    //     } finally {
-    //         // remove temp bindings
-    //         for (const { alias } of p.bind) {
-    //             this.tempBindings.delete(alias.name);
-    //         }
-    //     }
-    // }
-
 
 
 

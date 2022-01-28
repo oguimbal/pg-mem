@@ -1,18 +1,19 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor, asView, _IView, QueryError } from '../../interfaces-private';
 import { CreateViewStatement, SelectedColumn } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { ignore } from '../../utils';
 import { View } from '../../schema/view';
 import { buildSelect } from '../select';
 
-export class CreateView implements _IStatementExecutor {
+export class CreateView extends ExecHelper implements _IStatementExecutor {
     private schema: _ISchema;
     private drop: boolean;
     existing: _IView | null;
     toRegister: View;
 
 
-    constructor(st: _IStatement, private p: CreateViewStatement) {
+    constructor(st: _IStatement, p: CreateViewStatement) {
+        super(p);
         this.schema = st.schema.getThisOrSiblingFor(p.name);
         // check existence
         this.existing = asView(this.schema.getObject(p.name, { nullIfNotFound: true }));
@@ -56,6 +57,6 @@ export class CreateView implements _IStatementExecutor {
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('CREATE', this.p, t);
+        return this.noData(t, 'CREATE');
     }
 }

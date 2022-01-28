@@ -1,12 +1,13 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor, QueryError } from '../../interfaces-private';
 import { CreateSchemaStatement } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { ignore } from '../../utils';
 
-export class CreateSchema implements _IStatementExecutor {
+export class CreateSchema extends ExecHelper implements _IStatementExecutor {
     private toCreate?: string;
 
-    constructor(private st: _IStatement, private p: CreateSchemaStatement) {
+    constructor(private st: _IStatement, p: CreateSchemaStatement) {
+        super(p);
         const sch = this.st.schema.db.getSchema(p.name.name, true);
         if (!p.ifNotExists && sch) {
             throw new QueryError('schema already exists! ' + p.name);
@@ -30,6 +31,6 @@ export class CreateSchema implements _IStatementExecutor {
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('CREATE', this.p, t);
+        return this.noData(t, 'CREATE');
     }
 }

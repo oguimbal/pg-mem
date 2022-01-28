@@ -1,13 +1,14 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex } from '../../interfaces-private';
 import { DropIndexStatement } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { ignore } from '../../utils';
 
-export class DropIndex implements _IStatementExecutor {
+export class DropIndex extends ExecHelper implements _IStatementExecutor {
     private idx: _INamedIndex<any> | null;
 
 
-    constructor({ schema }: _IStatement, private statement: DropIndexStatement) {
+    constructor({ schema }: _IStatement, statement: DropIndexStatement) {
+        super(statement);
 
         this.idx = asIndex(schema.getObject(statement.name, {
             nullIfNotFound: statement.ifExists,
@@ -31,6 +32,6 @@ export class DropIndex implements _IStatementExecutor {
         // new implicit transaction
         t = t.fork();
 
-        return resultNoData('DROP', this.statement, t, this.idx === null);
+        return this.noData(t, 'DROP');
     }
 }

@@ -67,7 +67,8 @@ export class Insert extends MutationDataSourceBase<any> {
         let ignoreConflicts: OnConflictHandler | nil = undefined;
         if (ast.onConflict) {
             // find the targeted index
-            const on = ast.onConflict.on?.map(x => buildValue(x));
+            const _on = ast.onConflict.on;
+            const on = _on && withSelection(this.table.selection, () => _on?.map(x => buildValue(x)));
             let onIndex: _IIndex | nil = null;
             if (on) {
                 onIndex = this.table.getIndex(...on);
@@ -94,7 +95,8 @@ export class Insert extends MutationDataSourceBase<any> {
                     , false
                 );
                 const setter = createSetter(this.table, subject, ast.onConflict.do.sets,);
-                const where = ast.onConflict.where && buildValue(ast.onConflict.where);
+                const _where = ast.onConflict.where;
+                const where = _where && withSelection(subject, () => buildValue(_where));
                 ignoreConflicts = {
                     onIndex,
                     update: (item, excluded, t) => {

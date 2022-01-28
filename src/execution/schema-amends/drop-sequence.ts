@@ -1,18 +1,19 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq } from '../../interfaces-private';
 import { DropSequenceStatement } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { ignore } from '../../utils';
 
-export class DropSequence implements _IStatementExecutor {
+export class DropSequence extends ExecHelper implements _IStatementExecutor {
     private seq: _ISequence | null;
 
-    constructor({ schema }: _IStatement, private statement: DropSequenceStatement) {
+    constructor({ schema }: _IStatement, statement: DropSequenceStatement) {
+        super(statement);
 
         this.seq = asSeq(schema.getObject(statement.name, {
             nullIfNotFound: statement.ifExists,
         }));
         if (!this.seq) {
-            ignore(this.statement);
+            ignore(statement);
         }
     }
 
@@ -27,6 +28,6 @@ export class DropSequence implements _IStatementExecutor {
         // new implicit transaction
         t = t.fork();
 
-        return resultNoData('DROP', this.statement, t, this.seq === null);
+        return this.noData(t, 'DROP');
     }
 }

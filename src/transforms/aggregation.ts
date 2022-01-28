@@ -12,7 +12,7 @@ import { buildSum } from './aggregations/sum';
 import { buildArrayAgg } from './aggregations/array_agg';
 import { buildAvg } from './aggregations/avg';
 import { Selection } from './selection';
-import { buildCtx } from '../parser/context';
+import { buildCtx, withSelection } from '../parser/context';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -88,7 +88,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
 
         // === preassign columns that are reachable (grouped by)
-        this.groupingValuesOnbase = _groupedBy.map(x => buildValue(x));
+        this.groupingValuesOnbase = withSelection(on, () => _groupedBy.map(x => buildValue(x)));
         for (let _i = 0; _i < this.groupingValuesOnbase.length; _i++) {
             const i = _i;
             const g = this.groupingValuesOnbase[i];

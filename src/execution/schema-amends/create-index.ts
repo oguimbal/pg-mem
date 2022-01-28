@@ -1,16 +1,16 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor } from '../../interfaces-private';
 import { CreateIndexStatement } from 'pgsql-ast-parser';
 import { ignore } from '../../utils';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { buildValue } from '../../parser/expression-builder';
 import { withSelection } from '../../parser/context';
 
-export class CreateIndexExec implements _IStatementExecutor {
+export class CreateIndexExec extends ExecHelper implements _IStatementExecutor {
     private onTable: _ITable;
     private indexDef: CreateIndexDef;
 
-    constructor({ schema }: _IStatement, private p: CreateIndexStatement) {
-
+    constructor({ schema }: _IStatement, p: CreateIndexStatement) {
+        super(p);
         const indexName = p.indexName?.name;
         this.onTable = asTable(schema.getObject(p.table));
         // check that index algorithm is supported
@@ -57,6 +57,6 @@ export class CreateIndexExec implements _IStatementExecutor {
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('CREATE', this.p, t);
+        return this.noData(t, 'CREATE');
     }
 }

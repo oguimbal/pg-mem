@@ -1,9 +1,9 @@
-import { watchUse, ignore, errorMessage } from '../utils';
+import { watchUse, ignore, errorMessage, pushExecutionCtx } from '../utils';
 import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult } from '../interfaces-private';
 import { toSql, Statement, SelectStatement, ValuesStatement } from 'pgsql-ast-parser';
 import { ExecuteCreateTable } from './schema-amends/create-table';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence';
-import { resultNoData, locOf } from './exec-utils';
+import { locOf, ExecHelper } from './exec-utils';
 import { CreateIndexExec } from './schema-amends/create-index';
 import { Alter } from './schema-amends/alter';
 import { AlterSequence } from './schema-amends/alter-sequence';
@@ -25,19 +25,20 @@ import { withSelection, withStatement } from '../parser/context';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
-export class SimpleExecutor implements _IStatementExecutor {
-    constructor(private st: Statement, private exec: (t: _Transaction) => void, private opName?: string) {
+export class SimpleExecutor extends ExecHelper implements _IStatementExecutor {
+    constructor(st: Statement, private exec: (t: _Transaction) => void, private opName?: string) {
+        super(st);
     }
     execute(t: _Transaction): StatementResult {
         this.exec(t);
-        return resultNoData(this.opName ?? this.st.type.toUpperCase(), this.st, t);
+        return this.noData(t, this.opName);
     }
 }
 
 export class StatementExec implements _IStatement {
     private onExecutedCallbacks: OnStatementExecuted[] = []
-    lastSelect?: _ISelection;
     private executor?: _IStatementExecutor;
+    private checkAstCoverage?: (() => void);
 
     constructor(readonly schema: _ISchema, private statement: Statement, private pAsSql: string | nil) {
     }
@@ -51,35 +52,7 @@ export class StatementExec implements _IStatement {
     }
 
 
-    compile(): _IStatementExecutor {
-        if (this.executor) {
-            return this.executor!;
-        }
-        const _p = this.statement;
-        // build the AST coverage checker
-        const { checked: p, check } = this.db.options.noAstCoverageCheck
-            ? { checked: _p, check: null }
-            : watchUse(_p);
-
-        // parse the AST
-        withStatement(this, () => {
-            withSelection(this.schema.dualTable.selection, () => {
-                this.executor = this._getExecutor();
-            });
-        })
-
-        // check AST coverage
-        // const err = check?.();
-        // if (err) {
-        //     throw new NotSupported(err);
-        // }
-
-        return this.executor!;
-    }
-
-
-    private _getExecutor(): _IStatementExecutor {
-        const p = this.statement;
+    private _getExecutor(p: Statement): _IStatementExecutor {
         switch (p.type) {
             case 'start transaction':
             case 'begin':
@@ -98,12 +71,10 @@ export class StatementExec implements _IStatement {
             case 'with recursive':
             case 'with':
                 return new SelectExec(this, p);
-            // case 'with':
-            // result = this.executeWith(t, p);
             case 'truncate table':
                 return new TruncateTable(p);
             case 'create table':
-                return new ExecuteCreateTable(this.schema, p);
+                return new ExecuteCreateTable(p);
             case 'create index':
                 return new CreateIndexExec(this, p);
             case 'alter table':
@@ -156,24 +127,71 @@ export class StatementExec implements _IStatement {
     }
 
 
-    private execute(t: _Transaction) {
-        this.compile();
-        const ret = this.executor!.execute(t);
-        for (const s of this.onExecutedCallbacks) {
-            s(t);
-        }
-        return ret;
+
+
+    compile(): _IStatementExecutor {
+        return this.niceErrors(() => {
+
+            if (this.executor) {
+                return this.executor!;
+            }
+            // build the AST coverage checker
+            let p = this.statement;
+            if (!this.db.options.noAstCoverageCheck) {
+                const watched = watchUse(p);
+                p = watched.checked;
+                this.checkAstCoverage = () => {
+                    const err = watched.check?.();
+                    if (err) {
+                        throw new NotSupported(err);
+                    }
+                };
+            }
+
+            // parse the AST
+            withStatement(this, () => {
+                withSelection(this.schema.dualTable.selection, () => {
+                    this.executor = this._getExecutor(p);
+                });
+            })
+
+            return this.executor!;
+        });
     }
 
 
     executeStatement(t: _Transaction): StatementResult {
-        try {
+        return this.niceErrors(() => pushExecutionCtx({
+            transaction: t,
+            schema: this.schema,
+        }, () => {
 
             t.clearTransientData();
 
-            return this.execute(t);
-        } catch (e) {
+            // actual execution
+            if (!this.executor) {
+                throw new Error('Statement not prepared')
+            }
+            const result = this.executor.execute(t);
 
+            // post-execution
+            for (const s of this.onExecutedCallbacks) {
+                s(t);
+            }
+
+
+            // check AST coverage if necessary
+            this.checkAstCoverage?.();
+
+
+            return result;
+        }));
+    }
+
+    private niceErrors<T>(act: () => T): T {
+        try {
+            return act();
+        } catch (e) {
             // handle reeantrant calls (avoids including error tips twice)
             if (e && typeof e === 'object' && e[detailsIncluded]) {
                 throw e;
@@ -188,7 +206,7 @@ export class StatementExec implements _IStatement {
 
                 if (e instanceof QueryError) {
                     msgs.push(`🐜 This seems to be an execution error, which means that your request syntax seems okay,
-but the resulting statement cannot be executed → Probably not a pg-mem error.`);
+    but the resulting statement cannot be executed → Probably not a pg-mem error.`);
                 } else if (e instanceof NotSupported) {
                     msgs.push(`👉 pg-mem is work-in-progress, and it would seem that you've hit one of its limits.`);
                 } else {
@@ -218,4 +236,5 @@ but the resulting statement cannot be executed → Probably not a pg-mem error.`
             throw e;
         }
     }
+
 }

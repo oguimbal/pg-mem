@@ -2,11 +2,12 @@ import { DataSourceBase } from '../../transforms/transform-base';
 import { ArrayFilter } from '../../transforms/array-filter';
 import { cleanResults } from '../clean-results';
 import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement } from '../../interfaces-private';
-import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement } from 'pgsql-ast-parser';
+import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'pgsql-ast-parser';
 import { buildSelection } from '../../transforms/selection';
 import { MemoryTable } from '../../table';
 import { buildValue } from '../../parser/expression-builder';
 import { withSelection, buildCtx } from '../../parser/context';
+import { colToStr } from '../../utils';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 
@@ -87,9 +88,9 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return 0;
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean | undefined): IValue<any> {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean | undefined): IValue<any> {
         if (!this.returning) {
-            throw new Error('Cannot get column from a mutation that has no returning statement');
+            throw new Error(`Cannot get column "${colToStr(column)}" from a mutation that has no returning statement`);
         }
         return this.returning.getColumn(column, nullIfNotFound)!;
     }

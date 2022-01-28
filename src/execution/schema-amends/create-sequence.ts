@@ -1,12 +1,13 @@
 import { _ISchema, _Transaction, NotSupported, _ISequence, _IStatementExecutor } from '../../interfaces-private';
 import { QName, CreateSequenceStatement } from 'pgsql-ast-parser';
 import { Sequence } from '../../schema/sequence';
-import { checkExistence, resultNoData } from '../exec-utils';
+import { checkExistence, ExecHelper } from '../exec-utils';
 
-export class ExecuteCreateSequence implements _IStatementExecutor {
+export class ExecuteCreateSequence extends ExecHelper implements _IStatementExecutor {
     schema: _ISchema;
-    constructor(inSchema: _ISchema, private statement: CreateSequenceStatement, private acceptTempSequences: boolean) {
-        const name: QName = statement.name;
+    constructor(inSchema: _ISchema, private p: CreateSequenceStatement, private acceptTempSequences: boolean) {
+        super(p);
+        const name: QName = p.name;
         this.schema = inSchema.getThisOrSiblingFor(name);
     }
 
@@ -16,15 +17,15 @@ export class ExecuteCreateSequence implements _IStatementExecutor {
         t = t.fullCommit();
 
         // create the sequence
-        const seq = this.createSeq(t);
+        this.createSeq(t);
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('CREATE', this.statement, t, seq === null);
+        return this.noData(t, 'CREATE');
     }
 
     createSeq(t: _Transaction) {
-        const p = this.statement;
+        const p = this.p;
         const name: QName = p.name;
         // const ret = this.simple('CREATE', p);
 

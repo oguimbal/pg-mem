@@ -45,7 +45,7 @@ export function registerSqlFunctionLanguage(db: _IDb) {
             transformResult = v => v;
         } else {
             if (selection.columns.length !== 1) {
-                throw new QueryError(`return type mismatch in function declared to return ${returns.toString()}`, '42P13');
+                throw new QueryError(`return type mismatch in function declared to return ${returns.name}`, '42P13');
             }
             const col = selection.columns[0];
             transformResult = (v, t) => v[0] ? col.get(v[0], t) : null;

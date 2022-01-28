@@ -2,7 +2,7 @@ import 'mocha';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
-import { CompiledFunction, DataType, IMemoryDb } from '../interfaces';
+import { IMemoryDb } from '../interfaces';
 import { preventSeqScan } from './test-utils';
 
 describe('Custom functions', () => {
@@ -52,7 +52,7 @@ describe('Custom functions', () => {
 
     it('can use sql language as single value', () => {
         none(`CREATE FUNCTION test_fn(arg text) RETURNS int
-                AS $$ select 42 a, 51 b $$
+                AS $$ select 42 a $$
                 LANGUAGE SQL;`)
 
 

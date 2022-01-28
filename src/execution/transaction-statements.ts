@@ -1,11 +1,13 @@
 import { _IStatementExecutor, _Transaction, StatementResult } from '../interfaces-private';
-import { resultNoData } from './exec-utils';
+import { ExecHelper } from './exec-utils';
 import { CommitStatement, RollbackStatement, StartTransactionStatement, BeginStatement } from 'pgsql-ast-parser';
 import { ignore } from '../utils';
 
-export class CommitExecutor implements _IStatementExecutor {
+export class CommitExecutor extends ExecHelper implements _IStatementExecutor {
 
-    constructor(private statement: CommitStatement) { }
+    constructor(statement: CommitStatement) {
+        super(statement)
+    }
 
     execute(t: _Transaction): StatementResult {
         t = t.commit();
@@ -14,30 +16,32 @@ export class CommitExecutor implements _IStatementExecutor {
         if (!t.isChild) {
             t = t.fork();
         }
-        return resultNoData('COMMIT', this.statement, t);
+        return this.noData(t, 'COMMIT');
     }
 
 }
 
-export class RollbackExecutor implements _IStatementExecutor {
-    constructor(private statement: RollbackStatement) {
+export class RollbackExecutor extends ExecHelper implements _IStatementExecutor {
+    constructor(statement: RollbackStatement) {
+        super(statement);
         ignore(statement);
     }
 
     execute(t: _Transaction): StatementResult {
         t = t.rollback();
-        return resultNoData('ROLLBACK', this.statement, t);
+        return this.noData(t, 'ROLLBACK');
     }
 }
 
 
-export class BeginStatementExec implements _IStatementExecutor {
-    constructor(private statement: BeginStatement | StartTransactionStatement) {
+export class BeginStatementExec extends ExecHelper implements _IStatementExecutor {
+    constructor(statement: BeginStatement | StartTransactionStatement) {
+        super(statement);
         ignore(statement);
     }
 
     execute(t: _Transaction): StatementResult {
         t = t.fork();
-        return resultNoData('BEGIN', this.statement, t);
+        return this.noData(t, 'BEGIN');
     }
 }

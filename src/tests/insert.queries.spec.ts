@@ -37,7 +37,7 @@ describe('Inserts', () => {
             insert into test values ('x', 'old');`);
 
         // just check that reinserting does not work
-        assert.throws(() => none(`insert into test values ('x');`))
+        assert.throws(() => none(`insert into test values ('x');`), /duplicate key value violates unique constraint "test_pkey"/)
 
         // however, this should work
         none(`insert into test values ('x') on conflict(id) do update set val='new';`);

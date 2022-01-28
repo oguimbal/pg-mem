@@ -28,7 +28,7 @@ export class DbSchema implements _ISchema, ISchema {
     private installedExtensions = new Set<string>();
     private readonly: any;
     private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
-    private lastOp?: StatementExec;
+    private lastSelect?: _ISelection;
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' }).register();
@@ -112,11 +112,17 @@ export class DbSchema implements _ISchema, ISchema {
 
             // Execute statements
             for (const p of prepared) {
-                const { state, result } = pushExecutionCtx({
-                    transaction: t,
-                    schema: this
-                }, () => p.executeStatement(t));
-                this.lastOp = p;
+
+                // Prepare statement
+                const executor = p.compile();
+
+                // store last select for debug purposes
+                if (executor instanceof SelectExec) {
+                    this.lastSelect = executor.selection;
+                }
+
+                // Execute statement
+                const { state, result } = p.executeStatement(t);
                 yield result;
                 t = state;
             }
@@ -330,7 +336,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     explainLastSelect(): _SelectExplanation | undefined {
-        return this.lastOp?.lastSelect?.explain(new Explainer(this.db.data));
+        return this.lastSelect?.explain(new Explainer(this.db.data));
     }
 
     explainSelect(sql: string): _SelectExplanation {

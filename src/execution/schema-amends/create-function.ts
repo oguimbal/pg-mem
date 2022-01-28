@@ -1,17 +1,18 @@
 import { _Transaction, _ISchema, NotSupported, _ITable, _IStatement, _IStatementExecutor, QueryError, _ArgDefDetails, IType, _IType, nil, FunctionDefinition } from '../../interfaces-private';
 import { CreateFunctionStatement } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
 import { ignore } from '../../utils';
 import { withSelection } from '../../parser/context';
 
-export class CreateFunction implements _IStatementExecutor {
+export class CreateFunction extends ExecHelper implements _IStatementExecutor {
     private onSchema: _ISchema;
     private toRegister: FunctionDefinition;
     private replace: boolean;
 
-    constructor({ schema }: _IStatement, private fn: CreateFunctionStatement) {
+    constructor({ schema }: _IStatement, fn: CreateFunctionStatement) {
+        super(fn);
         if (!fn.language) {
             throw new QueryError('Unspecified function language');
         }
@@ -84,6 +85,6 @@ export class CreateFunction implements _IStatementExecutor {
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('CREATE', this.fn, t);
+        return this.noData(t, 'CREATE');
     }
 }

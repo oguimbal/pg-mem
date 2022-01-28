@@ -1,16 +1,17 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex, _ITable, asTable } from '../../interfaces-private';
 import { DropTableStatement } from 'pgsql-ast-parser';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 import { ignore } from '../../utils';
 
-export class DropTable implements _IStatementExecutor {
+export class DropTable extends ExecHelper implements _IStatementExecutor {
     private table: _ITable | null;
 
 
-    constructor({ schema }: _IStatement, private statement: DropTableStatement) {
+    constructor({ schema }: _IStatement, statement: DropTableStatement) {
+        super(statement);
 
-        this.table = asTable(schema.getObject(this.statement.name, {
-            nullIfNotFound: this.statement.ifExists,
+        this.table = asTable(schema.getObject(statement.name, {
+            nullIfNotFound: statement.ifExists,
         }));
 
         if (!this.table) {
@@ -29,6 +30,6 @@ export class DropTable implements _IStatementExecutor {
         // new implicit transaction
         t = t.fork();
 
-        return resultNoData('DROP', this.statement, t, this.table === null);
+        return this.noData(t, 'DROP');
     }
 }

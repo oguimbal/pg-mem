@@ -1,15 +1,15 @@
 import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor, asTable, QueryError, _IStatement } from '../../interfaces-private';
 import { AlterTableStatement } from 'pgsql-ast-parser';
 import { ignore } from '../../utils';
-import { resultNoData } from '../exec-utils';
+import { ExecHelper } from '../exec-utils';
 
-export class Alter implements _IStatementExecutor {
+export class Alter extends ExecHelper implements _IStatementExecutor {
 
     private table: _ITable;
 
-    constructor({ schema }: _IStatement, private statement: AlterTableStatement) {
-        const p = this.statement;
-        this.table = asTable(schema.getObject(statement.table));
+    constructor({ schema }: _IStatement, private p: AlterTableStatement) {
+        super(p);
+        this.table = asTable(schema.getObject(p.table));
         ignore(p.only);
     }
 
@@ -22,7 +22,7 @@ export class Alter implements _IStatementExecutor {
         t = t.fullCommit();
 
 
-        for (const change of this.statement.changes) {
+        for (const change of this.p.changes) {
             function ignoreChange() {
                 ignore(change);
                 ignored++;
@@ -90,6 +90,6 @@ export class Alter implements _IStatementExecutor {
 
         // new implicit transaction
         t = t.fork();
-        return resultNoData('ALTER', this.statement, t, ignored === this.statement.changes.length);
+        return this.noData(t, 'ALTER');
     }
 }

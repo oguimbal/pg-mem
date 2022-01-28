@@ -347,8 +347,6 @@ export interface QueryResult {
     fields: Array<FieldInfo>;
     rows: any[];
 
-    /** Ignored (because of an "if not exists" or equivalent) */
-    ignored?: boolean;
     /** Location of the last ";" prior to this statement */
     location: NodeLocation;
 }

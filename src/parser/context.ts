@@ -64,7 +64,7 @@ class Context implements IBuildContext {
         return ret;
     };
     setTempBinding = (name: string, boundTo: _ISelection) => {
-        if (this.getTempBinding(name)) {
+        if (_tempBindings.current.has(name)) {
             throw new QueryError(`WITH query name "${name}" specified more than once`);
         }
         _tempBindings.current.set(name, boundTo.isExecutionWithNoResult ? 'no returning' : boundTo);
