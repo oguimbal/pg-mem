@@ -1,4 +1,4 @@
-import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor, Schema } from '../../interfaces-private';
+import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor, Schema, DataType, QueryError } from '../../interfaces-private';
 import { CreateTableStatement, QName } from 'pgsql-ast-parser';
 import { ignore, Optional } from '../../utils';
 import { checkExistence, ExecHelper } from '../exec-utils';
@@ -18,6 +18,9 @@ export class ExecuteCreateTable extends ExecHelper implements _IStatementExecuto
         for (const f of p.columns) {
             switch (f.kind) {
                 case 'column':
+                    if (!f.dataType.kind && f.dataType.name === DataType.record) {
+                        throw new QueryError(`column "${f.name.name}" has pseudo-type record`, '42P16');
+                    }
                     // TODO: #collation
                     ignore(f.collate);
                     const nf = {

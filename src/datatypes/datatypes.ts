@@ -551,10 +551,14 @@ export class ArrayType extends TypeBase<any[]> {
     }
 }
 
+export interface RecordCol {
+    readonly name: string;
+    readonly type: _IType;
+}
 
 /** Basic types */
 export const Types = {
-    [DataType.record]: new RecordType() as _IType,
+    [DataType.record]: (columns: RecordCol[]) => new RecordType(columns) as _IType,
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),

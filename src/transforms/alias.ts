@@ -1,7 +1,7 @@
 import { TransformBase, FilterBase } from './transform-base';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private';
 import { Evaluator } from '../evaluator';
-import { Types } from '../datatypes';
+import { Types, RecordCol } from '../datatypes';
 import { ExprRef } from 'pgsql-ast-parser';
 import { asSingleName, colToStr } from '../utils';
 import { ColumnNotFound } from '../interfaces';
@@ -71,7 +71,11 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
             return ret;
         });
 
-        this.asRecord = new Evaluator(Types.record
+        // how to build a record out of this alias?
+        const recordCols = this._columns
+            .filter(c => !!c.id)
+            .map<RecordCol>(x => ({ name: x.id!, type: x.type }));
+        this.asRecord = new Evaluator(Types.record(recordCols)
             , this.name
             , Math.random().toString()
             , this._columns

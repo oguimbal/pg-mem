@@ -23,9 +23,6 @@ export class ColRef implements _Column {
         , public expression: Evaluator
         , _schema: SchemaField
         , public name: string) {
-        if (expression.type.primary === DataType.record) {
-            throw new QueryError(`column "${this.name}" has pseudo-type record`);
-        }
     }
 
     addConstraints(clist: ColumnConstraint[], t: _Transaction): this {

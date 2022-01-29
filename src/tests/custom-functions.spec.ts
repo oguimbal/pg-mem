@@ -91,14 +91,25 @@ describe('Custom functions', () => {
     });
 
 
-    it('can use sql language as table', () => {
+    it('can use sql language as table with subselection', () => {
         none(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
                 AS $$ select * from (values('a') ) as foo(val) $$
                 LANGUAGE SQL;`)
 
 
-        expect(one(`SELECT * from test_fn();`)).to.deep.equal({ val: 'a' });
+        expect(many(`SELECT * from test_fn();`)).to.deep.equal([{ val: 'a' }]);
     });
+
+
+    it('can use sql language as table in direct select', () => {
+        none(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
+                AS $$ select * from (values('a') ) as foo(val) $$
+                LANGUAGE SQL;`)
+
+
+        expect(many(`SELECT test_fn();`)).to.deep.equal([{ val: 'a' }]);
+    });
+
 
     it('can use arguments in table function', () => {
         none(`CREATE FUNCTION test_fn(arg text) RETURNS  table (val text) stable

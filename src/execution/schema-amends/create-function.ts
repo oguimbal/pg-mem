@@ -38,9 +38,11 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
         }
         switch (fn.returns.kind) {
             case 'table':
-                // Todo: we're losing the typing here :(
-                returns = Types.record.asArray();
-                ignore(fn.returns.columns);
+                const columns = fn.returns.columns.map(c => ({
+                    name: c.name.name,
+                    type: schema.getType(c.type),
+                }));
+                returns = Types.record(columns).asArray();
                 break;
             case 'array':
             case null:

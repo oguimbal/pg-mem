@@ -8,7 +8,7 @@ import { asSingleQName, nullIsh, qnameToStr } from '../utils';
 import { buildCtx } from './context';
 
 
-export function buildCall(name: string | QName, args: IValue[]) {
+export function buildCall(name: string | QName, args: IValue[]): IValue {
     let type: _IType | nil = null;
     let get: (...args: any[]) => any;
 
