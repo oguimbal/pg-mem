@@ -91,33 +91,59 @@ describe('Custom functions', () => {
     });
 
 
-    it('can use sql language as table with subselection', () => {
-        none(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
+    it('can use sql language as table with * subselection', () => {
+        expect(many(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
                 AS $$ select * from (values('a') ) as foo(val) $$
-                LANGUAGE SQL;`)
+                LANGUAGE SQL;
 
-
-        expect(many(`SELECT * from test_fn();`)).to.deep.equal([{ val: 'a' }]);
+                SELECT * from test_fn();`)).to.deep.equal([{ val: 'a' }]);
     });
 
+    it('can use sql language as table with column subselection', () => {
+        expect(many(`CREATE FUNCTION test_fn() RETURNS  table (a text, b text) stable
+                AS $$ select * from (values('sarah ', 'conor') ) as foo(x, y) $$
+                LANGUAGE SQL;
+
+                SELECT 'hi ' || a || b as col from test_fn();`))
+            .to.deep.equal([{ col: 'hi sarah conor' }]);
+    });
+
+    it('can reuse table function with different arguments in same statement', () => {
+        expect(many(`CREATE FUNCTION test_fn(arg text) RETURNS  table (sentence text) stable
+                AS $$ select * from (values('hello ' || arg) ) as foo(x) $$
+                LANGUAGE SQL;
+
+                select * from test_fn('world') union select * from test_fn('sarah conor');`))
+            .to.deep.equal([{ sentence: 'hello world' }, { sentence: 'hello sarah conor' }]);
+    });
+
+    it('can reuse value function with different arguments in same statement', () => {
+        expect(many(`CREATE FUNCTION test_fn(arg text) RETURNS  text
+                AS $$ select 'hello ' || arg $$
+                LANGUAGE SQL;
+
+                select test_fn('world') || ' and ' || test_fn('sarah conor') as col;`))
+            .to.deep.equal([{ col: 'hello world and hello sarah conor' }]);
+    })
 
     it('can use sql language as table in direct select', () => {
-        none(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
+        expect(many(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
                 AS $$ select * from (values('a') ) as foo(val) $$
-                LANGUAGE SQL;`)
+                LANGUAGE SQL;
 
-
-        expect(many(`SELECT test_fn();`)).to.deep.equal([{ val: 'a' }]);
+                SELECT test_fn();`))
+            .to.deep.equal([{ val: 'a' }]);
     });
 
 
     it('can use arguments in table function', () => {
-        none(`CREATE FUNCTION test_fn(arg text) RETURNS  table (val text) stable
+        expect(many(`CREATE FUNCTION test_fn(arg text) RETURNS  table (val text) stable
                 AS $$ select * from (values('hello ' || $1) , ('bye ' || $1) ) as foo(val) $$
-                LANGUAGE SQL;`)
+                LANGUAGE SQL;
 
+                SELECT * from test_fn('world') where val like 'hello%';`))
 
-        expect(one(`SELECT * from test_fn('world') where val like 'hello%';`)).to.deep.equal({ val: 'hello world' });
+            .to.deep.equal([{ val: 'hello world' }]);
     });
 
 

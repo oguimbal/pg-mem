@@ -435,6 +435,11 @@ class BoolType extends TypeBase<boolean> {
 }
 
 export class ArrayType extends TypeBase<any[]> {
+
+    public static matches(type: IType): type is ArrayType {
+        return type.primary === DataType.array;
+    }
+
     get primary(): DataType {
         if (this.list) {
             return DataType.list;

@@ -1,16 +1,19 @@
-import { _IDb, _ISchema, _Transaction, _IType } from '../../interfaces-private';
+import { _IDb, _ISchema, _Transaction, _IType, IValue, _Explainer, _ISelection } from '../../interfaces-private';
 import { parseSql } from '../../parser/parse-cache';
 import { QueryError, NotSupported, DataType } from '../../interfaces';
 import { Statement } from 'pgsql-ast-parser';
-import { executionCtx as executionCtx, fromEntries, pushExecutionCtx } from '../../utils';
+import { executionCtx as executionCtx, pushExecutionCtx, hasExecutionCtx, ExecCtx } from '../../utils';
 import { SelectExec } from '../../execution/select';
-import { withParameters, withSelection, withStatement } from '../../parser/context';
-import { Value, buildParameterList } from '../../evaluator';
+import { withParameters } from '../../parser/context';
+import { buildParameterList } from '../../evaluator';
 import { StatementExec } from '../../execution/statement-exec';
+import { ArrayType } from '../../datatypes';
+import { RecordType } from '../../datatypes/t-record';
 
 export function registerSqlFunctionLanguage(db: _IDb) {
-    db.registerLanguage('sql', ({ code, schema: _schema, args, returns }) => {
+    db.registerLanguage('sql', ({ code, schema: _schema, args, returns: _returns }) => {
         const schema = _schema as _ISchema;
+        const returns = _returns as _IType;
         // parse SQL
         const _parsed = parseSql(code);
         let parsed: Statement;
@@ -53,29 +56,53 @@ export function registerSqlFunctionLanguage(db: _IDb) {
         // get the result transformer, based on the expected function output type
         let transformResult: (values: any[], t: _Transaction) => any;
         if (!returns || returns.primary === DataType.null) {
+            // returns null
             transformResult = () => null;
-        } else if (returns.primary === DataType.array) {
-            transformResult = v => v;
+        } else if (ArrayType.matches(returns) && RecordType.matches(returns.of)) {
+            // returns a table
+            const transformItem = returns.of.transformItemFrom(executor.selection);
+            if (!transformItem) {
+                throw new QueryError(`return type mismatch in function declared to return record`, '42P13');
+            }
+            transformResult = (v, t) => v?.map(x => transformItem(x, t));
         } else {
-            if (executor.selection.columns.length !== 1) {
+            // returns a single value
+            const cols = executor.selection.columns;
+            if (cols.length !== 1 || !cols[0].type.canConvertImplicit(returns)) {
                 throw new QueryError(`return type mismatch in function declared to return ${returns.name}`, '42P13');
             }
-            const col = executor.selection.columns[0];
+            const col = cols[0].cast(returns);
             transformResult = (v, t) => v[0] ? col.get(v[0], t) : null;
         }
 
 
         // return compiled function
-        return (...args: any[]) => {
-            const exec = executionCtx();
+        const implem = (...args: any[]) => {
+            const exec: ExecCtx = hasExecutionCtx() ?
+                {
+                    // if we have a parent execution context, use it.
+                    // except for parameter values, that will be re-bound.
+                    ...executionCtx(),
+                    parametersValues: args,
+                } : {
+                    // else, create a brand new execution context.
+                    // that is used when a pure function is called with constant arguments:
+                    //  => function call will be reduced to a constant based on the
+                    //    db state at the time of the statement begining.
+                    schema,
+                    transaction: db.data,
+                    parametersValues: args,
+                };
             // push a new execution context, to avoid leaking parent paramters in the function
-            return pushExecutionCtx({
-                ...exec,
-                parametersValues: args,
-            }, () => {
+            return pushExecutionCtx(exec, () => {
                 const ret = executor.execute(exec.transaction);
                 return transformResult(ret.result.rows, exec.transaction);
-            })
-        }
+            });
+        };
+        // hack to tell the expression visitor that
+        // (implem as any)[fnAsSelectionColumns] = executor.selection.columns;
+        return implem;
     });
 }
+
+// export const fnAsSelectionColumns = Symbol('asSelection');

@@ -1,8 +1,12 @@
-import { DataType, getId, nil, QueryError, _IType } from '../interfaces-private';
+import { DataType, getId, nil, QueryError, _IType, _ISelection, _Transaction, setId } from '../interfaces-private';
 import { TypeBase } from './datatype-base';
 import { RecordCol } from './datatypes';
 
 export class RecordType extends TypeBase<any> {
+
+    public static matches(type: _IType): type is RecordType {
+        return type.primary === DataType.record;
+    }
 
     constructor(readonly columns: readonly RecordCol[]) {
         super();
@@ -14,5 +18,38 @@ export class RecordType extends TypeBase<any> {
 
     doEquals(a: any, b: any): boolean {
         return getId(a) === getId(b);
+    }
+
+    public static from(selection: _ISelection): RecordType {
+        const recordCols = selection.columns
+            .filter(c => !!c.id)
+            .map<RecordCol>(x => ({ name: x.id!, type: x.type }));
+        return new RecordType(recordCols);
+    }
+
+    /** Build a function that will transform a record of this type to a record of the target type  */
+    transformItemFrom(source: _ISelection): ((raw: any, t: _Transaction) => any) | null {
+        if (source.columns.length !== this.columns.length) {
+            return null;
+        }
+        const setters: ((oldItem: any, newItem: any, t: _Transaction) => any)[] = [];
+        for (let i = 0; i < this.columns.length; i++) {
+            const to = this.columns[i];
+            const from = source.columns[i];
+            if (!from.type.canCast(to.type)) {
+                return null;
+            }
+            const casted = from.cast(to.type);
+            setters.push((old, neu, t) => neu[to.name] = casted.get(old, t));
+        }
+
+        return (raw: any, t) => {
+            const ret = {};
+            setId(ret, getId(raw));
+            for (const s of setters) {
+                s(raw, ret, t);
+            }
+            return ret;
+        };
     }
 }

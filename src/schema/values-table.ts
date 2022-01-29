@@ -25,7 +25,7 @@ export class ValuesTable extends ReadOnlyTable {
                 const v = vals[i];
                 ret[this._schema.fields[i].name] = v === 'default'
                     ? null
-                    : v.get(null, t);
+                    : v.get({}, t);
             }
             return ret;
         });

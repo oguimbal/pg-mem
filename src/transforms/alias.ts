@@ -5,6 +5,7 @@ import { Types, RecordCol } from '../datatypes';
 import { ExprRef } from 'pgsql-ast-parser';
 import { asSingleName, colToStr } from '../utils';
 import { ColumnNotFound } from '../interfaces';
+import { RecordType } from '../datatypes/t-record';
 
 export function buildAlias(on: _ISelection, alias?: string): _ISelection {
     if (!alias) {
@@ -72,10 +73,8 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
         });
 
         // how to build a record out of this alias?
-        const recordCols = this._columns
-            .filter(c => !!c.id)
-            .map<RecordCol>(x => ({ name: x.id!, type: x.type }));
-        this.asRecord = new Evaluator(Types.record(recordCols)
+        this.asRecord = new Evaluator(
+            RecordType.from(this)
             , this.name
             , Math.random().toString()
             , this._columns

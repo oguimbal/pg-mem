@@ -5,6 +5,7 @@ import { Types, ArrayType, isNumeric } from './datatypes';
 import { buildCall } from './parser/function-call';
 import { nullIsh, executionCtx } from './utils';
 import { QName } from 'pgsql-ast-parser';
+import { buildCtx } from './parser/context';
 
 
 export class Evaluator<T = any> implements IValue<T> {

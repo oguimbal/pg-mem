@@ -10,6 +10,11 @@ import { cleanResults } from './clean-results';
 import { MutationDataSourceBase } from './records-mutations/mutation-base';
 import { locOf } from './exec-utils';
 import { buildCtx, withBindingScope } from '../parser/context';
+import { buildValue } from '../parser/expression-builder';
+import { DataType } from '../interfaces';
+import { ArrayType } from '../datatypes';
+import { RecordType } from '../datatypes/t-record';
+import { FunctionCallTable } from '../schema/function-call-table';
 
 
 
@@ -110,8 +115,17 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
                 break;
             case 'call':
                 const fnName = from.alias?.name ?? from.function?.name;
-                newT = new ValuesTable(fnName, [[from]], [fnName])
-                    .setAlias(from.alias?.name ?? suggestColumnName(from) ?? '');
+                const fromValue = buildValue(from);
+                if (ArrayType.matches(fromValue.type) && RecordType.matches(fromValue.type.of)) {
+                    // if the function returns an array of records (= "a table"), then lets use it as a table
+                    const cols = fromValue.type.of.columns;
+                    newT = new FunctionCallTable(cols, fromValue);
+                } else {
+                    // if the function returns a single value, then lets transform this into a table
+                    // nb: the function call will be re-built in here, but its OK (coz' of build cache)
+                    newT = new ValuesTable(fnName, [[from]], [fnName])
+                        .setAlias(from.alias?.name ?? suggestColumnName(from) ?? '');
+                }
                 break;
             default:
                 throw NotSupported.never(from);

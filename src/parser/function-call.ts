@@ -14,6 +14,7 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
 
     let impure = false;
     let acceptNulls = false;
+    const { schema } = buildCtx();
 
     // put your ugly hack here 😶 🏴‍☠️ ...
     switch (asSingleQName(name)) {
@@ -68,7 +69,6 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
         default:
             // try to find a matching custom function overloads
             acceptNulls = true;
-            const { schema } = buildCtx();
             const resolved = schema.resolveFunction(name, args);
             if (resolved) {
                 args = args.map((x, i) => x.cast(resolved.args[i]?.type ?? resolved.argsVariadic));
