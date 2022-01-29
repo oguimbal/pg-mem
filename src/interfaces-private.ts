@@ -53,6 +53,8 @@ export interface _ISchema extends ISchema {
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this overload */
     resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil;
+    /** Get an exact function def from its signature (do not use that to resolve overload) */
+    getFunction(name: string, args: _IType[]): _FunctionDefinition | nil;
     /** Get operator matching this overload */
     resolveOperator(name: BinaryOperator, left: IValue, right: IValue, forceOwn?: boolean): _OperatorDefinition | nil;
 

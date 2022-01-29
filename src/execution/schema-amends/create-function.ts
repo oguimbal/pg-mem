@@ -3,7 +3,7 @@ import { CreateFunctionStatement } from 'pgsql-ast-parser';
 import { ExecHelper } from '../exec-utils';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
-import { ignore } from '../../utils';
+import { ignore, deepEqual } from '../../utils';
 import { withSelection } from '../../parser/context';
 
 export class CreateFunction extends ExecHelper implements _IStatementExecutor {
@@ -80,6 +80,27 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             allowNullArguments: fn.onNullInput === 'call',
         };
         this.replace = fn.orReplace ?? false;
+
+        // if the function exists
+        const existing = this.onSchema.getFunction(this.toRegister.name, args.map(x => x.type));
+        if (existing) {
+            if (!this.replace) {
+                throw new QueryError(`function ${this.toRegister.name} lready exists with same argument types`, '42723');
+            }
+
+            //  ... it must be the same type
+            if (existing.returns !== returns) {
+                throw new QueryError(`cannot change return type of existing function`, '42P13');
+            }
+
+            // ... argument names must be the same
+            for (let i = 0; i < args.length; i++) {
+                const exName = existing.args[i].name
+                if (exName ?? null !== args[i].name ?? null) {
+                    throw new QueryError(`cannot change name of input parameter "${exName}"`, '42P13');
+                }
+            }
+        }
     }
 
     execute(t: _Transaction) {

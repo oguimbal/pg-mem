@@ -36,7 +36,7 @@ export class RecordType extends TypeBase<any> {
         for (let i = 0; i < this.columns.length; i++) {
             const to = this.columns[i];
             const from = source.columns[i];
-            if (!from.type.canCast(to.type)) {
+            if (!from.type.canConvertImplicit(to.type)) {
                 return null;
             }
             const casted = from.cast(to.type);

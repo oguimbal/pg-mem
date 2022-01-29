@@ -554,6 +554,11 @@ export class DbSchema implements _ISchema, ISchema {
         return this.fns.resolve(asSingle, args);
     }
 
+    getFunction(name: string, args: _IType[]): _FunctionDefinition | nil {
+        return this.fns.getExact(name, args);
+    }
+
+
     dropFunction(fn: DropFunctionStatement): void {
         if (fn.name.schema && fn.name.schema !== this.name) {
             return (this.db.getSchema(fn.name.schema) as DbSchema).dropFunction(fn);
