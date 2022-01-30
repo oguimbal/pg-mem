@@ -1,10 +1,11 @@
-import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema } from './interfaces-private.ts';
-import { DataType, QueryError, CastError, nil, ISchema } from './interfaces.ts';
+import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema, Parameter } from './interfaces-private.ts';
+import { DataType, QueryError, CastError, nil, ISchema, IType, ArgDefDetails } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Types, ArrayType, isNumeric } from './datatypes/index.ts';
-import { buildCall } from './function-call.ts';
-import { nullIsh } from './utils.ts';
-import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { buildCall } from './parser/function-call.ts';
+import { nullIsh, executionCtx } from './utils.ts';
+import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildCtx } from './parser/context.ts';
 
 
 export class Evaluator<T = any> implements IValue<T> {
@@ -31,9 +32,7 @@ export class Evaluator<T = any> implements IValue<T> {
         return this.opts?.isAny ?? false;
     }
 
-    constructor(
-        readonly owner: _ISchema
-        , readonly type: _IType<T>
+    constructor(readonly type: _IType<T>
         , readonly id: string | nil
         , readonly hash: string
         , dependencies: IValue | IValue[] | nil
@@ -103,9 +102,7 @@ export class Evaluator<T = any> implements IValue<T> {
         if (this.type === type) {
             return this;
         }
-        return new Evaluator<T>(
-            this.owner
-            , type
+        return new Evaluator<T>(type
             , this.id
             , this.hash
             , this
@@ -118,9 +115,7 @@ export class Evaluator<T = any> implements IValue<T> {
 
     setConversion(converter: (val: T, t: _Transaction | nil) => any
         , hashConv: (hash: string) => any) {
-        return new Evaluator<T>(
-            this.owner
-            , this.type
+        return new Evaluator<T>(this.type
             , this.id
             , hash(hashConv(this.hash))
             , this
@@ -149,8 +144,7 @@ export class Evaluator<T = any> implements IValue<T> {
 
     clone(): Evaluator<T> {
         return new Evaluator<T>(
-            this.owner
-            , this.type
+            this.type
             , this.id
             , this.hash
             , this
@@ -164,8 +158,7 @@ export class Evaluator<T = any> implements IValue<T> {
             throw new QueryError('Unexpected use of ANY()');
         }
         const ret = new Evaluator<TNew>(
-            this.owner
-            , (newType ?? this.type) as _IType
+            (newType ?? this.type) as _IType
             , this.id
             , this.hash
             , this
@@ -187,8 +180,7 @@ export class Evaluator<T = any> implements IValue<T> {
             throw new QueryError('Unexpected use of ANY()');
         }
         const ret = new Evaluator<TNew>(
-            this.owner
-            , (newType ?? this.type) as _IType
+            (newType ?? this.type) as _IType
             , this.id
             , this.hash
             , this
@@ -210,8 +202,7 @@ export class Evaluator<T = any> implements IValue<T> {
             return this;
         }
         return new Evaluator<T>(
-            this.owner
-            , this.type
+            this.type
             , newId
             , this.hash
             , this
@@ -322,64 +313,59 @@ export class Evaluator<T = any> implements IValue<T> {
 
 
 export const Value = {
-    null(owner: _ISchema, ofType?: _IType): IValue {
-        return new Evaluator(owner, ofType ?? Types.null, null, 'null', null, null, undefined);
+    null(ofType?: _IType): IValue {
+        return new Evaluator(ofType ?? Types.null, null, 'null', null, null, undefined);
     },
-    text(owner: _ISchema, value: string, length: number | nil = null): IValue {
+    text(value: string, length: number | nil = null): IValue {
         return new Evaluator(
-            owner
-            , Types.text(length)
+            Types.text(length)
             , null
             , value
             , null
             , value);
     },
-    number(owner: _ISchema, value: number, type = Types.float): IValue {
+    number(value: number, type = Types.float): IValue {
         return new Evaluator(
-            owner
-            , type
+            type
             , null
             , value.toString(10)
             , null
             , value);
     },
-    function(schema: _ISchema, value: string | QName, args: IValue[]): IValue {
-        return buildCall(schema, value, args);
+    function(value: string | QName, args: IValue[]): IValue {
+        return buildCall(value, args);
     },
-    bool(owner: _ISchema, value: boolean): IValue {
+    bool(value: boolean): IValue {
         const str = value ? 'true' : 'false';
         return new Evaluator(
-            owner
-            , Types.bool
+            Types.bool
             , null
             , str
             , null
             , value);
     },
     /** @deprecated Use with care */
-    constant(owner: _ISchema, _type: _IType, value: any): IValue {
+    constant(_type: _IType, value: any): IValue {
         const type = nullIsh(value)
             ? Types.null
             : _type;
         return new Evaluator(
-            owner
-            , type
+            type
             , null
             , (null as any)
             , null
             , value);
     },
-    in(owner: _ISchema, value: IValue, array: IValue, inclusive: boolean): IValue {
+    in(value: IValue, array: IValue, inclusive: boolean): IValue {
         if (!value) {
             throw new Error('Argument null');
         }
         if (array.type.primary !== DataType.list && array.type) {
-            array = Value.list(owner, [array]);
+            array = Value.list([array]);
         }
         const of = (array.type as ArrayType).of;
         return new Evaluator(
-            owner
-            , Types.bool
+            Types.bool
             , null
             , hash({ val: value.hash, in: array.hash })
             , [value, array]
@@ -393,10 +379,9 @@ export const Value = {
                 return inclusive ? has : !has;
             });
     },
-    isNull(owner: _ISchema, leftValue: IValue, expectNull: boolean): IValue {
+    isNull(leftValue: IValue, expectNull: boolean): IValue {
         return new Evaluator(
-            owner
-            , Types.bool
+            Types.bool
             , null
             , hash({ isNull: leftValue.hash, expectNull })
             , leftValue
@@ -407,11 +392,10 @@ export const Value = {
                 return expectNull ? ret : !ret;
             })
     },
-    isTrue(owner: _ISchema, leftValue: IValue, expectTrue: boolean): IValue {
+    isTrue(leftValue: IValue, expectTrue: boolean): IValue {
         leftValue = leftValue.cast(Types.bool);
         return new Evaluator(
-            owner
-            , Types.bool
+            Types.bool
             , null
             , hash({ isTrue: leftValue.hash, expectTrue })
             , leftValue
@@ -423,11 +407,10 @@ export const Value = {
                 return !(left === true); //  never returns null
             }));
     },
-    isFalse(owner: _ISchema, leftValue: IValue, expectFalse: boolean): IValue {
+    isFalse(leftValue: IValue, expectFalse: boolean): IValue {
         leftValue = leftValue.cast(Types.bool);
         return new Evaluator(
-            owner
-            , Types.bool
+            Types.bool
             , null
             , hash({ isFalse: leftValue.hash, expectFalse })
             , leftValue
@@ -450,16 +433,16 @@ export const Value = {
         return (value as Evaluator)
             .setConversion(x => -x, x => ({ neg: x }));
     },
-    array(owner: _ISchema, values: IValue[]): IValue {
-        return arrayOrList(owner, values, false);
+    array(values: IValue[]): IValue {
+        return arrayOrList(values, false);
     },
-    list(owner: _ISchema, values: IValue[]): IValue {
-        return arrayOrList(owner, values, true);
+    list(values: IValue[]): IValue {
+        return arrayOrList(values, true);
     }
 } as const;
 
 
-function arrayOrList(owner: _ISchema, values: IValue[], list: boolean) {
+function arrayOrList(values: IValue[], list: boolean) {
     const type = values.reduce((t, v) => {
         if (v.canCast(t)) {
             return t;
@@ -472,8 +455,7 @@ function arrayOrList(owner: _ISchema, values: IValue[], list: boolean) {
     // const sel = values.find(x => !!x.selection)?.selection;
     const converted = values.map(x => x.cast(type));
     return new Evaluator(
-        owner
-        , list ? type.asList() : type.asArray()
+        list ? type.asList() : type.asArray()
         , null
         , hash(converted.map(x => x.hash))
         , converted
@@ -481,4 +463,25 @@ function arrayOrList(owner: _ISchema, values: IValue[], list: boolean) {
             const arr = values.map(x => x.get(raw, t));
             return arr;
         });
+}
+
+
+export function buildParameterList(statementName: string | null, args: ArgDefDetails[]) {
+    return args.map<Parameter>(({ type, name }, i) => {
+        const value = new Evaluator(
+            type as _IType
+            , name
+            , hash({ param: name })
+            , null
+            , () => {
+                const { parametersValues } = executionCtx();
+                if (!parametersValues || parametersValues.length <= i) {
+                    throw new QueryError(`bind message supplies ${parametersValues?.length ?? 0} parameters, but prepared statement "${statementName}" requires ${args.length}`, '08P01');
+                }
+                return parametersValues[i];
+            }, {
+            forceNotConstant: true,
+        });
+        return { value, index: i };
+    })
 }

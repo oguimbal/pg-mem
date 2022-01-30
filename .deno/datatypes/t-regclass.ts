@@ -1,8 +1,9 @@
 import { DataType, nil, QueryError, RegClass, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../evaluator.ts';
-import { getContext, parseRegClass } from '../utils.ts';
+import { parseRegClass } from '../utils.ts';
 import { Types } from './datatypes.ts';
+import { buildCtx } from '../parser/context.ts';
 
 export class RegClassImpl extends TypeBase<RegClass> {
 
@@ -22,6 +23,7 @@ export class RegClassImpl extends TypeBase<RegClass> {
     }
 
     doCast(a: Evaluator, to: _IType): Evaluator {
+        const { schema } = buildCtx();
         switch (to.primary) {
             case DataType.text:
                 return a
@@ -38,7 +40,6 @@ export class RegClassImpl extends TypeBase<RegClass> {
                         // === regclass -> int
 
                         const cls = parseRegClass(raw);
-                        const { schema } = getContext();
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
@@ -67,6 +68,7 @@ export class RegClassImpl extends TypeBase<RegClass> {
     }
 
     doBuildFrom(value: Evaluator, from: _IType): Evaluator<RegClass> | nil {
+        const { schema } = buildCtx();
         switch (from.primary) {
             case DataType.text:
                 return value
@@ -74,7 +76,6 @@ export class RegClassImpl extends TypeBase<RegClass> {
                         // === text -> regclass
 
                         const cls = parseRegClass(str);
-                        const { schema } = getContext();
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {

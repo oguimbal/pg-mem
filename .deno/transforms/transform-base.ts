@@ -10,7 +10,7 @@ import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
 import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
@@ -38,7 +38,9 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
+    abstract get isExecutionWithNoResult(): boolean
     // abstract get name(): string;
+
 
     get db() {
         return this.ownerSchema.db;
@@ -96,12 +98,6 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return fns.buildAlias(this, alias);
     }
 
-
-    subquery(data: _ISelection<any>, op: SelectStatement): _ISelection {
-        // todo: handle refs to 'data' in op statement.
-        return this.ownerSchema.buildSelect(op);
-    }
-
     limit(limit: LimitStatement): _ISelection {
         if (!limit?.limit && !limit?.offset) {
             return this;
@@ -126,11 +122,16 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
 }
 
+
 export abstract class TransformBase<T> extends DataSourceBase<T> {
 
 
     constructor(readonly base: _ISelection) {
         super(base.ownerSchema);
+    }
+
+    get isExecutionWithNoResult(): boolean {
+        return false;
     }
 
     entropy(t: _Transaction): number {

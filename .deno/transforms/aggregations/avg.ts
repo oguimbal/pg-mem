@@ -1,8 +1,9 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue } from '../../expression-builder.ts';
+import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
 import { nullIsh, sum } from '../../utils.ts';
+import { withSelection } from '../../parser/context.ts';
 
 
 class AvgExpr implements AggregationComputer<number> {
@@ -23,7 +24,7 @@ class AvgExpr implements AggregationComputer<number> {
                     full.push(value);
                 }
             },
-            finish: () => full.length === 0 ? null : sum(full)/full.length,
+            finish: () => full.length === 0 ? null : sum(full) / full.length,
         }
     }
 }
@@ -45,23 +46,25 @@ class SumDistinct implements AggregationComputer<number> {
                     unique.add(value);
                 }
             },
-            finish: () => unique.size === 0 ? null : sum([...unique])/unique.size
+            finish: () => unique.size === 0 ? null : sum([...unique]) / unique.size
         }
     }
 
 }
 
 export function buildAvg(this: void, base: _ISelection, call: ExprCall) {
-    const args = call.args;
-    if (args.length !== 1) {
-        throw new QueryError('AVG expects one argument, given ' + args.length);
-    }
+    return withSelection(base, () => {
+        const args = call.args;
+        if (args.length !== 1) {
+            throw new QueryError('AVG expects one argument, given ' + args.length);
+        }
 
-    if (call.distinct) {
-        const distinctArg = buildValue(base, args[0]);
-        return new SumDistinct(distinctArg);
-    }
+        if (call.distinct) {
+            const distinctArg = buildValue(args[0]);
+            return new SumDistinct(distinctArg);
+        }
 
-    const what = buildValue(base, args[0]);
-    return new AvgExpr(what);
+        const what = buildValue(args[0]);
+        return new AvgExpr(what);
+    });
 }

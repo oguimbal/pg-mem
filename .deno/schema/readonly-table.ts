@@ -1,13 +1,17 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint } from '../interfaces-private.ts';
-import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
 import { columnEvaluator } from '../transforms/selection.ts';
 import { colByName, findTemplate } from '../utils.ts';
 
-export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection<any> {
+export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection {
 
+
+    get isExecutionWithNoResult(): boolean {
+        return false;
+    }
 
     abstract entropy(t: _Transaction): number;
     abstract enumerate(t: _Transaction): Iterable<T>;

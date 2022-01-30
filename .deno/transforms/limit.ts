@@ -1,12 +1,15 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { LimitStatement } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue } from '../expression-builder.ts';
+import { LimitStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../parser/expression-builder.ts';
+import { withSelection } from '../parser/context.ts';
 
 export function buildLimit(on: _ISelection, limit: LimitStatement) {
-    const l = limit.limit && buildValue(on, limit.limit);
-    const o = limit.offset && buildValue(on, limit.offset);
-    return new LimitFilter(on, l, o);
+    return withSelection(on, () => {
+        const l = limit.limit && buildValue(limit.limit);
+        const o = limit.offset && buildValue(limit.offset);
+        return new LimitFilter(on, l, o);
+    });
 }
 
 class LimitFilter<T = any> extends FilterBase<T> {

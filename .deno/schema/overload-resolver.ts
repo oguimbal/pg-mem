@@ -1,7 +1,7 @@
-import { _IType, _ArgDefDetails, nil, DataType, IValue } from './interfaces-private.ts';
-import { Types } from './datatypes/index.ts';
-import { it } from './utils.ts';
-import { QueryError } from './interfaces.ts';
+import { _IType, _ArgDefDetails, nil, DataType, IValue } from '../interfaces-private.ts';
+import { Types } from '../datatypes/index.ts';
+import { it } from '../utils.ts';
+import { QueryError } from '../interfaces.ts';
 
 export interface HasSig {
     name: string;
@@ -18,9 +18,9 @@ export class OverloadResolver<T extends HasSig> {
     add(value: T, replaceIfExists: boolean) {
         let ret = this.byName.get(value.name);
         if (!ret) {
-            this.byName.set(value.name, ret = new OverloadNode<T>(Types.null, this.implicitCastOnly));
+            this.byName.set(value.name, ret = new OverloadNode<T>(Types.null, this.implicitCastOnly, 0));
         }
-        ret.index(value, 0, replaceIfExists);
+        ret.index(value, replaceIfExists);
     }
 
     getOverloads(name: string) {
@@ -36,7 +36,11 @@ export class OverloadResolver<T extends HasSig> {
     }
 
     resolve(name: string, args: IValue[]) {
-        return this.byName.get(name)?.resolve(args, 0);
+        return this.byName.get(name)?.resolve(args);
+    }
+
+    getExact(name: string, types: _IType[]): T | nil {
+        return this.byName.get(name)?.getExact(types);
     }
 }
 
@@ -46,7 +50,7 @@ class OverloadNode<T extends HasSig> {
     private nexts = new Map<DataType, OverloadNode<T>[]>();
     private leaf: T | nil;
 
-    constructor(readonly type: _IType, private implicitCastOnly: boolean) {
+    constructor(readonly type: _IType, private implicitCastOnly: boolean, private at: number) {
     }
 
     *all(): IterableIterator<T> {
@@ -60,15 +64,15 @@ class OverloadNode<T extends HasSig> {
         }
     }
 
-    index(value: T, at: number, replaceIfExists: boolean) {
-        if (at >= value.args.length) {
+    index(value: T, replaceIfExists: boolean) {
+        if (this.at >= value.args.length) {
             if (this.leaf && !replaceIfExists) {
                 throw new QueryError('Function already exists: ' + value.name);
             }
             this.leaf = value;
             return;
         }
-        const arg = value.args[at];
+        const arg = value.args[this.at];
         const primary = arg.type.primary;
         let lst = this.nexts.get(primary);
         if (!lst) {
@@ -77,11 +81,11 @@ class OverloadNode<T extends HasSig> {
         // get or add corresponding node
         let node = lst.find(x => x.type === arg.type);
         if (!node) {
-            lst.push(node = new OverloadNode(arg.type, this.implicitCastOnly));
+            lst.push(node = new OverloadNode(arg.type, this.implicitCastOnly, this.at + 1));
         }
 
         // process arg list
-        node.index(value, at + 1, replaceIfExists);
+        node.index(value, replaceIfExists);
     }
 
     unindex(value: T) {
@@ -96,13 +100,23 @@ class OverloadNode<T extends HasSig> {
         }
     }
 
-    resolve(args: IValue[], at: number): T | nil {
-        if (at >= args.length) {
+    getExact(types: _IType[]): T | nil {
+        if (this.at >= types.length) {
+            return this.leaf;
+        }
+        const target = types[this.at];
+        const found = this.nexts.get(target.primary)
+            ?.find(x => x.type == target);
+        return found?.getExact(types);
+    }
+
+    resolve(args: IValue[]): T | nil {
+        if (this.at >= args.length) {
             return this.leaf;
         }
 
         // gets the child which type matches the current arg better
-        const arg = args[at];
+        const arg = args[this.at];
         const sigsToCheck = it(
             this.nexts // perf tweak: search by primary type
                 .get(arg.type.primary)
@@ -123,7 +137,7 @@ class OverloadNode<T extends HasSig> {
         }, null);
 
         if (match) {
-            return match.resolve(args, at + 1);
+            return match.resolve(args);
         }
 
         // handle variadic args
@@ -135,7 +149,7 @@ class OverloadNode<T extends HasSig> {
         return null;
     }
 
-    private compatible(arg: IValue<any>, type: _IType<any>) {
+    private compatible(arg: IValue, type: _IType) {
         if (arg.type === type) {
             return true;
         }

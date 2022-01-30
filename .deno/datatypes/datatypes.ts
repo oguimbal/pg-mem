@@ -1,9 +1,9 @@
 import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private.ts';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
-import { nullIsh, getContext } from '../utils.ts';
+import { nullIsh } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../misc/buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
@@ -15,6 +15,7 @@ import { RegTypeImpl } from './t-regtype.ts';
 import { RegClassImpl } from './t-regclass.ts';
 import { RecordType } from './t-record.ts';
 import { INetType } from './t-inet.ts';
+import { buildCtx } from '../parser/context.ts';
 
 
 class UUIDtype extends TypeBase<Date> {
@@ -50,7 +51,7 @@ class NullType extends TypeBase<null> {
     }
 
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
-        return new Evaluator(value.owner, to, null, 'null', null, null);
+        return new Evaluator(to, null, 'null', null, null);
     }
 
     doCanCast(to: _IType): boolean {
@@ -149,8 +150,7 @@ class NumberType extends TypeBase<number> {
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
         if (!integers.has(value.type.primary) && integers.has(to.primary)) {
             return new Evaluator(
-                value.owner
-                , to
+                to
                 , value.id
                 , value.hash
                 , value
@@ -162,12 +162,13 @@ class NumberType extends TypeBase<number> {
                 }
             );
         }
+        const { schema } = buildCtx();
         switch (to.primary) {
             case DataType.regtype:
                 return value
                     .setType(Types.regtype)
                     .setConversion((int: number) => {
-                        const got = value.owner.getType(int, { nullIfNotFound: true });
+                        const got = schema.getType(int, { nullIfNotFound: true });
                         if (!got) {
                             throw new CastError(DataType.integer, DataType.regtype);
                         }
@@ -179,7 +180,6 @@ class NumberType extends TypeBase<number> {
                     .setType(Types.regclass)
                     .setConversion((int: number) => {
                         // === int -> regclass
-                        const { schema } = getContext();
                         const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
                         return obj?.reg.classId ?? int;
                     }
@@ -379,7 +379,7 @@ class TextType extends TypeBase<string> {
                     .setType(to)
                     .setConversion((str: string) => {
                         const array = parseArrayLiteral(str);
-                        (to as ArrayType).convertLiteral(value.owner, array);
+                        (to as ArrayType).convertLiteral(array);
                         return array;
                     }
                         , parseArray => ({ parseArray }));
@@ -435,6 +435,11 @@ class BoolType extends TypeBase<boolean> {
 }
 
 export class ArrayType extends TypeBase<any[]> {
+
+    public static matches(type: IType): type is ArrayType {
+        return type.primary === DataType.array;
+    }
+
     get primary(): DataType {
         if (this.list) {
             return DataType.list;
@@ -467,28 +472,26 @@ export class ArrayType extends TypeBase<any[]> {
         const to = _to as ArrayType;
         const valueType = value.type as ArrayType;
         return new Evaluator(
-            value.owner
-            , to
+            to
             , value.id
             , value.hash!
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(value.owner, valueType.of, x).cast(to.of).get(raw, t));
+                return arr.map(x => Value.constant(valueType.of, x).cast(to.of).get(raw, t));
             });
     }
 
     toText(to: _IType, value: Evaluator) {
         const valueType = value.type as ArrayType;
         return new Evaluator(
-            value.owner
-            , to
+            to
             , value.id
             , value.hash!
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                const strs = arr.map(x => Value.constant(value.owner, valueType.of, x).cast(Types.text()).get(raw, t));
+                const strs = arr.map(x => Value.constant(valueType.of, x).cast(Types.text()).get(raw, t));
                 const data = strs.join(',');
                 return this.list
                     ? '(' + data + ')'
@@ -528,7 +531,7 @@ export class ArrayType extends TypeBase<any[]> {
         return a.length < b.length;
     }
 
-    convertLiteral(owner: _ISchema, elts: any) {
+    convertLiteral(elts: any) {
         if (nullIsh(elts)) {
             return;
         }
@@ -537,14 +540,14 @@ export class ArrayType extends TypeBase<any[]> {
         }
         if (this.of instanceof ArrayType) {
             for (let i = 0; i < elts.length; i++) {
-                this.of.convertLiteral(owner, elts[i]);
+                this.of.convertLiteral(elts[i]);
             }
         } else {
             for (let i = 0; i < elts.length; i++) {
                 if (Array.isArray(elts[i])) {
                     throw new QueryError('Array depth mismatch: was not expecting an array item.');
                 }
-                elts[i] = Value.text(owner, elts[i])
+                elts[i] = Value.text(elts[i])
                     .cast(this.of)
                     .get();
             }
@@ -553,10 +556,14 @@ export class ArrayType extends TypeBase<any[]> {
     }
 }
 
+export interface RecordCol {
+    readonly name: string;
+    readonly type: _IType;
+}
 
 /** Basic types */
 export const Types = {
-    [DataType.record]: new RecordType() as _IType,
+    [DataType.record]: (columns: RecordCol[]) => new RecordType(columns) as _IType,
     [DataType.bool]: new BoolType() as _IType,
     [DataType.text]: (len: number | nil = null) => makeText(len) as _IType,
     [DataType.citext]: new TextType(null, true),

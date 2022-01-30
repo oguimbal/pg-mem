@@ -4,6 +4,7 @@ import { NotSupported, QueryError } from './interfaces.ts';
 
 export class Transaction implements _Transaction {
     private origData: ImMap<symbol, any>;
+    private transientData: any = {};
 
     static root() {
         return new Transaction(null, ImMap());
@@ -73,7 +74,21 @@ export class Transaction implements _Transaction {
             : ret;
     }
 
-    rollback () {
+    rollback() {
         return this.parent ?? this;
+    }
+
+    setTransient<T>(identity: symbol, data: T): T {
+        this.transientData[identity] = data as any;
+        return data;
+    }
+
+    /** Set transient data, which will only exist within the scope of the current statement */
+    getTransient<T>(identity: symbol): T {
+        return this.transientData[identity] as T;
+    }
+
+    clearTransientData(): void {
+        this.transientData = {};
     }
 }

@@ -1,5 +1,5 @@
-import { QueryError, Reg, _Explainer, _ISchema, _ISelection, _IView, _Transaction } from './interfaces-private.ts';
-import { DataSourceBase, FilterBase } from './transforms/transform-base.ts';
+import { QueryError, Reg, _Explainer, _ISchema, _ISelection, _IView, _Transaction } from '../interfaces-private.ts';
+import { DataSourceBase, FilterBase } from '../transforms/transform-base.ts';
 
 export class View extends FilterBase<any> implements _IView {
     get type(): 'view' {

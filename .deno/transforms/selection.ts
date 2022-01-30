@@ -1,12 +1,13 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private.ts';
 import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces.ts';
-import { buildValue } from '../expression-builder.ts';
+import { buildValue } from '../parser/expression-builder.ts';
 import { Evaluator } from '../evaluator.ts';
 import { TransformBase } from './transform-base.ts';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { Aggregation, aggregationFunctions, buildGroupBy } from './aggregation.ts';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils.ts';
+import { withSelection } from '../parser/context.ts';
 
 
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
@@ -56,8 +57,7 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
         throw new Error('Invalid column id');
     }
     const ret = new Evaluator(
-        on.ownerSchema
-        , type
+        type
         , id
         , id
         , null
@@ -98,7 +98,7 @@ function* buildCols(this: void, base: _ISelection, columns: (SelectedColumn | Cu
             }
 
         } else {
-            const val = buildValue(base as _ISelection, s.expr);
+            const val = buildValue(s.expr);
             yield { val, as: s.alias?.name, expr: s.expr };
         }
     }
@@ -122,11 +122,11 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
     readonly columns: IValue[] = [];
 
 
-    constructor(base: _ISelection<any>, _columns: (SelectedColumn | CustomAlias)[]) {
+    constructor(base: _ISelection, _columns: (SelectedColumn | CustomAlias)[]) {
         super(base);
 
         // build non-conflicting column ids based on existing ones
-        const columns = [...buildCols(base, _columns)];
+        const columns = withSelection(base, () => [...buildCols(base, _columns)]);
         this.columnIds = columns.map(x => x.as ?? x.val.id!);
 
         // build column ids

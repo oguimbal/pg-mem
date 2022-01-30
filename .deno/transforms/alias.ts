@@ -1,12 +1,13 @@
 import { TransformBase, FilterBase } from './transform-base.ts';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private.ts';
 import { Evaluator } from '../evaluator.ts';
-import { Types } from '../datatypes/index.ts';
-import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { Types, RecordCol } from '../datatypes/index.ts';
+import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { asSingleName, colToStr } from '../utils.ts';
 import { ColumnNotFound } from '../interfaces.ts';
+import { RecordType } from '../datatypes/t-record.ts';
 
-export function buildAlias(on: _ISelection, alias?: string): _ISelection<any> {
+export function buildAlias(on: _ISelection, alias?: string): _ISelection {
     if (!alias) {
         return on as any;
     }
@@ -71,8 +72,9 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
             return ret;
         });
 
-        this.asRecord = new Evaluator(this.ownerSchema
-            , Types.record
+        // how to build a record out of this alias?
+        this.asRecord = new Evaluator(
+            RecordType.from(this)
             , this.name
             , Math.random().toString()
             , this._columns

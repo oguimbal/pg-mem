@@ -1,7 +1,8 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue } from '../../expression-builder.ts';
+import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
+import { withSelection } from '../../parser/context.ts';
 
 
 class ArrayAggExpr implements AggregationComputer<any[]> {
@@ -26,11 +27,13 @@ class ArrayAggExpr implements AggregationComputer<any[]> {
 }
 
 export function buildArrayAgg(this: void, base: _ISelection, call: ExprCall) {
-    const args = call.args;
-    if (args.length !== 1) {
-        throw new QueryError('ARRAY_AGG expects one argument, given ' + args.length);
-    }
+    return withSelection(base, () => {
+        const args = call.args;
+        if (args.length !== 1) {
+            throw new QueryError('ARRAY_AGG expects one argument, given ' + args.length);
+        }
 
-    const what = buildValue(base, args[0]);
-    return new ArrayAggExpr(what);
+        const what = buildValue(args[0]);
+        return new ArrayAggExpr(what);
+    })
 }

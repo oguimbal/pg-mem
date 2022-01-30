@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 
 
 export type nil = undefined | null;
@@ -161,6 +161,8 @@ export interface ToCompile {
     functioName?: string | nil;
     /** Code to compile */
     code: string;
+    /** Schema against which this compilation is performed */
+    schema: ISchema;
     /** Expected arguments */
     args: ArgDefDetails[];
     /** Expected return type (if any) */
@@ -250,7 +252,7 @@ export interface ISchema {
     getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
 
     /** Register a function */
-    registerFunction(fn: FunctionDefinition): this;
+    registerFunction(fn: FunctionDefinition, orReplace?: boolean): this;
 
 
     /** Register a binary operator */
@@ -345,8 +347,6 @@ export interface QueryResult {
     fields: Array<FieldInfo>;
     rows: any[];
 
-    /** Ignored (because of an "if not exists" or equivalent) */
-    ignored?: boolean;
     /** Location of the last ";" prior to this statement */
     location: NodeLocation;
 }

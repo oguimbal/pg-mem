@@ -1,6 +1,6 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, FunctionDefinition, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { Map as ImMap, Record, List, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { Map as ImMap, Record, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
 
@@ -39,7 +39,10 @@ export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
     readonly dualTable: _ITable;
-    buildSelect(p: SelectStatement): _ISelection;
+    /** If the given name refers to another schema, then get it. Else, get this */
+    getThisOrSiblingFor(name: QName): _ISchema;
+    executeCreateExtension(p: CreateExtensionStatement): void;
+    dropFunction(fn: DropFunctionStatement): void;
     explainSelect(sql: string): _SelectExplanation;
     explainLastSelect(): _SelectExplanation | undefined;
     getTable(table: string): _ITable;
@@ -50,6 +53,8 @@ export interface _ISchema extends ISchema {
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this overload */
     resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil;
+    /** Get an exact function def from its signature (do not use that to resolve overload) */
+    getFunction(name: string, args: _IType[]): _FunctionDefinition | nil;
     /** Get operator matching this overload */
     resolveOperator(name: BinaryOperator, left: IValue, right: IValue, forceOwn?: boolean): _OperatorDefinition | nil;
 
@@ -83,7 +88,25 @@ export interface _ISchema extends ISchema {
     _reg_register(rel: _IRelation): Reg;
     _reg_unregister(rel: _IRelation): void;
     _reg_rename(rel: _IRelation, oldName: string, newName: string): void;
+
 }
+
+
+export interface _IStatement {
+    readonly schema: _ISchema;
+    onExecuted(callback: OnStatementExecuted): void;
+}
+
+export interface _IStatementExecutor {
+    execute(t: _Transaction): StatementResult;
+}
+
+export interface StatementResult {
+    result: QueryResult;
+    state: _Transaction;
+}
+
+export type OnStatementExecuted = (t: _Transaction) => void;
 
 export interface QueryObjOpts extends Partial<BeingCreated> {
     /** Returns null instead of throwing error if not found */
@@ -128,10 +151,17 @@ export interface _Transaction {
     fullCommit(): _Transaction;
     rollback(): _Transaction;
     delete(identity: symbol): void;
+    /** Set data persisted in this transaction */
     set<T>(identity: symbol, data: T): T;
+    /** Get data persisted in this transaction */
     get<T>(identity: symbol): T;
     getMap<T extends ImMap<any, any>>(identity: symbol): T;
     getSet<T>(identity: symbol): ImSet<T>;
+    /** Get transient data, which will only exist within the scope of the current statement */
+    setTransient<T>(identity: symbol, data: T): T;
+    /** Set transient data, which will only exist within the scope of the current statement */
+    getTransient<T>(identity: symbol): T;
+    clearTransientData(): void;
 }
 
 export interface Stats {
@@ -144,6 +174,8 @@ export interface _ISelection<T = any> extends _IAlias {
 
     readonly ownerSchema: _ISchema;
     readonly db: _IDb;
+    /** Tells if this statement is an execution without any meaningful result ("update" with no "returning", etc...) */
+    readonly isExecutionWithNoResult: boolean;
     /** Column list (those visible when select *) */
     readonly columns: ReadonlyArray<IValue>;
     /** Statistical measure of how many items will be returned by this selection */
@@ -168,7 +200,6 @@ export interface _ISelection<T = any> extends _IAlias {
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     setAlias(alias?: string): _ISelection;
-    subquery(data: _ISelection, op: SelectStatement): _ISelection;
     isOriginOf(a: IValue): boolean;
     explain(e: _Explainer): _SelectExplanation;
 
@@ -349,7 +380,7 @@ export interface _IDb extends IMemoryDb {
 }
 export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     onIndex: _IIndex;
-    update: (item: any, excluded: any) => void;
+    update: (item: any, excluded: any, t: _Transaction) => void;
 }
 
 export type DropHandler = (t: _Transaction) => void;
@@ -478,6 +509,11 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     hash(value: TRaw): string | number | null;
 
     drop(t: _Transaction): void;
+}
+
+export interface Parameter {
+    readonly index: number;
+    readonly value: IValue;
 }
 
 export interface IValue<TRaw = any> {

@@ -1,8 +1,8 @@
-import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { combineSubs, ignore, nullIsh } from './utils.ts';
-import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from './interfaces-private.ts';
-import { ISubscription, nil, QueryError } from './interfaces.ts';
-import { Types } from './datatypes/index.ts';
+import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { combineSubs, ignore, nullIsh } from '../utils.ts';
+import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from '../interfaces-private.ts';
+import { ISubscription, nil, QueryError } from '../interfaces.ts';
+import { Types } from '../datatypes/index.ts';
 
 interface SeqData {
     currval: number | undefined;

@@ -8,28 +8,28 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
     }
 
     entropy() {
-        return this.elts.length;
+        return this.rows.length;
     }
 
     hasItem(raw: T): boolean {
-        return this.elts.includes(raw);
+        return this.rows.includes(raw);
     }
 
     getIndex() {
         return null;
     }
 
-    constructor(fromTable: _ISelection<T>, private elts: T[]) {
+    constructor(fromTable: _ISelection<T>, public rows: T[]) {
         super(fromTable);
     }
 
     enumerate(): Iterable<T> {
-        return this.elts;
+        return this.rows;
     }
 
     stats(t: _Transaction): Stats | null {
         return {
-            count: this.elts.length,
+            count: this.rows.length,
         };
     }
 
@@ -37,7 +37,7 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
         return {
             id: e.idFor(this),
             _: 'constantSet',
-            rawArrayLen: this.elts.length,
+            rawArrayLen: this.rows.length,
         }
     }
 }

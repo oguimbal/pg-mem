@@ -1,13 +1,14 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { nullIsh } from './utils.ts';
-import { buildValue } from './expression-builder.ts';
 import { columnEvaluator } from './transforms/selection.ts';
-import { BIndex } from './btree-index.ts';
+import { BIndex } from './schema/btree-index.ts';
 import { GeneratedIdentityConstraint } from './constraints/generated.ts';
 import { DataType } from './interfaces.ts';
+import { buildValue } from './parser/expression-builder.ts';
+import { withSelection } from './parser/context.ts';
 
 
 
@@ -22,9 +23,6 @@ export class ColRef implements _Column {
         , public expression: Evaluator
         , _schema: SchemaField
         , public name: string) {
-        if (expression.type.primary === DataType.record) {
-            throw new QueryError(`column "${this.name}" has pseudo-type record`);
-        }
     }
 
     addConstraints(clist: ColumnConstraint[], t: _Transaction): this {
@@ -130,7 +128,7 @@ export class ColRef implements _Column {
                     this.default = null;
                     break;
                 }
-                const df = buildValue(this.table.selection, alter.default);
+                const df = withSelection(this.table.selection, () => buildValue(alter.default));
                 if (!df.isConstant) {
                     throw new QueryError('cannot use column references in default expression');
                 }

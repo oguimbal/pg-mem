@@ -1,16 +1,17 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces.ts';
 import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint } from './interfaces-private.ts';
-import { buildValue } from './expression-builder.ts';
-import { BIndex } from './btree-index.ts';
+import { buildValue } from './parser/expression-builder.ts';
+import { BIndex } from './schema/btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
 import { ForeignKey } from './constraints/foreign-key.ts';
 import { Types } from './datatypes/index.ts';
+import { withSelection } from './parser/context.ts';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -57,8 +58,9 @@ class ColumnManager {
 }
 
 export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
-
-
+    get isExecutionWithNoResult(): boolean {
+        return false;
+    }
     private handlers = new Map<TableEvent, Set<() => void>>();
     readonly selection: Alias<T>;
     private _reg?: Reg;
@@ -345,7 +347,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 const got = index.eqFirst(key, t);
                 if (got) {
                     // update !
-                    onConflict.update(got, toInsert);
+                    onConflict.update(got, toInsert, t);
                     return this.update(t, got);
                 }
             }
@@ -522,7 +524,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     addCheck(_t: _Transaction, check: Expr, constraintName?: string): _IConstraint {
         constraintName = this.constraintNameGen(constraintName);
         this.checkNoConstraint(constraintName);
-        const getter = buildValue(this.selection, check).cast(Types.bool);
+        const getter = withSelection(this.selection, () => buildValue(check).cast(Types.bool));
 
         const checkVal = (t: _Transaction, v: any) => {
             const value = getter.get(v, t);

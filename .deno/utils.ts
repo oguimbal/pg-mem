@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './misc/buffer-deno.ts';
 
@@ -369,19 +369,23 @@ export function combineSubs(...vals: ISubscription[]): ISubscription {
 }
 
 
-interface Ctx {
-    schema: _ISchema;
-    transaction: _Transaction;
+export interface ExecCtx {
+    readonly schema: _ISchema;
+    readonly transaction: _Transaction;
+    readonly parametersValues?: any[];
 }
-const curCtx: Ctx[] = [];
-export function getContext(): Ctx {
+const curCtx: ExecCtx[] = [];
+export function executionCtx(): ExecCtx {
     if (!curCtx.length) {
-        throw new Error('Cannot call getFunctionContext() in this context');
+        throw new Error('No execution context available');
     }
     return curCtx[curCtx.length - 1];
 }
+export function hasExecutionCtx(): boolean {
+    return curCtx.length > 0;
+}
 
-export function pushContext<T>(ctx: Ctx, act: () => T): T {
+export function pushExecutionCtx<T>(ctx: ExecCtx, act: () => T): T {
     try {
         curCtx.push(ctx)
         return act();
@@ -691,4 +695,12 @@ export class IteratorHelper<T> implements Iterable<T> {
         }
         return acc;
     }
+}
+
+export function fromEntries<K, V>(iterable: [K, V][]): Map<K, V> {
+    const ret = new Map<K, V>();
+    for (const [k, v] of iterable) {
+        ret.set(k, v);
+    }
+    return ret;
 }

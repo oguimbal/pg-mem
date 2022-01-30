@@ -1,4 +1,4 @@
-import { getContext } from '../utils.ts';
+import { executionCtx } from '../utils.ts';
 import { Types } from '../datatypes/index.ts';
 import { FunctionDefinition, QueryError } from '../interfaces.ts';
 import { asSeq, RegClass, _ISequence } from '../interfaces-private.ts';
@@ -6,7 +6,7 @@ import { asSeq, RegClass, _ISequence } from '../interfaces-private.ts';
 // https://www.postgresql.org/docs/8.1/functions-sequence.html
 
 function getSeq(id: RegClass) {
-    const { transaction, schema } = getContext();
+    const { transaction, schema } = executionCtx();
     if (!transaction) {
         throw new QueryError('cannot query sequence value in this context');
     }
@@ -44,7 +44,7 @@ export const sequenceFunctions: FunctionDefinition[] = [
         name: 'lastval',
         returns: Types.integer,
         implementation: (seqId: RegClass) => {
-            const { transaction } = getContext();
+            const { transaction } = executionCtx();
             if (!transaction) {
                 throw new QueryError('cannot query lastval in this context');
             }

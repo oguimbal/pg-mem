@@ -1,9 +1,9 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from './interfaces-private.ts';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from '../interfaces-private.ts';
 // @ts-ignore
 import createTree from 'https://deno.land/x/functional_red_black_tree@1.0.1-deno/mod.ts';
-import { QueryError, NotSupported, nil } from './interfaces.ts';
+import { QueryError, NotSupported, nil } from '../interfaces.ts';
 import { Set as ImSet, Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { deepCloneSimple, nullIsh, hasNullish } from './utils.ts';
+import { deepCloneSimple, nullIsh, hasNullish } from '../utils.ts';
 
 
 // https://www.npmjs.com/package/functional-red-black-tree

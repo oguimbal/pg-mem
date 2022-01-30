@@ -1,7 +1,7 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId } from '../interfaces-private.ts';
-import { SelectedColumn, Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue, uncache } from '../expression-builder.ts';
+import { SelectedColumn, Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../parser/expression-builder.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { colByName, suggestColumnName } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
@@ -12,6 +12,7 @@ import { buildSum } from './aggregations/sum.ts';
 import { buildArrayAgg } from './aggregations/array_agg.ts';
 import { buildAvg } from './aggregations/avg.ts';
 import { Selection } from './selection.ts';
+import { buildCtx, withSelection } from '../parser/context.ts';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -40,7 +41,8 @@ export function buildGroupBy(on: _ISelection, groupBy: Expr[], select: SelectedC
 
 let idCnt = 0;
 
-export function getAggregator(on: _ISelection | nil): Aggregation<unknown> | null {
+export function getAggregator(): Aggregation<unknown> | null {
+    const on = buildCtx().selection;
     if (!on) {
         return null;
     }
@@ -86,13 +88,12 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
 
         // === preassign columns that are reachable (grouped by)
-        this.groupingValuesOnbase = _groupedBy.map(x => buildValue(on, x));
+        this.groupingValuesOnbase = withSelection(on, () => _groupedBy.map(x => buildValue(x)));
         for (let _i = 0; _i < this.groupingValuesOnbase.length; _i++) {
             const i = _i;
             const g = this.groupingValuesOnbase[i];
             this.groupByMapping.set(g.hash!, new Evaluator(
-                on.ownerSchema
-                , g.type
+                g.type
                 , g.id
                 , g.hash!
                 , [g]
@@ -283,8 +284,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
         const id = Symbol();
         const getter = new Evaluator(
-            this.ownerSchema
-            , got.type
+            got.type
             , null
             , hashed
             , []

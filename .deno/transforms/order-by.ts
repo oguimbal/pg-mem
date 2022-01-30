@@ -1,8 +1,9 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue } from '../expression-builder.ts';
+import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../parser/expression-builder.ts';
 import { nullIsh } from '../utils.ts';
+import { withSelection } from '../parser/context.ts';
 
 export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {
     return new OrderBy(on, order);
@@ -31,11 +32,12 @@ class OrderBy<T> extends FilterBase<any> {
 
     constructor(private selection: _ISelection<T>, order: OrderByStatement[]) {
         super(selection);
-        this.order = order.map(x => ({
-            by: buildValue(selection, x.by),
-            order: x.order ?? 'ASC',
-            nullsLast: x.nulls === 'LAST',
-        }))
+        this.order = withSelection(selection,
+            () => order.map(x => ({
+                by: buildValue(x.by),
+                order: x.order ?? 'ASC',
+                nullsLast: x.nulls === 'LAST',
+            })));
     }
 
 

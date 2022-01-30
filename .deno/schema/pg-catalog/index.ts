@@ -8,9 +8,10 @@ import { PgNamespaceTable } from './pg-namespace-list.ts';
 import { PgTypeTable } from './pg-type-list.ts';
 import { allFunctions } from '../../functions/index.ts';
 import { PgRange } from './pg-range.ts';
-import { sqlSubstring } from '../../expression-builder.ts';
+import { sqlSubstring } from '../../parser/expression-builder.ts';
 import { PgDatabaseTable } from './pg-database.ts';
 import { registerCommonOperators } from './binary-operators.ts';
+import { registerSqlFunctionLanguage } from './sql-function-language.ts';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -39,7 +40,6 @@ export function setupPgCatalog(db: _IDb) {
         ._registerType(Types.polygon)
         ._registerType(Types.circle)
         ._registerType(Types.interval)
-        ._registerType(Types.record)
         ._registerType(Types.inet)
         ._registerTypeSizeable(DataType.text, Types.text)
 
@@ -102,6 +102,9 @@ export function setupPgCatalog(db: _IDb) {
     });
 
     registerCommonOperators(catalog);
+
+
+    registerSqlFunctionLanguage(db);
 
     catalog.setReadonly()
 }

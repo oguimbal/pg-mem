@@ -1,14 +1,17 @@
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue } from '../expression-builder.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../parser/expression-builder.ts';
 import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
+import { withSelection } from '../parser/context.ts';
 
 export function buildDistinct(on: _ISelection, exprs?: Expr[]) {
-    const vals = exprs && exprs.length > 0
-        ? exprs.map(v => buildValue(on, v))
-        : on.columns
-    return new Distinct(on, vals);
+    return withSelection(on, () => {
+        const vals = exprs && exprs.length > 0
+            ? exprs.map(v => buildValue(v))
+            : on.columns
+        return new Distinct(on, vals);
+    });
 }
 
 
@@ -30,7 +33,7 @@ class Distinct<T> extends FilterBase<any> {
         return this.base.hasItem(raw, t);
     }
 
-    constructor(selection: _ISelection<any>, private exprs: ReadonlyArray<IValue>) {
+    constructor(selection: _ISelection, private exprs: ReadonlyArray<IValue>) {
         super(selection);
     }
 

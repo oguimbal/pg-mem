@@ -1,8 +1,9 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.2.2/mod.ts';
-import { buildValue } from '../../expression-builder.ts';
+import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
 import { nullIsh } from '../../utils.ts';
+import { withSelection } from '../../parser/context.ts';
 
 
 class SumExpr implements AggregationComputer<number> {
@@ -52,19 +53,22 @@ class SumDistinct implements AggregationComputer<number> {
 }
 
 export function buildSum(this: void, base: _ISelection, call: ExprCall) {
-    const args = call.args;
-    if (args.length !== 1) {
-        throw new QueryError('SUM expects one argument, given ' + args.length);
-    }
-
-    if (call.distinct) {
+    return withSelection(base, () => {
+        const args = call.args;
         if (args.length !== 1) {
-            throw new QueryError('"sum distinct" only takes one argument');
+            throw new QueryError('SUM expects one argument, given ' + args.length);
         }
-        const distinctArg = buildValue(base, args[0]);
-        return new SumDistinct(distinctArg);
-    }
 
-    const what = buildValue(base, args[0]);
-    return new SumExpr(what);
+        if (call.distinct) {
+            if (args.length !== 1) {
+                throw new QueryError('"sum distinct" only takes one argument');
+            }
+            const distinctArg = buildValue(args[0]);
+            return new SumDistinct(distinctArg);
+        }
+
+        const what = buildValue(args[0]);
+        return new SumExpr(what);
+
+    });
 }
