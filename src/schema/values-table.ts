@@ -9,16 +9,15 @@ import { withSelection, buildCtx } from '../parser/context';
 let cnt = 0;
 export class ValuesTable extends ReadOnlyTable {
     private symbol = Symbol();
-    private items!: any[];
     _schema!: Schema;
     private assignments!: (IValue<any> | "default")[][];
 
     entropy(t: _Transaction): number {
-        return this.items.length;
+        return 0;
     }
 
     enumerate(t: _Transaction): Iterable<any> {
-        this.items = this.items ?? this.assignments.map(vals => {
+        const ret = this.assignments.map(vals => {
             const ret = { [this.symbol]: true } as any;
             setId(ret, 'vtbl' + (++cnt));
             for (let i = 0; i < vals.length; i++) {
@@ -29,7 +28,7 @@ export class ValuesTable extends ReadOnlyTable {
             }
             return ret;
         });
-        return this.items;
+        return ret;
     }
 
     hasItem(value: any, t: _Transaction): boolean {

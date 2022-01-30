@@ -1,14 +1,16 @@
-import { _IDb, _ISchema, _Transaction, _IType, IValue, _Explainer, _ISelection } from '../../interfaces-private';
+import { _IDb, _ISchema, _Transaction, _IType, IValue, _Explainer, _ISelection, setId, getId } from '../../interfaces-private';
 import { parseSql } from '../../parser/parse-cache';
 import { QueryError, NotSupported, DataType } from '../../interfaces';
 import { Statement } from 'pgsql-ast-parser';
-import { executionCtx as executionCtx, pushExecutionCtx, hasExecutionCtx, ExecCtx } from '../../utils';
+import { executionCtx as executionCtx, pushExecutionCtx, hasExecutionCtx, ExecCtx, randomString } from '../../utils';
 import { SelectExec } from '../../execution/select';
 import { withParameters } from '../../parser/context';
 import { buildParameterList } from '../../evaluator';
 import { StatementExec } from '../../execution/statement-exec';
 import { ArrayType } from '../../datatypes';
 import { RecordType } from '../../datatypes/t-record';
+
+let execId = 0;
 
 export function registerSqlFunctionLanguage(db: _IDb) {
     db.registerLanguage('sql', ({ code, schema: _schema, args, returns: _returns }) => {
@@ -54,7 +56,7 @@ export function registerSqlFunctionLanguage(db: _IDb) {
 
 
         // get the result transformer, based on the expected function output type
-        let transformResult: (values: any[], t: _Transaction) => any;
+        let transformResult: (values: any[], t: _Transaction, execId: string) => any;
         if (!returns || returns.primary === DataType.null) {
             // returns null
             transformResult = () => null;
@@ -64,7 +66,9 @@ export function registerSqlFunctionLanguage(db: _IDb) {
             if (!transformItem) {
                 throw new QueryError(`return type mismatch in function declared to return record`, '42P13');
             }
-            transformResult = (v, t) => v?.map(x => transformItem(x, t));
+            transformResult = (v, t, eid) => v?.map(x => {
+                return transformItem(x, t, eid);
+            });
         } else {
             // returns a single value
             const cols = executor.selection.columns;
@@ -93,10 +97,11 @@ export function registerSqlFunctionLanguage(db: _IDb) {
                     transaction: db.data,
                     parametersValues: args,
                 };
+            const eid = 'fne' + execId++;
             // push a new execution context, to avoid leaking parent paramters in the function
             return pushExecutionCtx(exec, () => {
                 const ret = executor.execute(exec.transaction);
-                return transformResult(ret.result.rows, exec.transaction);
+                return transformResult(ret.result.rows, exec.transaction, eid);
             });
         };
         // hack to tell the expression visitor that

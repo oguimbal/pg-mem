@@ -4,6 +4,7 @@ import { RecordCol } from './datatypes';
 
 export class RecordType extends TypeBase<any> {
 
+
     public static matches(type: _IType): type is RecordType {
         return type.primary === DataType.record;
     }
@@ -28,7 +29,7 @@ export class RecordType extends TypeBase<any> {
     }
 
     /** Build a function that will transform a record of this type to a record of the target type  */
-    transformItemFrom(source: _ISelection): ((raw: any, t: _Transaction) => any) | null {
+    transformItemFrom(source: _ISelection): ((raw: any, t: _Transaction, execId: string) => any) | null {
         if (source.columns.length !== this.columns.length) {
             return null;
         }
@@ -43,9 +44,10 @@ export class RecordType extends TypeBase<any> {
             setters.push((old, neu, t) => neu[to.name] = casted.get(old, t));
         }
 
-        return (raw: any, t) => {
+        return (raw: any, t, execId) => {
             const ret = {};
-            setId(ret, getId(raw));
+            // alter the items id, so each execution will have a different id
+            setId(ret, execId + getId(raw));
             for (const s of setters) {
                 s(raw, ret, t);
             }

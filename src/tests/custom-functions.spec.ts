@@ -126,16 +126,6 @@ describe('Custom functions', () => {
             .to.deep.equal([{ col: 'hello world and hello sarah conor' }]);
     })
 
-    it('can use sql language as table in direct select', () => {
-        expect(many(`CREATE FUNCTION test_fn() RETURNS  table (val text) stable
-                AS $$ select * from (values('a') ) as foo(val) $$
-                LANGUAGE SQL;
-
-                SELECT test_fn();`))
-            .to.deep.equal([{ val: 'a' }]);
-    });
-
-
     it('can use arguments in table function', () => {
         expect(many(`CREATE FUNCTION test_fn(arg text) RETURNS  table (val text) stable
                 AS $$ select * from (values('hello ' || $1) , ('bye ' || $1) ) as foo(val) $$
