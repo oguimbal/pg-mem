@@ -18,6 +18,7 @@ export const stringFunctions: FunctionDefinition[] = [
         args: [DataType.text],
         argsVariadic: DataType.text,
         returns: DataType.text,
+        allowNullArguments: true,
         implementation: (...x: string[]) => x?.join(''),
     },
 ]
