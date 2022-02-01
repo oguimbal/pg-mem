@@ -28,7 +28,12 @@ describe('Functions', () => {
         expect(many(`SELECT ConCat('a', 'b', 'c')`))
             .to.deep.equal([{ concat: 'abc' }]);
         assert.throws(() => many(`SELECT "ConCat"('a', 'b', 'c')`), /does not exist/);
-    })
+    });
+
+    it('accepts nulls in concat', () => {
+        expect(many(`select concat('text-', null, 123, null, '-end');`))
+            .to.deep.equal([{ concat: 'text-123-end' }]);
+    });
 
     it('can declare & call function', () => {
         db.registerLanguage('mylang', ({ code, args, returns }) => {
