@@ -655,6 +655,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.indexByHash.delete(u.hash);
         u.dropFromData(t);
         this.ownerSchema._reg_unregister(u);
+        this.constraintsByName.delete(uName);
     }
 
 

@@ -69,6 +69,14 @@ describe('Drop', () => {
         assert.throws(() => none(`drop index test;`), /"test" is not an index/);
     });
 
+    it('can recreate an index after drop', () => {
+        none(`create table test(a text);
+            create index idx on test(a);
+            drop index idx;
+            create index idx on test(a);`);
+    });
+
+
     it('throws an error on ambiguous function drop', () => {
         db.registerLanguage('sql', () => () => assert.fail('not supposed to be called'));
         none(`
