@@ -42,8 +42,11 @@ export class JSONBType extends TypeBase<any> {
                 return a
                     .setType(to)
                     .setConversion(json => {
+                        if (json === JSON_NIL) {
+                            throw new QueryError('cannot cast jsonb null to type ' + (isInt ? 'integer' : 'double precision'), '22023');
+                        }
                         if (typeof json !== 'number') {
-                            throw new QueryError('cannot cast jsonb string to type ' + isInt ? 'integer' : 'double precision', '22023');
+                            throw new QueryError('cannot cast jsonb string to type ' + (isInt ? 'integer' : 'double precision'), '22023');
                         }
                         return isInt ? Math.round(json) : json;
                     }, toFloat => ({ toFloat }));

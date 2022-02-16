@@ -300,6 +300,14 @@ describe('Simple queries', () => {
             ])
     });
 
+    it('does not cast null to int', () => {
+        assert.throws(() => none(`select (('{"val":null}'::jsonb) -> 'val')::int`), /cannot cast jsonb null to type integer/);
+    })
+
+    it('does casts null to int when using ->>', () => {
+        expect(many(`select (('{"val":null}'::jsonb) ->> 'val')::int val`))
+            .to.deep.equal([{ val: null }]);
+    })
 
 
     it('auto increments values', () => {
