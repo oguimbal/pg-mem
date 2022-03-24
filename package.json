@@ -107,7 +107,7 @@
   },
   "peerDependencies": {
     "pg-promise": ">=10.8.7",
-    "typeorm": "0.2.29",
+    "typeorm": ">=0.2.29",
     "slonik": ">=23.0.1",
     "knex": ">=0.20"
   },
