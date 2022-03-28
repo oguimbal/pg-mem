@@ -5,6 +5,7 @@ import { deepCompare, deepEqual, errorMessage } from '../utils.ts';
 import { Types } from './datatypes.ts';
 import { JSON_NIL } from '../execution/clean-results.ts';
 import { QueryError } from '../interfaces.ts';
+import { jsonStringify as  stringify} from 'https://deno.land/x/stable_stringify@v0.2.1/jsonStringify.ts';
 
 export class JSONBType extends TypeBase<any> {
 
@@ -28,13 +29,14 @@ export class JSONBType extends TypeBase<any> {
 
     doCast(a: Evaluator, to: _IType): Evaluator {
         switch (to.primary) {
-            case DataType.json:
+            case DataType.text:
                 return a
                     .setType(Types.text())
-                    .setConversion(json => JSON.stringify(this.toResult(json))
+                    .setConversion(json => stringify(this.toResult(json))
                         , toJsonB => ({ toJsonB }))
                     .cast(to) as Evaluator; // <== might need truncation
             case DataType.jsonb:
+            case DataType.json:
                 return a.setType(to);
             case DataType.float:
             case DataType.integer:
@@ -42,8 +44,11 @@ export class JSONBType extends TypeBase<any> {
                 return a
                     .setType(to)
                     .setConversion(json => {
+                        if (json === JSON_NIL) {
+                            throw new QueryError('cannot cast jsonb null to type ' + (isInt ? 'integer' : 'double precision'), '22023');
+                        }
                         if (typeof json !== 'number') {
-                            throw new QueryError('cannot cast jsonb string to type ' + isInt ? 'integer' : 'double precision', '22023');
+                            throw new QueryError('cannot cast jsonb string to type ' + (isInt ? 'integer' : 'double precision'), '22023');
                         }
                         return isInt ? Math.round(json) : json;
                     }, toFloat => ({ toFloat }));

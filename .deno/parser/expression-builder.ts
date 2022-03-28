@@ -102,6 +102,9 @@ function _buildValueReal(val: Expr): IValue {
             // if (typeof val.function !== 'string') {
             //     return buildKeyword( val.function, val.args);
             // }
+            if (val.over) {
+                throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
+            }
             const nm = asSingleQName(val.function, 'pg_catalog');
             if (nm && aggregationFunctions.has(nm)) {
                 const agg = getAggregator();

@@ -4,6 +4,7 @@
 import { nullIsh } from '../utils.ts';
 import { bufToString, isBuf } from './buffer-deno.ts';
 import { literal } from './pg-escape.ts';
+import { jsonStringify as  stringify} from 'https://deno.land/x/stable_stringify@v0.2.1/jsonStringify.ts';
 
 export function toLiteral(val: any) {
   return prepareValue(val);
@@ -50,7 +51,7 @@ function prepareObject(val: any, seen?: any[]) {
 
     return prepareValue(val.toPostgres(prepareValue), seen)
   }
-  return literal(JSON.stringify(val));
+  return literal(stringify(val));
 }
 
 function pad(number: any, digits: number) {

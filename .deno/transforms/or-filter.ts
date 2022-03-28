@@ -9,7 +9,7 @@ export class OrFilter<T = any> extends FilterBase<T> {
     }
 
     hasItem(value: T, t: _Transaction): boolean {
-        return this.left.hasItem(value, t) && this.right.hasItem(value, t);
+        return this.left.hasItem(value, t) || this.right.hasItem(value, t);
     }
 
     constructor(private left: _ISelection<T>, private right: _ISelection<T>) {
