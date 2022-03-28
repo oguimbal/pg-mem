@@ -82,6 +82,7 @@ if (process.argv.includes('--copy')) {
         'immutable': 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts',
         'moment': 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts',
         'functional-red-black-tree': 'https://deno.land/x/functional_red_black_tree@1.0.1-deno/mod.ts',
+        'json-stable-stringify': { what: x => '{ jsonStringify as  ' + x + '}', where: 'https://deno.land/x/stable_stringify@v0.2.1/jsonStringify.ts' },
     }
     const localBindings = {
         './buffer-node': './buffer-deno',
