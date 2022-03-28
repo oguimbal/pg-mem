@@ -310,4 +310,22 @@ describe('Selections', () => {
     it('cannot use default in expression', () => {
         assert.throws(() => many(`values (1, default)`), /DEFAULT is not allowed in this context/);
     });
+
+    it('bugfix on AND & OR operators', () => {
+        // cf https://github.com/oguimbal/pg-mem/issues/201
+
+        expect(many(`CREATE TABLE test(id serial, a int, b int);
+        INSERT INTO test(a,b) VALUES (1, 2), (3, 4);
+
+        SELECT *
+            FROM   test
+            WHERE id > 0 AND (
+                (a = 1 AND b = 2)
+            OR (a = 3 AND b = 4)
+            );`))
+            .to.deep.equal([
+                { id: 1, a: 1, b: 2 },
+                { id: 2, a: 3, b: 4 },
+            ]);
+    })
 });

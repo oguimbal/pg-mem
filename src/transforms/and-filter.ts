@@ -27,7 +27,7 @@ export class AndFilter<T = any> extends FilterBase<T> {
     }
 
     hasItem(value: T, t: _Transaction): boolean {
-        return !this.filters.some(x => !x.hasItem(value, t));
+        return this.filters.every(x => x.hasItem(value, t));
     }
 
     constructor(private filters: _ISelection<T>[]) {
@@ -53,7 +53,7 @@ export class AndFilter<T = any> extends FilterBase<T> {
         // sort them so the most restrictive filter is first
         const { best, sorted } = this.plan(t)
         for (const item of best.enumerate(t)) {
-            if (!sorted.some(x => x.hasItem(item, t))) {
+            if (!sorted.every(x => x.hasItem(item, t))) {
                 continue;
             }
             yield item;
