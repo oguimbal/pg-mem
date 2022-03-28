@@ -4,6 +4,7 @@
 import { nullIsh } from '../utils'
 import { bufToString, isBuf } from './buffer-node';
 import { literal } from './pg-escape';
+import stringify from 'json-stable-stringify';
 
 export function toLiteral(val: any) {
   return prepareValue(val);
@@ -50,7 +51,7 @@ function prepareObject(val: any, seen?: any[]) {
 
     return prepareValue(val.toPostgres(prepareValue), seen)
   }
-  return literal(JSON.stringify(val));
+  return literal(stringify(val));
 }
 
 function pad(number: any, digits: number) {

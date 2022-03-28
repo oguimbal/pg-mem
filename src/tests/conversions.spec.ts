@@ -198,4 +198,12 @@ describe('Conversions', () => {
         expect(many(`select id from test where value = '1'`)).to.deep.equal([{ id: 'one' }]);
         expect(many(`select id from test where value = '0'`)).to.deep.equal([{ id: 'zero' }]);
     });
+
+    it('should convert to text', () => {
+        // to fix (should be text)
+        expect(many(`select '{"b":51, "a":42}'::jsonb::text col`))
+            .to.deep.equal([{ col: '{"a":42,"b":51}' }]);
+        expect(many(`select '"abc"'::jsonb::text col`))
+            .to.deep.equal([{ col: '"abc"' }]);
+    })
 });

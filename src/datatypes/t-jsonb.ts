@@ -5,6 +5,7 @@ import { deepCompare, deepEqual, errorMessage } from '../utils';
 import { Types } from './datatypes';
 import { JSON_NIL } from '../execution/clean-results';
 import { QueryError } from '../interfaces';
+import stringify from 'json-stable-stringify';
 
 export class JSONBType extends TypeBase<any> {
 
@@ -28,13 +29,14 @@ export class JSONBType extends TypeBase<any> {
 
     doCast(a: Evaluator, to: _IType): Evaluator {
         switch (to.primary) {
-            case DataType.json:
+            case DataType.text:
                 return a
                     .setType(Types.text())
-                    .setConversion(json => JSON.stringify(this.toResult(json))
+                    .setConversion(json => stringify(this.toResult(json))
                         , toJsonB => ({ toJsonB }))
                     .cast(to) as Evaluator; // <== might need truncation
             case DataType.jsonb:
+            case DataType.json:
                 return a.setType(to);
             case DataType.float:
             case DataType.integer:
