@@ -40,6 +40,8 @@ export class Alter extends ExecHelper implements _IStatementExecutor {
                         } else {
                             throw new QueryError('Column already exists: ' + col.id);
                         }
+                    } else {
+                        ignore(change.ifNotExists);
                     }
                     this.table.addColumn(change.column, t);
                     break;

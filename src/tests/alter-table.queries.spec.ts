@@ -40,7 +40,7 @@ describe('Alter table', () => {
         ALTER TABLE foo DROP COLUMN uuid;
 
         SELECT column_name from information_schema.columns where table_name='foo'; -- This should not show uuid anymore, but it does`))
-            .to.deep.equal([{column_name: 'other'}])
+            .to.deep.equal([{ column_name: 'other' }])
     });
 
     it('can rename column', () => {
@@ -179,5 +179,11 @@ describe('Alter table', () => {
             { name: 'Paris', city_id: 0 },
             { name: 'London', city_id: 1 },
         ])
+    });
+
+    it('handles "if not exists" when creating a column', () => {
+        many(`create table mytable(id text);
+            alter table mytable add if not exists other text;
+            alter table mytable add if not exists id text;`);
     })
 });
