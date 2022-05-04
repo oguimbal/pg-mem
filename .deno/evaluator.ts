@@ -4,7 +4,7 @@ import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Types, ArrayType, isNumeric } from './datatypes/index.ts';
 import { buildCall } from './parser/function-call.ts';
 import { nullIsh, executionCtx } from './utils.ts';
-import { QName } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { QName } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { buildCtx } from './parser/context.ts';
 
 

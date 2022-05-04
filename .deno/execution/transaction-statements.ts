@@ -1,6 +1,6 @@
 import { _IStatementExecutor, _Transaction, StatementResult } from '../interfaces-private.ts';
 import { ExecHelper } from './exec-utils.ts';
-import { CommitStatement, RollbackStatement, StartTransactionStatement, BeginStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { CommitStatement, RollbackStatement, StartTransactionStatement, BeginStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { ignore } from '../utils.ts';
 
 export class CommitExecutor extends ExecHelper implements _IStatementExecutor {

@@ -1,5 +1,5 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex, _ITable, asTable } from '../../interfaces-private.ts';
-import { DropTableStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { DropTableStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { ignore } from '../../utils.ts';
 

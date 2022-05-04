@@ -1,5 +1,5 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor } from '../../interfaces-private.ts';
-import { CreateIndexStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { CreateIndexStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { ignore } from '../../utils.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { buildValue } from '../../parser/expression-builder.ts';

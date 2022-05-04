@@ -1,5 +1,5 @@
 import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement } from '../../interfaces-private.ts';
-import { InsertStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { InsertStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
 import { JoinSelection } from '../../transforms/join.ts';

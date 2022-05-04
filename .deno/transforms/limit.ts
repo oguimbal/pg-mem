@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { LimitStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { LimitStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { withSelection } from '../parser/context.ts';
 

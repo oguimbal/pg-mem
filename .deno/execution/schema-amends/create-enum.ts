@@ -1,5 +1,5 @@
 import { _Transaction, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor } from '../../interfaces-private.ts';
-import { CreateEnumType } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { CreateEnumType } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 
 export class CreateEnum extends ExecHelper implements _IStatementExecutor {

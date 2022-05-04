@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint } from '../interfaces-private.ts';
-import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
@@ -69,6 +69,14 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         this.build();
+        if (typeof column !== 'string'
+            && column.table) {
+            if (!column.table.schema
+                && column.table.name !== this.name) {
+                return null;
+            }
+            column = column.name;
+        }
         return colByName(this.columnsById, column, nullIfNotFound);
     }
 

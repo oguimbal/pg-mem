@@ -1,5 +1,5 @@
 import { _Transaction, _ISchema, NotSupported, _ITable, _IStatement, _IStatementExecutor, QueryError, _ArgDefDetails, IType, _IType, nil, FunctionDefinition } from '../../interfaces-private.ts';
-import { CreateFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { CreateFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';

@@ -1,5 +1,5 @@
 import { _IStatementExecutor, _Transaction, StatementResult, GLOBAL_VARS, QueryError } from '../interfaces-private.ts';
-import { ShowStatement } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { ShowStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { locOf } from './exec-utils.ts';
 
 export class ShowExecutor implements _IStatementExecutor {

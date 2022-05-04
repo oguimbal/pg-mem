@@ -1,5 +1,5 @@
 import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema } from '../interfaces-private.ts';
-import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { Deletion } from './records-mutations/deletion.ts';
 import { Update } from './records-mutations/update.ts';
 import { Insert } from './records-mutations/insert.ts';
@@ -79,7 +79,7 @@ export function buildWith(p: WithStatement, topLevel: boolean): _ISelection {
         const { setTempBinding } = buildCtx();
         // declare temp bindings
         for (const { alias, statement } of p.bind) {
-            const prepared = topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement))
+            const prepared = (topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement)))
                 .setAlias(alias.name);
             setTempBinding(alias.name, prepared);
         }
@@ -152,7 +152,7 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
                 sel = new JoinSelection(newT, sel, from.join!, false);
                 break;
             default:
-                throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
+                throw new NotSupported('Join type not supported ' + (from.join?.type ?? '<no join specified>'));
         }
     }
 

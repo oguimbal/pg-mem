@@ -2,7 +2,7 @@ import { DataSourceBase } from '../../transforms/transform-base.ts';
 import { ArrayFilter } from '../../transforms/array-filter.ts';
 import { cleanResults } from '../clean-results.ts';
 import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement } from '../../interfaces-private.ts';
-import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { buildSelection } from '../../transforms/selection.ts';
 import { MemoryTable } from '../../table.ts';
 import { buildValue } from '../../parser/expression-builder.ts';

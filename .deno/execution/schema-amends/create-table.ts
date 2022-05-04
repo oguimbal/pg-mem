@@ -1,5 +1,5 @@
 import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor, Schema, DataType, QueryError } from '../../interfaces-private.ts';
-import { CreateTableStatement, QName } from 'https://deno.land/x/pgsql_ast_parser@9.3.2/mod.ts';
+import { CreateTableStatement, QName } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
 import { ignore, Optional } from '../../utils.ts';
 import { checkExistence, ExecHelper } from '../exec-utils.ts';
 import { buildCtx } from '../../parser/context.ts';
