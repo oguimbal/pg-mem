@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
-describe('Cross/Carthesian joins', () => {
+describe.skip('Cross/Carthesian joins', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];

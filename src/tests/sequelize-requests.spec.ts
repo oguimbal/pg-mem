@@ -4,7 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 
-describe('Sequelize - requests', () => {
+describe.skip('Sequelize - requests', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];
