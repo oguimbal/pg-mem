@@ -190,24 +190,6 @@ describe('Joins', () => {
         })
     });
 
-    // it('simple join on index with comma syntax', () => {
-    //     const result = many(`create table ta(aid text primary key, bid text);
-    //                         create table tb(bid text primary key, val text);
-    //                         insert into ta values ('aid1', 'bid1');
-    //                         insert into ta values ('aid2', 'bid2');
-
-    //                         insert into tb values ('bid1', 'val1');
-    //                         insert into tb values ('bid2', 'val2');
-
-    //                         select val, aid, ta.bid as abid, tb.bid as bbid from ta, tb
-    //                             where ta.bid = tb.bid`);
-    //     preventSeqScan(db);
-    //     expect(result).to.deep.equal([
-    //         { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
-    //         { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
-    //     ]);
-    // });
-
 
 
     it('join with left null values', () => {
@@ -827,22 +809,4 @@ describe('Joins', () => {
     it('[bugfix] performs typeorm schema exploration join', () => {
         many(`SELECT "ns"."nspname" AS "table_schema", "t"."relname" AS "table_name", "cnst"."conname" AS "constraint_name", pg_get_constraintdef("cnst"."oid") AS "expression", CASE "cnst"."contype" WHEN 'p' THEN 'PRIMARY' WHEN 'u' THEN 'UNIQUE' WHEN 'c' THEN 'CHECK' WHEN 'x' THEN 'EXCLUDE' END AS "constraint_type", "a"."attname" AS "column_name" FROM "pg_constraint" "cnst" INNER JOIN "pg_class" "t" ON "t"."oid" = "cnst"."conrelid" INNER JOIN "pg_namespace" "ns" ON "ns"."oid" = "cnst"."connamespace" LEFT JOIN "pg_attribute" "a" ON "a"."attrelid" = "cnst"."conrelid" AND "a"."attnum" = ANY ("cnst"."conkey") WHERE "t"."relkind" IN ('r', 'p') AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'form') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'submission'));`);
     })
-
-
-    // it ('can full join', () => {
-    //     photos();
-    //     const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
-    //                         FROM "user" "user"
-    //                         FULL JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
-    //     expect(result)
-    //         .to.deep.equal([
-    //             {user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-    //             {user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-    //             {user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-    //             {user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-    //             {user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
-    //             {user_id: null, user_name: null, photo_id: 'p6', photo_url: 'noone.jpg', photo_userId: null },
-    //             {user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
-    //         ]);
-    // });
 });
