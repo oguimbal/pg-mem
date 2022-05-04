@@ -120,6 +120,7 @@ export class StatementExec implements _IStatement {
                 return new DoStatementExec(this, p);
             case 'comment':
             case 'raise':
+            case 'deallocate':
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
 

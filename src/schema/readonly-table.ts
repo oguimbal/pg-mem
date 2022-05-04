@@ -69,6 +69,14 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         this.build();
+        if (typeof column !== 'string'
+            && column.table) {
+            if (!column.table.schema
+                && column.table.name !== this.name) {
+                return null;
+            }
+            column = column.name;
+        }
         return colByName(this.columnsById, column, nullIfNotFound);
     }
 

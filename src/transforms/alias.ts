@@ -24,6 +24,10 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
     private _columns: IValue<any>[] | null = null;
     private asRecord!: IValue;
 
+    get isExecutionWithNoResult(): boolean {
+        return this.base.isExecutionWithNoResult;
+    }
+
     constructor(sel: _ISelection, public name: string) {
         super(sel);
     }

@@ -79,7 +79,7 @@ export function buildWith(p: WithStatement, topLevel: boolean): _ISelection {
         const { setTempBinding } = buildCtx();
         // declare temp bindings
         for (const { alias, statement } of p.bind) {
-            const prepared = topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement))
+            const prepared = (topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement)))
                 .setAlias(alias.name);
             setTempBinding(alias.name, prepared);
         }
@@ -152,7 +152,7 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
                 sel = new JoinSelection(newT, sel, from.join!, false);
                 break;
             default:
-                throw new NotSupported('Joint type not supported ' + (from.join?.type ?? '<no join specified>'));
+                throw new NotSupported('Join type not supported ' + (from.join?.type ?? '<no join specified>'));
         }
     }
 
