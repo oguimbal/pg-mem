@@ -1,12 +1,11 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private';
 import type { MemoryTable } from './table';
 import { Evaluator } from './evaluator';
-import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'pgsql-ast-parser';
+import { ColumnConstraint, AlterColumn } from 'pgsql-ast-parser';
 import { nullIsh } from './utils';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './schema/btree-index';
 import { GeneratedIdentityConstraint } from './constraints/generated';
-import { DataType } from './interfaces';
 import { buildValue } from './parser/expression-builder';
 import { withSelection } from './parser/context';
 
@@ -192,7 +191,7 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnMgr.delete(on);
         this.table.selection.rebuild();
-        this.drophandlers.forEach(d => d(t));
+        this.drophandlers.forEach(d => d(t, false));
         this.table.db.onSchemaChange();
     }
 
