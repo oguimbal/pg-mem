@@ -1,12 +1,11 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn, AlterColumnAddGenerated } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { nullIsh } from './utils.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './schema/btree-index.ts';
 import { GeneratedIdentityConstraint } from './constraints/generated.ts';
-import { DataType } from './interfaces.ts';
 import { buildValue } from './parser/expression-builder.ts';
 import { withSelection } from './parser/context.ts';
 
@@ -192,7 +191,7 @@ export class ColRef implements _Column {
         // nasty business to remove columns
         this.table.columnMgr.delete(on);
         this.table.selection.rebuild();
-        this.drophandlers.forEach(d => d(t));
+        this.drophandlers.forEach(d => d(t, false));
         this.table.db.onSchemaChange();
     }
 

@@ -91,6 +91,16 @@ export function setupPgCatalog(db: _IDb) {
         args: [Types.text(), Types.integer, Types.integer],
         returns: Types.text(),
         implementation: sqlSubstring,
+    });
+
+    catalog.registerFunction({
+        // required for Sequelize introspection
+        name: 'pg_get_indexdef',
+        args: [Types.integer],
+        returns: Types.text(),
+        implementation: (indexId: number) => {
+            throw new Error('This stub implementation of "pg_get_indexdef" should not be called');
+        },
     })
 
 

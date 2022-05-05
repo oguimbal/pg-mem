@@ -1,17 +1,16 @@
 import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema } from '../interfaces-private.ts';
-import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { Deletion } from './records-mutations/deletion.ts';
 import { Update } from './records-mutations/update.ts';
 import { Insert } from './records-mutations/insert.ts';
 import { ValuesTable } from '../schema/values-table.ts';
-import { ignore, suggestColumnName } from '../utils.ts';
+import { ignore, suggestColumnName, notNil, modifyIfNecessary } from '../utils.ts';
 import { JoinSelection } from '../transforms/join.ts';
 import { cleanResults } from './clean-results.ts';
 import { MutationDataSourceBase } from './records-mutations/mutation-base.ts';
 import { locOf } from './exec-utils.ts';
 import { buildCtx, withBindingScope } from '../parser/context.ts';
 import { buildValue } from '../parser/expression-builder.ts';
-import { DataType } from '../interfaces.ts';
 import { ArrayType } from '../datatypes/index.ts';
 import { RecordType } from '../datatypes/t-record.ts';
 import { FunctionCallTable } from '../schema/function-call-table.ts';
@@ -88,15 +87,7 @@ export function buildWith(p: WithStatement, topLevel: boolean): _ISelection {
 }
 
 
-
-function buildRawSelect(p: SelectFromStatement): _ISelection {
-    const distinct = !p.distinct || p.distinct === 'all'
-        ? null
-        : p.distinct;
-
-    // ignore "for update" clause (not useful in non-concurrent environements)
-    ignore(p.for);
-
+function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
     // compute data source
     let sel: _ISelection | undefined = undefined;
     for (const from of p.from ?? []) {
@@ -131,10 +122,6 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
                 throw NotSupported.never(from);
         }
 
-        // if (!!newT.name && aliases.has(newT.name)) {
-        //     throw new Error(`Alias name "${newT.name}" specified more than once`)
-        // }
-
         if (!sel) {
             // first table to be selected
             sel = newT;
@@ -151,18 +138,55 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
             case 'RIGHT JOIN':
                 sel = new JoinSelection(newT, sel, from.join!, false);
                 break;
+            case null:
+            case undefined:
+                // cross join (equivalent to INNER JOIN ON TRUE)
+                sel = new JoinSelection(sel, newT, {
+                    type: 'INNER JOIN',
+                    on: { type: 'boolean', value: true }
+                }, true);
+                break;
             default:
                 throw new NotSupported('Join type not supported ' + (from.join?.type ?? '<no join specified>'));
         }
     }
+    return sel;
+}
+
+
+function buildRawSelect(p: SelectFromStatement): _ISelection {
+    const distinct = !p.distinct || p.distinct === 'all'
+        ? null
+        : p.distinct;
+
+    // ignore "for update" clause (not useful in non-concurrent environements)
+    ignore(p.for);
+
+    let sel = buildRawSelectSubject(p);
+
 
     // filter & select
     sel = sel ?? buildCtx().schema.dualTable.selection;
     sel = sel.filter(p.where);
 
+    // postgres helps users: you can use group-by & order-by on aliases.
+    // ... but you cant use aliases in a computation (only in simple order by statements)
+    // this hack reproduces this behaviour
+    const aliases = new Map(notNil(p.columns?.filter(c => !!c.alias?.name)).map(c => [c.alias!.name, c.expr]));
+    const orderBy = modifyIfNecessary(p.orderBy ?? [], o => {
+        const by = o.by.type === 'ref' && !o.by.table && aliases.get(o.by.name);
+        return by ? { ...o, by } : null;
+    });
+    // order selection
+    sel = sel.orderBy(orderBy);
+
+
     if (p.groupBy) {
-        sel = sel.groupBy(p.groupBy, p.columns!);
-        sel = sel.orderBy(p.orderBy);
+        const groupBy = modifyIfNecessary(p.groupBy ?? [], o => {
+            const group = o.type === 'ref' && !o.table && !sel?.getColumn(o.name, true) && aliases.get(o.name);
+            return group || null;
+        });
+        sel = sel.groupBy(groupBy, p.columns!);
 
         // when grouping by, distinct is handled after selection
         //  => can distinct on key, or selected
@@ -170,8 +194,6 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
             sel = sel.distinct(p.distinct);
         }
     } else {
-        sel = sel.orderBy(p.orderBy);
-
         // when not grouping by, distinct is handled before
         // selection => can distinct on non selected values
         if (Array.isArray(p.distinct)) {

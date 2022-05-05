@@ -1,9 +1,9 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId } from '../interfaces-private.ts';
-import { SelectedColumn, Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { SelectedColumn, Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
-import { colByName, suggestColumnName } from '../utils.ts';
+import { colByName, suggestColumnName, modifyIfNecessary } from '../utils.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../evaluator.ts';
 import { buildCount } from './aggregations/count.ts';
@@ -163,9 +163,14 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             return null;
         }
 
+        const indexKeys = this.groupIndex.iterateKeys(t);
+        if (!indexKeys) {
+            return null;
+        }
+
         // iterate all index keys
         const computed: AggregItem[] = []
-        for (const k of this.groupIndex.iterateKeys(t)!) {
+        for (const k of indexKeys) {
             const ret: any = { [this.symbol]: k };
             // try to compute from index
             for (const agg of aggs) {

@@ -1,11 +1,11 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces.ts';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint } from './interfaces-private.ts';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler } from './interfaces-private.ts';
 import { buildValue } from './parser/expression-builder.ts';
 import { BIndex } from './schema/btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
@@ -89,7 +89,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     name: string;
 
     private changeHandlers = new Map<_Column | null, ChangeSub<T>>();
-    private truncateHandlers = new Set<DropHandler>();
+    private truncateHandlers = new Set<TruncateHandler>();
     private drophandlers = new Set<DropHandler>();
     private indexHandlers = new Set<IndexHandler>();
 
@@ -751,8 +751,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
 
-    drop(t: _Transaction) {
-        this.drophandlers.forEach(d => d(t));
+    drop(t: _Transaction, cascade: boolean) {
+        this.drophandlers.forEach(d => d(t, cascade));
         t.delete(this.dataId);
         for (const i of this.indexByHash.values()) {
             i.index.dropFromData(t);
@@ -770,7 +770,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onTruncate(sub: DropHandler): ISubscription {
+    onTruncate(sub: TruncateHandler): ISubscription {
         this.truncateHandlers.add(sub);
         return {
             unsubscribe: () => {

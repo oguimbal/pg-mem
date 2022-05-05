@@ -1,7 +1,7 @@
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { List } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private.ts';
-import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './misc/buffer-deno.ts';
 
@@ -301,7 +301,7 @@ export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
     }
 }
 
-export function nullIsh(v: any): boolean {
+export function nullIsh(v: any): v is nil {
     return v === null || v === undefined;
 }
 
@@ -703,4 +703,24 @@ export function fromEntries<K, V>(iterable: [K, V][]): Map<K, V> {
         ret.set(k, v);
     }
     return ret;
+}
+
+export function notNil<T>(value: (T | nil)[] | nil): Exclude<T, null>[] {
+    return (value ?? []).filter((x) => !nullIsh(x)) as any[];
+}
+
+/** Modify an array if necessary */
+export function modifyIfNecessary<T>(values: T[], mapper: (input: T) => T | nil): T[] {
+    let ret: T[] | undefined;
+    for (let i = 0; i < values.length; i++) {
+        const mapped = mapper(values[i]);
+        if (nullIsh(mapped)) {
+            continue;
+        }
+        if (!ret) {
+            ret = [...values];
+        }
+        ret[i] = mapped;
+    }
+    return ret ?? values;
 }

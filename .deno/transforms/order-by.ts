@@ -1,6 +1,6 @@
 import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { nullIsh } from '../utils.ts';
 import { withSelection } from '../parser/context.ts';
@@ -43,6 +43,12 @@ class OrderBy<T> extends FilterBase<any> {
 
     stats(t: _Transaction): Stats | null {
         return this.base.stats(t);
+    }
+
+
+    getIndex(...forValue: IValue<any>[]) {
+        // same index as underlying selection, given that ordering does not modify indices.
+        return this.base.getIndex(...forValue);
     }
 
     enumerate(t: _Transaction): Iterable<T> {

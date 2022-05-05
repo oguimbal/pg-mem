@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.3/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import { Map as ImMap, Record, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -383,7 +383,8 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     update: (item: any, excluded: any, t: _Transaction) => void;
 }
 
-export type DropHandler = (t: _Transaction) => void;
+export type DropHandler = (t: _Transaction, cascade: boolean) => void;
+export type TruncateHandler = (t: _Transaction) => void;
 export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
 export interface _RelationBase {
@@ -426,14 +427,14 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint | nil;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
-    drop(t: _Transaction): void;
+    drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
     onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
     onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
-    onTruncate(sub: DropHandler): ISubscription;
+    onTruncate(sub: TruncateHandler): ISubscription;
     truncate(t: _Transaction): void;
 }
 
