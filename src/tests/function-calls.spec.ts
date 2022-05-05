@@ -139,5 +139,20 @@ describe('Functions', () => {
         assert.instanceOf(val2, Date);
 
         assert.throws(() => none(`select COALESCE(42, '2021-12-07T13:49:53.458Z'::timestamp)`), /COALESCE types integer and timestamp cannot be matched/);
+    });
+
+    it('row_to_json() special function', () => {
+        db.public.registerFunction({
+            name: 'row_to_json',
+            args: [DataType.record],
+            returns: DataType.json,
+            implementation: x => JSON.parse(JSON.stringify(x)),
+        });
+
+        expect(many(`create table example(a int, b int);
+        insert into example values (1, 2);
+
+        select row_to_json(e)  from example e `))
+            .to.deep.equal([{ row_to_json: { a: 1, b: 2 } }]);
     })
 });

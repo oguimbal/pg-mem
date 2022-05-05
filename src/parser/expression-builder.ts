@@ -1,10 +1,10 @@
-import { _ISelection, IValue, _IType, _ISchema } from '../interfaces-private';
+import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private';
 import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils';
 import { DataType, CastError, QueryError, IType, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from '../datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'pgsql-ast-parser';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType, RecordCol } from '../datatypes';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, Aggregation, getAggregator } from '../transforms/aggregation';
 import moment from 'moment';
@@ -83,6 +83,11 @@ function _buildValueReal(val: Expr): IValue {
             if (arg) {
                 return arg;
             }
+            // try to select an aliased record (= a table)
+            const alias = !val.table && selection.selectAlias(val.name);
+            if (alias) {
+                return buildRecord(alias);
+            }
             throw new ColumnNotFound(colToStr(val));
         case 'string':
             return Value.text(val.value);
@@ -99,22 +104,7 @@ function _buildValueReal(val: Expr): IValue {
         case 'integer':
             return Value.number(val.value, Types.integer);
         case 'call':
-            // if (typeof val.function !== 'string') {
-            //     return buildKeyword( val.function, val.args);
-            // }
-            if (val.over) {
-                throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
-            }
-            const nm = asSingleQName(val.function, 'pg_catalog');
-            if (nm && aggregationFunctions.has(nm)) {
-                const agg = getAggregator();
-                if (!agg) {
-                    throw new QueryError(`aggregate functions are not allowed in WHERE`);
-                }
-                return agg.getAggregation(nm, val);
-            }
-            const args = val.args.map(x => _buildValue(x));
-            return Value.function(val.function, args);
+            return _buildCall(val);
         case 'cast':
             return _buildValue(val.operand)
                 .cast(schema.getType(val.to))
@@ -158,6 +148,39 @@ function _buildValueReal(val: Expr): IValue {
         default:
             throw NotSupported.never(val);
     }
+}
+
+function buildRecord(alias: _IAlias): IValue {
+    const cols = [...alias.listColumns()];
+    return new Evaluator(
+        Types.record(cols
+            .map<RecordCol>(x => ({
+                name: x.id!,
+                type: x.type,
+            })))
+        , null
+        , Math.random().toString() // must not be indexable => always different hash
+        , []
+        , (raw, t) => raw, { forceNotConstant: true });
+}
+
+function _buildCall(val: ExprCall): IValue {
+    // if (typeof val.function !== 'string') {
+    //     return buildKeyword( val.function, val.args);
+    // }
+    if (val.over) {
+        throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
+    }
+    const nm = asSingleQName(val.function, 'pg_catalog');
+    if (nm && aggregationFunctions.has(nm)) {
+        const agg = getAggregator();
+        if (!agg) {
+            throw new QueryError(`aggregate functions are not allowed in WHERE`);
+        }
+        return agg.getAggregation(nm, val);
+    }
+    const args = val.args.map(x => _buildValue(x));
+    return Value.function(val.function, args);
 }
 
 function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
