@@ -5,7 +5,7 @@ import { expect, assert } from 'chai';
 import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
-describe.skip('Cross/Carthesian joins', () => {
+describe('Cross/Carthesian joins', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];
@@ -114,22 +114,5 @@ describe.skip('Cross/Carthesian joins', () => {
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
-    });
-
-    it('can full join', () => {
-        photos();
-        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
-                            FROM "user" "user"
-                            FULL JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-                { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
-                { user_id: null, user_name: null, photo_id: 'p6', photo_url: 'noone.jpg', photo_userId: null },
-                { user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
-            ]);
     });
 });

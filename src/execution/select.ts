@@ -1,17 +1,16 @@
 import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema } from '../interfaces-private';
-import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn } from 'pgsql-ast-parser';
+import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'pgsql-ast-parser';
 import { Deletion } from './records-mutations/deletion';
 import { Update } from './records-mutations/update';
 import { Insert } from './records-mutations/insert';
 import { ValuesTable } from '../schema/values-table';
-import { ignore, suggestColumnName } from '../utils';
+import { ignore, suggestColumnName, notNil } from '../utils';
 import { JoinSelection } from '../transforms/join';
 import { cleanResults } from './clean-results';
 import { MutationDataSourceBase } from './records-mutations/mutation-base';
 import { locOf } from './exec-utils';
 import { buildCtx, withBindingScope } from '../parser/context';
 import { buildValue } from '../parser/expression-builder';
-import { DataType } from '../interfaces';
 import { ArrayType } from '../datatypes';
 import { RecordType } from '../datatypes/t-record';
 import { FunctionCallTable } from '../schema/function-call-table';
@@ -88,15 +87,7 @@ export function buildWith(p: WithStatement, topLevel: boolean): _ISelection {
 }
 
 
-
-function buildRawSelect(p: SelectFromStatement): _ISelection {
-    const distinct = !p.distinct || p.distinct === 'all'
-        ? null
-        : p.distinct;
-
-    // ignore "for update" clause (not useful in non-concurrent environements)
-    ignore(p.for);
-
+function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
     // compute data source
     let sel: _ISelection | undefined = undefined;
     for (const from of p.from ?? []) {
@@ -131,10 +122,6 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
                 throw NotSupported.never(from);
         }
 
-        // if (!!newT.name && aliases.has(newT.name)) {
-        //     throw new Error(`Alias name "${newT.name}" specified more than once`)
-        // }
-
         if (!sel) {
             // first table to be selected
             sel = newT;
@@ -151,10 +138,32 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
             case 'RIGHT JOIN':
                 sel = new JoinSelection(newT, sel, from.join!, false);
                 break;
+            case null:
+            case undefined:
+                // cross join (equivalent to INNER JOIN ON TRUE)
+                sel = new JoinSelection(sel, newT, {
+                    type: 'INNER JOIN',
+                    on: { type: 'boolean', value: true }
+                }, true);
+                break;
             default:
                 throw new NotSupported('Join type not supported ' + (from.join?.type ?? '<no join specified>'));
         }
     }
+    return sel;
+}
+
+
+function buildRawSelect(p: SelectFromStatement): _ISelection {
+    const distinct = !p.distinct || p.distinct === 'all'
+        ? null
+        : p.distinct;
+
+    // ignore "for update" clause (not useful in non-concurrent environements)
+    ignore(p.for);
+
+    let sel = buildRawSelectSubject(p);
+
 
     // filter & select
     sel = sel ?? buildCtx().schema.dualTable.selection;
