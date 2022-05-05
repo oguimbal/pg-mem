@@ -170,7 +170,14 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
             sel = sel.distinct(p.distinct);
         }
     } else {
-        sel = sel.orderBy(p.orderBy);
+        // postgres helps users: you can use order-by on aliases.
+        // ... but you cant use aliases in a computation (only in simple order by statements)
+        // this hack reproduces this behaviour
+        const aliases = notNil(p.columns?.map(c => c.alias?.name));
+        const orderOnAliasPred = (o: OrderByStatement): boolean => o.by.type === 'ref' && aliases.includes(o.by.name);
+        const orderOnBase = p.orderBy?.filter(o => !orderOnAliasPred(o));
+        const orderOnAlias = p.orderBy?.filter(orderOnAliasPred);
+        sel = sel.orderBy(orderOnBase);
 
         // when not grouping by, distinct is handled before
         // selection => can distinct on non selected values
@@ -179,6 +186,7 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
         }
 
         sel = sel.select(p.columns!);
+        sel = sel.orderBy(orderOnAlias);
     }
 
     // handle 'distinct' on result set

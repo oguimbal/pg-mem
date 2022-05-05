@@ -145,4 +145,44 @@ describe('Order by', () => {
         })
 
     })
+
+    it('can order by alias', () => {
+        // fix for https://github.com/oguimbal/pg-mem/issues/216
+
+        none(`CREATE TABLE test(field int);
+                INSERT INTO test values (3),(1),(2);`);
+
+        expect(many(`SELECT field FROM test ORDER BY field`).map(x => x.field))
+            .to.deep.equal([1, 2, 3]);
+
+        // this used to throw
+        expect(many(`SELECT field aliased FROM test ORDER BY aliased`).map(x => x.aliased))
+            .to.deep.equal([1, 2, 3]);
+    })
+
+    it('prefers aliased order when ambiguous', () => {
+        none(`CREATE TABLE test(field int);
+                INSERT INTO test values (3),(1),(2);`);
+
+        expect(many(`SELECT field aliased, (-field) field FROM test ORDER BY field`).map(x => x.aliased))
+            .to.deep.equal([3, 2, 1]);
+    });
+
+    it('can order on base field computation', () => {
+        none(`CREATE TABLE test(field int);
+            INSERT INTO test values (3),(1),(2);`);
+
+
+        expect(many(`SELECT field FROM test ORDER BY  -field`).map(x => x.field))
+            .to.deep.equal([3, 2, 1]);
+
+    });
+
+    it('cannot order on aliased computation', () => {
+        none(`CREATE TABLE test(field int);
+            INSERT INTO test values (3),(1),(2);`);
+
+        // order on alias is just a trick... you cannot use them in actual computations.
+        assert.throws(() => many(`SELECT field aliased FROM test ORDER BY  -aliased`), /column "aliased" does not exist/);
+    });
 });

@@ -704,3 +704,7 @@ export function fromEntries<K, V>(iterable: [K, V][]): Map<K, V> {
     }
     return ret;
 }
+
+export function notNil<T>(value: (T | nil)[] | nil): Exclude<T, null>[] {
+    return (value ?? []).filter((x) => !nullIsh(x)) as any[];
+}
