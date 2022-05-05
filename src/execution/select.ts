@@ -4,7 +4,7 @@ import { Deletion } from './records-mutations/deletion';
 import { Update } from './records-mutations/update';
 import { Insert } from './records-mutations/insert';
 import { ValuesTable } from '../schema/values-table';
-import { ignore, suggestColumnName, notNil } from '../utils';
+import { ignore, suggestColumnName, notNil, modifyIfNecessary } from '../utils';
 import { JoinSelection } from '../transforms/join';
 import { cleanResults } from './clean-results';
 import { MutationDataSourceBase } from './records-mutations/mutation-base';
@@ -169,9 +169,24 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
     sel = sel ?? buildCtx().schema.dualTable.selection;
     sel = sel.filter(p.where);
 
+    // postgres helps users: you can use group-by & order-by on aliases.
+    // ... but you cant use aliases in a computation (only in simple order by statements)
+    // this hack reproduces this behaviour
+    const aliases = new Map(notNil(p.columns?.filter(c => !!c.alias?.name)).map(c => [c.alias!.name, c.expr]));
+    const orderBy = modifyIfNecessary(p.orderBy ?? [], o => {
+        const by = o.by.type === 'ref' && !o.by.table && aliases.get(o.by.name);
+        return by ? { ...o, by } : null;
+    });
+    // order selection
+    sel = sel.orderBy(orderBy);
+
+
     if (p.groupBy) {
-        sel = sel.groupBy(p.groupBy, p.columns!);
-        sel = sel.orderBy(p.orderBy);
+        const groupBy = modifyIfNecessary(p.groupBy ?? [], o => {
+            const group = o.type === 'ref' && !o.table && !sel?.getColumn(o.name, true) && aliases.get(o.name);
+            return group || null;
+        });
+        sel = sel.groupBy(groupBy, p.columns!);
 
         // when grouping by, distinct is handled after selection
         //  => can distinct on key, or selected
@@ -179,15 +194,6 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
             sel = sel.distinct(p.distinct);
         }
     } else {
-        // postgres helps users: you can use order-by on aliases.
-        // ... but you cant use aliases in a computation (only in simple order by statements)
-        // this hack reproduces this behaviour
-        const aliases = notNil(p.columns?.map(c => c.alias?.name));
-        const orderOnAliasPred = (o: OrderByStatement): boolean => o.by.type === 'ref' && aliases.includes(o.by.name);
-        const orderOnBase = p.orderBy?.filter(o => !orderOnAliasPred(o));
-        const orderOnAlias = p.orderBy?.filter(orderOnAliasPred);
-        sel = sel.orderBy(orderOnBase);
-
         // when not grouping by, distinct is handled before
         // selection => can distinct on non selected values
         if (Array.isArray(p.distinct)) {
@@ -195,7 +201,6 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
         }
 
         sel = sel.select(p.columns!);
-        sel = sel.orderBy(orderOnAlias);
     }
 
     // handle 'distinct' on result set

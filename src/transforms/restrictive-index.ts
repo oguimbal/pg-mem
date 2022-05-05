@@ -2,7 +2,6 @@ import { _IIndex, IValue, IndexExpression, _Transaction, IndexKey, _Explainer, _
 
 export class RestrictiveIndex<T> implements _IIndex<T> {
     constructor(private base: _IIndex<T>, readonly filter: _ISelection<T>) {
-        // , readonly match: (raw: T, t: _Transaction) => boolean) {
     }
 
     private match(raw: T, t: _Transaction) {
@@ -20,6 +19,7 @@ export class RestrictiveIndex<T> implements _IIndex<T> {
 
     iterateKeys() {
         // cannot comput without iterating
+        // (we know underlying keys, but we dont know which have items that match our filter)
         return null;
     }
 

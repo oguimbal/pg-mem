@@ -301,7 +301,7 @@ export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
     }
 }
 
-export function nullIsh(v: any): boolean {
+export function nullIsh(v: any): v is nil {
     return v === null || v === undefined;
 }
 
@@ -707,4 +707,20 @@ export function fromEntries<K, V>(iterable: [K, V][]): Map<K, V> {
 
 export function notNil<T>(value: (T | nil)[] | nil): Exclude<T, null>[] {
     return (value ?? []).filter((x) => !nullIsh(x)) as any[];
+}
+
+/** Modify an array if necessary */
+export function modifyIfNecessary<T>(values: T[], mapper: (input: T) => T | nil): T[] {
+    let ret: T[] | undefined;
+    for (let i = 0; i < values.length; i++) {
+        const mapped = mapper(values[i]);
+        if (nullIsh(mapped)) {
+            continue;
+        }
+        if (!ret) {
+            ret = [...values];
+        }
+        ret[i] = mapped;
+    }
+    return ret ?? values;
 }

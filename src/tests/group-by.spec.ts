@@ -67,4 +67,85 @@ describe('Group-by', () => {
                     select  cnt * 42 sum from (select count(*) cnt from example) t`))
             .to.deep.equal([{ sum: 84 }]);
     })
+
+
+    describe('can group by alias', () => {
+        // fix for https://github.com/oguimbal/pg-mem/issues/216
+
+        beforeEach(() => none(`CREATE TABLE test(field int);
+        INSERT INTO test values (3),(1),(2);`));
+
+
+        it('case 1', () => expect(many(`SELECT field FROM test GROUP BY field ORDER BY FIELD`).map(x => x.field))
+            .to.deep.equal([1, 2, 3]));
+
+        // this used to throw
+        it('case 2', () => expect(many(`SELECT field aliased FROM test GROUP BY aliased order by field`).map(x => x.aliased))
+            .to.deep.equal([1, 2, 3]));
+
+        it('case 3', () => expect(many(`SELECT field aliased FROM test GROUP BY aliased order by aliased`).map(x => x.aliased))
+            .to.deep.equal([1, 2, 3]));
+
+        it('case 4', () => expect(many(`SELECT -field aliased FROM test GROUP BY aliased order by aliased`).map(x => x.aliased))
+            .to.deep.equal([-3, -2, -1]));
+
+        it('case 5', () => expect(many(`SELECT -field aliased FROM test GROUP BY -field order by -field`).map(x => x.aliased))
+            .to.deep.equal([-3, -2, -1]));
+    })
+
+    it('prefers non aliased group when ambiguous', () => {
+        none(`CREATE TABLE test(field int);
+                INSERT INTO test values (3),(1),(2);`);
+
+        expect(many(`SELECT field aliased, (field > 2) field FROM test GROUP BY field order by aliased`))
+            .to.deep.equal([
+                { aliased: 1, field: false },
+                { aliased: 2, field: false },
+                { aliased: 3, field: true },
+            ]);
+    });
+
+    it('allows group by on expression', () => {
+        none(`CREATE TABLE test(field int);
+                INSERT INTO test values (3),(1),(2);`);
+
+        expect(many(`SELECT (field > 2) field FROM test GROUP BY field >2 order by field`))
+            .to.deep.equal([
+                { field: false },
+                { field: true },
+            ]);
+    });
+    it('can group on base field computation', () => {
+        none(`CREATE TABLE test(field int);
+            INSERT INTO test values (3),(1),(2);`);
+
+
+        expect(many(`SELECT -field FROM test GROUP BY  -field ORDER BY -field`).map(x => x.field))
+            .to.deep.equal([-3, -2, -1]);
+    });
+
+
+    // todo: fix this edge case
+    it.skip('cannot order by on non grouped field', () => {
+        none(`CREATE TABLE test(field int);
+            INSERT INTO test values (3),(1),(2);`);
+
+        assert.throws(() => many(`SELECT -field FROM test GROUP BY  -field ORDER BY field`), /must appear in the GROUP BY clause or be used in an aggregate function/);
+    });
+
+    // todo: fix this edge case
+    it.skip('fails on column not in group by computation', () => {
+        none(`CREATE TABLE test(field int);
+            INSERT INTO test values (3),(1),(2);`);
+
+        assert.throws(() => many(`SELECT field FROM test GROUP BY  -field`), / must appear in the GROUP BY clause or be used in an aggregate function/);
+    });
+
+    it('cannot group on aliased computation', () => {
+        none(`CREATE TABLE test(field int);
+            INSERT INTO test values (3),(1),(2);`);
+
+        // group on alias is just a trick... you cannot use them in actual computations.
+        assert.throws(() => many(`SELECT field aliased FROM test GROUP BY  -aliased`), /column "aliased" does not exist/);
+    });
 });

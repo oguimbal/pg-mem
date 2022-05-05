@@ -3,7 +3,7 @@ import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanat
 import { SelectedColumn, Expr, ExprRef, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
-import { colByName, suggestColumnName } from '../utils';
+import { colByName, suggestColumnName, modifyIfNecessary } from '../utils';
 import hash from 'object-hash';
 import { Evaluator } from '../evaluator';
 import { buildCount } from './aggregations/count';
@@ -163,9 +163,14 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             return null;
         }
 
+        const indexKeys = this.groupIndex.iterateKeys(t);
+        if (!indexKeys) {
+            return null;
+        }
+
         // iterate all index keys
         const computed: AggregItem[] = []
-        for (const k of this.groupIndex.iterateKeys(t)!) {
+        for (const k of indexKeys) {
             const ret: any = { [this.symbol]: k };
             // try to compute from index
             for (const agg of aggs) {

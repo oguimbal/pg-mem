@@ -45,6 +45,12 @@ class OrderBy<T> extends FilterBase<any> {
         return this.base.stats(t);
     }
 
+
+    getIndex(...forValue: IValue<any>[]) {
+        // same index as underlying selection, given that ordering does not modify indices.
+        return this.base.getIndex(...forValue);
+    }
+
     enumerate(t: _Transaction): Iterable<T> {
         const all = [...this.base.enumerate(t)];
         all.sort((a, b) => {
