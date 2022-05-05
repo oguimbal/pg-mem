@@ -53,6 +53,14 @@ describe('Foreign keys', () => {
         assert.throws(() => none('drop table "user"'), /cannot drop table "user" because other objects depend on it/);
     });
 
+
+    it('can drop cascade', () => {
+        usr('CASCADE');
+        none('drop table "user" cascade');
+        // constraint should have been droped as well:
+        none(`INSERT INTO "photo"("id", "url", "userId") VALUES (2, 'me-1.jpg', 42);`)
+    });
+
     it('can drop if foreign table dropped first', () => {
         usr('CASCADE');
         none(`drop table "photo";
@@ -129,7 +137,7 @@ describe('Foreign keys', () => {
 
 
 
-    it ('can add a "match full" reference', () => {
+    it('can add a "match full" reference', () => {
         // https://github.com/oguimbal/pg-mem/issues/9
         none(`create table location(city_id int);
                 create table city(city_id int primary key);
@@ -139,16 +147,16 @@ describe('Foreign keys', () => {
 
 
 
-    it ('cannot create a foreign key when no unique constraint on foreign table', () => {
+    it('cannot create a foreign key when no unique constraint on foreign table', () => {
         // https://github.com/oguimbal/pg-mem/issues/9
         none(`create table location(city_id int);
                 create table city(city_id int);`);
         assert.throws(() => none(`ALTER TABLE ONLY public.location ADD CONSTRAINT city_id_fk FOREIGN KEY (city_id) REFERENCES public.city(city_id) MATCH FULL;`)
-        , /there is no unique constraint matching given keys for referenced table "city"/)
+            , /there is no unique constraint matching given keys for referenced table "city"/)
     });
 
 
-    it ('can create foreign key with self-reference directly in table declaration', () => {
+    it('can create foreign key with self-reference directly in table declaration', () => {
         none(`CREATE TABLE my_table (
                 id text NOT NULL PRIMARY KEY,
                 field1 text,

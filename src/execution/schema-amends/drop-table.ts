@@ -5,6 +5,7 @@ import { ignore } from '../../utils';
 
 export class DropTable extends ExecHelper implements _IStatementExecutor {
     private table: _ITable | null;
+    private cascade: boolean;
 
 
     constructor({ schema }: _IStatement, statement: DropTableStatement) {
@@ -13,6 +14,8 @@ export class DropTable extends ExecHelper implements _IStatementExecutor {
         this.table = asTable(schema.getObject(statement.name, {
             nullIfNotFound: statement.ifExists,
         }));
+
+        this.cascade = statement.cascade === 'cascade';
 
         if (!this.table) {
             ignore(statement);
@@ -25,7 +28,7 @@ export class DropTable extends ExecHelper implements _IStatementExecutor {
         t = t.fullCommit();
 
         // drop table
-        this.table?.drop(t);
+        this.table?.drop(t, this.cascade);
 
         // new implicit transaction
         t = t.fork();

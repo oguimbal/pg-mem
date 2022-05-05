@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler } from '../interfaces-private';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
@@ -155,7 +155,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         // nop
         return { unsubscribe() { } }
     }
-    onTruncate(sub: DropHandler): ISubscription {
+    onTruncate(sub: TruncateHandler): ISubscription {
         // nop
         return { unsubscribe() { } }
     }

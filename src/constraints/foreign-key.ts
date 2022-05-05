@@ -124,7 +124,7 @@ export class ForeignKey implements _IConstraint {
         //  when changing something in this table,
         //  then there must be a key match in the foreign table
         // =====================
-        table.onBeforeChange(cst.localColumns.map(x => x.name), (_, neu, dt) => {
+        this.unsubs.push(table.onBeforeChange(cst.localColumns.map(x => x.name), (_, neu, dt) => {
             if (!neu) {
                 return;
             }
@@ -159,19 +159,23 @@ export class ForeignKey implements _IConstraint {
             if (!yielded) {
                 throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
             }
-        });
+        }));
 
 
         // =====================
         //  prevent foreign table from being dropped
         // =====================
-        this.unsubs.push(ftable.onDrop(() => {
+        this.unsubs.push(ftable.onDrop((t, cascade) => {
             //  (todo implement multiple drops)
-            throw new QueryError({
-                error: `cannot drop table "${ftable.name}" because other objects depend on it`,
-                details: `constraint ${this.name} on table ${table.name} depends on table "${ftable.name}"`,
-                hint: `Use DROP ... CASCADE to drop the dependent objects too.`,
-            });
+            if (cascade) {
+                this.uninstall(t);
+            } else {
+                throw new QueryError({
+                    error: `cannot drop table "${ftable.name}" because other objects depend on it`,
+                    details: `constraint ${this.name} on table ${table.name} depends on table "${ftable.name}"`,
+                    hint: `Use DROP ... CASCADE to drop the dependent objects too.`,
+                });
+            }
         }));
 
         // =====================

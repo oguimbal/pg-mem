@@ -383,7 +383,8 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
     update: (item: any, excluded: any, t: _Transaction) => void;
 }
 
-export type DropHandler = (t: _Transaction) => void;
+export type DropHandler = (t: _Transaction, cascade: boolean) => void;
+export type TruncateHandler = (t: _Transaction) => void;
 export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
 export interface _RelationBase {
@@ -426,14 +427,14 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint | nil;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
-    drop(t: _Transaction): void;
+    drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
     onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
     onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
-    onTruncate(sub: DropHandler): ISubscription;
+    onTruncate(sub: TruncateHandler): ISubscription;
     truncate(t: _Transaction): void;
 }
 

@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
 import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -89,7 +89,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     name: string;
 
     private changeHandlers = new Map<_Column | null, ChangeSub<T>>();
-    private truncateHandlers = new Set<DropHandler>();
+    private truncateHandlers = new Set<TruncateHandler>();
     private drophandlers = new Set<DropHandler>();
     private indexHandlers = new Set<IndexHandler>();
 
@@ -751,8 +751,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
 
-    drop(t: _Transaction) {
-        this.drophandlers.forEach(d => d(t));
+    drop(t: _Transaction, cascade: boolean) {
+        this.drophandlers.forEach(d => d(t, cascade));
         t.delete(this.dataId);
         for (const i of this.indexByHash.values()) {
             i.index.dropFromData(t);
@@ -770,7 +770,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onTruncate(sub: DropHandler): ISubscription {
+    onTruncate(sub: TruncateHandler): ISubscription {
         this.truncateHandlers.add(sub);
         return {
             unsubscribe: () => {
