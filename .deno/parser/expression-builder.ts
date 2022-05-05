@@ -1,10 +1,10 @@
-import { _ISelection, IValue, _IType, _ISchema } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private.ts';
 import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils.ts';
 import { DataType, CastError, QueryError, IType, NotSupported, nil, ColumnNotFound } from '../interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from '../evaluator.ts';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType } from '../datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType, RecordCol } from '../datatypes/index.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, Aggregation, getAggregator } from '../transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
@@ -83,6 +83,11 @@ function _buildValueReal(val: Expr): IValue {
             if (arg) {
                 return arg;
             }
+            // try to select an aliased record (= a table)
+            const alias = !val.table && selection.selectAlias(val.name);
+            if (alias) {
+                return buildRecord(alias);
+            }
             throw new ColumnNotFound(colToStr(val));
         case 'string':
             return Value.text(val.value);
@@ -99,22 +104,7 @@ function _buildValueReal(val: Expr): IValue {
         case 'integer':
             return Value.number(val.value, Types.integer);
         case 'call':
-            // if (typeof val.function !== 'string') {
-            //     return buildKeyword( val.function, val.args);
-            // }
-            if (val.over) {
-                throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
-            }
-            const nm = asSingleQName(val.function, 'pg_catalog');
-            if (nm && aggregationFunctions.has(nm)) {
-                const agg = getAggregator();
-                if (!agg) {
-                    throw new QueryError(`aggregate functions are not allowed in WHERE`);
-                }
-                return agg.getAggregation(nm, val);
-            }
-            const args = val.args.map(x => _buildValue(x));
-            return Value.function(val.function, args);
+            return _buildCall(val);
         case 'cast':
             return _buildValue(val.operand)
                 .cast(schema.getType(val.to))
@@ -158,6 +148,39 @@ function _buildValueReal(val: Expr): IValue {
         default:
             throw NotSupported.never(val);
     }
+}
+
+function buildRecord(alias: _IAlias): IValue {
+    const cols = [...alias.listColumns()];
+    return new Evaluator(
+        Types.record(cols
+            .map<RecordCol>(x => ({
+                name: x.id!,
+                type: x.type,
+            })))
+        , null
+        , Math.random().toString() // must not be indexable => always different hash
+        , []
+        , (raw, t) => raw, { forceNotConstant: true });
+}
+
+function _buildCall(val: ExprCall): IValue {
+    // if (typeof val.function !== 'string') {
+    //     return buildKeyword( val.function, val.args);
+    // }
+    if (val.over) {
+        throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
+    }
+    const nm = asSingleQName(val.function, 'pg_catalog');
+    if (nm && aggregationFunctions.has(nm)) {
+        const agg = getAggregator();
+        if (!agg) {
+            throw new QueryError(`aggregate functions are not allowed in WHERE`);
+        }
+        return agg.getAggregation(nm, val);
+    }
+    const args = val.args.map(x => _buildValue(x));
+    return Value.function(val.function, args);
 }
 
 function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {

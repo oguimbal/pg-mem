@@ -1,6 +1,7 @@
 import { DataType, getId, nil, QueryError, _IType, _ISelection, _Transaction, setId } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
 import { RecordCol } from './datatypes.ts';
+import { Evaluator } from '../evaluator.ts';
 
 export class RecordType extends TypeBase<any> {
 
@@ -53,5 +54,15 @@ export class RecordType extends TypeBase<any> {
             }
             return ret;
         };
+    }
+
+    doCanCast(to: _IType): boolean | nil {
+        // lets say that any type can cast to a record with no columns
+        // this is a hack ... see row_to_json() UT
+        return to instanceof RecordType && !to.columns.length;
+    }
+
+    doCast(value: Evaluator<any>, to: _IType): Evaluator<any> | nil {
+        return value;
     }
 }

@@ -41,6 +41,7 @@ export function setupPgCatalog(db: _IDb) {
         ._registerType(Types.circle)
         ._registerType(Types.interval)
         ._registerType(Types.inet)
+        ._registerType(Types.record([])) // hack to support functions with record input (see row_to_json UT)
         ._registerTypeSizeable(DataType.text, Types.text)
 
     new PgConstraintTable(catalog).register();
