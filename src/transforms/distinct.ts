@@ -7,18 +7,14 @@ import { withSelection } from '../parser/context';
 
 export function buildDistinct(on: _ISelection, exprs?: Expr[]) {
     return withSelection(on, () => {
-        const vals = exprs && exprs.length > 0
-            ? exprs.map(v => buildValue(v))
-            : on.columns
+        const vals = exprs && exprs.length > 0 ? exprs.map((v) => buildValue(v)) : on.columns;
         return new Distinct(on, vals);
     });
 }
 
-
 // todo: use indices to optimize this (avoid iterating everything)
 
 class Distinct<T> extends FilterBase<any> {
-
     get index() {
         return null;
     }
@@ -44,7 +40,7 @@ class Distinct<T> extends FilterBase<any> {
     *enumerate(t: _Transaction): Iterable<T> {
         const got = new Set();
         for (const i of this.base.enumerate(t)) {
-            const vals = this.exprs.map(v => v.type.hash(v.get(i, t)));
+            const vals = this.exprs.map((v) => v.type.hash(v.get(i, t)));
             const hash = vals.length === 1 ? vals[0] : objectHash(vals);
             if (got.has(hash)) {
                 continue;

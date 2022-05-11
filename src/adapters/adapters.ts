@@ -4,7 +4,6 @@ import { compareVersions } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
 declare var __non_webpack_require__: any;
 
-
 // setImmediate does not exist in Deno
 declare var setImmediate: any;
 
@@ -18,7 +17,7 @@ function timeoutOrImmediate(fn: () => void, time: number) {
     return setImmediate(fn);
 }
 
-const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
+const delay = (time: number | undefined) => new Promise<void>((done) => timeoutOrImmediate(done, time ?? 0));
 
 function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     return sql.replace(/\$(\d+)/g, (str: any, istr: any) => {
@@ -31,12 +30,10 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     });
 }
 
-
 export class Adapters implements LibAdapters {
     private _mikroPatched?: boolean;
 
-    constructor(private db: IMemoryDb) {
-    }
+    constructor(private db: IMemoryDb) {}
 
     createPg(queryLatency?: number): { Pool: any; Client: any } {
         const that = this;
@@ -48,18 +45,15 @@ export class Adapters implements LibAdapters {
             types?: any;
         }
         class MemPg {
-
             connection = this;
 
             on() {
                 // nop
             }
 
-            release() {
-            }
+            release() {}
 
-            removeListener() {
-            }
+            removeListener() {}
 
             once(what: string, handler: () => void) {
                 if (what === 'connect') {
@@ -78,7 +72,7 @@ export class Adapters implements LibAdapters {
 
             connect(callback: any) {
                 if (callback) {
-                    callback(null, this, () => { });
+                    callback(null, this, () => {});
                     return null;
                 } else {
                     return Promise.resolve(this);
@@ -102,7 +96,7 @@ export class Adapters implements LibAdapters {
                         timeoutOrImmediate(() => callback(null, result), queryLatency ?? 0);
                         return null;
                     } else {
-                        return new Promise(res => timeoutOrImmediate(() => res(result), queryLatency ?? 0));
+                        return new Promise((res) => timeoutOrImmediate(() => res(result), queryLatency ?? 0));
                     }
                 } catch (e) {
                     if (callback) {
@@ -121,7 +115,7 @@ export class Adapters implements LibAdapters {
                 return {
                     ...res,
                     // clone rows to avoid leaking symbols
-                    rows: res.rows.map(row => {
+                    rows: res.rows.map((row) => {
                         return Object.entries(row).reduce((obj, [key, val]) => {
                             obj[key] = val;
                             return obj;
@@ -130,7 +124,7 @@ export class Adapters implements LibAdapters {
                     get fields() {
                         // to implement if needed ? (never seen a lib that uses it)
                         return [];
-                    }
+                    },
                 };
             }
 
@@ -169,10 +163,10 @@ export class Adapters implements LibAdapters {
         const that = this;
         (postgresOptions as any).postgres = that.createPg(queryLatency);
         if (postgresOptions?.type !== 'postgres') {
-            throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
+            throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>');
         }
 
-        const { getConnectionManager } = __non_webpack_require__('typeorm')
+        const { getConnectionManager } = __non_webpack_require__('typeorm');
         const created = getConnectionManager().create(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
         return created.connect();
@@ -189,7 +183,6 @@ export class Adapters implements LibAdapters {
             },
         });
     }
-
 
     createPgPromise(queryLatency?: number) {
         // https://vitaly-t.github.io/pg-promise/module-pg-promise.html
@@ -260,7 +253,6 @@ export class Adapters implements LibAdapters {
                 return this.querySync(prep, pars);
             }
 
-
             async query(sql: string, b: any, c: any) {
                 const handler = handlerFor(b, c);
                 const params = Array.isArray(b) ? b : [];
@@ -278,7 +270,7 @@ export class Adapters implements LibAdapters {
                 const ret = that.db.public.many(sql);
                 return ret;
             }
-        }
+        };
     }
 
     createKnex(queryLatency?: number, knexConfig?: object): any {
@@ -292,11 +284,10 @@ export class Adapters implements LibAdapters {
         return knex;
     }
 
-
     async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
-
         const { MikroORM } = __non_webpack_require__('@mikro-orm/core');
-        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = __non_webpack_require__('@mikro-orm/postgresql');
+        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } =
+            __non_webpack_require__('@mikro-orm/postgresql');
         const that = this;
 
         // see https://github.com/mikro-orm/mikro-orm/blob/aa71065d0727920db7da9bfdecdb33e6b8165cb5/packages/postgresql/src/PostgreSqlConnection.ts#L5
@@ -304,7 +295,6 @@ export class Adapters implements LibAdapters {
             protected createKnexClient(type: string) {
                 return that.createKnex();
             }
-
         }
         // see https://github.com/mikro-orm/mikro-orm/blob/master/packages/postgresql/src/PostgreSqlDriver.ts
         class PgMemDriver extends AbstractSqlDriver<PgMemConnection> {
@@ -315,7 +305,7 @@ export class Adapters implements LibAdapters {
 
         // hack: this query is not supported by pgsql-ast-parser
         if (!this._mikroPatched) {
-            this.db.public.interceptQueries(q => {
+            this.db.public.interceptQueries((q) => {
                 if (q === `set names 'utf8';`) {
                     return [];
                 }
@@ -324,7 +314,6 @@ export class Adapters implements LibAdapters {
             this._mikroPatched = true;
         }
 
-
         const orm = await MikroORM.init({
             ...mikroOrmOptions,
             dbName: 'public',
@@ -332,5 +321,4 @@ export class Adapters implements LibAdapters {
         });
         return orm;
     }
-
 }

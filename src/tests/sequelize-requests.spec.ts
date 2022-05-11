@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 
 describe('Sequelize - requests', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -16,8 +15,6 @@ describe('Sequelize - requests', () => {
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });
-
-
 
     it('can perform join on readonly table', () => {
         // this used to throw
@@ -49,9 +46,8 @@ describe('Sequelize - requests', () => {
             left outer join ranges on
                 pg_type.oid = ranges.rngsubtype
             where
-                (pg_type.typtype in('b', 'e'));`)
+                (pg_type.typtype in('b', 'e'));`);
     });
-
 
     it('parses introspection cross-join query', () => {
         many(`

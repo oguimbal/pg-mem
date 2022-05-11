@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 
 describe('Constraints', () => {
-
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -18,17 +17,17 @@ describe('Constraints', () => {
     it('cannot add check constraint when value not matching', () => {
         none(`create table test(val int);
                 insert into test values (42);`);
-        assert.throws(() => none(`alter table test add constraint cstname check (val < 10)`)
-            , /check constraint "cstname" is violated by some row/);
-    })
-
+        assert.throws(
+            () => none(`alter table test add constraint cstname check (val < 10)`),
+            /check constraint "cstname" is violated by some row/,
+        );
+    });
 
     it('can add check constraint when value matching', () => {
         none(`create table test(val int);
                 insert into test values (42);`);
         none(`alter table test add constraint cstname check (val < 100)`);
     });
-
 
     it('accepts collations', () => {
         none(`CREATE TABLE public.crafter
@@ -51,8 +50,11 @@ describe('Constraints', () => {
             alter table test drop constraint if exists abc;
         `);
 
-        assert.throws(() => none(`alter table test drop constraint abc;`), /constraint "abc" of relation "test" does not exist/);
-    })
+        assert.throws(
+            () => none(`alter table test drop constraint abc;`),
+            /constraint "abc" of relation "test" does not exist/,
+        );
+    });
 
     it('can drop a check via drop constraint', () => {
         none(`create table test(id text);

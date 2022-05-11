@@ -8,4 +8,4 @@ export const systemFunctions: FunctionDefinition[] = [
         returns: Types.text(),
         implementation: () => 'public',
     },
-]
+];

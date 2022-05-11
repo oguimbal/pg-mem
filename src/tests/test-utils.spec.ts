@@ -36,7 +36,6 @@ describe('Test utils', () => {
         }
     });
 
-
     it('queryJson() works', () => {
         assert.isTrue(queryJson({ a: 1 }, { a: 1, b: 2 }));
         assert.isFalse(queryJson([{ a: 1 }], { a: 1, b: 2 }));

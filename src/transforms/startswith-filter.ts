@@ -1,9 +1,18 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
+import {
+    _ISelection,
+    IValue,
+    _IIndex,
+    _ITable,
+    getId,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    Stats,
+} from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
 export class StartsWithFilter<T = any> extends FilterBase<T> {
-
     get index() {
         return null;
     }
@@ -18,18 +27,15 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
 
     hasItem(item: T, t: _Transaction) {
         const get = this.onValue.get(item, t);
-        return typeof get === 'string'
-            && get.startsWith(this.startWith);
+        return typeof get === 'string' && get.startsWith(this.startWith);
     }
 
-    constructor(private onValue: IValue<T>
-        , private startWith: string) {
+    constructor(private onValue: IValue<T>, private startWith: string) {
         super(onValue.origin!);
         if (onValue.index!.expressions[0].hash !== this.onValue.hash) {
             throw new Error('Startwith must be the first component of the index');
         }
     }
-
 
     stats(t: _Transaction): Stats | null {
         return null;

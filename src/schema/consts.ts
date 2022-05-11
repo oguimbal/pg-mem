@@ -10,6 +10,6 @@ export function parseOid(oid: string): { type: OidType; id: string } {
     const [_, type, id] = /^oid:([^:]+):([^:]+)$/.exec(oid) ?? [];
     return {
         type: type as OidType,
-        id
-    }
+        id,
+    };
 }

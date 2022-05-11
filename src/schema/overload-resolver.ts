@@ -10,15 +10,14 @@ export interface HasSig {
 }
 
 export class OverloadResolver<T extends HasSig> {
-
     private byName = new Map<string, OverloadNode<T>>();
 
-    constructor(private implicitCastOnly: boolean) { }
+    constructor(private implicitCastOnly: boolean) {}
 
     add(value: T, replaceIfExists: boolean) {
         let ret = this.byName.get(value.name);
         if (!ret) {
-            this.byName.set(value.name, ret = new OverloadNode<T>(Types.null, this.implicitCastOnly, 0));
+            this.byName.set(value.name, (ret = new OverloadNode<T>(Types.null, this.implicitCastOnly, 0)));
         }
         ret.index(value, replaceIfExists);
     }
@@ -44,14 +43,11 @@ export class OverloadResolver<T extends HasSig> {
     }
 }
 
-
 class OverloadNode<T extends HasSig> {
-
     private nexts = new Map<DataType, OverloadNode<T>[]>();
     private leaf: T | nil;
 
-    constructor(readonly type: _IType, private implicitCastOnly: boolean, private at: number) {
-    }
+    constructor(readonly type: _IType, private implicitCastOnly: boolean, private at: number) {}
 
     *all(): IterableIterator<T> {
         if (this.leaf) {
@@ -76,12 +72,12 @@ class OverloadNode<T extends HasSig> {
         const primary = arg.type.primary;
         let lst = this.nexts.get(primary);
         if (!lst) {
-            this.nexts.set(primary, lst = []);
+            this.nexts.set(primary, (lst = []));
         }
         // get or add corresponding node
-        let node = lst.find(x => x.type === arg.type);
+        let node = lst.find((x) => x.type === arg.type);
         if (!node) {
-            lst.push(node = new OverloadNode(arg.type, this.implicitCastOnly, this.at + 1));
+            lst.push((node = new OverloadNode(arg.type, this.implicitCastOnly, this.at + 1)));
         }
 
         // process arg list
@@ -105,8 +101,7 @@ class OverloadNode<T extends HasSig> {
             return this.leaf;
         }
         const target = types[this.at];
-        const found = this.nexts.get(target.primary)
-            ?.find(x => x.type == target);
+        const found = this.nexts.get(target.primary)?.find((x) => x.type == target);
         return found?.getExact(types);
     }
 
@@ -119,8 +114,7 @@ class OverloadNode<T extends HasSig> {
         const arg = args[this.at];
         const sigsToCheck = it(
             this.nexts // perf tweak: search by primary type
-                .get(arg.type.primary)
-            ?? it(this.nexts.values()).flatten() // else, search all registered overloads
+                .get(arg.type.primary) ?? it(this.nexts.values()).flatten(), // else, search all registered overloads
         );
 
         const match = sigsToCheck.reduce<OverloadNode<T> | nil>((acc, x) => {

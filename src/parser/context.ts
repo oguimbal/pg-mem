@@ -1,10 +1,18 @@
-import { _ISchema, _ISelection, _IDb, OnStatementExecuted, nil, QueryError, _IStatement, IValue, Parameter } from '../interfaces-private';
-
+import {
+    _ISchema,
+    _ISelection,
+    _IDb,
+    OnStatementExecuted,
+    nil,
+    QueryError,
+    _IStatement,
+    IValue,
+    Parameter,
+} from '../interfaces-private';
 
 class StackOf<T> {
     readonly stack: T[] = [];
-    constructor(private name: string) {
-    }
+    constructor(private name: string) {}
     usingValue = <ret>(value: T, act: () => ret): ret => {
         this.stack.push(value);
         try {
@@ -12,7 +20,7 @@ class StackOf<T> {
         } finally {
             this.stack.pop();
         }
-    }
+    };
     get current(): T {
         if (!this.stack.length) {
             throw new Error(`No ${this.name} available`);
@@ -24,7 +32,6 @@ class StackOf<T> {
         return this.stack[this.stack.length - 1];
     }
 }
-
 
 const _selectionStack = new StackOf<_ISelection>('build context');
 const _statementStack = new StackOf<_IStatement>('execution statement');
@@ -39,12 +46,11 @@ export interface INameResolver {
     readonly isolated: boolean;
 }
 
-
 interface IBuildContext {
     readonly selection: _ISelection;
     readonly db: _IDb;
     readonly schema: _ISchema;
-    readonly onFinishExecution: (callback: OnStatementExecuted) => void
+    readonly onFinishExecution: (callback: OnStatementExecuted) => void;
     readonly getTempBinding: (name: string) => _ISelection | nil;
     readonly setTempBinding: (name: string, boundTo: _ISelection) => void;
     readonly getParameter: (nameOrPosition: string | number) => IValue | nil;
@@ -87,22 +93,21 @@ class Context implements IBuildContext {
             const ret = params[nameOrPosition]?.value;
             if (!ret) {
                 // not ideal... (duplicated error message)
-                throw new QueryError(`bind message supplies ${params.length} parameters, but prepared statement "" requires ${nameOrPosition}`, '08P01');
+                throw new QueryError(
+                    `bind message supplies ${params.length} parameters, but prepared statement "" requires ${nameOrPosition}`,
+                    '08P01',
+                );
             }
             return ret;
         }
-        return params.find(p => p.value.id === nameOrPosition)?.value;
-    }
+        return params.find((p) => p.value.id === nameOrPosition)?.value;
+    };
 }
-
-
-
 
 const _buildCtx = new Context();
 export function buildCtx(): IBuildContext {
     return _buildCtx;
 }
-
 
 export const withSelection = _selectionStack.usingValue;
 export const withStatement = _statementStack.usingValue;

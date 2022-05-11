@@ -1,4 +1,23 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias, TR, _IStatement } from '../interfaces-private';
+import {
+    _ISelection,
+    IValue,
+    _IIndex,
+    _IDb,
+    setId,
+    getId,
+    _Transaction,
+    _ISchema,
+    _SelectExplanation,
+    _Explainer,
+    IndexExpression,
+    IndexOp,
+    IndexKey,
+    _IndexExplanation,
+    Stats,
+    _IAlias,
+    TR,
+    _IStatement,
+} from '../interfaces-private';
 import { buildBinaryValue, buildValue, uncache } from '../parser/expression-builder';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces';
 import { DataSourceBase, TransformBase } from './transform-base';
@@ -39,12 +58,11 @@ function* extractAnds(this: void, on: Expr): Iterable<Expr> {
 }
 
 function chooseStrategy(this: void, t: _Transaction, strategies: JoinStrategy[]) {
-    strategies.sort((a, b) => a.iterate.entropy(t) > b.iterate.entropy(t) ? 1 : -1);
+    strategies.sort((a, b) => (a.iterate.entropy(t) > b.iterate.entropy(t) ? 1 : -1));
     return strategies[0];
 }
 
 export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
-
     get isExecutionWithNoResult(): boolean {
         return false;
     }
@@ -53,16 +71,18 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private seqScanExpression!: IValue<any>;
     private joinId: number;
     private columnsMappingParentToThis = new Map<IValue, IValue>();
-    private columnsMappingThisToParent = new Map<IValue, {
-        side: 'joined' | 'restrictive';
-        col: IValue;
-    }>();
+    private columnsMappingThisToParent = new Map<
+        IValue,
+        {
+            side: 'joined' | 'restrictive';
+            col: IValue;
+        }
+    >();
     private indexCache = new Map<IValue, _IIndex>();
     strategies: JoinStrategy[] = [];
     private building = false;
     private ignoreDupes?: Set<IValue>;
     private mergeSelect?: Selection;
-
 
     isOriginOf(a: IValue<any>): boolean {
         return this.joined.isOriginOf(a) || this.restrictive.isOriginOf(a);
@@ -84,16 +104,17 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return ret;
     }
 
-    constructor(readonly restrictive: _ISelection<TLeft>
-        , readonly joined: _ISelection<TRight>
-        , on: JoinClause
-        , private innerJoin: boolean) {
+    constructor(
+        readonly restrictive: _ISelection<TLeft>,
+        readonly joined: _ISelection<TRight>,
+        on: JoinClause,
+        private innerJoin: boolean,
+    ) {
         super(buildCtx().schema);
-
 
         this.joinId = jCnt++;
         for (const c of this.restrictive.listSelectableIdentities()) {
-            const nc = c.setWrapper(this, x => (x as any)['>restrictive']);
+            const nc = c.setWrapper(this, (x) => (x as any)['>restrictive']);
             this.columnsMappingParentToThis.set(c, nc);
             if (c.type.primary === DataType.record) {
                 continue;
@@ -101,11 +122,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             this._columns.push(nc);
             this.columnsMappingThisToParent.set(nc, {
                 col: c,
-                side: 'restrictive'
+                side: 'restrictive',
             });
         }
         for (const c of this.joined.listSelectableIdentities()) {
-            const nc = c.setWrapper(this, x => (x as any)['>joined']);
+            const nc = c.setWrapper(this, (x) => (x as any)['>joined']);
             this.columnsMappingParentToThis.set(c, nc);
             if (c.type.primary === DataType.record) {
                 continue;
@@ -166,37 +187,31 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         // compute strategies
         this.fetchAndStrategies(ands, others);
 
-
         // build seq-scan expression
         this.seqScanExpression = buildValue(_on).cast(Types.bool);
     }
 
     private fetchUsingStrategies(_using: Name[]) {
         // build equalities eligible to a strategy
-        const ands = _using.map<Equality>(n => {
+        const ands = _using.map<Equality>((n) => {
             const left = this.restrictive.getColumn(n.name);
             const right = this.joined.getColumn(n.name);
             return {
                 left,
                 right,
-                eq: buildBinaryValue(
-                    this.wrap(left)
-                    , '='
-                    , this.wrap(right))
-            }
+                eq: buildBinaryValue(this.wrap(left), '=', this.wrap(right)),
+            };
         });
-        this.ignoreDupes = new Set(ands.map(x => this.wrap(x.left)));
+        this.ignoreDupes = new Set(ands.map((x) => this.wrap(x.left)));
 
         // compute strategies
         this.fetchAndStrategies(ands, []);
 
         // build seq-scan expression
-        this.seqScanExpression = ands.slice(1)
-            .reduce((a, b) => buildBinaryValue(a, 'AND', b.eq), ands[0].eq);
+        this.seqScanExpression = ands.slice(1).reduce((a, b) => buildBinaryValue(a, 'AND', b.eq), ands[0].eq);
     }
 
     private fetchAndStrategies(ands: Equality[], otherPredicates: IValue[]) {
-
         for (let i = 0; i < ands.length; i++) {
             const { left, right } = ands[i];
             const strats = [...this.fetchEqStrategyOn(left, right)];
@@ -204,14 +219,12 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 continue;
             }
             const others = [
-                ...ands.slice(0, i).map(x => x.eq),
-                ...ands.slice(i + 1).map(x => x.eq),
-                ...otherPredicates
+                ...ands.slice(0, i).map((x) => x.eq),
+                ...ands.slice(i + 1).map((x) => x.eq),
+                ...otherPredicates,
             ];
             if (others.length) {
-                const and = others.slice(1)
-                    .reduce<IValue>((v, c) => buildBinaryValue(c, 'AND', v)
-                        , others[0]);
+                const and = others.slice(1).reduce<IValue>((v, c) => buildBinaryValue(c, 'AND', v), others[0]);
                 for (const s of strats) {
                     s.othersPredicate = and;
                 }
@@ -234,7 +247,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
 
         let processInner = this.innerJoin;
-        let iterateSide: 'restrictive' | 'joined' = 'restrictive'
+        let iterateSide: 'restrictive' | 'joined' = 'restrictive';
         while (restrictedVal && joinedVal) {
             // can always iterat on restricted value & use joined table foreign index
             const jindex = joinedVal.index;
@@ -244,7 +257,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                     iterateSide,
                     onValue: restrictedVal,
                     joinIndex: jindex,
-                }
+                };
             }
             if (!processInner) {
                 break;
@@ -305,7 +318,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
-
     selectAlias(alias: string): _IAlias | nil {
         let onLeft = this.restrictive.selectAlias(alias);
         let onRight = this.joined.selectAlias(alias);
@@ -335,23 +347,21 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     }
 
     private builder(item: any, side: 'joined' | 'restrictive') {
-
         // if we're in an inner join, and the chosen strategy
         // has inverted join order, then invert built items
         let template: any;
         let buildItem: (x: any) => any;
         if (side === 'joined') {
-            buildItem = x => this.buildItem(x, item);
+            buildItem = (x) => this.buildItem(x, item);
             template = this.buildItem(null as any, item);
         } else {
-            buildItem = x => this.buildItem(item, x);
+            buildItem = (x) => this.buildItem(item, x);
             template = this.buildItem(item, null as any);
         }
         return { buildItem, template };
     }
 
     *iterateStrategyItem(item: any, strategy: JoinStrategy, t: _Transaction) {
-
         const { template, buildItem } = this.builder(item, strategy.iterateSide);
 
         const joinValue = strategy.onValue.get(item, t);
@@ -363,7 +373,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 key: [joinValue],
                 t,
             })) {
-
                 // build item
                 const item = buildItem(o);
 
@@ -391,16 +400,16 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             '>joined': r,
             '>restrictive': l,
             [SELECT_ALL]: () => this.merge(ret),
-        }
+        };
         setId(ret, `join${this.joinId}-${getId(l)}-${getId(r)}`);
         return ret;
     }
 
     private merge(item: any) {
         if (!this.mergeSelect) {
-            let sel = this.columns.map<CustomAlias>(val => ({ val }));
+            let sel = this.columns.map<CustomAlias>((val) => ({ val }));
             if (this.ignoreDupes) {
-                sel = sel.filter(t => !this.ignoreDupes?.has(t.val));
+                sel = sel.filter((t) => !this.ignoreDupes?.has(t.val));
             }
             this.mergeSelect = new Selection(this, sel);
         }
@@ -440,36 +449,33 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             restrictive: this.restrictive.explain(e),
             joined: this.joined.explain(e),
             inner: this.innerJoin,
-            on: strategy ? {
-                iterate: e.idFor(strategy.iterate),
-                iterateSide: strategy.iterateSide,
-                joinIndex: strategy.joinIndex.explain(e),
-                matches: strategy.onValue.explain(e),
-                ...strategy.othersPredicate ? { filtered: true } : {},
-            } : {
-                    seqScan: this.seqScanExpression.explain(e),
-                },
+            on: strategy
+                ? {
+                      iterate: e.idFor(strategy.iterate),
+                      iterateSide: strategy.iterateSide,
+                      joinIndex: strategy.joinIndex.explain(e),
+                      matches: strategy.onValue.explain(e),
+                      ...(strategy.othersPredicate ? { filtered: true } : {}),
+                  }
+                : {
+                      seqScan: this.seqScanExpression.explain(e),
+                  },
         };
     }
 }
 
-
 class JoinMapAlias implements _IAlias {
-
-
-    constructor(private owner: JoinSelection, private target: _IAlias, private map: string) {
-    }
+    constructor(private owner: JoinSelection, private target: _IAlias, private map: string) {}
 
     *listColumns(): Iterable<IValue<any>> {
         for (const c of this.target.listColumns()) {
-            yield c.setWrapper(this.owner, x => (x as any)[this.map]);
+            yield c.setWrapper(this.owner, (x) => (x as any)[this.map]);
         }
     }
 }
 
 export class JoinIndex<T> implements _IIndex<T> {
-    constructor(readonly owner: JoinSelection<T>, private base: _IIndex, private side: 'restrictive' | 'joined') {
-    }
+    constructor(readonly owner: JoinSelection<T>, private base: _IIndex, private side: 'restrictive' | 'joined') {}
 
     get expressions(): IndexExpression[] {
         return this.base.expressions;
@@ -505,7 +511,7 @@ export class JoinIndex<T> implements _IIndex<T> {
     }
 
     private chooseStrategy(t: _Transaction) {
-        const strats = this.owner.strategies.filter(x => x.iterateSide === this.side);
+        const strats = this.owner.strategies.filter((x) => x.iterateSide === this.side);
         if (!strats.length) {
             return null;
         }
@@ -513,9 +519,7 @@ export class JoinIndex<T> implements _IIndex<T> {
     }
 
     private get other() {
-        return this.side === 'joined'
-            ? this.owner.restrictive
-            : this.owner.joined;
+        return this.side === 'joined' ? this.owner.restrictive : this.owner.joined;
     }
 
     *enumerate(op: IndexOp): Iterable<T> {
@@ -534,13 +538,12 @@ export class JoinIndex<T> implements _IIndex<T> {
         }
     }
 
-
     explain(e: _Explainer): _IndexExplanation {
         const strat = this.chooseStrategy(e.transaction);
         return {
             _: 'indexOnJoin',
             index: this.base.explain(e),
             strategy: strat?.joinIndex?.explain(e) ?? 'catastrophic',
-        }
+        };
     }
 }

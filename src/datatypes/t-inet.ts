@@ -6,9 +6,8 @@ import { _ISchema, _IType } from '../interfaces-private';
 // https://www.postgresql.org/docs/13/datatype-net-types.html#DATATYPE-INET
 
 export class INetType extends TypeBase<string> {
-
     get primary(): DataType {
-        return DataType.inet
+        return DataType.inet;
     }
 
     doCanCast(to: _IType) {
@@ -28,25 +27,23 @@ export class INetType extends TypeBase<string> {
     }
 
     doBuildFrom(value: Evaluator<string>, from: _IType<string>): Evaluator<string> | nil {
-        return value
-            .setConversion(x => {
-                const [_, a, b, c, d, __, m] = /^(\d+)\.(\d+)\.(\d+)\.(\d+)(\/(\d+))?$/.exec(x) ?? []
+        return value.setConversion(
+            (x) => {
+                const [_, a, b, c, d, __, m] = /^(\d+)\.(\d+)\.(\d+)\.(\d+)(\/(\d+))?$/.exec(x) ?? [];
                 if ([a, b, c, d].some(notByte) || notMask(m)) {
                     throw new QueryError(`invalid input syntax for type inet: ${x}`);
                 }
                 return x;
-            }, toInet => ({ toInet }));
+            },
+            (toInet) => ({ toInet }),
+        );
     }
 }
 
 function notByte(b: string) {
-    return !b
-        || b.length > 1 && b[0] === '0'
-        || parseInt(b, 10) > 255;
+    return !b || (b.length > 1 && b[0] === '0') || parseInt(b, 10) > 255;
 }
 
 function notMask(b: string) {
-    return b
-        && (b.length > 1 && b[0] === '0'
-            || parseInt(b, 10) > 32);
+    return b && ((b.length > 1 && b[0] === '0') || parseInt(b, 10) > 32);
 }

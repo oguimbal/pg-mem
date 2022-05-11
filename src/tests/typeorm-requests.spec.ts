@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 
 describe('Typeorm - requests', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -21,16 +20,18 @@ describe('Typeorm - requests', () => {
         db.public.none('create table data(id text primary key, data jsonb, num integer, var varchar(10))');
     }
 
-
     it('can process typeorm columns schema selection', () => {
         simpleDb();
-        expect(many(`SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`).length)
-            .to.equal(4);
-        expect(many(`SELECT ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`))
-            .to.deep.equal([{ regtype: 'text' }
-                , { regtype: 'jsonb' }
-                , { regtype: 'integer' }
-                , { regtype: 'text' }]);
+        expect(
+            many(
+                `SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`,
+            ).length,
+        ).to.equal(4);
+        expect(
+            many(
+                `SELECT ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`,
+            ),
+        ).to.deep.equal([{ regtype: 'text' }, { regtype: 'jsonb' }, { regtype: 'integer' }, { regtype: 'text' }]);
     });
 
     it('can select table schema 1', () => {
@@ -53,7 +54,7 @@ describe('Typeorm - requests', () => {
                                                 AND "a"."attnum" = ANY ("cnst"."conkey")
             WHERE "t"."relkind" = 'r'
                     AND (("ns"."nspname" = 'public' AND "t"."relname" = 'data'))`);
-        expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([]);
     });
 
     it('can select table schema 2', () => {
@@ -78,9 +79,8 @@ describe('Typeorm - requests', () => {
                                     WHERE "t"."relkind" = 'r'
                                         AND "cnst"."contype" IS NULL
                                         AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user'));`);
-        expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([]);
     });
-
 
     it('can select table schema 3', () => {
         simpleDb();
@@ -134,14 +134,13 @@ describe('Typeorm - requests', () => {
                                 INNER JOIN "pg_class" "cl" ON "cl"."oid" = "con"."confrelid"
                                 INNER JOIN "pg_namespace" "ns" ON "cl"."relnamespace" = "ns"."oid"
                                 INNER JOIN "pg_attribute" "att2" ON "att2"."attrelid" = "con"."conrelid" AND "att2"."attnum" = "con"."parent";`);
-        expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([]);
     });
 
     it('can select table schema 4', () => {
         const result = many(`SELECT * FROM "information_schema"."tables" WHERE "table_schema" = current_schema`);
-        expect(result).to.deep.equal([])
+        expect(result).to.deep.equal([]);
     });
-
 
     it('can create table', () => {
         none(`CREATE TABLE "user" ("id" SERIAL NOT NULL,
@@ -152,7 +151,6 @@ describe('Typeorm - requests', () => {
                                 );`);
         assert.exists(db.getTable('user'), 'Table should have been created');
     });
-
 
     function explainMapSelect() {
         const expl = db.public.explainLastSelect()!;
@@ -165,7 +163,7 @@ describe('Typeorm - requests', () => {
     function createPhotosUsers() {
         none(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
         CREATE TABLE "photo" ("id" SERIAL NOT NULL, "url" text NOT NULL, "userId" integer, CONSTRAINT "PK_723fa50bf70dcfd06fb5a44d4ff" PRIMARY KEY ("id"));
-        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;`)
+        ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;`);
     }
 
     it('can perform full join queries', () => {
@@ -200,22 +198,23 @@ describe('Typeorm - requests', () => {
                     joinIndex: {
                         _: 'btree',
                         btree: ['userId'],
-                        onTable: 'photo'
+                        onTable: 'photo',
                     },
                     matches: { on: 'user', col: 'id' },
-                }
-            }
-        })
+                },
+            },
+        });
 
         expect(got).to.deep.equal([
             { user_id: 1, user_name: 'me', photo_id: 1, photo_url: 'photo-of-me-1.jpg', photo_userId: 1 },
             { user_id: 1, user_name: 'me', photo_id: 2, photo_url: 'photo-of-me-2.jpg', photo_userId: 1 },
-        ])
-    })
+        ]);
+    });
 
-
-    it ('can perform photo join', () => {
+    it('can perform photo join', () => {
         createPhotosUsers();
-        many(`SELECT "Photo"."id" AS "Photo_id", "Photo"."url" AS "Photo_url", "Photo"."userId" AS "Photo_userId", "Photo__user"."id" AS "Photo__user_id", "Photo__user"."name" AS "Photo__user_name" FROM "photo" "Photo" LEFT JOIN "user" "Photo__user" ON "Photo__user"."id"="Photo"."userId" WHERE "Photo"."id" = 42`)
-    })
+        many(
+            `SELECT "Photo"."id" AS "Photo_id", "Photo"."url" AS "Photo_url", "Photo"."userId" AS "Photo_userId", "Photo__user"."id" AS "Photo__user_id", "Photo__user"."name" AS "Photo__user_name" FROM "photo" "Photo" LEFT JOIN "user" "Photo__user" ON "Photo__user"."id"="Photo"."userId" WHERE "Photo"."id" = 42`,
+        );
+    });
 });

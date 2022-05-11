@@ -1,5 +1,15 @@
 import { TransformBase, FilterBase } from './transform-base';
-import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private';
+import {
+    _Transaction,
+    IValue,
+    _Explainer,
+    _ISelection,
+    _SelectExplanation,
+    QueryError,
+    Stats,
+    nil,
+    _IAlias,
+} from '../interfaces-private';
 import { Evaluator } from '../evaluator';
 import { Types, RecordCol } from '../datatypes';
 import { ExprRef } from 'pgsql-ast-parser';
@@ -18,7 +28,6 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection {
 }
 
 export class Alias<T> extends TransformBase<T> implements _IAlias {
-
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
     private _columns: IValue<any>[] | null = null;
@@ -38,7 +47,6 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
         yield this.asRecord;
     }
 
-
     rebuild() {
         this._columns = null;
         this.oldToThis.clear();
@@ -56,7 +64,6 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
         return this.columns;
     }
 
-
     get debugId() {
         return this.base.debugId;
     }
@@ -69,7 +76,7 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
         if (this._columns) {
             return;
         }
-        this._columns = this.base.columns.map(x => {
+        this._columns = this.base.columns.map((x) => {
             const ret = x.setOrigin(this);
             this.oldToThis.set(x, ret);
             this.thisToOld.set(ret, x);
@@ -78,12 +85,13 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
 
         // how to build a record out of this alias?
         this.asRecord = new Evaluator(
-            RecordType.from(this)
-            , this.name
-            , Math.random().toString()
-            , this._columns
-            , v => ({ ...v })
-            , { forceNotConstant: true });
+            RecordType.from(this),
+            this.name,
+            Math.random().toString(),
+            this._columns,
+            (v) => ({ ...v }),
+            { forceNotConstant: true },
+        );
     }
 
     stats(t: _Transaction): Stats | null {
@@ -117,10 +125,8 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
     }
 
     private _getColumn(column: string | ExprRef): IValue | nil {
-        if (typeof column !== 'string'
-            && column.table) {
-            if (!column.table.schema
-                && column.table.name !== this.name) {
+        if (typeof column !== 'string' && column.table) {
+            if (!column.table.schema && column.table.name !== this.name) {
                 return null;
             }
             column = column.name;
@@ -149,7 +155,6 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
     }
 
     getIndex(...forValue: IValue[]) {
-        return this.base.getIndex(...forValue.map(v => this.thisToOld.get(v) ?? v));
+        return this.base.getIndex(...forValue.map((v) => this.thisToOld.get(v) ?? v));
     }
-
 }

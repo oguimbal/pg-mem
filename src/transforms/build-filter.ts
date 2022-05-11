@@ -23,7 +23,7 @@ export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, par
         if (!where.type.canConvertImplicit(Types.bool)) {
             throw new QueryError(`argument of ${parentName} must be type boolean, not type jsonb`, '42804');
         }
-        return _buildFilter(on, filter, where) ?? new SeqScanFilter(on, where)
+        return _buildFilter(on, filter, where) ?? new SeqScanFilter(on, where);
     });
 }
 
@@ -43,8 +43,7 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, built: IV
     // if this filter is a constant expression (ex: 1 = 1)
     // then return directly
     if (built.isConstant) {
-        const val = built.cast(Types.bool)
-            .get();
+        const val = built.cast(Types.bool).get();
         if (val) {
             return on;
         }
@@ -94,9 +93,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
             if (op === 'OR' && (leftFilter instanceof SeqScanFilter || rightFilter instanceof SeqScanFilter)) {
                 return null;
             }
-            return op === 'AND'
-                ? new AndFilter([leftFilter, rightFilter])
-                : new OrFilter(leftFilter, rightFilter);
+            return op === 'AND' ? new AndFilter([leftFilter, rightFilter]) : new OrFilter(leftFilter, rightFilter);
         }
         case 'IN':
         case 'NOT IN': {
@@ -114,9 +111,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
                 if (nullIsh(arrCst)) {
                     return new FalseFilter(on);
                 }
-                return op === 'IN'
-                    ? new InFilter(value, arrCst)
-                    : new NotInFilter(value, arrCst);
+                return op === 'IN' ? new InFilter(value, arrCst) : new NotInFilter(value, arrCst);
             }
             // todo use indexes on queries like "WHERE 'whatever' in (indexedOne, indexedTwo)"
             //   => this is an OrFilter
@@ -183,7 +178,7 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
         case '=':
         case '!=': {
             if (leftValue.index && rightValue.isConstant) {
-                return new EqFilter(leftValue, rightValue.get(), op === '=' ? 'eq' : 'neq', false)
+                return new EqFilter(leftValue, rightValue.get(), op === '=' ? 'eq' : 'neq', false);
             }
             if (rightValue.index && leftValue.isConstant) {
                 return new EqFilter(rightValue, leftValue.get(), op === '=' ? 'eq' : 'neq', false);
@@ -195,17 +190,11 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
         case '<':
         case '<=':
             if (leftValue.index && leftValue.index.expressions[0].hash === leftValue.hash && rightValue.isConstant) {
-                const fop = op === '>' ? 'gt'
-                    : op === '>=' ? 'ge'
-                        : op === '<' ? 'lt'
-                            : 'le';
+                const fop = op === '>' ? 'gt' : op === '>=' ? 'ge' : op === '<' ? 'lt' : 'le';
                 return new IneqFilter(leftValue, fop, rightValue.get());
             }
             if (rightValue.index && rightValue.index.expressions[0].hash === rightValue.hash && leftValue.isConstant) {
-                const fop = op === '>' ? 'le'
-                    : op === '>=' ? 'lt'
-                        : op === '<' ? 'ge'
-                            : 'gt';
+                const fop = op === '>' ? 'le' : op === '>=' ? 'lt' : op === '<' ? 'ge' : 'gt';
                 return new IneqFilter(rightValue, fop, leftValue.get());
             }
             break;

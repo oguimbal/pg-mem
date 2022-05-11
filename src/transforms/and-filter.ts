@@ -1,11 +1,17 @@
-import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private';
+import {
+    _ISelection,
+    _IIndex,
+    _ITable,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    Stats,
+    nil,
+} from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { SeqScanFilter } from './seq-scan';
 
-
-
 export class AndFilter<T = any> extends FilterBase<T> {
-
     get index(): _IIndex<T> | nil {
         return null;
     }
@@ -27,23 +33,21 @@ export class AndFilter<T = any> extends FilterBase<T> {
     }
 
     hasItem(value: T, t: _Transaction): boolean {
-        return this.filters.every(x => x.hasItem(value, t));
+        return this.filters.every((x) => x.hasItem(value, t));
     }
 
     constructor(private filters: _ISelection<T>[]) {
-        super(filters.find(x => !(x instanceof SeqScanFilter)) ?? filters[0]);
-        if (filters.some(f => f.columns !== this.base.columns)) {
+        super(filters.find((x) => !(x instanceof SeqScanFilter)) ?? filters[0]);
+        if (filters.some((f) => f.columns !== this.base.columns)) {
             throw new Error('Column set mismatch');
         }
     }
 
     private plan(t: _Transaction) {
-        const sorted = [...this.filters]
-            .sort((a, b) => a.entropy(t) > b.entropy(t) ? 1 : -1);
+        const sorted = [...this.filters].sort((a, b) => (a.entropy(t) > b.entropy(t) ? 1 : -1));
         const [best] = sorted.splice(0, 1);
         return { best, sorted };
     }
-
 
     stats(t: _Transaction): Stats | null {
         return null;
@@ -51,9 +55,9 @@ export class AndFilter<T = any> extends FilterBase<T> {
 
     *enumerate(t: _Transaction): Iterable<T> {
         // sort them so the most restrictive filter is first
-        const { best, sorted } = this.plan(t)
+        const { best, sorted } = this.plan(t);
         for (const item of best.enumerate(t)) {
-            if (!sorted.every(x => x.hasItem(item, t))) {
+            if (!sorted.every((x) => x.hasItem(item, t))) {
                 continue;
             }
             yield item;
@@ -66,8 +70,7 @@ export class AndFilter<T = any> extends FilterBase<T> {
             id: e.idFor(this),
             _: 'and',
             enumerate: best.explain(e),
-            andCheck: sorted.map(x => x.explain(e)),
+            andCheck: sorted.map((x) => x.explain(e)),
         };
     }
-
 }

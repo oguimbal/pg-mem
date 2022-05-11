@@ -1,5 +1,21 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils';
-import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private';
+import {
+    _ISchema,
+    _Transaction,
+    _FunctionDefinition,
+    _ArgDefDetails,
+    _IType,
+    _ISelection,
+    _IStatement,
+    NotSupported,
+    QueryError,
+    nil,
+    OnStatementExecuted,
+    _IStatementExecutor,
+    StatementResult,
+    Parameter,
+    IValue,
+} from '../interfaces-private';
 import { toSql, Statement } from 'pgsql-ast-parser';
 import { ExecuteCreateTable } from './schema-amends/create-table';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence';
@@ -36,20 +52,23 @@ export class SimpleExecutor extends ExecHelper implements _IStatementExecutor {
 }
 
 class MapNameResolver implements INameResolver {
-    constructor(private map: Map<string, any>, readonly isolated: boolean) {
-    }
+    constructor(private map: Map<string, any>, readonly isolated: boolean) {}
     resolve(name: string): IValue | nil {
         return this.map.get(name);
     }
 }
 
 export class StatementExec implements _IStatement {
-    private onExecutedCallbacks: OnStatementExecuted[] = []
+    private onExecutedCallbacks: OnStatementExecuted[] = [];
     private executor?: _IStatementExecutor;
-    private checkAstCoverage?: (() => void);
+    private checkAstCoverage?: () => void;
 
-    constructor(readonly schema: _ISchema, private statement: Statement, private pAsSql: string | nil, private parameters?: Parameter[]) {
-    }
+    constructor(
+        readonly schema: _ISchema,
+        private statement: Statement,
+        private pAsSql: string | nil,
+        private parameters?: Parameter[],
+    ) {}
 
     onExecuted(callback: OnStatementExecuted): void {
         this.onExecutedCallbacks.push(callback);
@@ -58,7 +77,6 @@ export class StatementExec implements _IStatement {
     private get db() {
         return this.schema.db;
     }
-
 
     private _getExecutor(p: Statement): _IStatementExecutor {
         switch (p.type) {
@@ -122,7 +140,7 @@ export class StatementExec implements _IStatement {
             case 'raise':
             case 'deallocate':
                 ignore(p);
-                return new SimpleExecutor(p, () => { });
+                return new SimpleExecutor(p, () => {});
 
             case 'tablespace':
                 throw new NotSupported('"TABLESPACE" statement');
@@ -135,12 +153,8 @@ export class StatementExec implements _IStatement {
         }
     }
 
-
-
-
     compile(): _IStatementExecutor {
         return this.niceErrors(() => {
-
             if (this.executor) {
                 return this.executor!;
             }
@@ -158,50 +172,50 @@ export class StatementExec implements _IStatement {
             }
 
             // build parameters context
-            const namedParams = fromEntries(this.parameters?.filter(p => !!p.value.id).map(x => [x.value.id!, x]) ?? []);
+            const namedParams = fromEntries(
+                this.parameters?.filter((p) => !!p.value.id).map((x) => [x.value.id!, x]) ?? [],
+            );
             const nameResolver = new MapNameResolver(namedParams, true);
 
-
             // parse the AST
-            withNameResolver(nameResolver,
-                () => withStatement(this,
-                    () => withSelection(this.schema.dualTable.selection,
-                        () => this.executor = this._getExecutor(p)
-                    )
-                )
+            withNameResolver(nameResolver, () =>
+                withStatement(this, () =>
+                    withSelection(this.schema.dualTable.selection, () => (this.executor = this._getExecutor(p))),
+                ),
             );
 
             return this.executor!;
         });
     }
 
-
     executeStatement(t: _Transaction): StatementResult {
-        return this.niceErrors(() => pushExecutionCtx({
-            transaction: t,
-            schema: this.schema,
-        }, () => {
+        return this.niceErrors(() =>
+            pushExecutionCtx(
+                {
+                    transaction: t,
+                    schema: this.schema,
+                },
+                () => {
+                    t.clearTransientData();
 
-            t.clearTransientData();
+                    // actual execution
+                    if (!this.executor) {
+                        throw new Error('Statement not prepared');
+                    }
+                    const result = this.executor.execute(t);
 
-            // actual execution
-            if (!this.executor) {
-                throw new Error('Statement not prepared')
-            }
-            const result = this.executor.execute(t);
+                    // post-execution
+                    for (const s of this.onExecutedCallbacks) {
+                        s(t);
+                    }
 
-            // post-execution
-            for (const s of this.onExecutedCallbacks) {
-                s(t);
-            }
+                    // check AST coverage if necessary
+                    this.checkAstCoverage?.();
 
-
-            // check AST coverage if necessary
-            this.checkAstCoverage?.();
-
-
-            return result;
-        }));
+                    return result;
+                },
+            ),
+        );
     }
 
     private niceErrors<T>(act: () => T): T {
@@ -214,11 +228,9 @@ export class StatementExec implements _IStatement {
             }
 
             // include error tips
-            if (!this.db.options.noErrorDiagnostic && (e instanceof Error) || e instanceof NotSupported) {
-
+            if ((!this.db.options.noErrorDiagnostic && e instanceof Error) || e instanceof NotSupported) {
                 // compute SQL
                 const msgs = [e.message];
-
 
                 if (e instanceof QueryError) {
                     msgs.push(`🐜 This seems to be an execution error, which means that your request syntax seems okay,
@@ -226,7 +238,9 @@ export class StatementExec implements _IStatement {
                 } else if (e instanceof NotSupported) {
                     msgs.push(`👉 pg-mem is work-in-progress, and it would seem that you've hit one of its limits.`);
                 } else {
-                    msgs.push('💥 This is a nasty error, which was unexpected by pg-mem. Also known "a bug" 😁 Please file an issue !')
+                    msgs.push(
+                        '💥 This is a nasty error, which was unexpected by pg-mem. Also known "a bug" 😁 Please file an issue !',
+                    );
                 }
 
                 if (!this.db.options.noErrorDiagnostic) {
@@ -240,7 +254,9 @@ export class StatementExec implements _IStatement {
                         }
                     }
                 }
-                msgs.push('👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this error (if you can), and  the stacktrace:')
+                msgs.push(
+                    '👉 You can file an issue at https://github.com/oguimbal/pg-mem along with a way to reproduce this error (if you can), and  the stacktrace:',
+                );
                 e.message = msgs.join('\n\n') + '\n\n';
             }
 
@@ -252,5 +268,4 @@ export class StatementExec implements _IStatement {
             throw e;
         }
     }
-
 }

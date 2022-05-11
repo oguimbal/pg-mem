@@ -6,7 +6,6 @@ import { IMemoryDb } from '../interfaces';
 import { preventSeqScan } from './test-utils';
 
 describe('Drop', () => {
-
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -19,7 +18,6 @@ describe('Drop', () => {
         none = db.public.none.bind(db.public);
     });
 
-
     it('can drop table', () => {
         none(`create table test(a text);
             drop table test;`);
@@ -30,7 +28,6 @@ describe('Drop', () => {
         none(`create sequence test`);
         assert.throws(() => none(`drop table test;`), /"test" is not a table/);
     });
-
 
     it('can drop sequence', () => {
         none(`create sequence test;
@@ -44,25 +41,24 @@ describe('Drop', () => {
         assert.throws(() => none(`drop sequence test;`), /"test" is not a sequence/);
     });
 
-
     it('can drop index', () => {
         none(`create table test(a text);
             create index idx on test(a);`);
 
         // check uses index
-        const sub = preventSeqScan(db)
+        const sub = preventSeqScan(db);
         none(`select * from test where a='a';`);
         sub.unsubscribe();
 
         // drop index
-        none(`drop index idx;`)
+        none(`drop index idx;`);
 
         // check does not use index anymore
         let seq = false;
-        db.on('seq-scan', () => seq = true);
+        db.on('seq-scan', () => (seq = true));
         none(`select * from test where a='a';`);
         assert.isTrue(seq);
-    })
+    });
 
     it('cannot drop index when exists but is not an index', () => {
         none(`create table test(a text)`);
@@ -75,7 +71,6 @@ describe('Drop', () => {
             drop index idx;
             create index idx on test(a);`);
     });
-
 
     it('throws an error on ambiguous function drop', () => {
         db.registerLanguage('sql', () => () => assert.fail('not supposed to be called'));
@@ -105,15 +100,14 @@ describe('Drop', () => {
     });
 
     it('drops the right overload', () => {
-        db.registerLanguage('sql', code => () => code.code);
-        expect(many(`
+        db.registerLanguage('sql', (code) => () => code.code);
+        expect(
+            many(`
             create function my_function(txt text) returns text as $$with arg$$ language sql;
             create function my_function() returns text as $$without arg$$ language sql;
             drop function my_function(text);
             select my_function() data;
-            `))
-            .to.deep.equal([{ data: 'without arg' }])
-
+            `),
+        ).to.deep.equal([{ data: 'without arg' }]);
     });
-
 });

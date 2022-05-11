@@ -27,11 +27,12 @@ export class PointType extends TypeBase<Point> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion((p: Point) => {
+        return value.setConversion(
+            (p: Point) => {
                 return pointToStr(p);
-            }
-                , pointToTxt => ({ pointToTxt }));
+            },
+            (pointToTxt) => ({ pointToTxt }),
+        );
     }
 
     doEquals(a: Point, b: Point) {
@@ -53,10 +54,7 @@ export class PointType extends TypeBase<Point> {
     }
 }
 
-
-
 export class LineType extends TypeBase<Line> {
-
     get primary(): DataType {
         return DataType.line;
     }
@@ -71,11 +69,12 @@ export class LineType extends TypeBase<Line> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion((l: Line) => {
+        return value.setConversion(
+            (l: Line) => {
                 return `{${l.a},${l.b},${l.c}}`;
-            }
-                , lineToTxt => ({ lineToTxt }));
+            },
+            (lineToTxt) => ({ lineToTxt }),
+        );
     }
 
     doEquals(a: Line, b: Line) {
@@ -84,7 +83,6 @@ export class LineType extends TypeBase<Line> {
 }
 
 export class LsegType extends TypeBase<Segment> {
-
     get primary(): DataType {
         return DataType.lseg;
     }
@@ -99,11 +97,12 @@ export class LsegType extends TypeBase<Segment> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion(([a, b]: Segment) => {
+        return value.setConversion(
+            ([a, b]: Segment) => {
                 return `[${pointToStr(a)},${pointToStr(b)}]`;
-            }
-                , SegmentToTxt => ({ SegmentToTxt }));
+            },
+            (SegmentToTxt) => ({ SegmentToTxt }),
+        );
     }
 
     doEquals([as, ae]: Segment, [bs, be]: Segment) {
@@ -112,7 +111,6 @@ export class LsegType extends TypeBase<Segment> {
 }
 
 export class BoxType extends TypeBase<Box> {
-
     get primary(): DataType {
         return DataType.box;
     }
@@ -127,11 +125,12 @@ export class BoxType extends TypeBase<Box> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion(([a, b]: Box) => {
+        return value.setConversion(
+            ([a, b]: Box) => {
                 return `${pointToStr(a)},${pointToStr(b)}`;
-            }
-                , BoxToTxt => ({ BoxToTxt }));
+            },
+            (BoxToTxt) => ({ BoxToTxt }),
+        );
     }
 
     doEquals([as, ae]: Box, [bs, be]: Box) {
@@ -140,7 +139,6 @@ export class BoxType extends TypeBase<Box> {
 }
 
 export class PathType extends TypeBase<Path> {
-
     get primary(): DataType {
         return DataType.path;
     }
@@ -155,14 +153,13 @@ export class PathType extends TypeBase<Path> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion((p: Path) => {
+        return value.setConversion(
+            (p: Path) => {
                 const vals = p.path.map(pointToStr).join(',');
-                return p.closed
-                    ? '(' + vals + ')'
-                    : '[' + vals + ']';
-            }
-                , PathToTxt => ({ PathToTxt }));
+                return p.closed ? '(' + vals + ')' : '[' + vals + ']';
+            },
+            (PathToTxt) => ({ PathToTxt }),
+        );
     }
 
     doEquals(a: Path, b: Path) {
@@ -176,7 +173,6 @@ export class PathType extends TypeBase<Path> {
 }
 
 export class PolygonType extends TypeBase<Polygon> {
-
     get primary(): DataType {
         return DataType.polygon;
     }
@@ -191,23 +187,21 @@ export class PolygonType extends TypeBase<Polygon> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion((p: Polygon) => {
+        return value.setConversion(
+            (p: Polygon) => {
                 const vals = p.map(pointToStr).join(',');
                 return '(' + vals + ')';
-            }
-                , PolygonToTxt => ({ PolygonToTxt }));
+            },
+            (PolygonToTxt) => ({ PolygonToTxt }),
+        );
     }
 
     doEquals(a: Polygon, b: Polygon) {
-        return a.length === b.length
-            && a.every((x, i) => pointEq(x, b[i]));
+        return a.length === b.length && a.every((x, i) => pointEq(x, b[i]));
     }
 }
 
-
 export class CircleType extends TypeBase<Circle> {
-
     get primary(): DataType {
         return DataType.circle;
     }
@@ -222,11 +216,12 @@ export class CircleType extends TypeBase<Circle> {
         if (to.primary !== DataType.text) {
             throw new QueryError(`Invalid cast to: ` + to.primary);
         }
-        return value
-            .setConversion((p: Circle) => {
-                return `<${pointToStr(p.c)},${p.r}>`
-            }
-                , CircleToTxt => ({ CircleToTxt }));
+        return value.setConversion(
+            (p: Circle) => {
+                return `<${pointToStr(p.c)},${p.r}>`;
+            },
+            (CircleToTxt) => ({ CircleToTxt }),
+        );
     }
 
     doEquals(a: Circle, b: Circle) {

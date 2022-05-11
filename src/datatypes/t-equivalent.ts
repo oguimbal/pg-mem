@@ -5,7 +5,6 @@ import { _ISchema, _IType } from '../interfaces-private';
 import { Types } from './datatypes';
 
 export class EquivalentType extends TypeBase<string> {
-
     private equiv: IType;
 
     constructor(private def: IEquivalentType) {
@@ -46,12 +45,14 @@ export class EquivalentType extends TypeBase<string> {
     }
 
     doBuildFrom(value: Evaluator<string>, from: _IType<string>): Evaluator<string> | nil {
-        return value
-            .setConversion(x => {
+        return value.setConversion(
+            (x) => {
                 if (!this.def.isValid(x)) {
                     throw new QueryError(`invalid input syntax for type ${typeDefToStr(this)}: ${x}`);
                 }
                 return x;
-            }, val => ({ val, to: this.equiv.primary }));
+            },
+            (val) => ({ val, to: this.equiv.primary }),
+        );
     }
 }

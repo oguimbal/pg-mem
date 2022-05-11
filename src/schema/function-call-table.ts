@@ -16,8 +16,8 @@ export class FunctionCallTable extends DataSourceBase<any> {
 
     constructor(cols: readonly RecordCol[], private evaluator: IValue) {
         super(buildCtx().schema);
-        this.columns = cols.map(c => columnEvaluator(this, c.name, c.type).setOrigin(this));
-        this.colsByName = fromEntries(this.columns.map(c => [c.id!, c]));
+        this.columns = cols.map((c) => columnEvaluator(this, c.name, c.type).setOrigin(this));
+        this.colsByName = fromEntries(this.columns.map((c) => [c.id!, c]));
     }
 
     entropy(t: _Transaction): number {
@@ -47,7 +47,6 @@ export class FunctionCallTable extends DataSourceBase<any> {
     isOriginOf(value: IValue<any>): boolean {
         return value.origin === this;
     }
-
 
     explain(e: _Explainer): _SelectExplanation {
         throw new Error('Method not implemented.');

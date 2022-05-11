@@ -1,8 +1,18 @@
-import { _IIndex, IValue, IndexExpression, _Transaction, IndexKey, _Explainer, _IndexExplanation, IndexOp, _ISelection, Stats } from '../interfaces-private';
+import {
+    _IIndex,
+    IValue,
+    IndexExpression,
+    _Transaction,
+    IndexKey,
+    _Explainer,
+    _IndexExplanation,
+    IndexOp,
+    _ISelection,
+    Stats,
+} from '../interfaces-private';
 
 export class RestrictiveIndex<T> implements _IIndex<T> {
-    constructor(private base: _IIndex<T>, readonly filter: _ISelection<T>) {
-    }
+    constructor(private base: _IIndex<T>, readonly filter: _ISelection<T>) {}
 
     private match(raw: T, t: _Transaction) {
         return this.filter.hasItem(raw, t);
@@ -36,7 +46,6 @@ export class RestrictiveIndex<T> implements _IIndex<T> {
         return null;
     }
 
-
     entropy(t: IndexOp): number {
         return this.base.entropy(t);
     }
@@ -55,6 +64,6 @@ export class RestrictiveIndex<T> implements _IIndex<T> {
             lookup: this.base.explain(e),
             for: this.filter.explain(e),
             // criteria: this.restrict.explain(e),
-        }
+        };
     }
 }

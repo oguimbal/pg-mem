@@ -1,5 +1,16 @@
 import { Evaluator } from '../evaluator';
-import { CastError, DataType, IValue, nil, Reg, TR, _ISchema, _IType, _RelationBase, _Transaction } from '../interfaces-private';
+import {
+    CastError,
+    DataType,
+    IValue,
+    nil,
+    Reg,
+    TR,
+    _ISchema,
+    _IType,
+    _RelationBase,
+    _Transaction,
+} from '../interfaces-private';
 import { ArrayType } from './datatypes';
 import { isType, nullIsh } from '../utils';
 import objectHash from 'object-hash';
@@ -37,7 +48,6 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         return this.primary;
     }
 
-
     /** Compute a custom unicty hash for a non null value */
     doGetHash?(value: TRaw): string | number;
 
@@ -49,7 +59,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
 
     /**
      * @see this.prefer() doc
-      */
+     */
     doPrefer?(type: _IType<TRaw>): _IType | null;
 
     /**
@@ -109,7 +119,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     /**
      * When performing 'a+b', will be given 'b' type,
      * this returns the prefered resulting type, or null if they are not compatible
-      */
+     */
     prefer(to: _IType<TRaw>): _IType | nil {
         if (to === this) {
             return this;
@@ -160,7 +170,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
                 throw new CastError(this.primary, to.primary);
             }
             return this.doCast(a, to);
-        })
+        });
     }
 
     /** Perform implicit conversion */
@@ -170,10 +180,14 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
                 throw new CastError(this.primary, to.primary);
             }
             return this.doCast(a, to);
-        })
+        });
     }
 
-    private _convert(a: IValue<TRaw>, _to: _IType<any>, perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil): IValue<any> {
+    private _convert(
+        a: IValue<TRaw>,
+        _to: _IType<any>,
+        perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil,
+    ): IValue<any> {
         const to = _to as TypeBase;
         if (to === this) {
             return a;
@@ -202,14 +216,14 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         if (this._asArray) {
             return this._asArray;
         }
-        return this._asArray = new ArrayType(this, false);
+        return (this._asArray = new ArrayType(this, false));
     }
 
     asList(): _IType<TRaw[]> {
         if (this._asList) {
             return this._asList;
         }
-        return this._asList = new ArrayType(this, true);
+        return (this._asList = new ArrayType(this, true));
     }
 
     hash(value: any): string | number | null {
@@ -228,5 +242,4 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     drop(t: _Transaction): void {
         throw new QueryError('drop type not implemented');
     }
-
 }

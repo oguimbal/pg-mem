@@ -6,7 +6,6 @@ import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
 describe('Joins', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -56,10 +55,9 @@ describe('Joins', () => {
                     onTable: 'tb',
                 },
                 matches: { on: 'ta', col: 'bid' },
-            }
-        })
+            },
+        });
     });
-
 
     it('seq-scan inner join', () => {
         const result = many(`create table ta(aid text, bid text);
@@ -83,18 +81,16 @@ describe('Joins', () => {
             on: {
                 seqScan: {
                     col: '<complex expression>',
-                    on: 2,// <== directly on join
+                    on: 2, // <== directly on join
                 } as any,
-            }
-        })
+            },
+        });
 
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
     });
-
-
 
     it('can select * on join', () => {
         const result = many(`create table ta(aid text, bid text);
@@ -148,11 +144,9 @@ describe('Joins', () => {
                     onTable: 'ta',
                 },
                 matches: { on: 'tb', col: 'bid' },
-            }
-        })
+            },
+        });
     });
-
-
 
     it('does not join on null values when using index', () => {
         preventCataJoin(db);
@@ -167,9 +161,7 @@ describe('Joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-        expect(result).to.deep.equal([
-            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
-        ]);
+        expect(result).to.deep.equal([{ val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' }]);
         const expl = explainMapSelect();
         assert.deepEqual(expl, {
             _: 'join',
@@ -186,11 +178,9 @@ describe('Joins', () => {
                     onTable: 'tb',
                 },
                 matches: { on: 'ta', col: 'bid' },
-            }
-        })
+            },
+        });
     });
-
-
 
     it('join with left null values', () => {
         preventCataJoin(db);
@@ -204,11 +194,8 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
 
-        expect(result).to.deep.equal([
-            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
-        ]);
+        expect(result).to.deep.equal([{ val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }]);
     });
-
 
     it('left outer join with left null values', () => {
         preventCataJoin(db);
@@ -224,7 +211,7 @@ describe('Joins', () => {
 
         expect(result).to.deep.equal([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
-            { val: null, aid: 'aid2', abid: 'bid2', bbid: null }
+            { val: null, aid: 'aid2', abid: 'bid2', bbid: null },
         ]);
 
         const expl = explainMapSelect();
@@ -245,12 +232,10 @@ describe('Joins', () => {
                 matches: {
                     on: 'ta',
                     col: 'bid',
-                }
-            }
+                },
+            },
         });
     });
-
-
 
     it('right outer join with left null values', () => {
         const watch = watchCataJoins(db);
@@ -283,13 +268,9 @@ describe('Joins', () => {
                 matches: { on: 'tb', col: 'bid' },
             },
         });
-        expect(result).to.deep.equal([
-            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
-        ]);
+        expect(result).to.deep.equal([{ val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }]);
         watch.check();
     });
-
-
 
     it('condition on left part of join', () => {
         preventCataJoin(db);
@@ -305,9 +286,7 @@ describe('Joins', () => {
                                 join tb on ta.bid = tb.bid
                             where ta.num > 42`);
 
-        expect(result).to.deep.equal([
-            { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
-        ]);
+        expect(result).to.deep.equal([{ val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' }]);
         const expl = explainMapSelect();
         assert.deepEqual(expl, {
             _: 'seqFilter',
@@ -328,11 +307,9 @@ describe('Joins', () => {
                     },
                     matches: { on: 'ta', col: 'bid' },
                 },
-            }
+            },
         });
     });
-
-
 
     it('condition on right part of join', () => {
         preventCataJoin(db);
@@ -347,9 +324,7 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid
                             where tb.num < 12`);
-        expect(result).to.deep.equal([
-            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
-        ]);
+        expect(result).to.deep.equal([{ val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }]);
         const expl = explainMapSelect();
         assert.deepEqual(expl, {
             _: 'seqFilter',
@@ -370,11 +345,9 @@ describe('Joins', () => {
                     },
                     matches: { on: 'ta', col: 'bid' },
                 },
-            }
+            },
         });
     });
-
-
 
     it('OR condition on right both parts of join', () => {
         preventCataJoin(db);
@@ -416,10 +389,9 @@ describe('Joins', () => {
                     },
                     matches: { on: 'ta', col: 'bid' },
                 },
-            }
+            },
         });
     });
-
 
     it('AND condition on right both parts of join', () => {
         preventCataJoin(db);
@@ -436,12 +408,8 @@ describe('Joins', () => {
                                 from ta
                                     join tb on ta.bid = tb.bid
                                 where ta.num < 10 AND tb.num < 10`);
-        expect(result).to.deep.equal([
-            { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 1 },
-        ]);
+        expect(result).to.deep.equal([{ val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 1 }]);
     });
-
-
 
     function photos() {
         none(`CREATE TABLE "user" ("id" text primary key, "name" text NOT NULL);
@@ -456,9 +424,8 @@ describe('Joins', () => {
         INSERT INTO "user" VALUES ('u1', 'me');
         INSERT INTO "user" VALUES ('u2', 'you');
         INSERT INTO "user" VALUES ('u3', 'no camera');
-        `)
+        `);
     }
-
 
     it('can inner join', () => {
         photos();
@@ -494,18 +461,17 @@ describe('Joins', () => {
                     matches: {
                         on: 'user',
                         col: 'id',
-                    }
-                }
-            }
-        })
+                    },
+                },
+            },
+        });
         const result = many(query);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-            ]);
+        expect(result).to.deep.equal([
+            { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+            { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+        ]);
     });
 
     it('can inner join and filter on right', () => {
@@ -544,15 +510,14 @@ describe('Joins', () => {
                         col: 'id',
                     },
                     filtered: true,
-                }
-            }
-        })
+                },
+            },
+        });
         const result = many(query);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-            ]);
+        expect(result).to.deep.equal([
+            { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+        ]);
     });
 
     it('can inner join and filter on left', () => {
@@ -590,39 +555,38 @@ describe('Joins', () => {
                         on: 'user',
                         col: 'id',
                     },
-                    filtered: true
-                }
-            }
-        })
+                    filtered: true,
+                },
+            },
+        });
         const result = many(query);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-            ]);
+        expect(result).to.deep.equal([
+            { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+        ]);
     });
 
     it('can left join using "ON"', () => {
         photos();
         preventSeqScan(db, 'photo');
-        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+        const result =
+            many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
                             FROM "user" "user"
                             LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-                { user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
-            ]);
+        expect(result).to.deep.equal([
+            { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+            { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+            { user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
+        ]);
     });
 
     function childrenToys() {
         none(`create table child(id int, name text);
                 create table toy(child_id int, name text);
                 insert into child values (1, 'Tom');
-                insert into toy values (1, 'Gun');`)
+                insert into toy values (1, 'Gun');`);
     }
 
     describe('selects first mentioned table column on * ambiguity', () => {
@@ -630,39 +594,42 @@ describe('Joins', () => {
 
         it('with no index', () => {
             check();
-        })
+        });
 
         it('with index on first', () => {
             none(`create  index on child(id)`);
             check();
-        })
-
+        });
 
         it('with index on second', () => {
             none(`create  index on toy(child_id)`);
             check();
-        })
+        });
 
         function check() {
-            expect(many(`select * from child
-        join toy on id=child_id`))
-                .to.deep.equal([{
+            expect(
+                many(`select * from child
+        join toy on id=child_id`),
+            ).to.deep.equal([
+                {
                     id: 1,
                     child_id: 1,
                     name: 'Tom',
                     name1: 'Gun',
-                }]);
+                },
+            ]);
         }
     });
 
-
     it('throws on selection ambiguity', () => {
         childrenToys();
-        assert.throws(() => none(`select name from child
-        join toy on id=child_id`), /column reference "name" is ambiguous/);
+        assert.throws(
+            () =>
+                none(`select name from child
+        join toy on id=child_id`),
+            /column reference "name" is ambiguous/,
+        );
     });
-
-
 
     it('does not throw when ambiguity not selected', () => {
         childrenToys();
@@ -670,53 +637,52 @@ describe('Joins', () => {
         join toy on id=child_id`);
     });
 
-
-
     describe('join "USING"', () => {
-        beforeEach(() => none(`create table names(id int, name text);
+        beforeEach(() =>
+            none(`create table names(id int, name text);
                                 create table rates(id int, rate int);
                                 insert into names values (1, 'Me');
-                                insert into rates values (1, 10);`))
+                                insert into rates values (1, 10);`),
+        );
 
         it('can left join', () => {
-            expect(many(`select * from rates left join names using (id)`))
-                .to.deep.equal([{
+            expect(many(`select * from rates left join names using (id)`)).to.deep.equal([
+                {
                     id: 1, // ==> IDENTIFIED AS UNIQUE !
                     name: 'Me',
                     rate: 10,
-                }]);
+                },
+            ]);
         });
 
         it('it outputs two ID columns when not using "USING"', () => {
-            expect(many(`select * from rates left join names ON rates.id = names.id`))
-                .to.deep.equal([{
+            expect(many(`select * from rates left join names ON rates.id = names.id`)).to.deep.equal([
+                {
                     id: 1,
                     id1: 1,
                     name: 'Me',
                     rate: 10,
-                }]);
+                },
+            ]);
         });
-    })
-
-
+    });
 
     it('can right join', () => {
         photos();
         preventSeqScan(db, 'user');
-        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+        const result =
+            many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
                             FROM "user" "user"
                             RIGHT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: null, user_name: null, photo_id: 'p0', photo_url: 'noone.jpg', photo_userId: null },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-                { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
-            ]);
+        expect(result).to.deep.equal([
+            { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+            { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+            { user_id: null, user_name: null, photo_id: 'p0', photo_url: 'noone.jpg', photo_userId: null },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+            { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
+        ]);
     });
-
 
     describe('self joins', () => {
         beforeEach(() => {
@@ -725,76 +691,74 @@ describe('Joins', () => {
                     insert into test values ('me', 'other1');
                     insert into test values ('you', 'me');
                     insert into test values ('you', 'other2');`);
-        })
-
+        });
 
         it('self join with *', () => {
             const got = many(`select * from
                                 test a
                                 join test b on a.friend = b.usr;`);
-            expect(got)
-                .to.deep.equal([
-                    // nb: this is not exactly the same order as we'd get with pg
-                    //   (but there is no order clause)
-                    { usr: 'me', friend: 'you', usr1: 'you', friend1: 'me' },
-                    { usr: 'me', friend: 'you', usr1: 'you', friend1: 'other2' },
-                    { usr: 'you', friend: 'me', usr1: 'me', friend1: 'you' },
-                    { usr: 'you', friend: 'me', usr1: 'me', friend1: 'other1' },
-                ])
-        })
-
+            expect(got).to.deep.equal([
+                // nb: this is not exactly the same order as we'd get with pg
+                //   (but there is no order clause)
+                { usr: 'me', friend: 'you', usr1: 'you', friend1: 'me' },
+                { usr: 'me', friend: 'you', usr1: 'you', friend1: 'other2' },
+                { usr: 'you', friend: 'me', usr1: 'me', friend1: 'you' },
+                { usr: 'you', friend: 'me', usr1: 'me', friend1: 'other1' },
+            ]);
+        });
 
         it('can self right join', () => {
             const got = many(`select a.usr, b.friend from
                                 test a
                                 right join test b on a.friend = b.usr;`);
-            expect(got)
-                .to.deep.equal([
-                    { usr: 'you', friend: 'you' }
-                    , { usr: 'you', friend: 'other1' }
-                    , { usr: 'me', friend: 'me' }
-                    , { usr: 'me', friend: 'other2' }
-                ])
-        })
+            expect(got).to.deep.equal([
+                { usr: 'you', friend: 'you' },
+                { usr: 'you', friend: 'other1' },
+                { usr: 'me', friend: 'me' },
+                { usr: 'me', friend: 'other2' },
+            ]);
+        });
 
         it('can self left join', () => {
             const got = many(`select a.usr, b.friend from
                                 test a
                                 left join test b on a.friend = b.usr;`);
-            expect(got)
-                .to.deep.equal([
-                    { usr: 'me', friend: 'me' },
-                    { usr: 'me', friend: 'other2' },
-                    { usr: 'me', friend: null },
-                    { usr: 'you', friend: 'you' },
-                    { usr: 'you', friend: 'other1' },
-                    { usr: 'you', friend: null },
-                ])
+            expect(got).to.deep.equal([
+                { usr: 'me', friend: 'me' },
+                { usr: 'me', friend: 'other2' },
+                { usr: 'me', friend: null },
+                { usr: 'you', friend: 'you' },
+                { usr: 'you', friend: 'other1' },
+                { usr: 'you', friend: null },
+            ]);
         });
 
         it('can self inner join', () => {
             const got = many(`select a.usr, b.friend from
                                 test a
                                 join test b on a.friend = b.usr;`);
-            expect(got)
-                .to.deep.equal([
-                    { usr: 'me', friend: 'me' },
-                    { usr: 'me', friend: 'other2' },
-                    { usr: 'you', friend: 'you' },
-                    { usr: 'you', friend: 'other1' },
-                ])
+            expect(got).to.deep.equal([
+                { usr: 'me', friend: 'me' },
+                { usr: 'me', friend: 'other2' },
+                { usr: 'you', friend: 'you' },
+                { usr: 'you', friend: 'other1' },
+            ]);
         });
-
-    })
+    });
 
     it('can select * and column on join', () => {
-        expect(many(`select *, a from concat('a') as a join concat('a') as b on a.a=b.b`))
-            .to.deep.equal([{ a: 'a', b: 'a', a1: 'a' }]);
-    })
+        expect(many(`select *, a from concat('a') as a join concat('a') as b on a.a=b.b`)).to.deep.equal([
+            { a: 'a', b: 'a', a1: 'a' },
+        ]);
+    });
 
     it('can select selective * and column on join ', () => {
-        expect(many(`select b.*, vala, a from (values ('x', 'a1')) as a(ida, vala) join (values ('x', 'b1')) as b(idb, valb) on a.ida=b.idb`))
-            .to.deep.equal([{
+        expect(
+            many(
+                `select b.*, vala, a from (values ('x', 'a1')) as a(ida, vala) join (values ('x', 'b1')) as b(idb, valb) on a.ida=b.idb`,
+            ),
+        ).to.deep.equal([
+            {
                 idb: 'x',
                 valb: 'b1',
                 vala: 'a1',
@@ -802,29 +766,30 @@ describe('Joins', () => {
                     ida: 'x',
                     vala: 'a1',
                 },
-            }]);
+            },
+        ]);
     });
 
-
     it('[bugfix] performs typeorm schema exploration join', () => {
-        many(`SELECT "ns"."nspname" AS "table_schema", "t"."relname" AS "table_name", "cnst"."conname" AS "constraint_name", pg_get_constraintdef("cnst"."oid") AS "expression", CASE "cnst"."contype" WHEN 'p' THEN 'PRIMARY' WHEN 'u' THEN 'UNIQUE' WHEN 'c' THEN 'CHECK' WHEN 'x' THEN 'EXCLUDE' END AS "constraint_type", "a"."attname" AS "column_name" FROM "pg_constraint" "cnst" INNER JOIN "pg_class" "t" ON "t"."oid" = "cnst"."conrelid" INNER JOIN "pg_namespace" "ns" ON "ns"."oid" = "cnst"."connamespace" LEFT JOIN "pg_attribute" "a" ON "a"."attrelid" = "cnst"."conrelid" AND "a"."attnum" = ANY ("cnst"."conkey") WHERE "t"."relkind" IN ('r', 'p') AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'form') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'submission'));`);
-    })
-
+        many(
+            `SELECT "ns"."nspname" AS "table_schema", "t"."relname" AS "table_name", "cnst"."conname" AS "constraint_name", pg_get_constraintdef("cnst"."oid") AS "expression", CASE "cnst"."contype" WHEN 'p' THEN 'PRIMARY' WHEN 'u' THEN 'UNIQUE' WHEN 'c' THEN 'CHECK' WHEN 'x' THEN 'EXCLUDE' END AS "constraint_type", "a"."attname" AS "column_name" FROM "pg_constraint" "cnst" INNER JOIN "pg_class" "t" ON "t"."oid" = "cnst"."conrelid" INNER JOIN "pg_namespace" "ns" ON "ns"."oid" = "cnst"."connamespace" LEFT JOIN "pg_attribute" "a" ON "a"."attrelid" = "cnst"."conrelid" AND "a"."attnum" = ANY ("cnst"."conkey") WHERE "t"."relkind" IN ('r', 'p') AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'form') OR ("ns"."nspname" = 'public' AND "t"."relname" = 'submission'));`,
+        );
+    });
 
     it.skip('can full join', () => {
         photos();
-        const result = many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
+        const result =
+            many(`SELECT "user"."id" AS "user_id", "user"."name" AS "user_name", "photo"."id" AS "photo_id", "photo"."url" AS "photo_url", "photo"."userId" AS "photo_userId"
                             FROM "user" "user"
                             FULL JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
-        expect(result)
-            .to.deep.equal([
-                { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
-                { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
-                { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
-                { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
-                { user_id: null, user_name: null, photo_id: 'p6', photo_url: 'noone.jpg', photo_userId: null },
-                { user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
-            ]);
+        expect(result).to.deep.equal([
+            { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
+            { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
+            { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
+            { user_id: null, user_name: null, photo_id: 'p5', photo_url: 'somebody.jpg', photo_userId: 'x' },
+            { user_id: null, user_name: null, photo_id: 'p6', photo_url: 'noone.jpg', photo_userId: null },
+            { user_id: 'u3', user_name: 'no camera', photo_id: null, photo_url: null, photo_userId: null },
+        ]);
     });
 });

@@ -1,6 +1,18 @@
 // <== THERE MUST BE NO ACTUAL IMPORTS OTHER THAN IMPORT TYPES (dependency loop)
 // ... use 'kind-of' dependency injection below
-import type { _ISelection, IValue, _IIndex, _ISchema, _IDb, _Transaction, _SelectExplanation, _Explainer, Stats, nil, _IAlias } from '../interfaces-private';
+import type {
+    _ISelection,
+    IValue,
+    _IIndex,
+    _ISchema,
+    _IDb,
+    _Transaction,
+    _SelectExplanation,
+    _Explainer,
+    Stats,
+    nil,
+    _IAlias,
+} from '../interfaces-private';
 import type { buildSelection } from './selection';
 import type { buildAlias } from './alias';
 import type { buildFilter } from './build-filter';
@@ -38,16 +50,14 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract explain(e: _Explainer): _SelectExplanation;
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
-    abstract get isExecutionWithNoResult(): boolean
+    abstract get isExecutionWithNoResult(): boolean;
     // abstract get name(): string;
-
 
     get db() {
         return this.ownerSchema.db;
     }
 
-    constructor(readonly ownerSchema: _ISchema) {
-    }
+    constructor(readonly ownerSchema: _ISchema) {}
 
     listColumns(): Iterable<IValue> {
         return this.columns;
@@ -59,23 +69,23 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
     select(select: (string | SelectedColumn)[] | nil): _ISelection<any> {
         let sel: SelectedColumn[] | nil;
-        if (select?.some(v => typeof v === 'string')) {
-            sel = select.map<SelectedColumn>(v => typeof v !== 'string'
-                ? v
-                : {
-                    expr: { type: 'ref', name: v },
-                })
+        if (select?.some((v) => typeof v === 'string')) {
+            sel = select.map<SelectedColumn>((v) =>
+                typeof v !== 'string'
+                    ? v
+                    : {
+                          expr: { type: 'ref', name: v },
+                      },
+            );
         } else {
             sel = select as SelectedColumn[] | nil;
         }
         return fns.buildSelection(this, sel);
     }
 
-
     selectAlias(alias: string): _IAlias | nil {
         return this;
     }
-
 
     filter(filter: Expr | undefined | null): _ISelection {
         if (!filter) {
@@ -93,7 +103,6 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return plan;
     }
 
-
     setAlias(alias?: string): _ISelection<any> {
         return fns.buildAlias(this, alias);
     }
@@ -102,7 +111,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         if (!limit?.limit && !limit?.offset) {
             return this;
         }
-        return fns.buildLimit(this, limit)
+        return fns.buildLimit(this, limit);
     }
 
     orderBy(orderBy: OrderByStatement[] | nil): _ISelection<any> {
@@ -119,13 +128,9 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     union(right: _ISelection<any>): _ISelection<any> {
         return fns.buildUnion(this, right);
     }
-
 }
 
-
 export abstract class TransformBase<T> extends DataSourceBase<T> {
-
-
     constructor(readonly base: _ISelection) {
         super(base.ownerSchema);
     }
@@ -144,8 +149,6 @@ export abstract class TransformBase<T> extends DataSourceBase<T> {
 }
 
 export abstract class FilterBase<T> extends TransformBase<T> {
-
-
     constructor(_base: _ISelection<T>) {
         super(_base);
     }
@@ -192,10 +195,12 @@ export abstract class FilterBase<T> extends TransformBase<T> {
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
-        if (!this.base) { // istanbul ignore next
+        if (!this.base) {
+            // istanbul ignore next
             throw new Error('Should not call .getColumn() on join');
         }
-        if (!('columns' in this.base)) { // istanbul ignore next
+        if (!('columns' in this.base)) {
+            // istanbul ignore next
             throw new Error('Should not call getColumn() on table');
         }
         return this.base.getColumn(column, nullIfNotFound);

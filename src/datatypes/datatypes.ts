@@ -17,10 +17,7 @@ import { RecordType } from './t-record';
 import { INetType } from './t-inet';
 import { buildCtx } from '../parser/context';
 
-
 class UUIDtype extends TypeBase<Date> {
-
-
     get primary(): DataType {
         return DataType.uuid;
     }
@@ -42,10 +39,7 @@ class UUIDtype extends TypeBase<Date> {
     }
 }
 
-
-
 class NullType extends TypeBase<null> {
-
     get primary(): DataType {
         return DataType.null;
     }
@@ -79,17 +73,20 @@ class NullType extends TypeBase<null> {
     }
 }
 
-export class DefaultType extends NullType {
-}
+export class DefaultType extends NullType {}
 
 export const integers: ReadonlySet<DataType> = new Set([DataType.integer, DataType.bigint]);
 export const floats: ReadonlySet<DataType> = new Set([DataType.decimal, DataType.float]);
 export const numbers: ReadonlySet<DataType> = new Set([...integers, ...floats]);
-export const numberPriorities = [DataType.integer, DataType.bigint, DataType.decimal, DataType.float]
-    .reduce<Record<DataType, number>>((a, x, i) => ({
+export const numberPriorities = [DataType.integer, DataType.bigint, DataType.decimal, DataType.float].reduce<
+    Record<DataType, number>
+>(
+    (a, x, i) => ({
         ...a,
-        [x]: i
-    }), {} as Record<DataType, number>);
+        [x]: i,
+    }),
+    {} as Record<DataType, number>,
+);
 
 export function isNumeric(t: DataType | IType) {
     const type = typeof t === 'string' ? t : t.primary;
@@ -101,7 +98,6 @@ export function isInteger(t: DataType | IType) {
 }
 
 class NumberType extends TypeBase<number> {
-
     constructor(readonly primary: DataType) {
         super();
     }
@@ -149,59 +145,47 @@ class NumberType extends TypeBase<number> {
     }
     doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
         if (!integers.has(value.type.primary) && integers.has(to.primary)) {
-            return new Evaluator(
-                to
-                , value.id
-                , value.hash
-                , value
-                , (raw, t) => {
-                    const got = value.get(raw, t);
-                    return typeof got === 'number'
-                        ? Math.round(got)
-                        : got;
-                }
-            );
+            return new Evaluator(to, value.id, value.hash, value, (raw, t) => {
+                const got = value.get(raw, t);
+                return typeof got === 'number' ? Math.round(got) : got;
+            });
         }
         const { schema } = buildCtx();
         switch (to.primary) {
             case DataType.regtype:
-                return value
-                    .setType(Types.regtype)
-                    .setConversion((int: number) => {
+                return value.setType(Types.regtype).setConversion(
+                    (int: number) => {
                         const got = schema.getType(int, { nullIfNotFound: true });
                         if (!got) {
                             throw new CastError(DataType.integer, DataType.regtype);
                         }
                         return got.name;
-                    }
-                        , intToRegType => ({ intToRegType }));
+                    },
+                    (intToRegType) => ({ intToRegType }),
+                );
             case DataType.regclass:
-                return value
-                    .setType(Types.regclass)
-                    .setConversion((int: number) => {
+                return value.setType(Types.regclass).setConversion(
+                    (int: number) => {
                         // === int -> regclass
                         const obj = schema.getObjectByRegOrName(int, { nullIfNotFound: true });
                         return obj?.reg.classId ?? int;
-                    }
-                        , intToRegClass => ({ intToRegClass }));
+                    },
+                    (intToRegClass) => ({ intToRegClass }),
+                );
             case DataType.text:
-                return value
-                    .setType(to)
-                    .setConversion((int: number) => int.toString()
-                        , toTxt => ({ toTxt }));
+                return value.setType(to).setConversion(
+                    (int: number) => int.toString(),
+                    (toTxt) => ({ toTxt }),
+                );
         }
         return value.setType(to);
     }
 }
 
-
-
 class ByteArrayType extends TypeBase<TBuffer> {
-
     get primary(): DataType {
         return DataType.bytea;
     }
-
 
     doCanCast(to: _IType) {
         switch (to.primary) {
@@ -214,9 +198,10 @@ class ByteArrayType extends TypeBase<TBuffer> {
     doCast(value: Evaluator, to: _IType) {
         switch (to.primary) {
             case DataType.text:
-                return value
-                    .setConversion(raw => bufToString(raw)
-                        , toStr => ({ toStr }));
+                return value.setConversion(
+                    (raw) => bufToString(raw),
+                    (toStr) => ({ toStr }),
+                );
         }
         throw new Error('Unexpected cast error');
     }
@@ -234,9 +219,7 @@ class ByteArrayType extends TypeBase<TBuffer> {
     }
 }
 
-
 class TextType extends TypeBase<string> {
-
     get name(): string {
         if (this.citext) {
             return 'citext';
@@ -245,9 +228,7 @@ class TextType extends TypeBase<string> {
     }
 
     get primary(): DataType {
-        return this.citext
-            ? DataType.citext
-            : DataType.text;
+        return this.citext ? DataType.citext : DataType.text;
     }
 
     constructor(readonly len: number | null, private citext?: boolean) {
@@ -312,8 +293,8 @@ class TextType extends TypeBase<string> {
             case DataType.citext:
                 return value.setType(to);
             case DataType.bool:
-                return value
-                    .setConversion(rawStr => {
+                return value.setConversion(
+                    (rawStr) => {
                         if (nullIsh(rawStr)) {
                             return null;
                         }
@@ -334,11 +315,12 @@ class TextType extends TypeBase<string> {
                             return false;
                         }
                         throw new CastError(DataType.text, DataType.bool, 'string ' + rawStr);
-                    }
-                        , toBool => ({ toBool }));
+                    },
+                    (toBool) => ({ toBool }),
+                );
             case DataType.uuid:
-                return value
-                    .setConversion((_rawStr: string) => {
+                return value.setConversion(
+                    (_rawStr: string) => {
                         let rawStr = _rawStr;
                         if (nullIsh(rawStr)) {
                             return null;
@@ -351,13 +333,17 @@ class TextType extends TypeBase<string> {
                             rawStr = rawStr.substr(1, rawStr.length - 2);
                         }
                         rawStr = rawStr.toLowerCase();
-                        const [full, a, b, c, d, e] = /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/.exec(rawStr) ?? [];
+                        const [full, a, b, c, d, e] =
+                            /^([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})$/.exec(
+                                rawStr,
+                            ) ?? [];
                         if (!full) {
                             throw new CastError(DataType.text, DataType.uuid, 'string: ' + JSON.stringify(_rawStr));
                         }
                         return `${a}-${b}-${c}-${d}-${e}`;
-                    }
-                        , toUuid => ({ toUuid }));
+                    },
+                    (toUuid) => ({ toUuid }),
+                );
             case DataType.text:
                 const fromStr = to as TextType;
                 const toStr = to as TextType;
@@ -365,54 +351,57 @@ class TextType extends TypeBase<string> {
                     // no need to truncate
                     return value;
                 }
-                return value
-                    .setConversion(str => {
+                return value.setConversion(
+                    (str) => {
                         if (str?.length > toStr.len!) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
                         return str;
-                    }
-                        , truncate => ({ truncate, len: toStr.len }));
+                    },
+                    (truncate) => ({ truncate, len: toStr.len }),
+                );
 
             case DataType.array:
-                return value
-                    .setType(to)
-                    .setConversion((str: string) => {
+                return value.setType(to).setConversion(
+                    (str: string) => {
                         const array = parseArrayLiteral(str);
                         (to as ArrayType).convertLiteral(array);
                         return array;
-                    }
-                        , parseArray => ({ parseArray }));
+                    },
+                    (parseArray) => ({ parseArray }),
+                );
             case DataType.bytea:
-                return value
-                    .setConversion(str => {
+                return value.setConversion(
+                    (str) => {
                         return bufFromString(str);
-                    }
-                        , toBytea => ({ toBytea }));
-
+                    },
+                    (toBytea) => ({ toBytea }),
+                );
         }
         if (numbers.has(to.primary)) {
             const isInt = integers.has(to.primary);
-            return value
-                .setConversion(str => {
+            return value.setConversion(
+                (str) => {
                     const val = Number.parseFloat(str);
                     if (!Number.isFinite(val)) {
                         throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`);
                     }
                     if (isInt && Math.floor(val) !== val) {
-                        throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`)
+                        throw new QueryError(`invalid input syntax for ${to.primary}: ${str}`);
                     }
                     return val;
-                }
-                    , castNum => ({ castNum, to: to.primary }));
+                },
+                (castNum) => ({ castNum, to: to.primary }),
+            );
         }
         if (isGeometric(to.primary)) {
-            return value
-                .setConversion(str => {
+            return value.setConversion(
+                (str) => {
                     const ret = parseGeometricLiteral(str, to.primary as any);
                     return ret;
-                }
-                    , castGeo => ({ castGeo, to: to.primary }));
+                },
+                (castGeo) => ({ castGeo, to: to.primary }),
+            );
         }
         return undefined;
     }
@@ -426,8 +415,6 @@ class TextType extends TypeBase<string> {
     }
 }
 
-
-
 class BoolType extends TypeBase<boolean> {
     get primary(): DataType {
         return DataType.bool;
@@ -435,7 +422,6 @@ class BoolType extends TypeBase<boolean> {
 }
 
 export class ArrayType extends TypeBase<any[]> {
-
     public static matches(type: IType): type is ArrayType {
         return type.primary === DataType.array;
     }
@@ -451,7 +437,6 @@ export class ArrayType extends TypeBase<any[]> {
         return this.of.name + '[]';
     }
 
-
     constructor(readonly of: _IType, private list: boolean) {
         super();
     }
@@ -460,8 +445,7 @@ export class ArrayType extends TypeBase<any[]> {
         if (to.primary === DataType.text) {
             return this.of.canCast(to);
         }
-        return to instanceof ArrayType
-            && this.of.canCast(to.of);
+        return to instanceof ArrayType && this.of.canCast(to.of);
     }
 
     doCast(value: Evaluator, _to: _IType) {
@@ -471,32 +455,20 @@ export class ArrayType extends TypeBase<any[]> {
 
         const to = _to as ArrayType;
         const valueType = value.type as ArrayType;
-        return new Evaluator(
-            to
-            , value.id
-            , value.hash!
-            , value
-            , (raw, t) => {
-                const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(valueType.of, x).cast(to.of).get(raw, t));
-            });
+        return new Evaluator(to, value.id, value.hash!, value, (raw, t) => {
+            const arr = value.get(raw, t) as any[];
+            return arr.map((x) => Value.constant(valueType.of, x).cast(to.of).get(raw, t));
+        });
     }
 
     toText(to: _IType, value: Evaluator) {
         const valueType = value.type as ArrayType;
-        return new Evaluator(
-            to
-            , value.id
-            , value.hash!
-            , value
-            , (raw, t) => {
-                const arr = value.get(raw, t) as any[];
-                const strs = arr.map(x => Value.constant(valueType.of, x).cast(Types.text()).get(raw, t));
-                const data = strs.join(',');
-                return this.list
-                    ? '(' + data + ')'
-                    : '{' + data + '}';
-            });
+        return new Evaluator(to, value.id, value.hash!, value, (raw, t) => {
+            const arr = value.get(raw, t) as any[];
+            const strs = arr.map((x) => Value.constant(valueType.of, x).cast(Types.text()).get(raw, t));
+            const data = strs.join(',');
+            return this.list ? '(' + data + ')' : '{' + data + '}';
+        });
     }
 
     doEquals(a: any[], b: any[]): boolean {
@@ -547,9 +519,7 @@ export class ArrayType extends TypeBase<any[]> {
                 if (Array.isArray(elts[i])) {
                     throw new QueryError('Array depth mismatch: was not expecting an array item.');
                 }
-                elts[i] = Value.text(elts[i])
-                    .cast(this.of)
-                    .get();
+                elts[i] = Value.text(elts[i]).cast(this.of).get();
             }
         }
         return elts;
@@ -591,13 +561,13 @@ export const Types = {
     [DataType.polygon]: new PolygonType() as _IType,
     [DataType.circle]: new CircleType() as _IType,
     default: new DefaultType() as _IType,
-}
+};
 
 export const dateTypes: ReadonlySet<DataType> = new Set([
-    DataType.timestamp
-    , DataType.timestamptz
-    , DataType.date
-    , DataType.time
+    DataType.timestamp,
+    DataType.timestamptz,
+    DataType.date,
+    DataType.time,
 ]);
 
 export function isDateType(_type: _IType | DataType) {
@@ -624,7 +594,7 @@ function makeText(len: number | nil = null) {
     len = len ?? null;
     let got = texts.get(len);
     if (!got) {
-        texts.set(len, got = new TextType(len));
+        texts.set(len, (got = new TextType(len)));
     }
     return got;
 }
@@ -634,59 +604,51 @@ function makeTimestamp(primary: DataType, len: number | nil = null) {
     len = len ?? null;
     let got = timestamps.get(len);
     if (!got) {
-        timestamps.set(len, got = new TimestampType(primary, len));
+        timestamps.set(len, (got = new TimestampType(primary, len)));
     }
     return got;
 }
 
-
-
-
-
-
-
 export const typeSynonyms: { [key: string]: DataType } = {
-    'varchar': DataType.text,
-    'char': DataType.text,
-    'character': DataType.text,
+    varchar: DataType.text,
+    char: DataType.text,
+    character: DataType.text,
     'character varying': DataType.text,
 
-    'int': DataType.integer,
-    'int4': DataType.integer,
-    'serial': DataType.integer,
-    'bigserial': DataType.integer,
-    'smallserial': DataType.integer,
-    'smallint': DataType.integer,
-    'bigint': DataType.integer,
-    'oid': DataType.integer,
+    int: DataType.integer,
+    int4: DataType.integer,
+    serial: DataType.integer,
+    bigserial: DataType.integer,
+    smallserial: DataType.integer,
+    smallint: DataType.integer,
+    bigint: DataType.integer,
+    oid: DataType.integer,
 
-    'decimal': DataType.float,
-    'float': DataType.float,
+    decimal: DataType.float,
+    float: DataType.float,
     'double precision': DataType.float,
-    'numeric': DataType.float,
-    'real': DataType.float,
-    'money': DataType.float,
+    numeric: DataType.float,
+    real: DataType.float,
+    money: DataType.float,
 
-    'timestamptz': DataType.timestamp, //  => todo support timestamptz
+    timestamptz: DataType.timestamp, //  => todo support timestamptz
     'timestamp with time zone': DataType.timestamp, //  => todo support timestamptz
     'timestamp without time zone': DataType.timestamp,
 
-    'boolean': DataType.bool,
+    boolean: DataType.bool,
 
     'time with time zone': DataType.time,
     'time without time zone': DataType.time,
-}
-
+};
 
 /** Finds a common type by implicit conversion */
 export function reconciliateTypes(values: IValue[], nullIfNoMatch?: false): _IType;
 export function reconciliateTypes(values: IValue[], nullIfNoMatch: true): _IType | nil;
-export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil;
 export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil {
     // FROM  https://www.postgresql.org/docs/current/typeconv-union-case.html
 
-    const nonNull = values
-        .filter(x => x.type.primary !== DataType.null);
+    const nonNull = values.filter((x) => x.type.primary !== DataType.null);
 
     if (!nonNull.length) {
         // If all inputs are of type unknown, resolve as type text (the preferred type of the string category). Otherwise, unknown inputs are ignored for the purposes of the remaining rules.
@@ -694,8 +656,7 @@ export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _I
     }
 
     // If all inputs are of the same type, and it is not unknown, resolve as that type.
-    const single = new Set(nonNull
-        .map(v => v.type.reg.typeId));
+    const single = new Set(nonNull.map((v) => v.type.reg.typeId));
     if (single.size === 1) {
         return nonNull[0].type;
     }
@@ -703,25 +664,22 @@ export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _I
     return reconciliateTypesRaw(nonNull, nullIfNoMatch);
 }
 
-
-
 /** Finds a common type by implicit conversion */
 function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: false): _IType;
 function reconciliateTypesRaw(values: IValue[], nullIfNoMatch: true): _IType | nil;
-function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil;
 function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil {
     // find the matching type among non constants
-    const foundType = values
-        .reduce((final, c) => {
-            if (c.type === Types.null) {
-                return final;
-            }
-            const pref = final.prefer(c.type);
-            if (!pref) {
-                throw new CastError(c.type.primary, final.primary, c.id ?? undefined);
-            }
-            return pref;
-        }, Types.null);
+    const foundType = values.reduce((final, c) => {
+        if (c.type === Types.null) {
+            return final;
+        }
+        const pref = final.prefer(c.type);
+        if (!pref) {
+            throw new CastError(c.type.primary, final.primary, c.id ?? undefined);
+        }
+        return pref;
+    }, Types.null);
 
     // check that all constant literals are matching this.
     for (const x of values) {

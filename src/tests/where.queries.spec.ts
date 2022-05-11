@@ -8,7 +8,6 @@ import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
 describe('Where', () => {
-
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -21,17 +20,21 @@ describe('Where', () => {
     function simpleDb() {
         db.public.declareTable({
             name: 'data',
-            fields: [{
-                name: 'id',
-                type: Types.text(),
-                constraints: [{ type: 'primary key' }],
-            }, {
-                name: 'str',
-                type: Types.text(),
-            }, {
-                name: 'otherstr',
-                type: Types.text(),
-            }],
+            fields: [
+                {
+                    name: 'id',
+                    type: Types.text(),
+                    constraints: [{ type: 'primary key' }],
+                },
+                {
+                    name: 'str',
+                    type: Types.text(),
+                },
+                {
+                    name: 'otherstr',
+                    type: Types.text(),
+                },
+            ],
         });
         return db;
     }
@@ -44,9 +47,7 @@ describe('Where', () => {
         expect(got).to.deep.equal([]);
         got = many(`select * from data where id='some value'`);
         expect(trimNullish(got)).to.deep.equal([{ id: 'some value' }]);
-
     });
-
 
     it('where constant true', () => {
         simpleDb();
@@ -74,10 +75,10 @@ describe('Where', () => {
 
     it('call lower in condition', () => {
         simpleDb();
-        none(`insert into data(id, str) values ('id1', 'SOME STRING'), ('id2', 'other string'), ('id3', 'Some String')`);
+        none(
+            `insert into data(id, str) values ('id1', 'SOME STRING'), ('id2', 'other string'), ('id3', 'Some String')`,
+        );
         const result = many(`select id from data where lower(str)='some string'`);
-        expect(result.map(x => x.id)).to.deep.equal(['id1', 'id3']);
+        expect(result.map((x) => x.id)).to.deep.equal(['id1', 'id3']);
     });
-
-
 });

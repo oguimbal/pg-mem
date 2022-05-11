@@ -1,9 +1,16 @@
-import { _ISelection, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
+import {
+    _ISelection,
+    _IIndex,
+    _ITable,
+    getId,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    Stats,
+} from '../interfaces-private';
 import { FilterBase } from './transform-base';
 
-
 export class OrFilter<T = any> extends FilterBase<T> {
-
     entropy(t: _Transaction) {
         return this.left.entropy(t) + this.right.entropy(t);
     }
@@ -14,7 +21,8 @@ export class OrFilter<T = any> extends FilterBase<T> {
 
     constructor(private left: _ISelection<T>, private right: _ISelection<T>) {
         super(left);
-        if (left.columns !== right.columns) { //  istanbul ignore next
+        if (left.columns !== right.columns) {
+            //  istanbul ignore next
             throw new Error('Column set mismatch');
         }
     }
@@ -37,16 +45,11 @@ export class OrFilter<T = any> extends FilterBase<T> {
         }
     }
 
-
-
     explain(e: _Explainer): _SelectExplanation {
         return {
             id: e.idFor(this),
             _: 'union',
-            union: [
-                this.left.explain(e),
-                this.right.explain(e),
-            ],
+            union: [this.left.explain(e), this.right.explain(e)],
         };
     }
 }

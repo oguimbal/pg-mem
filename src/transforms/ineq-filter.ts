@@ -1,9 +1,18 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats } from '../interfaces-private';
+import {
+    _ISelection,
+    IValue,
+    _IIndex,
+    _ITable,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    IndexOp,
+    Stats,
+} from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
 export class IneqFilter<T = any> extends FilterBase<T> {
-
     private index: _IIndex;
     private opDef: IndexOp;
 
@@ -19,9 +28,7 @@ export class IneqFilter<T = any> extends FilterBase<T> {
         return !!this.onValue.type[this.op](val, this.than);
     }
 
-    constructor(private onValue: IValue<T>
-        , private op: 'gt' | 'ge' | 'lt' | 'le'
-        , private than: any) {
+    constructor(private onValue: IValue<T>, private op: 'gt' | 'ge' | 'lt' | 'le', private than: any) {
         super(onValue.origin!);
 
         this.index = this.onValue.index!;
@@ -29,9 +36,8 @@ export class IneqFilter<T = any> extends FilterBase<T> {
             type: op,
             key: [than],
             t: null as any,
-        }
+        };
     }
-
 
     stats(t: _Transaction): Stats | null {
         return null;
@@ -45,7 +51,6 @@ export class IneqFilter<T = any> extends FilterBase<T> {
             yield item;
         }
     }
-
 
     explain(e: _Explainer): _SelectExplanation {
         return {

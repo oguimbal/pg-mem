@@ -1,6 +1,15 @@
 import { AlterSequenceChange, CreateSequenceOptions } from 'pgsql-ast-parser';
 import { combineSubs, ignore, nullIsh } from '../utils';
-import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from '../interfaces-private';
+import {
+    NotSupported,
+    asTable,
+    _ISchema,
+    _ISequence,
+    _IType,
+    _Transaction,
+    RegClass,
+    Reg,
+} from '../interfaces-private';
 import { ISubscription, nil, QueryError } from '../interfaces';
 import { Types } from '../datatypes';
 
@@ -10,7 +19,6 @@ interface SeqData {
 }
 
 export class Sequence implements _ISequence {
-
     get type(): 'sequence' {
         return 'sequence';
     }
@@ -28,7 +36,6 @@ export class Sequence implements _ISequence {
 
     readonly reg: Reg;
 
-
     get cycle() {
         return this.cfg.cycle ?? false;
     }
@@ -41,30 +48,20 @@ export class Sequence implements _ISequence {
         return this.cfg.inc ?? 1;
     }
 
-
     constructor(public name: string, readonly ownerSchema: _ISchema) {
         this.reg = ownerSchema._reg_register(this);
     }
 
-
     get start() {
-        return this.cfg.start ?? (this.inc > 0
-            ? this.min
-            : this.max);
+        return this.cfg.start ?? (this.inc > 0 ? this.min : this.max);
     }
 
     get max() {
-        return this.cfg.max
-            ?? (this.inc > 0
-                ? Number.MAX_SAFE_INTEGER - 1
-                : -1);
+        return this.cfg.max ?? (this.inc > 0 ? Number.MAX_SAFE_INTEGER - 1 : -1);
     }
 
     get min() {
-        return this.cfg.min
-            ?? (this.inc > 0
-                ? 1
-                : Number.MIN_SAFE_INTEGER + 1);
+        return this.cfg.min ?? (this.inc > 0 ? 1 : Number.MIN_SAFE_INTEGER + 1);
     }
 
     alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange | nil): this {
@@ -82,14 +79,17 @@ export class Sequence implements _ISequence {
                     if (opts.restart === true || typeof opts.restart === 'number') {
                         if (typeof opts.restart === 'number') {
                             if (opts.restart < this.min) {
-                                throw new QueryError(`RESTART value (${opts.restart}) cannot be less than MINVALUE (${this.min})`, '22023');
+                                throw new QueryError(
+                                    `RESTART value (${opts.restart}) cannot be less than MINVALUE (${this.min})`,
+                                    '22023',
+                                );
                             }
                             this.cfg.start = opts.restart;
                         }
                         const data: SeqData = {
                             currval: t.get<SeqData>(this.symbol)?.currval,
                             nextval: this.start,
-                        }
+                        };
                         t.set(this.symbol, data);
                     }
                     return this;
@@ -147,7 +147,6 @@ export class Sequence implements _ISequence {
         return v;
     }
 
-
     private alterOpts(t: _Transaction, opts: CreateSequenceOptions) {
         if (opts.as) {
             ignore(opts.as);
@@ -178,22 +177,23 @@ export class Sequence implements _ISequence {
             this.cfg.start = opts.startWith;
         }
 
-
         if (opts.ownedBy === 'none') {
             this.owner?.unsubscribe();
         } else if (opts.ownedBy) {
             this.owner?.unsubscribe();
 
-            const tbl = asTable(this.ownerSchema.getObject({
-                name: opts.ownedBy.table,
-                schema: opts.ownedBy.schema
-            }));
+            const tbl = asTable(
+                this.ownerSchema.getObject({
+                    name: opts.ownedBy.table,
+                    schema: opts.ownedBy.schema,
+                }),
+            );
 
             const owner = tbl.getColumnRef(opts.ownedBy.column);
 
             this.owner = combineSubs(
-                owner.onDrop(dt => this.drop(dt)),
-                tbl.onDrop(dt => this.drop(dt)),
+                owner.onDrop((dt) => this.drop(dt)),
+                tbl.onDrop((dt) => this.drop(dt)),
             );
         }
 

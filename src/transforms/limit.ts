@@ -13,7 +13,6 @@ export function buildLimit(on: _ISelection, limit: LimitStatement) {
 }
 
 class LimitFilter<T = any> extends FilterBase<T> {
-
     get index() {
         return null;
     }
@@ -29,7 +28,6 @@ class LimitFilter<T = any> extends FilterBase<T> {
     constructor(private selection: _ISelection<T>, private take: IValue | nil, private skip: IValue | nil) {
         super(selection);
     }
-
 
     stats(t: _Transaction): Stats | null {
         return null;
@@ -53,8 +51,6 @@ class LimitFilter<T = any> extends FilterBase<T> {
             }
         }
     }
-
-
 
     explain(e: _Explainer): _SelectExplanation {
         return {

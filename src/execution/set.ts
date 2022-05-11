@@ -4,7 +4,6 @@ import { ignore } from '../utils';
 import { ExecHelper } from './exec-utils';
 
 export class SetExecutor extends ExecHelper implements _IStatementExecutor {
-
     constructor(private p: SetGlobalStatement | SetTimezone) {
         super(p);
         // todo handle set statements timezone ?
@@ -15,8 +14,7 @@ export class SetExecutor extends ExecHelper implements _IStatementExecutor {
     execute(t: _Transaction): StatementResult {
         const p = this.p;
         if (p.type === 'set' && p.set.type === 'value') {
-            t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS)
-                .set(p.variable.name, p.set.value));
+            t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS).set(p.variable.name, p.set.value));
         }
         return this.noData(t, 'SET');
     }

@@ -12,25 +12,28 @@ export class GeneratedIdentityConstraint implements _IConstraint {
     private get schema() {
         return this.table.ownerSchema;
     }
-    constructor(readonly name: string | nil, private column: _Column) {
-    }
+    constructor(readonly name: string | nil, private column: _Column) {}
 
     uninstall(t: _Transaction): void {
         this.sub?.unsubscribe();
     }
-
 
     install(ct: _Transaction, _c: AlterColumnAddGenerated) {
         if (!this.column.notNull) {
             // if it's a table creation, then force 'not null'
             const tableCreation = !this.schema.getTable(this.table.name, true);
             if (tableCreation) {
-                this.column.alter({
-                    type: 'set not null',
-                }, ct);
+                this.column.alter(
+                    {
+                        type: 'set not null',
+                    },
+                    ct,
+                );
             } else {
                 // else, throw an error
-                throw new QueryError(`column "${this.column.name}" of relation "${this.table.name}" must be declared NOT NULL before identity can be added`);
+                throw new QueryError(
+                    `column "${this.column.name}" of relation "${this.table.name}" must be declared NOT NULL before identity can be added`,
+                );
             }
         }
 
@@ -43,7 +46,7 @@ export class GeneratedIdentityConstraint implements _IConstraint {
             if (old) {
                 return;
             }
-            const gen = () => neu[this.column.name] = seq.nextValue(dt);
+            const gen = () => (neu[this.column.name] = seq.nextValue(dt));
 
             if (nullIsh(neu[this.column.name])) {
                 // no value has been provided => generate one.
@@ -60,7 +63,6 @@ export class GeneratedIdentityConstraint implements _IConstraint {
                         default:
                             gen();
                             break;
-
                     }
                     break;
                 case 'always':
@@ -71,14 +73,12 @@ export class GeneratedIdentityConstraint implements _IConstraint {
                             error: `cannot insert into column "${this.column.name}"`,
                             details: ` Column "${this.column.name}" is an identity column defined as GENERATED ALWAYS.`,
                             hint: 'Use OVERRIDING SYSTEM VALUE to override.',
-                        })
+                        });
                     }
                     break;
                 default:
                     throw NotSupported.never(mode);
             }
-
         });
     }
-
 }

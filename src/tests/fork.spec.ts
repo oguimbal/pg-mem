@@ -8,7 +8,6 @@ import { preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
 describe('DB restore points', () => {
-
     let db: IMemoryDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -21,21 +20,24 @@ describe('DB restore points', () => {
     function simpleDb() {
         db.public.declareTable({
             name: 'data',
-            fields: [{
-                name: 'id',
-                type: Types.text(),
-                constraints: [{ type: 'primary key' }],
-            }, {
-                name: 'str',
-                type: Types.text(),
-            }, {
-                name: 'otherstr',
-                type: Types.text(),
-            }],
+            fields: [
+                {
+                    name: 'id',
+                    type: Types.text(),
+                    constraints: [{ type: 'primary key' }],
+                },
+                {
+                    name: 'str',
+                    type: Types.text(),
+                },
+                {
+                    name: 'otherstr',
+                    type: Types.text(),
+                },
+            ],
         });
         return db;
     }
-
 
     it('can backup & resotre db', () => {
         simpleDb();
@@ -45,7 +47,6 @@ describe('DB restore points', () => {
         bck.restore();
         expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
     });
-
 
     it('can backup & resotre db multiple times', () => {
         simpleDb();
@@ -58,5 +59,4 @@ describe('DB restore points', () => {
         bck.restore();
         expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
     });
-
 });

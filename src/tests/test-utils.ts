@@ -12,7 +12,7 @@ export function preventSeqScan(db: IMemoryDb, table?: string): ISubscription {
             assert.fail('Should have used index');
         });
     } else {
-        return db.on('seq-scan', table => {
+        return db.on('seq-scan', (table) => {
             assert.fail('Should have used index when requesting table ' + table);
         });
     }
@@ -32,10 +32,9 @@ export function watchCataJoins(db: IMemoryDb) {
     return {
         check() {
             expect(got).to.equal(0, 'Should have used index when performing join');
-        }
-    }
+        },
+    };
 }
-
 
 interface TypeOrmTest {
     db: Connection;
@@ -47,10 +46,12 @@ interface TypeOrmTest {
 
 export type TypeormSetup = ((mem: Omit<TypeOrmTest, 'db'>) => any) | null;
 
-export async function typeOrm(title: string
-    , entities: () => Ctor<BaseEntity>[]
-    , setup: TypeormSetup
-    , fn: (data: TypeOrmTest) => Promise<any>) {
+export async function typeOrm(
+    title: string,
+    entities: () => Ctor<BaseEntity>[],
+    setup: TypeormSetup,
+    fn: (data: TypeOrmTest) => Promise<any>,
+) {
     it(title, async () => {
         const mem = newDb({
             autoCreateForeignKeyIndices: true,
@@ -68,7 +69,7 @@ export async function typeOrm(title: string
             await db.synchronize();
             await fn({ db, mem, many, none, one });
         } finally {
-            await db.close()
+            await db.close();
         }
     });
 }
@@ -81,5 +82,5 @@ export async function expectSingle(query: string, value: any, name?: string) {
         const keys = Object.keys(q[0]);
         expect(keys.length).to.equal(1, 'Was only expecting one column');
         expect(q[0][keys[0]]).to.deep.equal(value);
-    })
+    });
 }

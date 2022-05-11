@@ -1,6 +1,3 @@
-
-
-
 /*
 ⛔⛔⛔ WARN ⛔⛔⛔
 
@@ -13,10 +10,9 @@ Dont be surprised if it yields errors in Node, it's not meant to be used there.
 
 export type TBuffer = Uint8Array;
 
-
 export function bufToString(buf: TBuffer): string {
     // @ts-ignore
-    const decoder = new TextDecoder()
+    const decoder = new TextDecoder();
     return decoder.decode(buf);
 }
 
@@ -39,7 +35,7 @@ export function bufCompare(a: TBuffer, b: TBuffer) {
 
 export function bufFromString(str: string) {
     // @ts-ignore
-    const encoder = new TextEncoder()
+    const encoder = new TextEncoder();
     const buffer = encoder.encode(str);
     return buffer;
 }

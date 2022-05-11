@@ -32,19 +32,18 @@ class OrderBy<T> extends FilterBase<any> {
 
     constructor(private selection: _ISelection<T>, order: OrderByStatement[]) {
         super(selection);
-        this.order = withSelection(selection,
-            () => order.map(x => ({
+        this.order = withSelection(selection, () =>
+            order.map((x) => ({
                 by: buildValue(x.by),
                 order: x.order ?? 'ASC',
                 nullsLast: x.nulls === 'LAST',
-            })));
+            })),
+        );
     }
-
 
     stats(t: _Transaction): Stats | null {
         return this.base.stats(t);
     }
-
 
     getIndex(...forValue: IValue<any>[]) {
         // same index as underlying selection, given that ordering does not modify indices.

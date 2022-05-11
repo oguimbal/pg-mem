@@ -18,7 +18,6 @@ export class View extends FilterBase<any> implements _IView {
         super(selection);
     }
 
-
     enumerate(t: _Transaction): Iterable<any> {
         return this.selection.enumerate(t);
     }
@@ -34,7 +33,6 @@ export class View extends FilterBase<any> implements _IView {
     stats(t: _Transaction) {
         return this.selection.stats(t);
     }
-
 
     register() {
         // once fields registered,

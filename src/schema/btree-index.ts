@@ -1,10 +1,25 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from '../interfaces-private';
+import {
+    IValue,
+    _IIndex,
+    _ITable,
+    getId,
+    IndexKey,
+    CreateIndexColDef,
+    _Transaction,
+    _Explainer,
+    _IndexExplanation,
+    IndexExpression,
+    IndexOp,
+    Stats,
+    _INamedIndex,
+    Reg,
+    _ISchema,
+} from '../interfaces-private';
 // @ts-ignore
 import createTree from 'functional-red-black-tree';
 import { QueryError, NotSupported, nil } from '../interfaces';
 import { Set as ImSet, Map as ImMap } from 'immutable';
 import { deepCloneSimple, nullIsh, hasNullish } from '../utils';
-
 
 // https://www.npmjs.com/package/functional-red-black-tree
 interface BTree<T> {
@@ -51,7 +66,6 @@ interface BIterator<T> {
 type RawTree<T> = BTree<ImMap<string, T>>;
 
 export class BIndex<T = any> implements _INamedIndex<T> {
-
     get type(): 'index' {
         return 'index';
     }
@@ -63,22 +77,23 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     private treeBinId = Symbol();
     private treeCountId = Symbol();
 
-
     get ownerSchema(): _ISchema {
         return this.onTable.ownerSchema;
     }
 
-    constructor(t: _Transaction
-        , readonly name: string
-        , private cols: CreateIndexColDef[]
-        , readonly onTable: _ITable<T>
-        , readonly hash: string
-        , readonly unique: boolean
-        , readonly notNull: boolean
-        , readonly predicate: IValue | nil) {
+    constructor(
+        t: _Transaction,
+        readonly name: string,
+        private cols: CreateIndexColDef[],
+        readonly onTable: _ITable<T>,
+        readonly hash: string,
+        readonly unique: boolean,
+        readonly notNull: boolean,
+        readonly predicate: IValue | nil,
+    ) {
         this.reg = onTable.ownerSchema._reg_register(this);
         this.truncate(t);
-        this.expressions = cols.map(x => x.value);
+        this.expressions = cols.map((x) => x.value);
     }
 
     drop(t: _Transaction): void {
@@ -96,22 +111,18 @@ export class BIndex<T = any> implements _INamedIndex<T> {
                 if (an === bn) {
                     continue;
                 }
-                return (an
-                    ? -1
-                    : 1) * (k.nullsLast ? 1 : -1);
+                return (an ? -1 : 1) * (k.nullsLast ? 1 : -1);
             }
             if (k.value.type.equals(a, b)) {
                 continue;
             }
-            return (k.value.type.gt(a, b)
-                ? 1
-                : -1)// * (k.desc ? -1 : 1);
+            return k.value.type.gt(a, b) ? 1 : -1; // * (k.desc ? -1 : 1);
         }
         return 0;
     }
 
     buildKey(raw: any, t: _Transaction): any[] {
-        return this.expressions.map(k => k.get(raw, t));
+        return this.expressions.map((k) => k.get(raw, t));
     }
 
     truncate(t: _Transaction) {
@@ -161,13 +172,16 @@ export class BIndex<T = any> implements _INamedIndex<T> {
             throw new QueryError('Cannot add a null record in index ' + this.name);
         }
         if (this.unique && !hasNil && this.hasKey(key, t)) {
-            const idCols = this.cols.map(it => it.value.id);
+            const idCols = this.cols.map((it) => it.value.id);
             throw new QueryError({
-                error: `insert into "${this.onTable.name}" (${Object.keys(raw).join(', ')}) `
-                    + `values (${Object.keys(raw).map((_, i) => `$${i + 1}`).join(', ')}) returning "${idCols}" `
-                    + `- duplicate key value violates unique constraint "${this.onTable.name}_pkey"`,
+                error:
+                    `insert into "${this.onTable.name}" (${Object.keys(raw).join(', ')}) ` +
+                    `values (${Object.keys(raw)
+                        .map((_, i) => `$${i + 1}`)
+                        .join(', ')}) returning "${idCols}" ` +
+                    `- duplicate key value violates unique constraint "${this.onTable.name}_pkey"`,
                 details: `Key (${idCols})=(${key}) already exists.`,
-                code: '23505'
+                code: '23505',
             });
         }
         // get tree
@@ -184,7 +198,6 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
         this.setBin(t, tree);
         this.setCount(t, this.getCount(t) + 1);
-
     }
 
     delete(raw: any, t: _Transaction) {
@@ -215,7 +228,6 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return null;
     }
 
-
     *nin(rawKey: IndexKey[], t: _Transaction): Iterable<T> {
         rawKey.sort((a, b) => this.compare(a, b));
         const kit = rawKey[Symbol.iterator]();
@@ -242,7 +254,6 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
     }
 
-
     entropy(op: IndexOp) {
         const bin = this.bin(op.t);
         if (!bin.length) {
@@ -252,7 +263,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         // evaluate number of keys included in this operation
         const e = this._keyCount(op);
         // multiply by average values per key
-        return e * all / bin.length;
+        return (e * all) / bin.length;
     }
 
     stats(t: _Transaction, key?: IndexKey): Stats {
@@ -271,7 +282,6 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         const bin = this.bin(t);
         return bin.keys;
     }
-
 
     private _keyCount(op: IndexOp) {
         const bin = this.bin(op.t);
@@ -293,38 +303,26 @@ export class BIndex<T = any> implements _INamedIndex<T> {
                 if (!first.valid) {
                     return bin.length;
                 }
-                cnt += first.valid
-                    ? first.index
-                    : 0;
+                cnt += first.valid ? first.index : 0;
                 const end = bin.gt(op.key);
-                cnt += end.valid
-                    ? (bin.length - end.index)
-                    : 0;
+                cnt += end.valid ? bin.length - end.index : 0;
                 return cnt;
             }
             case 'ge': {
                 const found = bin.ge(op.key);
-                return found.valid
-                    ? (bin.length - found.index)
-                    : 0;
+                return found.valid ? bin.length - found.index : 0;
             }
             case 'gt': {
                 const found = bin.gt(op.key);
-                return found.valid
-                    ? (bin.length - found.index)
-                    : 0;
+                return found.valid ? bin.length - found.index : 0;
             }
             case 'le': {
                 const found = bin.gt(op.key);
-                return found.valid
-                    ? found.index
-                    : bin.length;
+                return found.valid ? found.index : bin.length;
             }
             case 'lt': {
                 const found = bin.ge(op.key);
-                return found.valid
-                    ? found.index
-                    : bin.length;
+                return found.valid ? found.index : bin.length;
             }
             case 'inside': {
                 const begin = bin.ge(op.lo);
@@ -340,13 +338,9 @@ export class BIndex<T = any> implements _INamedIndex<T> {
             case 'outside': {
                 let cnt = 0;
                 const first = bin.lt(op.lo);
-                cnt += first.valid
-                    ? first.index + 1
-                    : 0;
+                cnt += first.valid ? first.index + 1 : 0;
                 const end = bin.gt(op.hi);
-                cnt += end.valid
-                    ? (bin.length - end.index)
-                    : 0;
+                cnt += end.valid ? bin.length - end.index : 0;
                 return cnt;
             }
             case 'nin': {
@@ -404,8 +398,6 @@ export class BIndex<T = any> implements _INamedIndex<T> {
             it.next();
         }
     }
-
-
 
     *neq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<T> {
         if (!matchNull && key.some(nullIsh)) {
@@ -505,7 +497,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return {
             _: 'btree',
             onTable: this.onTable.name,
-            btree: this.expressions.map(x => x.id!),
-        }
+            btree: this.expressions.map((x) => x.id!),
+        };
     }
 }

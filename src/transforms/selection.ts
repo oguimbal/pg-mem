@@ -1,5 +1,34 @@
-import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces';
+import {
+    _ISelection,
+    _IIndex,
+    IValue,
+    setId,
+    getId,
+    _IType,
+    _Transaction,
+    _Column,
+    _ITable,
+    _Explainer,
+    _SelectExplanation,
+    IndexKey,
+    _IndexExplanation,
+    IndexExpression,
+    IndexOp,
+    Stats,
+    _IAlias,
+} from '../interfaces-private';
+import {
+    QueryError,
+    ColumnNotFound,
+    DataType,
+    CastError,
+    Schema,
+    NotSupported,
+    AmbiguousColumn,
+    SchemaField,
+    nil,
+    typeDefToStr,
+} from '../interfaces';
 import { buildValue } from '../parser/expression-builder';
 import { Evaluator } from '../evaluator';
 import { TransformBase } from './transform-base';
@@ -9,12 +38,11 @@ import { Aggregation, aggregationFunctions, buildGroupBy } from './aggregation';
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
 import { withSelection } from '../parser/context';
 
-
 export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) {
     select = select ?? [];
 
     // if this is a "SELECT *" => just ignore
-    if (isSelectAllArgList(select.map(x => x.expr))) {
+    if (isSelectAllArgList(select.map((x) => x.expr))) {
         if (!on.columns.length) {
             throw new QueryError('SELECT * with no tables specified is not valid');
         }
@@ -33,11 +61,10 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     return new Selection(on, select);
 }
 
-
 function hasAggreg(e: Expr) {
     let has = false;
-    astVisitor(visitor => ({
-        call: expr => {
+    astVisitor((visitor) => ({
+        call: (expr) => {
             const nm = asSingleQName(expr.function, 'pg_catalog');
             if (nm && aggregationFunctions.has(nm)) {
                 // yea, this is an aggregation
@@ -45,26 +72,18 @@ function hasAggreg(e: Expr) {
                 return;
             }
             visitor.super().call(expr);
-        }
+        },
     })).expr(e);
-    return has
+    return has;
 }
-
-
 
 export function columnEvaluator(this: void, on: _ISelection, id: string, type: _IType) {
     if (!id) {
         throw new Error('Invalid column id');
     }
-    const ret = new Evaluator(
-        type
-        , id
-        , id
-        , null
-        , raw => raw[id]
-        , {
-            isColumnOf: on,
-        });
+    const ret = new Evaluator(type, id, id, null, (raw) => raw[id], {
+        isColumnOf: on,
+    });
     return ret;
 }
 
@@ -96,7 +115,6 @@ function* buildCols(this: void, base: _ISelection, columns: (SelectedColumn | Cu
             for (const val of of.listColumns()) {
                 yield { val };
             }
-
         } else {
             const val = buildValue(s.expr);
             yield { val, as: s.alias?.name, expr: s.expr };
@@ -107,11 +125,10 @@ function* buildCols(this: void, base: _ISelection, columns: (SelectedColumn | Cu
 export interface CustomAlias {
     val: IValue;
     as?: string;
-    expr?: Expr
+    expr?: Expr;
 }
 
 export class Selection<T = any> extends TransformBase<T> implements _ISelection<T> {
-
     private columnIds: string[] = [];
     private columnsOrigin: IValue[] = [];
     private columnMapping = new Map<IValue, IValue>();
@@ -121,13 +138,12 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
 
     readonly columns: IValue[] = [];
 
-
     constructor(base: _ISelection, _columns: (SelectedColumn | CustomAlias)[]) {
         super(base);
 
         // build non-conflicting column ids based on existing ones
         const columns = withSelection(base, () => [...buildCols(base, _columns)]);
-        this.columnIds = columns.map(x => x.as ?? x.val.id!);
+        this.columnIds = columns.map((x) => x.as ?? x.val.id!);
 
         // build column ids
         let anonymousBases = new Map<string, number>();
@@ -142,12 +158,10 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
             }
         }
 
-
         // build columns to select
         for (let i = 0; i < columns.length; i++) {
             this.refColumn(columns[i].val, this.columnIds[i]);
         }
-
 
         // ONLY ONCE COLUMNS HAVE BEEN REFERENCED BY ID,
         // rename ids for columns which have the same id
@@ -163,7 +177,7 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
             let ret: string = orig;
             let k = 0;
             do {
-                ret = orig + (++k);
+                ret = orig + ++k;
             } while (this.columnIds.includes(ret));
             this.columnIds[i] = ret;
             has.set(ret, i);
@@ -180,16 +194,14 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
         }
         let ci = this.columnsById.get(col.id);
         if (!ci) {
-            this.columnsById.set(col.id, ci = []);
+            this.columnsById.set(col.id, (ci = []));
         }
         ci.push(col);
     }
 
-
     stats(t: _Transaction): Stats | null {
         return this.base.stats(t);
     }
-
 
     *enumerate(t: _Transaction): Iterable<T> {
         for (const item of this.base.enumerate(t)) {
@@ -246,16 +258,14 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
             of: this.base.explain(e),
             select: this.columnIds.map((x, i) => ({
                 what: this.columnsOrigin[i].explain(e),
-                as: x
+                as: x,
             })),
         };
     }
 }
 
-
 export class SelectionIndex<T> implements _IIndex<T> {
-    constructor(readonly owner: Selection<T>, private base: _IIndex) {
-    }
+    constructor(readonly owner: Selection<T>, private base: _IIndex) {}
 
     stats(t: _Transaction, key?: IndexKey) {
         return this.base.stats(t, key);
@@ -284,11 +294,10 @@ export class SelectionIndex<T> implements _IIndex<T> {
         }
     }
 
-
     explain(e: _Explainer): _IndexExplanation {
         return {
             _: 'indexMap',
             of: this.base.explain(e),
-        }
+        };
     }
 }

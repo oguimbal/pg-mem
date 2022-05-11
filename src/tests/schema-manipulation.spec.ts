@@ -6,7 +6,6 @@ import { preventSeqScan } from './test-utils';
 import moment from 'moment';
 
 describe('Schema manipulation', () => {
-
     it('table with primary', () => {
         const db = newDb();
         db.public.none(`create table test(id text primary key, value text)`);
@@ -64,7 +63,6 @@ describe('Schema manipulation', () => {
         });
     });
 
-
     it('table float', () => {
         const db = newDb();
         const many = db.public.many(`create table test(value float);
@@ -81,14 +79,15 @@ describe('Schema manipulation', () => {
         expect(many).to.deep.equal([{ value: 42.5 }]);
     });
 
-
     it('table timestamp', () => {
         const db = newDb();
         const many = db.public.many(`create table test(value timestamp);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map((x) => x.value instanceof Date)).to.deep.equal([true]);
+        expect(many.map((x) => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal([
+            '2000-01-02 03:04:05',
+        ]);
     });
 
     it('table timestamp with time zone', () => {
@@ -96,8 +95,10 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value timestamp with time zone);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map((x) => x.value instanceof Date)).to.deep.equal([true]);
+        expect(many.map((x) => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal([
+            '2000-01-02 03:04:05',
+        ]);
     });
 
     it('table timestamp without time zone', () => {
@@ -105,8 +106,10 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value timestamp without time zone);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map((x) => x.value instanceof Date)).to.deep.equal([true]);
+        expect(many.map((x) => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal([
+            '2000-01-02 03:04:05',
+        ]);
     });
 
     it('table date', () => {
@@ -114,10 +117,11 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value date);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 00:00:00']);
+        expect(many.map((x) => x.value instanceof Date)).to.deep.equal([true]);
+        expect(many.map((x) => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal([
+            '2000-01-02 00:00:00',
+        ]);
     });
-
 
     it('table date array', () => {
         const db = newDb();
@@ -127,8 +131,10 @@ describe('Schema manipulation', () => {
         if (!Array.isArray(value)) {
             assert.fail('should be array');
         }
-        expect(value.map(y => moment.utc(y)?.format('YYYY-MM-DD HH:mm:ss')))
-            .to.deep.equal(['2000-01-02 00:00:00', '2000-01-02 00:00:00']);
+        expect(value.map((y) => moment.utc(y)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal([
+            '2000-01-02 00:00:00',
+            '2000-01-02 00:00:00',
+        ]);
     });
 
     it('table jsonb', () => {
@@ -138,7 +144,6 @@ describe('Schema manipulation', () => {
                                     select * from test;`);
         expect(many).to.deep.equal([{ value: { a: 42 } }]);
     });
-
 
     it('table json', () => {
         const db = newDb();
@@ -156,13 +161,17 @@ describe('Schema manipulation', () => {
 
     it('bugfix 1', () => {
         const db = newDb();
-        db.public.none('CREATE TABLE "a" ("id" character varying NOT NULL, "b" jsonb NOT NULL, "c" jsonb NOT NULL, "d" character varying NOT NULL, "e" jsonb NOT NULL, "f" TIMESTAMP NOT NULL, "g" character varying NOT NULL, "h" jsonb NOT NULL, "i" jsonb NOT NULL, "j" jsonb NOT NULL, "k" jsonb NOT NULL, "l" jsonb NOT NULL, "m" character varying NOT NULL, "n" jsonb NOT NULL, "o" jsonb NOT NULL, "p" jsonb NOT NULL, "q" jsonb NOT NULL, "r" character varying NOT NULL, "s" jsonb NOT NULL, "t" jsonb NOT NULL, "u" TIMESTAMP NOT NULL, "v" jsonb NOT NULL, "w" text NOT NULL, "x" text NOT NULL, "y" TIMESTAMP NOT NULL, "z" jsonb NOT NULL, CONSTRAINT "PK_e2f1f4741f2094ce789b0a7c5b3" PRIMARY KEY ("id"));');
-    })
+        db.public.none(
+            'CREATE TABLE "a" ("id" character varying NOT NULL, "b" jsonb NOT NULL, "c" jsonb NOT NULL, "d" character varying NOT NULL, "e" jsonb NOT NULL, "f" TIMESTAMP NOT NULL, "g" character varying NOT NULL, "h" jsonb NOT NULL, "i" jsonb NOT NULL, "j" jsonb NOT NULL, "k" jsonb NOT NULL, "l" jsonb NOT NULL, "m" character varying NOT NULL, "n" jsonb NOT NULL, "o" jsonb NOT NULL, "p" jsonb NOT NULL, "q" jsonb NOT NULL, "r" character varying NOT NULL, "s" jsonb NOT NULL, "t" jsonb NOT NULL, "u" TIMESTAMP NOT NULL, "v" jsonb NOT NULL, "w" text NOT NULL, "x" text NOT NULL, "y" TIMESTAMP NOT NULL, "z" jsonb NOT NULL, CONSTRAINT "PK_e2f1f4741f2094ce789b0a7c5b3" PRIMARY KEY ("id"));',
+        );
+    });
 
     it('bugfix 2', () => {
         const db = newDb();
-        db.public.none('CREATE TABLE "a" ("id" character varying NOT NULL, "b" text NOT NULL, "c" character varying NOT NULL, "d" jsonb array NOT NULL, "e" jsonb NOT NULL, CONSTRAINT "PK_17c3a89f58a2997276084e706e8" PRIMARY KEY ("id"));');
-    })
+        db.public.none(
+            'CREATE TABLE "a" ("id" character varying NOT NULL, "b" text NOT NULL, "c" character varying NOT NULL, "d" jsonb array NOT NULL, "e" jsonb NOT NULL, CONSTRAINT "PK_17c3a89f58a2997276084e706e8" PRIMARY KEY ("id"));',
+        );
+    });
 
     it('fix: create table with cased constraint on column', () => {
         newDb().public.none(` CREATE TABLE "my_knowledge_category" (
@@ -171,5 +180,5 @@ describe('Schema manipulation', () => {
             "knowledgeLanguage" character varying NOT NULL,
             CONSTRAINT "PK_fca04a81c9ec0f8d9527180c80c" PRIMARY KEY ("id", "knowledgeApplication", "knowledgeLanguage")
           );`);
-    })
+    });
 });

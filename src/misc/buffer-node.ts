@@ -1,6 +1,5 @@
 export type TBuffer = Buffer;
 
-
 export function bufToString(buf: TBuffer): string {
     return buf?.toString('utf-8');
 }

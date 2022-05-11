@@ -1,4 +1,15 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IIndex, _IType, setId, getId } from '../interfaces-private';
+import {
+    IValue,
+    _ISelection,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    Stats,
+    _IIndex,
+    _IType,
+    setId,
+    getId,
+} from '../interfaces-private';
 import { DataSourceBase } from './transform-base';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
 import { columnEvaluator } from './selection';
@@ -21,7 +32,7 @@ export function buildUnion(left: _ISelection, right: _ISelection) {
             throw new QueryError(`UNION types ${l.type.name} and ${r.type.name} cannot be matched`);
         }
         cols[i] = {
-            name: l.id ?? ('column' + i),
+            name: l.id ?? 'column' + i,
             type,
             lval: l.cast(type),
             rval: r.cast(type),
@@ -38,7 +49,6 @@ interface UCol {
 }
 
 class Union<T = any> extends DataSourceBase<T> {
-
     get isExecutionWithNoResult(): boolean {
         return false;
     }
@@ -54,11 +64,9 @@ class Union<T = any> extends DataSourceBase<T> {
         return this.left.hasItem(raw, t) || this.right.hasItem(raw, t);
     }
 
-    constructor(private cols: UCol[]
-        , private left: _ISelection
-        , private right: _ISelection) {
+    constructor(private cols: UCol[], private left: _ISelection, private right: _ISelection) {
         super(left.ownerSchema);
-        this.columns = cols.map(x => columnEvaluator(this, x.name, x.type));
+        this.columns = cols.map((x) => columnEvaluator(this, x.name, x.type));
         for (const c of this.columns) {
             this.colsByName.set(c.id!, c);
         }
@@ -91,8 +99,7 @@ class Union<T = any> extends DataSourceBase<T> {
         return {
             id: e.idFor(this),
             _: 'union',
-            union: [this.left.explain(e),
-            this.right.explain(e)],
+            union: [this.left.explain(e), this.right.explain(e)],
         };
     }
 

@@ -1,5 +1,19 @@
 import { TransformBase } from './transform-base';
-import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId } from '../interfaces-private';
+import {
+    _ISelection,
+    _Transaction,
+    IValue,
+    _IIndex,
+    _Explainer,
+    _SelectExplanation,
+    _IType,
+    IndexKey,
+    _ITable,
+    Stats,
+    AggregationComputer,
+    AggregationGroupComputer,
+    setId,
+} from '../interfaces-private';
 import { SelectedColumn, Expr, ExprRef, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
@@ -32,7 +46,7 @@ export const aggregationFunctions = new Set([
     'string_agg',
     'sum',
     'xmlagg',
-])
+]);
 
 export function buildGroupBy(on: _ISelection, groupBy: Expr[], select: SelectedColumn[]) {
     const agg = new Aggregation(on, groupBy);
@@ -61,7 +75,6 @@ export function getAggregator(): Aggregation<unknown> | null {
 type AggregItem = any;
 
 export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
-
     columns: readonly IValue<any>[];
     /**
      * Group-by values
@@ -71,11 +84,14 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
     private readonly symbol = Symbol();
     private readonly aggId = idCnt++;
     private readonly groupIndex?: _IIndex<any> | nil;
-    private aggregations = new Map<string, {
-        getter: IValue;
-        id: symbol;
-        computer: AggregationComputer;
-    }>();
+    private aggregations = new Map<
+        string,
+        {
+            getter: IValue;
+            id: symbol;
+            computer: AggregationComputer;
+        }
+    >();
 
     /** How to get grouping values on the base table raw items (not on "this.enumerate()" raw items)  */
     private groupingValuesOnbase: IValue[];
@@ -86,20 +102,22 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
     constructor(on: _ISelection, _groupedBy: Expr[]) {
         super(on);
 
-
         // === preassign columns that are reachable (grouped by)
-        this.groupingValuesOnbase = withSelection(on, () => _groupedBy.map(x => buildValue(x)));
+        this.groupingValuesOnbase = withSelection(on, () => _groupedBy.map((x) => buildValue(x)));
         for (let _i = 0; _i < this.groupingValuesOnbase.length; _i++) {
             const i = _i;
             const g = this.groupingValuesOnbase[i];
-            this.groupByMapping.set(g.hash!, new Evaluator(
-                g.type
-                , g.id
-                , g.hash!
-                , [g]
-                // keys are stored wrapped in a symbol (because not necessarily selected)
-                , v => v[this.symbol][i]
-            ));
+            this.groupByMapping.set(
+                g.hash!,
+                new Evaluator(
+                    g.type,
+                    g.id,
+                    g.hash!,
+                    [g],
+                    // keys are stored wrapped in a symbol (because not necessarily selected)
+                    (v) => v[this.symbol][i],
+                ),
+            );
         }
 
         // try to find an index matching our groupby clause
@@ -117,7 +135,6 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return this.groupByMapping.get(got.hash!) ?? got;
     }
 
-
     entropy(t: _Transaction): number {
         return this.groupByMapping.size || 1;
     }
@@ -130,7 +147,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
     *enumerate(t: _Transaction): Iterable<T> {
         for (const item of this._enumerateAggregationKeys(t)) {
             const sym = item[this.symbol];
-            setId(item, `agg_${this.aggId}_${hash(sym)}`)
+            setId(item, `agg_${this.aggId}_${hash(sym)}`);
             yield item as any;
         }
     }
@@ -157,7 +174,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             return null;
         }
         const aggs = [...this.aggregations.values()];
-        const allByGroup = !aggs.some(x => !x.computer.computeFromIndex);
+        const allByGroup = !aggs.some((x) => !x.computer.computeFromIndex);
 
         if (!allByGroup) {
             return null;
@@ -169,7 +186,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         }
 
         // iterate all index keys
-        const computed: AggregItem[] = []
+        const computed: AggregItem[] = [];
         for (const k of indexKeys) {
             const ret: any = { [this.symbol]: k };
             // try to compute from index
@@ -177,7 +194,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
                 const val = agg.computer.computeFromIndex?.(k, this.groupIndex, t);
                 if (typeof val === 'undefined') {
                     if (computed.length) {
-                        throw new Error('Compute from index has succeeded on an index key, but failed on another (which must not happen)');
+                        throw new Error(
+                            'Compute from index has succeeded on an index key, but failed on another (which must not happen)',
+                        );
                     }
                     return null;
                 }
@@ -188,33 +207,38 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         return computed;
     }
 
-
     private *seqScan(t: _Transaction): Iterable<AggregItem> {
         const aggs = [...this.aggregations.values()];
-        const groups = new Map<string, {
-            key: IndexKey;
-            aggs: {
-                id: symbol;
-                computer: AggregationGroupComputer;
-            }[];
-        }>();
+        const groups = new Map<
+            string,
+            {
+                key: IndexKey;
+                aggs: {
+                    id: symbol;
+                    computer: AggregationGroupComputer;
+                }[];
+            }
+        >();
 
         // === feed all items
         for (const item of this.base.enumerate(t)) {
             // get group-by values
-            const key: IndexKey = this.groupingValuesOnbase.map(g => g.get(item, t));
+            const key: IndexKey = this.groupingValuesOnbase.map((g) => g.get(item, t));
 
             // add group if necessary
             const groupingKey = hash(key);
             let group = groups.get(groupingKey);
             if (!group) {
-                groups.set(groupingKey, group = {
-                    key,
-                    aggs: aggs.map(x => ({
-                        id: x.id,
-                        computer: x.computer.createGroup(t),
-                    })),
-                });
+                groups.set(
+                    groupingKey,
+                    (group = {
+                        key,
+                        aggs: aggs.map((x) => ({
+                            id: x.id,
+                            computer: x.computer.createGroup(t),
+                        })),
+                    }),
+                );
             }
 
             // process aggregators in group
@@ -233,7 +257,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             const groupingKey = hash(key);
             groups.set(groupingKey, {
                 key,
-                aggs: aggs.map(x => ({
+                aggs: aggs.map((x) => ({
                     id: x.id,
                     computer: x.computer.createGroup(t),
                 })),
@@ -244,7 +268,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         for (const g of groups.values()) {
             const ret: AggregItem = {
                 // specify the grouping key
-                [this.symbol]: g.key
+                [this.symbol]: g.key,
             };
 
             // fill aggregations values
@@ -262,7 +286,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         }
         // check if all selected aggregations can be computed directly (typically: count(*))
         const aggs = [...this.aggregations.values()];
-        const allNoGroup = !aggs.some(x => !x.computer.computeNoGroup);
+        const allNoGroup = !aggs.some((x) => !x.computer.computeNoGroup);
         if (!allNoGroup) {
             return null;
         }
@@ -288,15 +312,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         const got = this._getAggregation(name, call);
 
         const id = Symbol();
-        const getter = new Evaluator(
-            got.type
-            , null
-            , hashed
-            , []
-            , raw => raw[id]
-            , {
-                forceNotConstant: true,
-            });
+        const getter = new Evaluator(got.type, null, hashed, [], (raw) => raw[id], {
+            forceNotConstant: true,
+        });
 
         this.aggregations.set(hashed, {
             id,
@@ -324,7 +342,6 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         }
     }
 
-
     hasItem(value: T, t: _Transaction): boolean {
         return !!(value as any)[this.symbol];
     }
@@ -339,7 +356,6 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
             _: 'aggregate',
             id: e.idFor(this),
             aggregator: null as any,
-        }
+        };
     }
-
 }

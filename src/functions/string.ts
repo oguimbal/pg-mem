@@ -21,4 +21,4 @@ export const stringFunctions: FunctionDefinition[] = [
         allowNullArguments: true,
         implementation: (...x: string[]) => x?.join(''),
     },
-]
+];

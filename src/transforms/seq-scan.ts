@@ -3,7 +3,6 @@ import { FilterBase } from './transform-base';
 import { Types } from '../datatypes';
 
 export class SeqScanFilter<T = any> extends FilterBase<T> {
-
     get index() {
         return null;
     }
@@ -21,7 +20,6 @@ export class SeqScanFilter<T = any> extends FilterBase<T> {
         super(selection);
         this.getter = getter.cast(Types.bool);
     }
-
 
     stats(t: _Transaction): Stats | null {
         return null;

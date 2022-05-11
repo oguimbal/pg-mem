@@ -1,5 +1,29 @@
-import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema } from '../interfaces-private';
-import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'pgsql-ast-parser';
+import {
+    _IStatementExecutor,
+    _Transaction,
+    StatementResult,
+    _IStatement,
+    _ISelection,
+    NotSupported,
+    QueryError,
+    asSelectable,
+    nil,
+    OnStatementExecuted,
+    _ISchema,
+} from '../interfaces-private';
+import {
+    WithStatementBinding,
+    SelectStatement,
+    SelectFromUnion,
+    WithStatement,
+    ValuesStatement,
+    SelectFromStatement,
+    QNameMapped,
+    Name,
+    SelectedColumn,
+    Expr,
+    OrderByStatement,
+} from 'pgsql-ast-parser';
 import { Deletion } from './records-mutations/deletion';
 import { Update } from './records-mutations/update';
 import { Insert } from './records-mutations/insert';
@@ -15,14 +39,10 @@ import { ArrayType } from '../datatypes';
 import { RecordType } from '../datatypes/t-record';
 import { FunctionCallTable } from '../schema/function-call-table';
 
-
-
-
 export function buildValues(p: ValuesStatement, acceptDefault?: boolean): _ISelection {
     const ret = new ValuesTable('', p.values, null, acceptDefault);
     return ret.selection;
 }
-
 
 function buildWithable(p: WithStatementBinding): _ISelection {
     switch (p.type) {
@@ -62,7 +82,6 @@ export function buildSelect(p: SelectStatement): _ISelection {
     }
 }
 
-
 function buildUnion(p: SelectFromUnion): _ISelection {
     const left = buildSelect(p.left);
     const right = buildSelect(p.right);
@@ -78,14 +97,14 @@ export function buildWith(p: WithStatement, topLevel: boolean): _ISelection {
         const { setTempBinding } = buildCtx();
         // declare temp bindings
         for (const { alias, statement } of p.bind) {
-            const prepared = (topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement)))
-                .setAlias(alias.name);
+            const prepared = (
+                topLevel ? buildWithable(statement) : buildSelect(checkReadonlyWithable(statement))
+            ).setAlias(alias.name);
             setTempBinding(alias.name, prepared);
         }
         return buildSelect(checkReadonlyWithable(p.in));
-    })
+    });
 }
-
 
 function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
     // compute data source
@@ -98,11 +117,7 @@ function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
                 newT = getSelectable(from.name);
                 break;
             case 'statement':
-                newT = mapColumns(from.alias
-                    , buildSelect(from.statement)
-                    , from.columnNames
-                    , true)
-                    .setAlias(from.alias);
+                newT = mapColumns(from.alias, buildSelect(from.statement), from.columnNames, true).setAlias(from.alias);
                 break;
             case 'call':
                 const fnName = from.alias?.name ?? from.function?.name;
@@ -114,8 +129,9 @@ function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
                 } else {
                     // if the function returns a single value, then lets transform this into a table
                     // nb: the function call will be re-built in here, but its OK (coz' of build cache)
-                    newT = new ValuesTable(fnName, [[from]], [fnName])
-                        .setAlias(from.alias?.name ?? suggestColumnName(from) ?? '');
+                    newT = new ValuesTable(fnName, [[from]], [fnName]).setAlias(
+                        from.alias?.name ?? suggestColumnName(from) ?? '',
+                    );
                 }
                 break;
             default:
@@ -141,10 +157,15 @@ function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
             case null:
             case undefined:
                 // cross join (equivalent to INNER JOIN ON TRUE)
-                sel = new JoinSelection(sel, newT, {
-                    type: 'INNER JOIN',
-                    on: { type: 'boolean', value: true }
-                }, true);
+                sel = new JoinSelection(
+                    sel,
+                    newT,
+                    {
+                        type: 'INNER JOIN',
+                        on: { type: 'boolean', value: true },
+                    },
+                    true,
+                );
                 break;
             default:
                 throw new NotSupported('Join type not supported ' + (from.join?.type ?? '<no join specified>'));
@@ -153,17 +174,13 @@ function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
     return sel;
 }
 
-
 function buildRawSelect(p: SelectFromStatement): _ISelection {
-    const distinct = !p.distinct || p.distinct === 'all'
-        ? null
-        : p.distinct;
+    const distinct = !p.distinct || p.distinct === 'all' ? null : p.distinct;
 
     // ignore "for update" clause (not useful in non-concurrent environements)
     ignore(p.for);
 
     let sel = buildRawSelectSubject(p);
-
 
     // filter & select
     sel = sel ?? buildCtx().schema.dualTable.selection;
@@ -172,17 +189,16 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
     // postgres helps users: you can use group-by & order-by on aliases.
     // ... but you cant use aliases in a computation (only in simple order by statements)
     // this hack reproduces this behaviour
-    const aliases = new Map(notNil(p.columns?.filter(c => !!c.alias?.name)).map(c => [c.alias!.name, c.expr]));
-    const orderBy = modifyIfNecessary(p.orderBy ?? [], o => {
+    const aliases = new Map(notNil(p.columns?.filter((c) => !!c.alias?.name)).map((c) => [c.alias!.name, c.expr]));
+    const orderBy = modifyIfNecessary(p.orderBy ?? [], (o) => {
         const by = o.by.type === 'ref' && !o.by.table && aliases.get(o.by.name);
         return by ? { ...o, by } : null;
     });
     // order selection
     sel = sel.orderBy(orderBy);
 
-
     if (p.groupBy) {
-        const groupBy = modifyIfNecessary(p.groupBy ?? [], o => {
+        const groupBy = modifyIfNecessary(p.groupBy ?? [], (o) => {
             const group = o.type === 'ref' && !o.table && !sel?.getColumn(o.name, true) && aliases.get(o.name);
             return group || null;
         });
@@ -216,8 +232,7 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
 
 function getSelectable(name: QNameMapped): _ISelection {
     const { schema, getTempBinding } = buildCtx();
-    const temp = !name.schema
-        && getTempBinding(name.name);
+    const temp = !name.schema && getTempBinding(name.name);
 
     let ret = temp || asSelectable(schema.getObject(name)).selection;
     ret = mapColumns(name.name, ret, name.columnNames, false);
@@ -233,10 +248,13 @@ function mapColumns(tableName: string, sel: _ISelection, columnNames: Name[] | n
         return sel;
     }
     if (columnNames.length > sel.columns.length) {
-        throw new QueryError(`table "${tableName}" has ${sel.columns.length} columns available but ${columnNames.length} columns specified`, '42P10')
+        throw new QueryError(
+            `table "${tableName}" has ${sel.columns.length} columns available but ${columnNames.length} columns specified`,
+            '42P10',
+        );
     }
 
-    const mapped = new Set<string>(columnNames.map(x => x.name));
+    const mapped = new Set<string>(columnNames.map((x) => x.name));
     const cols = sel.columns.map<SelectedColumn>((col, i) => ({
         expr: {
             type: 'ref',
@@ -245,19 +263,13 @@ function mapColumns(tableName: string, sel: _ISelection, columnNames: Name[] | n
         // when realiasing table columns, columns which have not been mapped
         //  must not be removed
         // see ut "can map column names"
-        alias: columnNames[i]
-            ?? {
-            name: mapped.has(sel.columns[i].id!)
-                ? `${sel.columns[i].id!}1`
-                : sel.columns[i].id!,
+        alias: columnNames[i] ?? {
+            name: mapped.has(sel.columns[i].id!) ? `${sel.columns[i].id!}1` : sel.columns[i].id!,
         },
     }));
 
-    return sel.select(
-        cols
-    )
+    return sel.select(cols);
 }
-
 
 export class SelectExec implements _IStatementExecutor {
     readonly selection: _ISelection;
@@ -270,8 +282,6 @@ export class SelectExec implements _IStatementExecutor {
     get schema() {
         return this.statement.schema;
     }
-
-
 
     execute(t: _Transaction): StatementResult {
         const rows = cleanResults([...this.selection.enumerate(t)]);
@@ -287,8 +297,6 @@ export class SelectExec implements _IStatementExecutor {
         };
     }
 }
-
-
 
 function checkReadonlyWithable(st: WithStatementBinding) {
     switch (st.type) {

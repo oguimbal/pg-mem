@@ -1,16 +1,25 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexKey, IndexOp, Stats } from '../interfaces-private';
+import {
+    _ISelection,
+    IValue,
+    _IIndex,
+    _ITable,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    IndexKey,
+    IndexOp,
+    Stats,
+} from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { nullIsh } from '../utils';
 
 export class EqFilter<T = any> extends FilterBase<T> {
-
     private index: _IIndex;
     private opDef: IndexOp;
 
     entropy(t: _Transaction): number {
         return this.index.entropy({ ...this.opDef, t });
     }
-
 
     stats(t: _Transaction): Stats | null {
         const stats = this.index.stats(t, [this.equalsCst]);
@@ -39,10 +48,12 @@ export class EqFilter<T = any> extends FilterBase<T> {
         return this.op === 'eq' ? !!eq : !eq;
     }
 
-    constructor(private onValue: IValue<T>
-        , private equalsCst: any
-        , private op: 'eq' | 'neq'
-        , private matchNull: boolean) {
+    constructor(
+        private onValue: IValue<T>,
+        private equalsCst: any,
+        private op: 'eq' | 'neq',
+        private matchNull: boolean,
+    ) {
         super(onValue.origin!);
         if (onValue.index!.expressions.length !== 1) {
             throw new Error('Unexpected index equality expressions count mismatch');
@@ -54,7 +65,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
             key: [equalsCst],
             t: null as any,
             matchNull: this.matchNull,
-        }
+        };
     }
 
     *enumerate(t: _Transaction): Iterable<T> {

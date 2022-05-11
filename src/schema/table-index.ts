@@ -1,4 +1,15 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats } from '../interfaces-private';
+import {
+    _IIndex,
+    IValue,
+    _ITable,
+    _IDb,
+    _Transaction,
+    _Explainer,
+    _IndexExplanation,
+    IndexOp,
+    IndexKey,
+    Stats,
+} from '../interfaces-private';
 import { PermissionDeniedError, NotSupported } from '../interfaces';
 
 export class TableIndex implements _IIndex {
@@ -19,7 +30,10 @@ export class TableIndex implements _IIndex {
         return null;
     }
 
-    constructor(readonly onTable: _ITable & { itemsByTable(table: string, t: _Transaction): Iterable<any>; ownSymbol: any }, private col: IValue) {
+    constructor(
+        readonly onTable: _ITable & { itemsByTable(table: string, t: _Transaction): Iterable<any>; ownSymbol: any },
+        private col: IValue,
+    ) {
         this.expressions = [col];
     }
 
@@ -28,10 +42,8 @@ export class TableIndex implements _IIndex {
     }
 
     entropy(op: IndexOp): number {
-        return this.onTable.db.listSchemas()
-            .reduce((tot, s) => tot + s.tablesCount(op.t) * 10 * 3, 0);
+        return this.onTable.db.listSchemas().reduce((tot, s) => tot + s.tablesCount(op.t) * 10 * 3, 0);
     }
-
 
     add(raw: any): void {
         throw new PermissionDeniedError('tables');
@@ -49,7 +61,7 @@ export class TableIndex implements _IIndex {
     }
 
     *nin(keys: any[][], t: _Transaction) {
-        const raws = keys.map(x => x[0]) as any[];
+        const raws = keys.map((x) => x[0]) as any[];
         for (const i of this.onTable.selection.enumerate(t)) {
             if (raws.includes(i.table_name)) {
                 continue;
@@ -93,7 +105,6 @@ export class TableIndex implements _IIndex {
             }
         }
     }
-
 
     enumerate(op: IndexOp): Iterable<any> {
         switch (op.type) {

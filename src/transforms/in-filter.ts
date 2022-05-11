@@ -1,11 +1,19 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
+import {
+    _ISelection,
+    IValue,
+    _IIndex,
+    _ITable,
+    getId,
+    _Transaction,
+    _Explainer,
+    _SelectExplanation,
+    Stats,
+} from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 import { nullIsh } from '../utils';
 
 export class InFilter<T = any> extends FilterBase<T> {
-
-
     private index: _IIndex;
 
     entropy(t: _Transaction) {
@@ -22,12 +30,10 @@ export class InFilter<T = any> extends FilterBase<T> {
 
     hasItem(item: T, t: _Transaction) {
         const val = this.onValue.get(item, t);
-        return !nullIsh(val)
-            && this.elts.some(x => this.onValue.type.equals(x, val));
+        return !nullIsh(val) && this.elts.some((x) => this.onValue.type.equals(x, val));
     }
 
-    constructor(private onValue: IValue<T>
-        , private elts: any[]) {
+    constructor(private onValue: IValue<T>, private elts: any[]) {
         super(onValue.origin!);
         this.index = onValue.index!;
         if (this.index.expressions.length !== 1) {
@@ -39,8 +45,8 @@ export class InFilter<T = any> extends FilterBase<T> {
     }
 
     stats(t: _Transaction): Stats | null {
-        const elts = this.elts.map(x => this.index.stats(t, [x]));
-        if (elts.some(x => !x)) {
+        const elts = this.elts.map((x) => this.index.stats(t, [x]));
+        if (elts.some((x) => !x)) {
             return null;
         }
         // compute from elements
@@ -62,7 +68,6 @@ export class InFilter<T = any> extends FilterBase<T> {
             });
         }
     }
-
 
     explain(e: _Explainer): _SelectExplanation {
         return {

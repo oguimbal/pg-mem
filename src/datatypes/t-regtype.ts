@@ -5,8 +5,6 @@ import { Types } from './datatypes';
 import { buildCtx } from '../parser/context';
 
 export class RegTypeImpl extends TypeBase<RegType> {
-
-
     get primary(): DataType {
         return DataType.regtype;
     }
@@ -23,26 +21,25 @@ export class RegTypeImpl extends TypeBase<RegType> {
     doCast(a: Evaluator<RegType>, to: _IType): Evaluator {
         switch (to.primary) {
             case DataType.text:
-                return a
-                    .setType(to)
-                    .setConversion(raw => raw.toString(10)
-                        , toText => ({ toText }))
+                return a.setType(to).setConversion(
+                    (raw) => raw.toString(10),
+                    (toText) => ({ toText }),
+                );
             case DataType.integer:
                 const { schema } = buildCtx();
-                return a
-                    .setType(to)
-                    .setConversion((raw: RegType) => {
+                return a.setType(to).setConversion(
+                    (raw: RegType) => {
                         if (typeof raw === 'number') {
                             return raw;
                         }
                         const t = schema.parseType(raw);
                         return t.reg.typeId;
-                    }
-                        , toText => ({ toText }))
+                    },
+                    (toText) => ({ toText }),
+                );
         }
         throw new Error('failed to cast');
     }
-
 
     doCanBuildFrom(from: _IType) {
         switch (from.primary) {
@@ -56,18 +53,17 @@ export class RegTypeImpl extends TypeBase<RegType> {
         switch (from.primary) {
             case DataType.text:
                 const { schema } = buildCtx();
-                return value
-                    .setType(Types.regtype)
-                    .setConversion((str: string) => {
+                return value.setType(Types.regtype).setConversion(
+                    (str: string) => {
                         let repl = str.replace(/["\s]+/g, '');
                         if (repl.startsWith('pg_catalog.')) {
                             repl = repl.substr('pg_catalog.'.length);
                         }
                         return schema.parseType(repl).name;
-                    }
-                        , strToRegType => ({ strToRegType }));
+                    },
+                    (strToRegType) => ({ strToRegType }),
+                );
         }
         return null;
     }
-
 }

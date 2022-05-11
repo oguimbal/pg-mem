@@ -6,7 +6,6 @@ import { _IDb } from '../interfaces-private';
 import { expectSingle } from './test-utils';
 
 describe('Various expressions', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -16,10 +15,8 @@ describe('Various expressions', () => {
         none = db.public.none.bind(db.public);
     });
 
-
     // https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-EXTRACT
     describe('EXTRACT()', () => {
-
         expectSingle(`SELECT EXTRACT(CENTURY FROM TIMESTAMP '2000-12-16 12:21:13')`, 20);
         expectSingle(`SELECT EXTRACT(CENTURY FROM TIMESTAMP '2001-02-16 20:38:40')`, 21);
 
@@ -35,7 +32,6 @@ describe('Various expressions', () => {
         expectSingle(`SELECT EXTRACT(DOY FROM TIMESTAMP '2001-02-16 20:38:40');`, 47);
 
         expectSingle(`SELECT EXTRACT(EPOCH FROM TIMESTAMP WITH TIME ZONE '2001-02-16 20:38:40.12-08');`, 982384720);
-
 
         expectSingle(`SELECT EXTRACT(EPOCH FROM INTERVAL '5 days 3 hours');`, 442800);
 
@@ -74,9 +70,7 @@ describe('Various expressions', () => {
         expectSingle(`SELECT EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')`, 2001);
 
         expectSingle(`SELECT EXTRACT(YEAR FROM TIMESTAMPTZ '2001-02-16 20:38:40')`, 2001);
-
     });
-
 
     expectSingle(`select array(select 1)`, [1]);
 });

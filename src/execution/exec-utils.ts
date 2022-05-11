@@ -1,11 +1,16 @@
 import { QName, Statement, NodeLocation, toSql } from 'pgsql-ast-parser';
 import { _ISchema, QueryError, _Transaction, _IDb } from '../interfaces-private';
 
-export function checkExistence(schema: _ISchema, name: QName, ifNotExists: boolean | undefined, act: () => void): boolean {
+export function checkExistence(
+    schema: _ISchema,
+    name: QName,
+    ifNotExists: boolean | undefined,
+    act: () => void,
+): boolean {
     // check if object exists
     const exists = schema.getObject(name, {
         skipSearch: true,
-        nullIfNotFound: true
+        nullIfNotFound: true,
     });
     if (exists) {
         if (ifNotExists) {
@@ -19,15 +24,12 @@ export function checkExistence(schema: _ISchema, name: QName, ifNotExists: boole
     return true;
 }
 
-
-
 export function locOf(p: Statement): NodeLocation {
     return p._location ?? { start: 0, end: 0 };
 }
 
 export abstract class ExecHelper {
-    constructor(private statement: Statement) {
-    }
+    constructor(private statement: Statement) {}
 
     protected noData(t: _Transaction, name?: string) {
         return {

@@ -8,8 +8,6 @@ import { QueryError } from '../interfaces';
 import stringify from 'json-stable-stringify';
 
 export class JSONBType extends TypeBase<any> {
-
-
     constructor(readonly primary: DataType) {
         super();
     }
@@ -32,8 +30,10 @@ export class JSONBType extends TypeBase<any> {
             case DataType.text:
                 return a
                     .setType(Types.text())
-                    .setConversion(json => stringify(this.toResult(json))
-                        , toJsonB => ({ toJsonB }))
+                    .setConversion(
+                        (json) => stringify(this.toResult(json)),
+                        (toJsonB) => ({ toJsonB }),
+                    )
                     .cast(to) as Evaluator; // <== might need truncation
             case DataType.jsonb:
             case DataType.json:
@@ -41,33 +41,38 @@ export class JSONBType extends TypeBase<any> {
             case DataType.float:
             case DataType.integer:
                 const isInt = to.primary === DataType.integer;
-                return a
-                    .setType(to)
-                    .setConversion(json => {
+                return a.setType(to).setConversion(
+                    (json) => {
                         if (json === JSON_NIL) {
-                            throw new QueryError('cannot cast jsonb null to type ' + (isInt ? 'integer' : 'double precision'), '22023');
+                            throw new QueryError(
+                                'cannot cast jsonb null to type ' + (isInt ? 'integer' : 'double precision'),
+                                '22023',
+                            );
                         }
                         if (typeof json !== 'number') {
-                            throw new QueryError('cannot cast jsonb string to type ' + (isInt ? 'integer' : 'double precision'), '22023');
+                            throw new QueryError(
+                                'cannot cast jsonb string to type ' + (isInt ? 'integer' : 'double precision'),
+                                '22023',
+                            );
                         }
                         return isInt ? Math.round(json) : json;
-                    }, toFloat => ({ toFloat }));
+                    },
+                    (toFloat) => ({ toFloat }),
+                );
             case DataType.bool:
-                return a
-                    .setType(to)
-                    .setConversion(json => {
+                return a.setType(to).setConversion(
+                    (json) => {
                         if (typeof json !== 'boolean') {
                             throw new QueryError('cannot cast jsonb string to type boolean', '22023');
                         }
                         return json;
-                    }, toFloat => ({ toFloat }));
+                    },
+                    (toFloat) => ({ toFloat }),
+                );
             default:
                 return a.setType(to);
         }
-
     }
-
-
 
     doCanBuildFrom(from: _IType) {
         switch (from.primary) {
@@ -80,10 +85,10 @@ export class JSONBType extends TypeBase<any> {
     doBuildFrom(value: Evaluator, from: _IType): Evaluator<Date> | nil {
         switch (from.primary) {
             case DataType.text:
-                return value
-                    .setConversion(raw => {
+                return value.setConversion(
+                    (raw) => {
                         try {
-                            return JSON.parse(raw, (_, x) => x ?? JSON_NIL) ?? JSON_NIL
+                            return JSON.parse(raw, (_, x) => x ?? JSON_NIL) ?? JSON_NIL;
                         } catch (e) {
                             throw new QueryError({
                                 error: `invalid input syntax for type json`,
@@ -91,13 +96,12 @@ export class JSONBType extends TypeBase<any> {
                                 code: '22P02',
                             });
                         }
-                    }
-                        , toJsonb => ({ toJsonb }));
+                    },
+                    (toJsonb) => ({ toJsonb }),
+                );
         }
         return null;
     }
-
-
 
     doEquals(a: any, b: any): boolean {
         return deepEqual(this.toResult(a), this.toResult(b), false);
@@ -112,9 +116,6 @@ export class JSONBType extends TypeBase<any> {
     }
 
     toResult(result: any): any {
-        return result === JSON_NIL
-            ? null
-            : result;
+        return result === JSON_NIL ? null : result;
     }
-
 }

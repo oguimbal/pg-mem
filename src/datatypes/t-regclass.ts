@@ -6,9 +6,6 @@ import { Types } from './datatypes';
 import { buildCtx } from '../parser/context';
 
 export class RegClassImpl extends TypeBase<RegClass> {
-
-
-
     get primary(): DataType {
         return DataType.regclass;
     }
@@ -26,38 +23,32 @@ export class RegClassImpl extends TypeBase<RegClass> {
         const { schema } = buildCtx();
         switch (to.primary) {
             case DataType.text:
-                return a
-                    .setType(Types.text())
-                    .setConversion((raw: RegClass) => {
+                return a.setType(Types.text()).setConversion(
+                    (raw: RegClass) => {
                         return raw?.toString();
-                    }
-                        , toText => ({ toText }))
+                    },
+                    (toText) => ({ toText }),
+                );
             case DataType.integer:
-                return a
-                    .setType(Types.text())
-                    .setConversion((raw: RegClass) => {
-
+                return a.setType(Types.text()).setConversion(
+                    (raw: RegClass) => {
                         // === regclass -> int
 
                         const cls = parseRegClass(raw);
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
-                            return schema.getObjectByRegOrName(cls)
-                                ?.reg.classId
-                                ?? cls;
+                            return schema.getObjectByRegOrName(cls)?.reg.classId ?? cls;
                         }
 
                         // get the object or throw
-                        return schema.getObjectByRegOrName(raw)
-                            .reg.classId;
-                    }
-                        , toText => ({ toText }))
+                        return schema.getObjectByRegOrName(raw).reg.classId;
+                    },
+                    (toText) => ({ toText }),
+                );
         }
         throw new Error('failed to cast');
     }
-
-
 
     doCanBuildFrom(from: _IType) {
         switch (from.primary) {
@@ -71,26 +62,23 @@ export class RegClassImpl extends TypeBase<RegClass> {
         const { schema } = buildCtx();
         switch (from.primary) {
             case DataType.text:
-                return value
-                    .setConversion((str: string) => {
+                return value.setConversion(
+                    (str: string) => {
                         // === text -> regclass
 
                         const cls = parseRegClass(str);
 
                         // if its a number, then try to get it.
                         if (typeof cls === 'number') {
-                            return schema.getObjectByRegOrName(cls)
-                                ?.name
-                                ?? cls;
+                            return schema.getObjectByRegOrName(cls)?.name ?? cls;
                         }
 
                         // else, get or throw.
-                        return schema.getObject(cls)
-                            .name;
-                    }
-                        , strToRegClass => ({ strToRegClass }));
+                        return schema.getObject(cls).name;
+                    },
+                    (strToRegClass) => ({ strToRegClass }),
+                );
         }
         return null;
     }
-
 }

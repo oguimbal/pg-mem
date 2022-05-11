@@ -1,4 +1,28 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler } from '../interfaces-private';
+import {
+    _ITable,
+    _ISelection,
+    _ISchema,
+    _Transaction,
+    _IIndex,
+    IValue,
+    NotSupported,
+    PermissionDeniedError,
+    _Column,
+    SchemaField,
+    IndexDef,
+    _Explainer,
+    _SelectExplanation,
+    _IType,
+    ChangeHandler,
+    Stats,
+    DropHandler,
+    IndexHandler,
+    RegClass,
+    RegType,
+    Reg,
+    _IConstraint,
+    TruncateHandler,
+} from '../interfaces-private';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
@@ -7,8 +31,6 @@ import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
 
 export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection {
-
-
     get isExecutionWithNoResult(): boolean {
         return false;
     }
@@ -26,7 +48,6 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     isOriginOf(v: IValue): boolean {
         return v.origin === this || v.origin === this.selection;
     }
-
 
     get type() {
         return 'table' as const;
@@ -46,7 +67,6 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
 
     private columnsById = new Map<string, IValue>();
     private _columns?: IValue[];
-
 
     private build() {
         if (this._columns) {
@@ -69,10 +89,8 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
         this.build();
-        if (typeof column !== 'string'
-            && column.table) {
-            if (!column.table.schema
-                && column.table.name !== this.name) {
+        if (typeof column !== 'string' && column.table) {
+            if (!column.table.schema && column.table.name !== this.name) {
                 return null;
             }
             column = column.name;
@@ -149,35 +167,32 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
     onBeforeChange(columns: string[], check: ChangeHandler<T>) {
         // nop
-        return { unsubscribe() { } }
+        return { unsubscribe() {} };
     }
     onCheckChange(columns: string[], check: ChangeHandler<T>) {
         // nop
-        return { unsubscribe() { } }
+        return { unsubscribe() {} };
     }
     onTruncate(sub: TruncateHandler): ISubscription {
         // nop
-        return { unsubscribe() { } }
+        return { unsubscribe() {} };
     }
     onDrop(sub: DropHandler): ISubscription {
         // nop
-        return { unsubscribe() { } }
+        return { unsubscribe() {} };
     }
     onIndex(sub: IndexHandler): ISubscription {
         // nop
-        return { unsubscribe() { } }
+        return { unsubscribe() {} };
     }
-
 
     find(template?: T, columns?: (keyof T)[]): Iterable<T> {
         return findTemplate(this.selection, this.db.data, template, columns);
     }
 
-
     make(table: _ITable, i: number, t: IValue<any>): any {
         throw new Error('not implemented');
     }
-
 
     *itemsByTable(table: string | _ITable, t: _Transaction): IterableIterator<any> {
         if (typeof table === 'string') {

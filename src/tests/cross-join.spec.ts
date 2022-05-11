@@ -6,7 +6,6 @@ import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
 describe('Cross/Carthesian joins', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -37,7 +36,7 @@ describe('Cross/Carthesian joins', () => {
         INSERT INTO "user" VALUES ('u1', 'me');
         INSERT INTO "user" VALUES ('u2', 'you');
         INSERT INTO "user" VALUES ('u3', 'no camera');
-        `)
+        `);
     }
 
     function ab() {
@@ -46,7 +45,7 @@ describe('Cross/Carthesian joins', () => {
                 insert into ta values ('a1', 1);
                 insert into ta values ('a2', 2);
                 insert into tb values ('b1', 11);
-                insert into tb values ('b2', 12);`)
+                insert into tb values ('b2', 12);`);
     }
 
     it('simple cross join without condition', () => {
@@ -55,10 +54,9 @@ describe('Cross/Carthesian joins', () => {
             { ida: 'a1', va: 1, idb: 'b1', vb: 11 },
             { ida: 'a1', va: 1, idb: 'b2', vb: 12 },
             { ida: 'a2', va: 2, idb: 'b1', vb: 11 },
-            { ida: 'a2', va: 2, idb: 'b2', vb: 12 }
+            { ida: 'a2', va: 2, idb: 'b2', vb: 12 },
         ]);
-    })
-
+    });
 
     it('simple join on index', () => {
         preventCataJoin(db);
@@ -92,11 +90,9 @@ describe('Cross/Carthesian joins', () => {
                     onTable: 'tb',
                 },
                 matches: { on: 'ta', col: 'bid' },
-            }
-        })
+            },
+        });
     });
-
-
 
     it('simple join on index with comma syntax', () => {
         const result = many(`create table ta(aid text primary key, bid text);

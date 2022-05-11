@@ -4,8 +4,6 @@ import { RecordCol } from './datatypes';
 import { Evaluator } from '../evaluator';
 
 export class RecordType extends TypeBase<any> {
-
-
     public static matches(type: _IType): type is RecordType {
         return type.primary === DataType.record;
     }
@@ -24,8 +22,8 @@ export class RecordType extends TypeBase<any> {
 
     public static from(selection: _ISelection): RecordType {
         const recordCols = selection.columns
-            .filter(c => !!c.id)
-            .map<RecordCol>(x => ({ name: x.id!, type: x.type }));
+            .filter((c) => !!c.id)
+            .map<RecordCol>((x) => ({ name: x.id!, type: x.type }));
         return new RecordType(recordCols);
     }
 
@@ -42,7 +40,7 @@ export class RecordType extends TypeBase<any> {
                 return null;
             }
             const casted = from.cast(to.type);
-            setters.push((old, neu, t) => neu[to.name] = casted.get(old, t));
+            setters.push((old, neu, t) => (neu[to.name] = casted.get(old, t)));
         }
 
         return (raw: any, t, execId) => {

@@ -3,7 +3,7 @@ import { ShowStatement } from 'pgsql-ast-parser';
 import { locOf } from './exec-utils';
 
 export class ShowExecutor implements _IStatementExecutor {
-    constructor(private statement: ShowStatement) { }
+    constructor(private statement: ShowStatement) {}
 
     execute(t: _Transaction): StatementResult {
         const p = this.statement;
@@ -20,6 +20,6 @@ export class ShowExecutor implements _IStatementExecutor {
                 fields: [],
                 location: locOf(p),
             },
-        }
+        };
     }
 }

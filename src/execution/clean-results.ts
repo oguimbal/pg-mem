@@ -4,7 +4,6 @@ export const JSON_NIL = Symbol('null');
 export const IS_PARTIAL_INDEXING = Symbol('partial_indexing');
 export const SELECT_ALL = Symbol('select *');
 
-
 export function cleanResults(results: any[]): any {
     // ugly hack to turn jsonb nulls & partial indexed results into actual nulls
     // This will bite me someday ... but please dont judge me, I too try to have a life outside here 🤔

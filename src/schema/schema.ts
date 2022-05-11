@@ -1,8 +1,57 @@
-import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from '../interfaces';
-import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private';
+import {
+    ISchema,
+    DataType,
+    IType,
+    RelationNotFound,
+    Schema,
+    QueryResult,
+    SchemaField,
+    nil,
+    FunctionDefinition,
+    PermissionDeniedError,
+    TypeNotFound,
+    ArgDefDetails,
+    IEquivalentType,
+    QueryInterceptor,
+    ISubscription,
+    QueryError,
+    typeDefToStr,
+    OperatorDefinition,
+} from '../interfaces';
+import {
+    _IDb,
+    _ISelection,
+    _ISchema,
+    _Transaction,
+    _ITable,
+    _SelectExplanation,
+    _Explainer,
+    IValue,
+    _IIndex,
+    _IType,
+    _IRelation,
+    QueryObjOpts,
+    _ISequence,
+    _INamedIndex,
+    RegClass,
+    Reg,
+    TypeQuery,
+    asType,
+    _ArgDefDetails,
+    BeingCreated,
+    _FunctionDefinition,
+    _OperatorDefinition,
+} from '../interfaces-private';
 import { asSingleQName, isType, parseRegClass, randomString, schemaOf } from '../utils';
 import { typeSynonyms } from '../datatypes';
-import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'pgsql-ast-parser';
+import {
+    DropFunctionStatement,
+    BinaryOperator,
+    QName,
+    DataTypeDef,
+    CreateSequenceOptions,
+    CreateExtensionStatement,
+} from 'pgsql-ast-parser';
 import { MemoryTable } from '../table';
 import { parseSql } from '../parser/parse-cache';
 import { IMigrate } from '../migrate/migrate-interfaces';
@@ -16,7 +65,6 @@ import { StatementExec } from '../execution/statement-exec';
 import { SelectExec } from '../execution/select';
 
 export class DbSchema implements _ISchema, ISchema {
-
     readonly dualTable: _ITable;
     private relsByNameCas = new Map<string, _IRelation>();
     private relsByCls = new Map<number, _IRelation>();
@@ -42,7 +90,6 @@ export class DbSchema implements _ISchema, ISchema {
         return this;
     }
 
-
     none(query: string): void {
         this.query(query);
     }
@@ -55,7 +102,6 @@ export class DbSchema implements _ISchema, ISchema {
     many(query: string): any[] {
         return this.query(query).rows;
     }
-
 
     query(text: string): QueryResult {
         // intercept ?
@@ -77,13 +123,15 @@ export class DbSchema implements _ISchema, ISchema {
         for (const r of this.queries(text)) {
             last = r;
         }
-        return last ?? {
-            command: text,
-            fields: [],
-            location: { start: 0, end: text.length },
-            rowCount: 0,
-            rows: [],
-        };
+        return (
+            last ?? {
+                command: text,
+                fields: [],
+                location: { start: 0, end: text.length },
+                rowCount: 0,
+                rows: [],
+            }
+        );
     }
 
     private parse(query: string) {
@@ -93,7 +141,6 @@ export class DbSchema implements _ISchema, ISchema {
     *queries(query: string): Iterable<QueryResult> {
         query = query + ';';
         try {
-
             // Parse statements
             let parsed = this.parse(query);
             if (!Array.isArray(parsed)) {
@@ -102,9 +149,7 @@ export class DbSchema implements _ISchema, ISchema {
             const singleSql = parsed.length === 1 ? query : undefined;
 
             // Prepare statements
-            const prepared = parsed
-                .filter(s => !!s)
-                .map(x => new StatementExec(this, x, singleSql));
+            const prepared = parsed.filter((s) => !!s).map((x) => new StatementExec(this, x, singleSql));
 
             // Start an implicit transaction
             //  (to avoid messing global data if an operation fails mid-write)
@@ -112,7 +157,6 @@ export class DbSchema implements _ISchema, ISchema {
 
             // Execute statements
             for (const p of prepared) {
-
                 // Prepare statement
                 const executor = p.compile();
 
@@ -136,8 +180,6 @@ export class DbSchema implements _ISchema, ISchema {
         }
     }
 
-
-
     registerEnum(name: string, values: string[]) {
         new CustomEnumType(this, name, values).install();
     }
@@ -149,10 +191,6 @@ export class DbSchema implements _ISchema, ISchema {
         return this.db.getSchema(name.schema);
     }
 
-
-
-
-
     private simpleTypes: { [key: string]: _IType } = {};
     private sizeableTypes: {
         [key: string]: {
@@ -161,7 +199,6 @@ export class DbSchema implements _ISchema, ISchema {
         };
     } = {};
 
-
     parseType(native: string): _IType {
         if (/\[\]$/.test(native)) {
             const inner = this.parseType(native.substr(0, native.length - 2));
@@ -169,7 +206,6 @@ export class DbSchema implements _ISchema, ISchema {
         }
         return this.getType({ name: native });
     }
-
 
     getOwnType(t: DataTypeDef): _IType | null {
         if (t.kind === 'array') {
@@ -182,19 +218,16 @@ export class DbSchema implements _ISchema, ISchema {
         const name = typeSynonyms[t.name] ?? t.name;
         const sizeable = this.sizeableTypes[name];
         if (sizeable) {
-            const key = t.config?.length === 1
-                ? t.config[0]
-                : t.config?.join(',') ?? undefined;
+            const key = t.config?.length === 1 ? t.config[0] : t.config?.join(',') ?? undefined;
             let ret = sizeable.regs.get(key);
             if (!ret) {
-                sizeable.regs.set(key, ret = sizeable.ctor(...t.config ?? []));
+                sizeable.regs.set(key, (ret = sizeable.ctor(...(t.config ?? []))));
             }
             return ret;
         }
 
         return this.simpleTypes[name] ?? null;
     }
-
 
     getTypePub(t: DataType | IType): _IType {
         return this.getType(t as TypeQuery);
@@ -227,8 +260,7 @@ export class DbSchema implements _ISchema, ISchema {
             if (schema === this.name) {
                 return chk(this.getOwnType(t));
             } else {
-                return chk(this.db.getSchema(schema)
-                    .getType(t, opts));
+                return chk(this.db.getSchema(schema).getType(t, opts));
             }
         }
         if (opts?.skipSearch) {
@@ -243,16 +275,13 @@ export class DbSchema implements _ISchema, ISchema {
         return chk(this.getOwnType(t));
     }
 
-
     getObject(p: QName): _IRelation;
     getObject(p: QName, opts: BeingCreated): _IRelation;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null;
     getObject(p: QName, opts?: QueryObjOpts): _IRelation | null {
         function chk(ret: _IRelation | null): _IRelation | null {
             const bc = opts?.beingCreated;
-            if (!ret && bc && (
-                !p.schema || p.schema === bc.ownerSchema?.name
-            ) && bc.name === p.name) {
+            if (!ret && bc && (!p.schema || p.schema === bc.ownerSchema?.name) && bc.name === p.name) {
                 ret = bc;
             }
             if (!ret && !opts?.nullIfNotFound) {
@@ -264,8 +293,7 @@ export class DbSchema implements _ISchema, ISchema {
             if (p.schema === this.name) {
                 return chk(this.getOwnObject(p.name));
             } else {
-                return chk(this.db.getSchema(p.schema)
-                    .getObject(p, opts));
+                return chk(this.db.getSchema(p.schema).getObject(p, opts));
             }
         }
 
@@ -282,8 +310,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     getOwnObject(name: string): _IRelation | null {
-        return this.relsByNameCas.get(name)
-            ?? null;
+        return this.relsByNameCas.get(name) ?? null;
     }
 
     getObjectByRegOrName(reg: RegClass): _IRelation;
@@ -320,19 +347,22 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     getOwnObjectByRegClassId(reg: number): _IRelation | null {
-        return this.relsByCls.get(reg)
-            ?? null;
+        return this.relsByCls.get(reg) ?? null;
     }
 
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, _name: QName | nil): _ISequence {
         _name = _name ?? {
             name: randomString(),
         };
-        return new ExecuteCreateSequence(this, {
-            type: 'create sequence',
-            name: _name,
-            options: opts ?? {},
-        }, true).createSeq(t)!;
+        return new ExecuteCreateSequence(
+            this,
+            {
+                type: 'create sequence',
+                name: _name,
+                options: opts ?? {},
+            },
+            true,
+        ).createSeq(t)!;
     }
 
     explainLastSelect(): _SelectExplanation | undefined {
@@ -347,21 +377,16 @@ export class DbSchema implements _ISchema, ISchema {
         if (parsed[0].type !== 'select') {
             throw new Error('Expecting a select statement');
         }
-        const prepared = new StatementExec(this, parsed[0], sql)
-            .compile();
+        const prepared = new StatementExec(this, parsed[0], sql).compile();
         if (!(prepared instanceof SelectExec)) {
             throw new Error('Can only explain selection executors');
         }
-        return prepared
-            .selection
-            .explain(new Explainer(this.db.data))
+        return prepared.selection.explain(new Explainer(this.db.data));
     }
 
     executeCreateExtension(p: CreateExtensionStatement) {
         const ext = this.db.getExtension(p.extension.name);
-        const schema = p.schema
-            ? this.db.getSchema(p.schema.name)
-            : this;
+        const schema = p.schema ? this.db.getSchema(p.schema.name) : this;
         this.db.raiseGlobal('create-extension', p.extension, schema, p.version, p.from);
         const ne = p.ifNotExists; // evaluate outside
         if (this.installedExtensions.has(p.extension.name)) {
@@ -379,7 +404,7 @@ export class DbSchema implements _ISchema, ISchema {
     getTable(name: string, nullIfNotFound?: boolean): _ITable | null;
     getTable(name: string, nullIfNotFound?: boolean): _ITable | null {
         const ret = this.getOwnObject(name);
-        if ((!ret || ret.type !== 'table')) {
+        if (!ret || ret.type !== 'table') {
             if (nullIfNotFound) {
                 return null;
             }
@@ -387,8 +412,6 @@ export class DbSchema implements _ISchema, ISchema {
         }
         return ret;
     }
-
-
 
     declareTable(table: Schema, noSchemaChange?: boolean): MemoryTable {
         const trans = this.db.data.fork();
@@ -426,10 +449,9 @@ export class DbSchema implements _ISchema, ISchema {
         return this;
     }
 
-
     _reg_register(rel: _IRelation): Reg {
         if (this.readonly) {
-            throw new PermissionDeniedError()
+            throw new PermissionDeniedError();
         }
         if (this.relsByNameCas.has(rel.name)) {
             throw new Error(`relation "${rel.name}" already exists`);
@@ -446,7 +468,7 @@ export class DbSchema implements _ISchema, ISchema {
 
     _reg_unregister(rel: _IRelation): void {
         if (this.readonly) {
-            throw new PermissionDeniedError()
+            throw new PermissionDeniedError();
         }
         this.relsByNameCas.delete(rel.name);
         this.relsByCls.delete(rel.reg.classId);
@@ -458,7 +480,7 @@ export class DbSchema implements _ISchema, ISchema {
 
     _reg_rename(rel: _IRelation, oldName: string, newName: string): void {
         if (this.readonly) {
-            throw new PermissionDeniedError()
+            throw new PermissionDeniedError();
         }
         if (this.relsByNameCas.has(newName)) {
             throw new Error('relation exists: ' + newName);
@@ -470,12 +492,9 @@ export class DbSchema implements _ISchema, ISchema {
         this.relsByNameCas.set(newName, rel);
     }
 
-
-
     tablesCount(t: _Transaction): number {
         return this._tables.size;
     }
-
 
     *listTables(): Iterable<_ITable> {
         for (const t of this._tables.values()) {
@@ -488,7 +507,7 @@ export class DbSchema implements _ISchema, ISchema {
     registerFunction(fn: FunctionDefinition, replace?: boolean): this {
         const def: _FunctionDefinition = {
             name: fn.name,
-            args: (fn.args?.map<ArgDefDetails>(x => {
+            args: (fn.args?.map<ArgDefDetails>((x) => {
                 if (typeof x === 'string' || isType(x)) {
                     return {
                         type: this.getTypePub(x),
@@ -510,18 +529,21 @@ export class DbSchema implements _ISchema, ISchema {
     registerOperator(op: OperatorDefinition, replace?: boolean): this {
         this._registerOperator(op, replace ?? true);
         if (op.commutative && op.left !== op.right) {
-            this._registerOperator({
-                ...op,
-                left: op.right,
-                right: op.left,
-                implementation: (a, b) => op.implementation(b, a),
-            }, replace ?? true);
+            this._registerOperator(
+                {
+                    ...op,
+                    left: op.right,
+                    right: op.left,
+                    implementation: (a, b) => op.implementation(b, a),
+                },
+                replace ?? true,
+            );
         }
         return this;
     }
 
     private _registerOperator(fn: OperatorDefinition, replace: boolean): this {
-        const args = [fn.left, fn.right].map<ArgDefDetails>(x => {
+        const args = [fn.left, fn.right].map<ArgDefDetails>((x) => {
             if (typeof x === 'string' || isType(x)) {
                 return {
                     type: this.getTypePub(x),
@@ -545,7 +567,6 @@ export class DbSchema implements _ISchema, ISchema {
         return this;
     }
 
-
     resolveFunction(name: string | QName, args: IValue[], forceOwn?: boolean): _FunctionDefinition | nil {
         const asSingle = asSingleQName(name, this.name);
         if (!asSingle || !forceOwn) {
@@ -558,7 +579,6 @@ export class DbSchema implements _ISchema, ISchema {
         return this.fns.getExact(name, args);
     }
 
-
     dropFunction(fn: DropFunctionStatement): void {
         if (fn.name.schema && fn.name.schema !== this.name) {
             return (this.db.getSchema(fn.name.schema) as DbSchema).dropFunction(fn);
@@ -569,13 +589,19 @@ export class DbSchema implements _ISchema, ISchema {
         let toRemove: _FunctionDefinition;
         if (fn.arguments) {
             const targetArgs = fn.arguments;
-            const match = fns?.filter(x => x.args.length === targetArgs.length
-                && !x.args.some((a, i) => a.type !== this.getType(targetArgs[i].type)));
+            const match = fns?.filter(
+                (x) =>
+                    x.args.length === targetArgs.length &&
+                    !x.args.some((a, i) => a.type !== this.getType(targetArgs[i].type)),
+            );
             if (!match?.length) {
                 if (fn.ifExists) {
                     return;
                 }
-                throw new QueryError(`function ${fn.name.name}(${targetArgs.map(t => typeDefToStr(t.type)).join(',')}) does not exist`, '42883');
+                throw new QueryError(
+                    `function ${fn.name.name}(${targetArgs.map((t) => typeDefToStr(t.type)).join(',')}) does not exist`,
+                    '42883',
+                );
             }
             if (match.length > 1) {
                 throw new QueryError(`function name "${fn.name.name}" is ambiguous`, '42725');
@@ -594,7 +620,6 @@ export class DbSchema implements _ISchema, ISchema {
             toRemove = fns[0];
         }
 
-
         this.fns.remove(toRemove);
     }
 
@@ -605,12 +630,9 @@ export class DbSchema implements _ISchema, ISchema {
         return this.ops.resolve(name, [left, right]);
     }
 
-
     async migrate(config?: IMigrate.MigrationParams) {
         await migrate(this, config);
     }
-
-
 
     interceptQueries(intercept: QueryInterceptor): ISubscription {
         const qi = { intercept } as const;
@@ -618,15 +640,14 @@ export class DbSchema implements _ISchema, ISchema {
         return {
             unsubscribe: () => {
                 this.interceptors.delete(qi);
-            }
+            },
         };
     }
 }
 
 class Explainer implements _Explainer {
     private sels = new Map<_ISelection, number>();
-    constructor(readonly transaction: _Transaction) {
-    }
+    constructor(readonly transaction: _Transaction) {}
 
     idFor(sel: _ISelection): string | number {
         if (sel.debugId) {
@@ -639,5 +660,4 @@ class Explainer implements _Explainer {
         this.sels.set(sel, id);
         return id;
     }
-
 }

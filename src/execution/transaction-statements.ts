@@ -4,9 +4,8 @@ import { CommitStatement, RollbackStatement, StartTransactionStatement, BeginSta
 import { ignore } from '../utils';
 
 export class CommitExecutor extends ExecHelper implements _IStatementExecutor {
-
     constructor(statement: CommitStatement) {
-        super(statement)
+        super(statement);
     }
 
     execute(t: _Transaction): StatementResult {
@@ -18,7 +17,6 @@ export class CommitExecutor extends ExecHelper implements _IStatementExecutor {
         }
         return this.noData(t, 'COMMIT');
     }
-
 }
 
 export class RollbackExecutor extends ExecHelper implements _IStatementExecutor {
@@ -32,7 +30,6 @@ export class RollbackExecutor extends ExecHelper implements _IStatementExecutor 
         return this.noData(t, 'ROLLBACK');
     }
 }
-
 
 export class BeginStatementExec extends ExecHelper implements _IStatementExecutor {
     constructor(statement: BeginStatement | StartTransactionStatement) {

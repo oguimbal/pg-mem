@@ -6,7 +6,6 @@ import { _IDb } from '../interfaces-private';
 import { DatabasePoolType, sql } from 'slonik';
 
 describe('slonik', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -21,18 +20,19 @@ describe('slonik', () => {
                         insert into data values ('str', '{"data": true}', 42, 'varchar')`);
     }
 
-
     it('can open select without arg', async () => {
         simpleDb();
         const pool = db.adapters.createSlonik() as DatabasePoolType;
         await pool.connect(async (connection) => {
             const got = await connection.query(sql`select * from data`);
-            assert.deepEqual(got.rows, [{
-                id: 'str',
-                data: { data: true } as any,
-                num: 42,
-                var: 'varchar',
-            }]);
+            assert.deepEqual(got.rows, [
+                {
+                    id: 'str',
+                    data: { data: true } as any,
+                    num: 42,
+                    var: 'varchar',
+                },
+            ]);
         });
     });
 
@@ -42,12 +42,14 @@ describe('slonik', () => {
         await pool.connect(async (connection) => {
             const str = 'str';
             const got = await connection.query(sql`select * from data where id=${str}`);
-            assert.deepEqual(got.rows, [{
-                id: 'str',
-                data: { data: true } as any,
-                num: 42,
-                var: 'varchar',
-            }]);
+            assert.deepEqual(got.rows, [
+                {
+                    id: 'str',
+                    data: { data: true } as any,
+                    num: 42,
+                    var: 'varchar',
+                },
+            ]);
         });
     });
 });

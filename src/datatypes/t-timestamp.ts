@@ -4,8 +4,6 @@ import { Evaluator } from '../evaluator';
 import moment from 'moment';
 
 export class TimestampType extends TypeBase<Date> {
-
-
     constructor(readonly primary: DataType, readonly precision: number | null = null) {
         super();
     }
@@ -32,17 +30,18 @@ export class TimestampType extends TypeBase<Date> {
             case DataType.timestamp:
                 return value;
             case DataType.date:
-                return value
-                    .setConversion(raw => moment.utc(raw).startOf('day').toDate()
-                        , toDate => ({ toDate }));
+                return value.setConversion(
+                    (raw) => moment.utc(raw).startOf('day').toDate(),
+                    (toDate) => ({ toDate }),
+                );
             case DataType.time:
-                return value
-                    .setConversion(raw => moment.utc(raw).format('HH:mm:ss') + '.000000'
-                        , toDate => ({ toDate }));
+                return value.setConversion(
+                    (raw) => moment.utc(raw).format('HH:mm:ss') + '.000000',
+                    (toDate) => ({ toDate }),
+                );
         }
         throw new Error('Unexpected cast error');
     }
-
 
     doCanBuildFrom(from: _IType) {
         switch (from.primary) {
@@ -57,31 +56,31 @@ export class TimestampType extends TypeBase<Date> {
             case DataType.text:
                 switch (this.primary) {
                     case DataType.timestamp:
-                        return value
-                            .setConversion(str => {
+                        return value.setConversion(
+                            (str) => {
                                 const conv = moment.utc(str);
                                 if (!conv.isValid()) {
                                     throw new QueryError(`Invalid timestamp format: ` + str);
                                 }
-                                return conv.toDate()
-                            }
-                                , toTs => ({ toTs }));
+                                return conv.toDate();
+                            },
+                            (toTs) => ({ toTs }),
+                        );
                     case DataType.date:
-                        return value
-                            .setConversion(str => {
+                        return value.setConversion(
+                            (str) => {
                                 const conv = moment.utc(str);
                                 if (!conv.isValid()) {
                                     throw new QueryError(`Invalid timestamp format: ` + str);
                                 }
                                 return conv.startOf('day').toDate();
-                            }
-                                , toDate => ({ toDate }));
+                            },
+                            (toDate) => ({ toDate }),
+                        );
                 }
         }
         return null;
     }
-
-
 
     doEquals(a: any, b: any): boolean {
         return Math.abs(moment(a).diff(moment(b))) < 0.1;

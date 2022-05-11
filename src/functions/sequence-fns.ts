@@ -17,7 +17,6 @@ function getSeq(id: RegClass) {
 }
 const lastVal = Symbol();
 export const sequenceFunctions: FunctionDefinition[] = [
-
     {
         name: 'nextval',
         args: [Types.regclass],
@@ -66,4 +65,4 @@ export const sequenceFunctions: FunctionDefinition[] = [
         },
         impure: true,
     },
-]
+];

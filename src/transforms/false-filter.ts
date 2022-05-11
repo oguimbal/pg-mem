@@ -2,7 +2,6 @@ import { _ISelection, IValue, _Explainer, _SelectExplanation, _Transaction, Stat
 import { FilterBase } from './transform-base';
 
 export class FalseFilter<T = any> extends FilterBase<T> {
-
     get index() {
         return null;
     }
@@ -22,7 +21,7 @@ export class FalseFilter<T = any> extends FilterBase<T> {
     stats(t: _Transaction): Stats | null {
         return {
             count: 0,
-        }
+        };
     }
 
     explain(e: _Explainer): _SelectExplanation {

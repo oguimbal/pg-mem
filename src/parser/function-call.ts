@@ -7,7 +7,6 @@ import { parseArrayLiteral, QName } from 'pgsql-ast-parser';
 import { asSingleQName, nullIsh, qnameToStr } from '../utils';
 import { buildCtx } from './context';
 
-
 export function buildCall(name: string | QName, args: IValue[]): IValue {
     let type: _IType | nil = null;
     let get: (...args: any[]) => any;
@@ -63,8 +62,8 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
                 }
                 throw new QueryError(`COALESCE types ${a.name} and ${b.type.name} cannot be matched`, '42804');
             }, args[0].type);
-            args = args.map(x => x.cast(type!));
-            get = (...args: any[]) => args.find(x => !nullIsh(x));
+            args = args.map((x) => x.cast(type!));
+            get = (...args: any[]) => args.find((x) => !nullIsh(x));
             break;
         default:
             // try to find a matching custom function overloads
@@ -78,30 +77,30 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
                 acceptNulls = !!resolved.allowNullArguments;
             }
             break;
-
     }
     if (!get!) {
         throw new QueryError({
-            error: `function ${qnameToStr(name)}(${args.map(a => a.type.name).join(',')}) does not exist`,
+            error: `function ${qnameToStr(name)}(${args.map((a) => a.type.name).join(',')}) does not exist`,
             hint: `🔨 Please note that pg-mem implements very few native functions.
 
-            👉 You can specify the functions you would like to use via "db.public.registerFunction(...)"`
-        })
+            👉 You can specify the functions you would like to use via "db.public.registerFunction(...)"`,
+        });
     }
     return new Evaluator(
-        type ?? Types.null
-        , null
-        , hash({ call: name, args: args.map(x => x.hash) })
-        , args
-        , (raw, t) => {
-            const argRaw = args.map(x => x.get(raw, t));
+        type ?? Types.null,
+        null,
+        hash({ call: name, args: args.map((x) => x.hash) }),
+        args,
+        (raw, t) => {
+            const argRaw = args.map((x) => x.get(raw, t));
             if (!acceptNulls && argRaw.some(nullIsh)) {
                 return null;
             }
             return get(...argRaw);
-        }, impure ? { unpure: impure } : undefined);
+        },
+        impure ? { unpure: impure } : undefined,
+    );
 }
-
 
 function buildAnyCall(args: IValue[]) {
     if (args.length !== 1) {
@@ -112,14 +111,14 @@ function buildAnyCall(args: IValue[]) {
     // == if ANY(select something) ... get the element type
     if (array.type instanceof ArrayType) {
         return new Evaluator(
-            array.type.of
-            , null
-            , hash({ any: array.hash })
-            , args
-            , (raw, t) => {
+            array.type.of,
+            null,
+            hash({ any: array.hash }),
+            args,
+            (raw, t) => {
                 return array.get(raw, t);
-            }
-            , { isAny: true } // <== isAny !
+            },
+            { isAny: true }, // <== isAny !
         );
     }
 
@@ -131,11 +130,11 @@ function buildAnyCall(args: IValue[]) {
     // parse ANY() array literal
     const arrayValue = parseArrayLiteral(array.get());
     return new Evaluator(
-        Types.text()
-        , null
-        , hash({ any: array.hash })
-        , args
-        , arrayValue
-        , { isAny: true } // <== isAny !
+        Types.text(),
+        null,
+        hash({ any: array.hash }),
+        args,
+        arrayValue,
+        { isAny: true }, // <== isAny !
     );
 }

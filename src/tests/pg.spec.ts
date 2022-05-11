@@ -5,7 +5,6 @@ import { assert, expect } from 'chai';
 import { _IDb } from '../interfaces-private';
 
 describe('pg', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -26,12 +25,14 @@ describe('pg', () => {
         const client = new Client();
         await client.connect();
         const got = await client.query('select * from data');
-        assert.deepEqual(got.rows, [{
-            id: 'str',
-            data: { data: true },
-            num: 42,
-            var: 'varchar',
-        }]);
+        assert.deepEqual(got.rows, [
+            {
+                id: 'str',
+                data: { data: true },
+                num: 42,
+                var: 'varchar',
+            },
+        ]);
         await client.end();
     });
 
@@ -41,12 +42,14 @@ describe('pg', () => {
         const client = new Client();
         await client.connect();
         const got = await client.query('select * from data where id = $1', ['str']);
-        assert.deepEqual(got.rows, [{
-            id: 'str',
-            data: { data: true },
-            num: 42,
-            var: 'varchar',
-        }]);
+        assert.deepEqual(got.rows, [
+            {
+                id: 'str',
+                data: { data: true },
+                num: 42,
+                var: 'varchar',
+            },
+        ]);
         await client.end();
     });
 
@@ -56,12 +59,14 @@ describe('pg', () => {
         const client = new Client();
         client.connect();
         client.query('select * from data where id = $1', ['str'], (err: any, res: any) => {
-            assert.deepEqual(res.rows, [{
-                id: 'str',
-                data: { data: true },
-                num: 42,
-                var: 'varchar',
-            }]);
+            assert.deepEqual(res.rows, [
+                {
+                    id: 'str',
+                    data: { data: true },
+                    num: 42,
+                    var: 'varchar',
+                },
+            ]);
             client.end();
             done();
         });
@@ -103,7 +108,6 @@ describe('pg', () => {
         await client.end();
     });
 
-
     it('supports .toPosgres() on query args', async () => {
         // see
         simpleDb();
@@ -112,16 +116,18 @@ describe('pg', () => {
         await client.connect();
         const complexValue = {
             toPostgres() {
-                return 'str'
+                return 'str';
             },
         };
         const got = await client.query('select * from data where id = $1', [complexValue]);
-        assert.deepEqual(got.rows, [{
-            id: 'str',
-            data: { data: true },
-            num: 42,
-            var: 'varchar',
-        }]);
+        assert.deepEqual(got.rows, [
+            {
+                id: 'str',
+                data: { data: true },
+                num: 42,
+                var: 'varchar',
+            },
+        ]);
         await client.end();
     });
 });

@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 
 describe('pg-promise', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -20,17 +19,18 @@ describe('pg-promise', () => {
                         insert into data values ('str', '{"data": true}', 42, 'varchar')`);
     }
 
-
     it('can open connection', async () => {
         simpleDb();
         const pgp = db.adapters.createPgPromise();
         const got = await pgp.any('select * from data');
-        assert.deepEqual(got, [{
-            id: 'str',
-            data: { data: true },
-            num: 42,
-            var: 'varchar',
-        }]);
+        assert.deepEqual(got, [
+            {
+                id: 'str',
+                data: { data: true },
+                num: 42,
+                var: 'varchar',
+            },
+        ]);
     });
 
     it('can execute begin', async () => {

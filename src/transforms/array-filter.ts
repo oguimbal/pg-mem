@@ -2,7 +2,6 @@ import { FilterBase } from './transform-base';
 import { _ISelection, _Explainer, _SelectExplanation, _Transaction, Stats } from '../interfaces-private';
 
 export class ArrayFilter<T = any> extends FilterBase<T> {
-
     get index() {
         return null;
     }
@@ -38,6 +37,6 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
             id: e.idFor(this),
             _: 'constantSet',
             rawArrayLen: this.rows.length,
-        }
+        };
     }
 }

@@ -3,7 +3,6 @@ import moment from 'moment';
 import { DataType, QueryError } from '../interfaces-private';
 import { nullIsh } from '../utils';
 
-
 export const dateFunctions: FunctionDefinition[] = [
     {
         name: 'to_date',
@@ -18,7 +17,7 @@ export const dateFunctions: FunctionDefinition[] = [
                 throw new QueryError(`The text '${data}' does not match the date format ${format}`);
             }
             return ret.toDate();
-        }
+        },
     },
     {
         name: 'now',

@@ -4,7 +4,6 @@ import { CastError, DataType, nil, QueryError } from '../interfaces';
 import { _ISchema, _IType } from '../interfaces-private';
 
 export class CustomEnumType extends TypeBase<string> {
-
     get primary(): DataType {
         return this.name as any;
     }
@@ -13,9 +12,7 @@ export class CustomEnumType extends TypeBase<string> {
         return this._name;
     }
 
-    constructor(readonly schema: _ISchema
-        , private readonly _name: string
-        , readonly values: string[]) {
+    constructor(readonly schema: _ISchema, private readonly _name: string, readonly values: string[]) {
         super();
     }
 
@@ -40,13 +37,14 @@ export class CustomEnumType extends TypeBase<string> {
     }
 
     doBuildFrom(value: Evaluator<string>, from: _IType<string>): Evaluator<string> | nil {
-        return value
-            .setConversion((raw: string) => {
+        return value.setConversion(
+            (raw: string) => {
                 if (!this.values.includes(raw)) {
                     throw new QueryError(`invalid input value for enum ${this.name}: "${raw}"`);
                 }
                 return raw;
-            }
-                , conv => ({ conv, toCenum: this.name }))
+            },
+            (conv) => ({ conv, toCenum: this.name }),
+        );
     }
 }

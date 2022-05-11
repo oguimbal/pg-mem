@@ -5,7 +5,6 @@ import { Evaluator } from '../evaluator';
 import { intervalToSec } from '../utils';
 
 export class IntervalType extends TypeBase<Interval> {
-
     get primary(): DataType {
         return DataType.interval;
     }
@@ -21,12 +20,13 @@ export class IntervalType extends TypeBase<Interval> {
     doBuildFrom(value: Evaluator, from: _IType): Evaluator<Interval> | nil {
         switch (from.primary) {
             case DataType.text:
-                return value
-                    .setConversion(str => {
+                return value.setConversion(
+                    (str) => {
                         const conv = normalizeInterval(parseIntervalLiteral(str));
                         return conv;
-                    }
-                        , toInterval => ({ toInterval }));
+                    },
+                    (toInterval) => ({ toInterval }),
+                );
         }
         return null;
     }
