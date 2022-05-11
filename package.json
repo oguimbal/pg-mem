@@ -13,6 +13,7 @@
     "build:playground": "webpack --config playground.webpack.config.js --prod",
     "release:playground": "npm run build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",
     "typecheck": "tsc --project tsconfig.json --noEmit",
+    "prettier": "prettier --write src/**/*.ts .github/**/*.yml readme.md",
     "test": "mochapack src/**/*.spec.ts",
     "build:deno": "node ./deno-transpile.js --copy && node ./deno-transpile.js --process",
     "cover": "cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text npm run test"
@@ -84,6 +85,7 @@
     "nyc": "^15.1.0",
     "pg": "^8.5.1",
     "pg-promise": "^10.8.7",
+    "prettier": "^2.6.2",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-hot-loader": "^4.12.21",
@@ -106,10 +108,10 @@
     "webpack-node-externals": "^1.7.2"
   },
   "peerDependencies": {
+    "knex": ">=0.20",
     "pg-promise": ">=10.8.7",
-    "typeorm": ">=0.2.29",
     "slonik": ">=23.0.1",
-    "knex": ">=0.20"
+    "typeorm": ">=0.2.29"
   },
   "peerDependenciesMeta": {
     "pg-promise": {
