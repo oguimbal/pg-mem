@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
 
 describe('Views', () => {
-
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
@@ -25,22 +24,39 @@ describe('Views', () => {
 
     it('can create simple view', () => {
         people();
-        expect(many(`create view minors as select name from people where age < 18;
-            select * from minors`))
-            .to.deep.equal([
-                { name: 'kevin' },
-                { name: 'lea' },
-            ]);
+        expect(
+            many(`create view minors as select name from people where age < 18;
+            select * from minors`),
+        ).to.deep.equal([{ name: 'kevin' }, { name: 'lea' }]);
     });
-
 
     it('can create view with column names', () => {
         people();
-        expect(many(`create view minors(nm) as select name, age from people where age < 18;
-            select * from minors`))
-            .to.deep.equal([
-                { nm: 'kevin', age: 14 },
-                { nm: 'lea', age: 10 },
-            ]);
+        expect(
+            many(`create view minors(nm) as select name, age from people where age < 18;
+            select * from minors`),
+        ).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 10 },
+        ]);
+    });
+
+    it('can update view with new rows', () => {
+        people();
+        expect(
+            many(`create view minors(nm) as select name, age from people where age < 18;
+              select * from minors`),
+        ).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 10 },
+        ]);
+
+        none(`insert into people values ('victor', 3, 'en');`);
+
+        expect(many(`select * from minors`)).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 10 },
+            { nm: 'victor', age: 3 },
+        ]);
     });
 });
