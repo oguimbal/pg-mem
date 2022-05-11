@@ -40,4 +40,41 @@ describe('Views', () => {
             { nm: 'lea', age: 10 },
         ]);
     });
+
+    it('can update view with new rows', () => {
+        people();
+        expect(
+            many(`create view minors(nm) as select name, age from people where age < 18;
+              select * from minors`),
+        ).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 10 },
+        ]);
+
+        none(`insert into people values ('victor', 3, 'en');`);
+
+        expect(many(`select * from minors`)).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 10 },
+            { nm: 'victor', age: 3 },
+        ]);
+    });
+
+    it('can update view with updated rows', () => {
+        people();
+        expect(
+            many(`create view minors(nm) as select name, age from people where age < 18;
+            select * from minors`),
+        ).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 10 },
+        ]);
+
+        none(`update "people" SET "age" = 12 WHERE "name" = 'lea';`);
+
+        expect(many(`select * from minors`)).to.deep.equal([
+            { nm: 'kevin', age: 14 },
+            { nm: 'lea', age: 12 },
+        ]);
+    });
 });
