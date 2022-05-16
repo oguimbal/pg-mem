@@ -1,7 +1,7 @@
 import { Evaluator } from '../evaluator.ts';
 import { TypeBase } from './datatype-base.ts';
 import { CastError, DataType, nil, QueryError } from '../interfaces.ts';
-import { _ISchema, _IType } from '../interfaces-private.ts';
+import { _ISchema, _IType, _Transaction } from '../interfaces-private.ts';
 
 export class CustomEnumType extends TypeBase<string> {
 
@@ -48,5 +48,10 @@ export class CustomEnumType extends TypeBase<string> {
                 return raw;
             }
                 , conv => ({ conv, toCenum: this.name }))
+    }
+
+
+    drop(t: _Transaction): void {
+        this.schema._unregisterType(this);
     }
 }

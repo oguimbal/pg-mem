@@ -2,7 +2,7 @@ import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, Schema
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private.ts';
 import { asSingleQName, isType, parseRegClass, randomString, schemaOf } from '../utils.ts';
 import { typeSynonyms } from '../datatypes/index.ts';
-import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { MemoryTable } from '../table.ts';
 import { parseSql } from '../parser/parse-cache.ts';
 import { IMigrate } from '../migrate/migrate-interfaces.ts';
@@ -423,6 +423,12 @@ export class DbSchema implements _ISchema, ISchema {
         }
         this.simpleTypes[type.primary] = type;
         this._reg_register(type);
+        return this;
+    }
+
+    _unregisterType(type: _IType): this {
+        delete this.simpleTypes[type.primary];
+        this._reg_unregister(type);
         return this;
     }
 

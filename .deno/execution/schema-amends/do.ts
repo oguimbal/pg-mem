@@ -1,5 +1,5 @@
 import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, CompiledFunction } from '../../interfaces-private.ts';
-import { DoStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { DoStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { ExecHelper } from '../../execution/exec-utils.ts';
 
 export class DoStatementExec extends ExecHelper implements _IStatementExecutor {

@@ -1,6 +1,6 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils.ts';
 import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private.ts';
-import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { ExecuteCreateTable } from './schema-amends/create-table.ts';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence.ts';
 import { locOf, ExecHelper } from './exec-utils.ts';
@@ -22,6 +22,7 @@ import { CreateFunction } from './schema-amends/create-function.ts';
 import { DoStatementExec } from './schema-amends/do.ts';
 import { SelectExec } from './select.ts';
 import { withSelection, withStatement, withNameResolver, INameResolver } from '../parser/context.ts';
+import { DropType } from './schema-amends/drop-type.ts';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -99,6 +100,8 @@ export class StatementExec implements _IStatement {
                 return new DropTable(this, p);
             case 'drop sequence':
                 return new DropSequence(this, p);
+            case 'drop type':
+                return new DropType(this, p);
             case 'show':
                 return new ShowExecutor(p);
             case 'set':
