@@ -1,23 +1,23 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex, _ITable, asTable } from '../../interfaces-private.ts';
-import { DropTableStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { DropStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
-import { ignore } from '../../utils.ts';
+import { ignore, notNil } from '../../utils.ts';
 
 export class DropTable extends ExecHelper implements _IStatementExecutor {
-    private table: _ITable | null;
+    private tables: _ITable[];
     private cascade: boolean;
 
 
-    constructor({ schema }: _IStatement, statement: DropTableStatement) {
+    constructor({ schema }: _IStatement, statement: DropStatement) {
         super(statement);
 
-        this.table = asTable(schema.getObject(statement.name, {
+        this.tables = notNil(statement.names.map(x => asTable(schema.getObject(x, {
             nullIfNotFound: statement.ifExists,
-        }));
+        }))));
 
         this.cascade = statement.cascade === 'cascade';
 
-        if (!this.table) {
+        if (!this.tables.length) {
             ignore(statement);
         }
     }
@@ -28,7 +28,9 @@ export class DropTable extends ExecHelper implements _IStatementExecutor {
         t = t.fullCommit();
 
         // drop table
-        this.table?.drop(t, this.cascade);
+        for (const table of this.tables) {
+            table.drop(t, this.cascade);
+        }
 
         // new implicit transaction
         t = t.fork();

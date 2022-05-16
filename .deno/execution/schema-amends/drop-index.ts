@@ -1,20 +1,20 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asIndex, _INamedIndex } from '../../interfaces-private.ts';
-import { DropIndexStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { DropStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
-import { ignore } from '../../utils.ts';
+import { ignore, notNil } from '../../utils.ts';
 
 export class DropIndex extends ExecHelper implements _IStatementExecutor {
-    private idx: _INamedIndex<any> | null;
+    private idx: _INamedIndex<any>[];
 
 
-    constructor({ schema }: _IStatement, statement: DropIndexStatement) {
+    constructor({ schema }: _IStatement, statement: DropStatement) {
         super(statement);
 
-        this.idx = asIndex(schema.getObject(statement.name, {
+        this.idx = notNil(statement.names.map(x => asIndex(schema.getObject(x, {
             nullIfNotFound: statement.ifExists,
-        }));
+        }))));
 
-        if (this.idx) {
+        if (this.idx.length) {
             ignore(statement.concurrently);
         } else {
             ignore(statement);
@@ -27,7 +27,9 @@ export class DropIndex extends ExecHelper implements _IStatementExecutor {
         t = t.fullCommit();
 
         // alter the sequence
-        this.idx?.onTable.dropIndex(t, this.idx.name);
+        for (const idx of this.idx) {
+            idx.onTable.dropIndex(t, idx.name);
+        }
 
         // new implicit transaction
         t = t.fork();

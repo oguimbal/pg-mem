@@ -1,5 +1,5 @@
 import { _ITable, _Transaction, IValue, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private.ts';
-import { DeleteStatement } from 'https://deno.land/x/pgsql_ast_parser@10.0.5/mod.ts';
+import { DeleteStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { MutationDataSourceBase } from './mutation-base.ts';
 import { buildCtx } from '../../parser/context.ts';
 
