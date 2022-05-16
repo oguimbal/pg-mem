@@ -22,6 +22,7 @@ import { CreateFunction } from './schema-amends/create-function';
 import { DoStatementExec } from './schema-amends/do';
 import { SelectExec } from './select';
 import { withSelection, withStatement, withNameResolver, INameResolver } from '../parser/context';
+import { DropType } from './schema-amends/drop-type';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -99,6 +100,8 @@ export class StatementExec implements _IStatement {
                 return new DropTable(this, p);
             case 'drop sequence':
                 return new DropSequence(this, p);
+            case 'drop type':
+                return new DropType(this, p);
             case 'show':
                 return new ShowExecutor(p);
             case 'set':

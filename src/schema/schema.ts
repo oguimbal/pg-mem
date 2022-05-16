@@ -426,6 +426,12 @@ export class DbSchema implements _ISchema, ISchema {
         return this;
     }
 
+    _unregisterType(type: _IType): this {
+        delete this.simpleTypes[type.primary];
+        this._reg_unregister(type);
+        return this;
+    }
+
 
     _reg_register(rel: _IRelation): Reg {
         if (this.readonly) {

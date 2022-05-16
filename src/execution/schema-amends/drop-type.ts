@@ -1,18 +1,18 @@
-import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq } from '../../interfaces-private';
+import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq, asType, _IType } from '../../interfaces-private';
 import { DropStatement } from 'pgsql-ast-parser';
 import { ExecHelper } from '../exec-utils';
 import { ignore, notNil } from '../../utils';
 
-export class DropSequence extends ExecHelper implements _IStatementExecutor {
-    private seqs: _ISequence[];
+export class DropType extends ExecHelper implements _IStatementExecutor {
+    private types: _IType[];
 
     constructor({ schema }: _IStatement, statement: DropStatement) {
         super(statement);
 
-        this.seqs = notNil(statement.names.map(x => asSeq(schema.getObject(x, {
+        this.types = notNil(statement.names.map(x => asType(schema.getObject(x, {
             nullIfNotFound: statement.ifExists,
         }))));
-        if (!this.seqs.length) {
+        if (!this.types.length) {
             ignore(statement);
         }
     }
@@ -23,7 +23,7 @@ export class DropSequence extends ExecHelper implements _IStatementExecutor {
         t = t.fullCommit();
 
         // drop the sequence
-        for (const seq of this.seqs) {
+        for (const seq of this.types) {
             seq.drop(t);
         }
 
