@@ -84,6 +84,7 @@ export interface _ISchema extends ISchema {
 
     _registerTypeSizeable(name: string, type: (sz?: number) => _IType): this;
     _registerType(type: _IType): this;
+    _unregisterType(type: _IType): this;
 
     _reg_register(rel: _IRelation): Reg;
     _reg_unregister(rel: _IRelation): void;

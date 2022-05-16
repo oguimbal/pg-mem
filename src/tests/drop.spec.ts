@@ -39,6 +39,30 @@ describe('Drop', () => {
         assert.throws(() => none(`SELECT  nextval('public."test"')`), /relation "test" does not exist/);
     });
 
+
+    it('can drop type', () => {
+        none(`create type test as enum ('a', 'b');
+            drop type test;`);
+    });
+
+    it('ignores drop type if not exists', () => {
+        none(`drop type if exists test;`);
+    });
+
+    it('fails to drop type if not exists', () => {
+        assert.throws(() => none(`drop type test;`), /"test" does not exist/);
+    })
+
+
+    // todo: register where types have been used, and drop if any usage.
+    it.skip('fails to drop type if used', () => {
+        none(`create type test as enum ('a', 'b');
+            create table test_table(val test);
+        `);
+        assert.throws(() => none(`drop type test`), /annot drop type test because other objects depend on it/);
+    });
+
+
     it('cannot drop sequence when exists but is not a sequence', () => {
         none(`create table test(a text)`);
         assert.throws(() => none(`drop sequence test;`), /"test" is not a sequence/);
