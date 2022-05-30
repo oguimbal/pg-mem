@@ -78,7 +78,7 @@
     "istanbul-instrumenter-loader": "^3.0.1",
     "knex": "^0.21.15",
     "mocha": "^8.0.1",
-    "mochapack": "^2.0.3",
+    "mochapack": "^2.0.6",
     "monaco-editor": "^0.20.0",
     "monaco-editor-webpack-plugin": "^1.9.0",
     "nyc": "^15.1.0",
