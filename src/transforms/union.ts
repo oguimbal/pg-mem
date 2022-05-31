@@ -43,6 +43,10 @@ class Union<T = any> extends DataSourceBase<T> {
         return false;
     }
 
+    isAggregation() {
+        return false;
+    }
+
     readonly columns: ReadonlyArray<IValue<any>>;
     private readonly colsByName = new Map<string, IValue>();
 

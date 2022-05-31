@@ -1,12 +1,12 @@
 import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private';
-import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils';
-import { DataType, CastError, QueryError, IType, NotSupported, nil, ColumnNotFound } from '../interfaces';
+import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils';
+import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType, RecordCol } from '../datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'pgsql-ast-parser';
+import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../datatypes';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
-import { aggregationFunctions, Aggregation, getAggregator } from '../transforms/aggregation';
+import { aggregationFunctions, getAggregator } from '../transforms/aggregation';
 import moment from 'moment';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results';
 import { buildCtx } from './context';
@@ -49,7 +49,7 @@ function _buildValue(val: Expr): IValue {
         }
     }
     got = _buildValueReal(val);
-    if (data instanceof Aggregation) {
+    if (data.isAggregation()) {
         got = data.checkIfIsKey(got);
     }
     if (!selLru) {

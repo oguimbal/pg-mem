@@ -177,8 +177,6 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
         const by = o.by.type === 'ref' && !o.by.table && aliases.get(o.by.name);
         return by ? { ...o, by } : null;
     });
-    // order selection
-    sel = sel.orderBy(orderBy);
 
 
     if (p.groupBy) {
@@ -186,21 +184,26 @@ function buildRawSelect(p: SelectFromStatement): _ISelection {
             const group = o.type === 'ref' && !o.table && !sel?.getColumn(o.name, true) && aliases.get(o.name);
             return group || null;
         });
-        sel = sel.groupBy(groupBy, p.columns!);
+        sel = sel.groupBy(groupBy);
+    }
 
-        // when grouping by, distinct is handled after selection
-        //  => can distinct on key, or selected
-        if (Array.isArray(p.distinct)) {
-            sel = sel.distinct(p.distinct);
-        }
-    } else {
-        // when not grouping by, distinct is handled before
-        // selection => can distinct on non selected values
-        if (Array.isArray(p.distinct)) {
-            sel = sel.distinct(p.distinct);
-        }
+    // order selection
+    sel = sel.orderBy(orderBy);
 
-        sel = sel.select(p.columns!);
+    // when not grouping by, distinct is handled before
+    // selection => can distinct on non selected values
+    if (!p.groupBy && Array.isArray(p.distinct)) {
+        sel = sel.distinct(p.distinct);
+    }
+
+    // select columns
+    sel = sel.select(p.columns!);
+
+
+    // when grouping by, distinct is handled after selection
+    //  => can distinct on key, or selected
+    if (p.groupBy && Array.isArray(p.distinct)) {
+        sel = sel.distinct(p.distinct);
     }
 
     // handle 'distinct' on result set

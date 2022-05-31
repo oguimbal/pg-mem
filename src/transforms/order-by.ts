@@ -1,6 +1,6 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
+import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IAggregation } from '../interfaces-private';
 import { FilterBase } from './transform-base';
-import { OrderByStatement } from 'pgsql-ast-parser';
+import { OrderByStatement, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { nullIsh } from '../utils';
 import { withSelection } from '../parser/context';
@@ -9,7 +9,7 @@ export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {
     return new OrderBy(on, order);
 }
 
-class OrderBy<T> extends FilterBase<any> {
+class OrderBy<T> extends FilterBase<any> implements _IAggregation {
     order: {
         by: IValue<any>;
         order: 'ASC' | 'DESC';
@@ -18,6 +18,26 @@ class OrderBy<T> extends FilterBase<any> {
 
     get index() {
         return null;
+    }
+
+    isAggregation() {
+        return this.selection.isAggregation();
+    }
+
+    getAggregation(name: string, call: ExprCall): IValue {
+        return this.asAggreg.getAggregation(name, call);
+    }
+
+    checkIfIsKey(got: IValue<any>): IValue<any> {
+        return this.asAggreg.checkIfIsKey(got);
+    }
+
+    private get asAggreg(): _IAggregation {
+
+        if (!this.selection.isAggregation()) {
+            throw new Error('Not an aggregation');
+        }
+        return this.selection;
     }
 
     entropy(t: _Transaction) {

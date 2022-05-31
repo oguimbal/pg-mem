@@ -26,6 +26,10 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return !this.returning;
     }
 
+    isAggregation() {
+        return false;
+    }
+
     get columns() {
         return this.returning?.columns ?? [];
     }

@@ -1,10 +1,10 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private';
-import { QueryError, ColumnNotFound, DataType, CastError, Schema, NotSupported, AmbiguousColumn, SchemaField, nil, typeDefToStr } from '../interfaces';
+import { QueryError, ColumnNotFound, AmbiguousColumn, nil } from '../interfaces';
 import { buildValue } from '../parser/expression-builder';
 import { Evaluator } from '../evaluator';
 import { TransformBase } from './transform-base';
-import { SelectedColumn, CreateColumnDef, ExprCall, Expr, astVisitor, ExprRef } from 'pgsql-ast-parser';
-import { Aggregation, aggregationFunctions, buildGroupBy } from './aggregation';
+import { SelectedColumn, Expr, astVisitor, ExprRef } from 'pgsql-ast-parser';
+import { aggregationFunctions, buildGroupBy } from './aggregation';
 
 import { asSingleQName, colByName, colToStr, isSelectAllArgList, suggestColumnName } from '../utils';
 import { withSelection } from '../parser/context';
@@ -24,9 +24,9 @@ export function buildSelection(on: _ISelection, select: SelectedColumn[] | nil) 
     // if there is any aggregation function
     // check if there is any aggregation
     for (const col of select ?? []) {
-        if (!(on instanceof Aggregation) && 'expr' in col && hasAggreg(col.expr)) {
+        if (!on.isAggregation() && 'expr' in col && hasAggreg(col.expr)) {
             // yea, there is an aggregation somewhere in selection
-            return buildGroupBy(on, [], select);
+            return buildGroupBy(on, []).select(select);
         }
     }
 
@@ -120,6 +120,10 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
     private symbol = Symbol();
 
     readonly columns: IValue[] = [];
+
+    isAggregation() {
+        return false;
+    }
 
 
     constructor(base: _ISelection, _columns: (SelectedColumn | CustomAlias)[]) {

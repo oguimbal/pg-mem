@@ -148,4 +148,13 @@ describe('Group-by', () => {
         // group on alias is just a trick... you cannot use them in actual computations.
         assert.throws(() => many(`SELECT field aliased FROM test GROUP BY  -aliased`), /column "aliased" does not exist/);
     });
+
+    it('can order-by a sum', () => {
+        expect(many(`CREATE TABLE test(name text, field int);
+            INSERT INTO test values ('b', 3), ('a', 1), ('a', 1), ('a', 1), ('a', 1),('c', 2);
+
+            SELECT name FROM test GROUP BY name ORDER BY SUM(field) DESC;
+            `))
+            .to.deep.equal(['a', 'b', 'c'].map(name => ({ name })));
+    })
 });

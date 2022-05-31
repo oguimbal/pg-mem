@@ -1,5 +1,5 @@
 import { TransformBase } from './transform-base';
-import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId } from '../interfaces-private';
+import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId, _IAggregation } from '../interfaces-private';
 import { SelectedColumn, Expr, ExprRef, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces';
@@ -34,25 +34,25 @@ export const aggregationFunctions = new Set([
     'xmlagg',
 ])
 
-export function buildGroupBy(on: _ISelection, groupBy: Expr[], select: SelectedColumn[]) {
+export function buildGroupBy(on: _ISelection, groupBy: Expr[]) {
     const agg = new Aggregation(on, groupBy);
-    return agg.select(select);
+    return agg;
 }
 
 let idCnt = 0;
 
-export function getAggregator(): Aggregation<unknown> | null {
+export function getAggregator(): _IAggregation | null {
     const on = buildCtx().selection;
     if (!on) {
         return null;
     }
-    if (on instanceof Aggregation) {
+    if (on.isAggregation()) {
         return on;
     }
     if (!(on instanceof Selection)) {
         return null;
     }
-    if (!(on.base instanceof Aggregation)) {
+    if (!(on.base.isAggregation())) {
         return null;
     }
     return on.base;
@@ -60,7 +60,7 @@ export function getAggregator(): Aggregation<unknown> | null {
 
 type AggregItem = any;
 
-export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
+export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, _IAggregation {
 
     columns: readonly IValue<any>[];
     /**
@@ -82,6 +82,10 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
 
     /** How to get the grouped values on "this.enumerate()" raw items output */
     private groupByMapping = new Map<string, IValue>();
+
+    isAggregation() {
+        return true;
+    }
 
     constructor(on: _ISelection, _groupedBy: Expr[]) {
         super(on);
@@ -287,7 +291,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T> {
         }
         const got = this._getAggregation(name, call);
 
-        const id = Symbol();
+        const id = Symbol(name);
         const getter = new Evaluator(
             got.type
             , null

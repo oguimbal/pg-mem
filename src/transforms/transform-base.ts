@@ -39,6 +39,9 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
     abstract isOriginOf(a: IValue<any>): boolean;
     abstract stats(t: _Transaction): Stats | null;
     abstract get isExecutionWithNoResult(): boolean
+    isAggregation(): boolean {
+        return false;
+    }
     // abstract get name(): string;
 
 
@@ -85,11 +88,11 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
         return plan;
     }
 
-    groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection {
+    groupBy(grouping: Expr[] | nil): _ISelection {
         if (!grouping?.length) {
             return this;
         }
-        const plan = fns.buildGroupBy(this, grouping, select);
+        const plan = fns.buildGroupBy(this, grouping);
         return plan;
     }
 
@@ -145,6 +148,9 @@ export abstract class TransformBase<T> extends DataSourceBase<T> {
 
 export abstract class FilterBase<T> extends TransformBase<T> {
 
+    isAggregation(): boolean {
+        return false;
+    }
 
     constructor(_base: _ISelection<T>) {
         super(_base);
