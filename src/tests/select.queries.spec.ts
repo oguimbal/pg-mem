@@ -309,6 +309,31 @@ describe('Selections', () => {
         `), /table "test" has 3 columns available but 4 columns specified/);
     });
 
+    it('cannot select non-existent column', () => {
+        assert.throws(() => many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select bogus from test;
+        `), /column "bogus" does not exist/);
+    });
+
+    it('cannot select non-existent column with ORDER BY', () => {
+        assert.throws(() => many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select bogus from test ORDER BY value;
+        `), /column "bogus" does not exist/);
+    });
+
+    it('this should not pass: select non-existent column with ORDER BY', () => {
+        expect(many(`
+        create table test(id text, name text, value text);
+        insert into test values ('id', 'name', 'value');
+        select bogus from test ORDER BY value;
+        `)).to.deep.equal([
+            { bogus: { id: 'id', name: 'name', value: 'value' } },
+        ]);
+    });
 
     it('cannot use default in expression', () => {
         assert.throws(() => many(`values (1, default)`), /DEFAULT is not allowed in this context/);
