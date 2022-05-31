@@ -1,6 +1,6 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
+import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IAggregation } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
-import { OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { OrderByStatement, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { nullIsh } from '../utils.ts';
 import { withSelection } from '../parser/context.ts';
@@ -9,7 +9,7 @@ export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {
     return new OrderBy(on, order);
 }
 
-class OrderBy<T> extends FilterBase<any> {
+class OrderBy<T> extends FilterBase<any> implements _IAggregation {
     order: {
         by: IValue<any>;
         order: 'ASC' | 'DESC';
@@ -18,6 +18,26 @@ class OrderBy<T> extends FilterBase<any> {
 
     get index() {
         return null;
+    }
+
+    isAggregation() {
+        return this.selection.isAggregation();
+    }
+
+    getAggregation(name: string, call: ExprCall): IValue {
+        return this.asAggreg.getAggregation(name, call);
+    }
+
+    checkIfIsKey(got: IValue<any>): IValue<any> {
+        return this.asAggreg.checkIfIsKey(got);
+    }
+
+    private get asAggreg(): _IAggregation {
+
+        if (!this.selection.isAggregation()) {
+            throw new Error('Not an aggregation');
+        }
+        return this.selection;
     }
 
     entropy(t: _Transaction) {

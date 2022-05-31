@@ -12,6 +12,7 @@ import { sqlSubstring } from '../../parser/expression-builder.ts';
 import { PgDatabaseTable } from './pg-database.ts';
 import { registerCommonOperators } from './binary-operators.ts';
 import { registerSqlFunctionLanguage } from './sql-function-language.ts';
+import { TableConstraint } from './pg-table-constraint.ts';
 
 
 export function setupPgCatalog(db: _IDb) {
@@ -52,6 +53,7 @@ export function setupPgCatalog(db: _IDb) {
     new PgTypeTable(catalog).register();
     new PgRange(catalog).register();
     new PgDatabaseTable(catalog).register();
+    new TableConstraint(catalog).register();
 
 
     // this is an ugly hack...

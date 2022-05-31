@@ -1,12 +1,12 @@
 import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private.ts';
-import { queryJson, buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils.ts';
-import { DataType, CastError, QueryError, IType, NotSupported, nil, ColumnNotFound } from '../interfaces.ts';
+import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils.ts';
+import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from '../evaluator.ts';
-import { Types, isNumeric, isInteger, reconciliateTypes, ArrayType, isDateType, RecordCol } from '../datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, parseIntervalLiteral, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../datatypes/index.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
-import { aggregationFunctions, Aggregation, getAggregator } from '../transforms/aggregation.ts';
+import { aggregationFunctions, getAggregator } from '../transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results.ts';
 import { buildCtx } from './context.ts';
@@ -49,7 +49,7 @@ function _buildValue(val: Expr): IValue {
         }
     }
     got = _buildValueReal(val);
-    if (data instanceof Aggregation) {
+    if (data.isAggregation()) {
         got = data.checkIfIsKey(got);
     }
     if (!selLru) {

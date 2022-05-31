@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { Map as ImMap, Record, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -170,6 +170,11 @@ export interface Stats {
     count: number;
 }
 
+export interface _IAggregation {
+    checkIfIsKey(got: IValue): IValue;
+    getAggregation(name: string, call: ExprCall): IValue;
+}
+
 export interface _ISelection<T = any> extends _IAlias {
     readonly debugId?: string;
 
@@ -179,6 +184,8 @@ export interface _ISelection<T = any> extends _IAlias {
     readonly isExecutionWithNoResult: boolean;
     /** Column list (those visible when select *) */
     readonly columns: ReadonlyArray<IValue>;
+    /** True when this is an aggregation being built */
+    isAggregation(): this is _IAggregation;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
     enumerate(t: _Transaction): Iterable<T>;
@@ -195,7 +202,7 @@ export interface _ISelection<T = any> extends _IAlias {
     filter(where: Expr | nil): _ISelection;
     limit(limit: LimitStatement): _ISelection;
     orderBy(orderBy: OrderByStatement[] | nil): _ISelection;
-    groupBy(grouping: Expr[] | nil, select: SelectedColumn[]): _ISelection;
+    groupBy(grouping: Expr[] | nil): _ISelection;
     distinct(select?: Expr[]): _ISelection;
     union(right: _ISelection): _ISelection;
     getColumn(column: string | ExprRef): IValue;
