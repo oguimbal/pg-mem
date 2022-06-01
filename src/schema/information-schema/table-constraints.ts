@@ -4,7 +4,7 @@ import { Types } from '../../datatypes';
 import { ReadOnlyTable } from '../readonly-table';
 
 // https://www.postgresql.org/docs/13/catalog-pg-range.html
-export class TableConstraint extends ReadOnlyTable implements _ITable {
+export class TableConstraints extends ReadOnlyTable implements _ITable {
 
 
     _schema: Schema = {
