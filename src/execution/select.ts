@@ -278,12 +278,20 @@ export class SelectExec implements _IStatementExecutor {
 
     execute(t: _Transaction): StatementResult {
         const rows = cleanResults([...this.selection.enumerate(t)]);
+        let unnamedFields = 0;
+        const nextDefaultFieldName = () => {
+            const unnamedField = `column${unnamedFields || ''}`;
+            unnamedFields += 1;
+            return unnamedField;
+        }
         return {
             result: {
                 rows,
                 rowCount: t.getTransient(MutationDataSourceBase.affectedRows) ?? rows.length,
                 command: this.p.type.toUpperCase(),
-                fields: [],
+                fields: this.selection.columns.map(
+                    c => ({ name: c.id ?? nextDefaultFieldName(), type: c.type.primary })
+                ),
                 location: locOf(this.p),
             },
             state: t,

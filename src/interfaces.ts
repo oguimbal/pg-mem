@@ -353,6 +353,7 @@ export interface QueryResult {
 
 export interface FieldInfo {
     name: string;
+    type: DataType;
 }
 
 

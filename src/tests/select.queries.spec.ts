@@ -8,16 +8,19 @@ import { SelectFromStatement, SelectStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { parseSql } from '../parser/parse-cache';
 import { withSelection } from '../parser/context';
+import { DataType, QueryResult } from '../interfaces';
 
 describe('Selections', () => {
 
     let db: _IDb;
     let many: (str: string) => any[];
     let none: (str: string) => void;
+    let query: (str: string) => QueryResult;
     beforeEach(() => {
         db = newDb() as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
+        query = db.public.query.bind(db.public);
     });
 
     function simpleDb() {
@@ -327,5 +330,38 @@ describe('Selections', () => {
                 { id: 1, a: 1, b: 2 },
                 { id: 2, a: 3, b: 4 },
             ]);
+    })
+
+    it('reports names and types of output columns in QueryResult.fields', () => {
+        stuff();
+        expect(query(`
+        SELECT
+            *, lower(txtx) AS v, valx + 1, valx + 2
+        FROM (
+            SELECT
+                val AS valx,
+                txt as txtx
+            FROM test
+            WHERE val >= 1
+        ) x
+        WHERE lower(x.txtx) = 'a'`)).to.deep.equal({
+            command: 'SELECT',
+            rows: [
+                { txtx: 'A', valx: 999, v: 'a', column: 1000, column1: 1001 },
+                { txtx: 'A', valx: 1, v: 'a', column: 2, column1: 3 },
+            ],
+            fields: [
+                { name: 'valx', type: DataType.integer },
+                { name: 'txtx', type: DataType.text },
+                { name: 'v', type: DataType.text },
+                { name: 'column', type: DataType.integer },
+                { name: 'column1', type: DataType.integer },
+            ],
+            location: {
+                start: 0,
+                end: 0,
+            },
+            rowCount: 2,
+        })
     })
 });
