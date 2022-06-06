@@ -513,7 +513,7 @@ export class ArrayType extends TypeBase<any[]> {
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
                 return converter(arr[0], t);
-            });
+            }, { forceNotConstant: true });
     }
 
     doEquals(a: any[], b: any[]): boolean {
