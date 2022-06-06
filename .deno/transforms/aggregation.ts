@@ -14,6 +14,7 @@ import { Selection } from './selection.ts';
 import { buildCtx, withSelection } from '../parser/context.ts';
 import { buildJsonAgg } from './aggregations/json_aggs.ts';
 import { nullIsh } from '../utils.ts';
+import { buildBoolAgg } from './aggregations/bool-aggregs.ts';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -370,6 +371,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
             case 'jsonb_agg':
             case 'json_agg':
                 return buildJsonAgg(this.base, call, name);
+            case 'bool_and':
+            case 'bool_or':
+                return buildBoolAgg(this.base, call, name);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }
