@@ -99,14 +99,15 @@ describe('Updates', () => {
 
     it('can use count in update subquery', () => {
         expect(many(`
-            create table users(id text, cnt integer);
-            create table books(user_id text);
+            create table users(id text, cnt integer, books jsonb);
+            create table books(user_id text, title text);
             insert into users values ('a', 0), ('b', 0);
-            insert into books values ('a'), ('b'), ('b');
+            insert into books values ('a', 'ba'), ('b', 'bb'), ('b', 'bc'), ('b', 'bc');
             update users  set
+                 books = (select jsonb_agg(distinct title) from books where books.user_id = 'b'),
                  cnt = (select count(*) from books where books.user_id = 'b')
             where id= 'b';
             select * from users where id='b';
-        `)).to.deep.equal([{ id: 'b', cnt: 2 }]);
+        `)).to.deep.equal([{ id: 'b', cnt: 3, books: ['bb', 'bc'] }]);
     })
 });

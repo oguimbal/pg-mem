@@ -368,6 +368,9 @@ export const Value = {
             , { forceNotConstant: true })
             .cast(to);
         return (val: any, t) => {
+            if (nullIsh(val)) {
+                return null;
+            }
             last = val;
             const ret = evaluator.get(val, t);
             last = null;
