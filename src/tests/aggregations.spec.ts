@@ -214,13 +214,38 @@ describe('Aggregations', () => {
                         SELECT name FROM books WHERE created_at = (SELECT MIN(created_at) FROM books);`);
     });
 
-    it('supports jsonb_agg', () => {
-        expect(many(`select jsonb_agg(col)  from (values ('a'), ('b')) t(col)`))
-            .to.deep.equal([{ jsonb_agg: ['a', 'b'] }]);
+    describe('jsonb_agg', () => {
+        it('supports jsonb_agg', () => {
+            expect(many(`select jsonb_agg(col)  from (values ('a'), ('b')) t(col)`))
+                .to.deep.equal([{ jsonb_agg: ['a', 'b'] }]);
+        })
+
+        it('supports json_agg(distinct) on deep structures', () => {
+            expect(many(`select jsonb_agg(distinct col)  from (values ('[1]'::jsonb), ('[1]'::jsonb), ('[2]'::jsonb)) t(col)`))
+                .to.deep.equal([{ jsonb_agg: [[1], [2]] }]);
+        });
     })
 
-    it('supports json_agg(distinct) on deep structures', () => {
-        expect(many(`select jsonb_agg(distinct col)  from (values ('[1]'::jsonb), ('[1]'::jsonb), ('[2]'::jsonb)) t(col)`))
-            .to.deep.equal([{ jsonb_agg: [[1], [2]] }]);
+    describe('bool_or / bool_and', () => {
+        it('bool_or accepts nulls', () => {
+            expect(many(`select bool_or(a) from (values (true), (null), (false)) as t(a)`))
+                .to.deep.equal([{ bool_or: true }]);
+        });
+
+        it('bool_and accepts nulls', () => {
+            expect(many(`select bool_and(a) from (values (true), (null), (true)) as t(a)`))
+                .to.deep.equal([{ bool_and: true }]);
+        });
+
+        it('bool_and computes the right value', () => {
+            expect(many(`select bool_and(a) from (values (true), (false)) as t(a)`))
+                .to.deep.equal([{ bool_and: false }]);
+        });
+
+
+        it('bool_or computes the right value', () => {
+            expect(many(`select bool_or(a) from (values (true), (false)) as t(a)`))
+                .to.deep.equal([{ bool_or: true }]);
+        });
     });
 });
