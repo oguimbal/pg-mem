@@ -1,9 +1,8 @@
 import { TransformBase } from './transform-base.ts';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId, _IAggregation } from '../interfaces-private.ts';
-import { SelectedColumn, Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { buildValue } from '../parser/expression-builder.ts';
-import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
-import { colByName, suggestColumnName, modifyIfNecessary } from '../utils.ts';
+import { nil, NotSupported } from '../interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Evaluator } from '../evaluator.ts';
 import { buildCount } from './aggregations/count.ts';
@@ -13,6 +12,8 @@ import { buildArrayAgg } from './aggregations/array_agg.ts';
 import { buildAvg } from './aggregations/avg.ts';
 import { Selection } from './selection.ts';
 import { buildCtx, withSelection } from '../parser/context.ts';
+import { buildJsonAgg } from './aggregations/json_aggs.ts';
+import { nullIsh } from '../utils.ts';
 
 export const aggregationFunctions = new Set([
     'array_agg',
@@ -60,6 +61,17 @@ export function getAggregator(): _IAggregation | null {
 
 type AggregItem = any;
 
+interface AggregationInstance {
+    getter: IValue;
+    id: symbol;
+    computer: AggregationComputer;
+    distinct: IValue[] | nil;
+}
+
+function isIntegralType(value: any): boolean {
+    return typeof value === 'number' || typeof value === 'string' || value instanceof Date;
+}
+
 export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, _IAggregation {
 
     columns: readonly IValue<any>[];
@@ -71,11 +83,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
     private readonly symbol = Symbol();
     private readonly aggId = idCnt++;
     private readonly groupIndex?: _IIndex<any> | nil;
-    private aggregations = new Map<string, {
-        getter: IValue;
-        id: symbol;
-        computer: AggregationComputer;
-    }>();
+    private aggregations = new Map<string, AggregationInstance>();
 
     /** How to get grouping values on the base table raw items (not on "this.enumerate()" raw items)  */
     private groupingValuesOnbase: IValue[];
@@ -198,8 +206,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
         const groups = new Map<string, {
             key: IndexKey;
             aggs: {
-                id: symbol;
                 computer: AggregationGroupComputer;
+                distinctHash: Set<any>;
+                instance: AggregationInstance,
             }[];
         }>();
 
@@ -215,14 +224,36 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
                 groups.set(groupingKey, group = {
                     key,
                     aggs: aggs.map(x => ({
-                        id: x.id,
                         computer: x.computer.createGroup(t),
+                        instance: x,
+                        distinctHash: new Set(),
                     })),
                 });
             }
 
             // process aggregators in group
             for (const g of group.aggs) {
+                if (!g.computer) {
+                    continue;
+                }
+                if (g.instance.distinct) {
+                    const distinctValues = g.instance.distinct.map(x => x.get(item, t));
+                    if (distinctValues.length === 1 && nullIsh(distinctValues[0])) {
+                        // ignore single nulls.
+                        continue;
+                    }
+                    let valuesHash: any;
+                    if (distinctValues.length === 1 && isIntegralType(distinctValues[0])) {
+                        // optimization to avoid hashing on objects supported by "Set"
+                        valuesHash = distinctValues[0];
+                    } else {
+                        valuesHash = hash(distinctValues);
+                    }
+                    if (g.distinctHash.has(valuesHash)) {
+                        continue;
+                    }
+                    g.distinctHash.add(valuesHash);
+                }
                 g.computer.feedItem(item);
             }
         }
@@ -238,8 +269,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
             groups.set(groupingKey, {
                 key,
                 aggs: aggs.map(x => ({
-                    id: x.id,
                     computer: x.computer.createGroup(t),
+                    instance: x,
+                    distinctHash: new Set(),
                 })),
             });
         }
@@ -252,7 +284,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
             };
 
             // fill aggregations values
-            for (const { id, computer } of g.aggs) {
+            for (const { instance: { id }, computer } of g.aggs) {
                 ret[id] = computer.finish() ?? null;
             }
             yield ret;
@@ -302,10 +334,22 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
                 forceNotConstant: true,
             });
 
+        let distinct: IValue[] | null = null;
+        if (call.distinct === 'distinct') {
+            if (call.args.length === 1 && call.args[0].type === 'list') {
+                // hack in case we get a record-like thing - ex: select count(distinct (a,b))
+                // cf UT behaves nicely with nulls on multiple count
+                distinct = call.args[0].expressions.map(x => buildValue(x));
+            } else {
+                distinct = call.args.map(x => buildValue(x));
+            }
+        }
+
         this.aggregations.set(hashed, {
             id,
             getter,
             computer: got,
+            distinct,
         });
         return getter;
     }
@@ -323,6 +367,9 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
                 return buildArrayAgg(this.base, call);
             case 'avg':
                 return buildAvg(this.base, call);
+            case 'jsonb_agg':
+            case 'json_agg':
+                return buildJsonAgg(this.base, call, name);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }

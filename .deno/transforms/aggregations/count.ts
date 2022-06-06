@@ -3,7 +3,6 @@ import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
 import { isSelectAllArgList, nullIsh } from '../../utils.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
-import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { withSelection } from '../../parser/context.ts';
 
 export function buildCount(this: void, base: _ISelection, call: ExprCall) {
@@ -14,20 +13,6 @@ export function buildCount(this: void, base: _ISelection, call: ExprCall) {
         }
         if (args.length !== 1) {
             throw new QueryError('COUNT expects one argument, given ' + args.length);
-        }
-        if (call.distinct) {
-            if (!args.length) {
-                throw new QueryError('distinct() must take at least one argument');
-            }
-            if (args.length === 1 && args[0].type === 'list') {
-                // hack in case we get a record-like thing - ex: select count(distinct (a,b))
-                // cf UT behaves nicely with nulls on multiple count
-                const distinctArgs = args[0].expressions.map(x => buildValue(x));
-                return new CountDistinct(distinctArgs);
-            } else {
-                const distinctArgs = args.map(x => buildValue(x));
-                return new CountDistinct(distinctArgs);
-            }
         }
         const what = buildValue(args[0]);
         return new CountExpr(what);
@@ -81,34 +66,6 @@ class CountExpr implements AggregationComputer<number> {
                 }
             },
             finish: () => cnt,
-        };
-    }
-}
-
-class CountDistinct implements AggregationComputer<number> {
-
-    constructor(private exps: IValue[]) {
-    }
-
-    get type(): _IType<any> {
-        return Types.bigint;
-    }
-
-    createGroup(t: _Transaction): AggregationGroupComputer<number> {
-        const unique = new Set();
-        return {
-            feedItem: this.exps.length === 1
-                ? (item) => {
-                    const value = this.exps[0].type.hash(this.exps[0].get(item, t));
-                    if (nullIsh(value)) {
-                        return; // ignore single nulls.
-                    }
-                    unique.add(value);
-                } : (item) => {
-                    const value = this.exps.map(x => x.type.hash(x.get(item, t)));
-                    unique.add(objectHash(value));
-                },
-            finish: () => unique.size,
         };
     }
 }
