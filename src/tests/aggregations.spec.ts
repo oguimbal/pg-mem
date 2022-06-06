@@ -213,4 +213,14 @@ describe('Aggregations', () => {
         none(`create table books(name text, created_at timestamptz);
                         SELECT name FROM books WHERE created_at = (SELECT MIN(created_at) FROM books);`);
     });
+
+    it('supports jsonb_agg', () => {
+        expect(many(`select jsonb_agg(col)  from (values ('a'), ('b')) t(col)`))
+            .to.deep.equal([{ jsonb_agg: ['a', 'b'] }]);
+    })
+
+    it('supports json_agg(distinct) on deep structures', () => {
+        expect(many(`select jsonb_agg(distinct col)  from (values ('[1]'::jsonb), ('[1]'::jsonb), ('[2]'::jsonb)) t(col)`))
+            .to.deep.equal([{ jsonb_agg: [[1], [2]] }]);
+    });
 });
