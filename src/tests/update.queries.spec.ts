@@ -96,4 +96,17 @@ describe('Updates', () => {
                     select * from test`))
             .to.deep.equal([{ val: false }])
     });
+
+    it('can use count in update subquery', () => {
+        expect(many(`
+            create table users(id text, cnt integer);
+            create table books(user_id text);
+            insert into users values ('a', 0), ('b', 0);
+            insert into books values ('a'), ('b'), ('b');
+            update users  set
+                 cnt = (select count(*) from books where books.user_id = 'b')
+            where id= 'b';
+            select * from users where id='b';
+        `)).to.deep.equal([{ id: 'b', cnt: 2 }]);
+    })
 });

@@ -356,6 +356,24 @@ export const Value = {
             , null
             , value);
     },
+    /** @deprecated Use with care */
+    converter(type: _IType, to: _IType): (val: any, t: _Transaction | nil) => any {
+        let last: any = null;
+        const evaluator = new Evaluator(
+            type
+            , null
+            , (null as any)
+            , null
+            , () => last
+            , { forceNotConstant: true })
+            .cast(to);
+        return (val: any, t) => {
+            last = val;
+            const ret = evaluator.get(val, t);
+            last = null;
+            return ret;
+        };
+    },
     in(value: IValue, array: IValue, inclusive: boolean): IValue {
         if (!value) {
             throw new Error('Argument null');
