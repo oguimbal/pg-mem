@@ -457,29 +457,31 @@ export class ArrayType extends TypeBase<any[]> {
     }
 
     doCanCast(to: _IType) {
-        if (to.primary === DataType.text) {
-            return this.of.canCast(to);
+        if (to instanceof ArrayType) {
+            return this.of.canCast(to.of);
         }
-        return to instanceof ArrayType
-            && this.of.canCast(to.of);
+        return this.of.canCast(to);
     }
 
     doCast(value: Evaluator, _to: _IType) {
+        if (_to instanceof ArrayType) {
+
+            const to = _to as ArrayType;
+            const valueType = value.type as ArrayType;
+            return new Evaluator(
+                to
+                , value.id
+                , value.hash!
+                , value
+                , (raw, t) => {
+                    const arr = value.get(raw, t) as any[];
+                    return arr.map(x => Value.constant(valueType.of, x).cast(to.of).get(raw, t));
+                });
+        }
         if (_to.primary === DataType.text) {
             return this.toText(_to, value);
         }
-
-        const to = _to as ArrayType;
-        const valueType = value.type as ArrayType;
-        return new Evaluator(
-            to
-            , value.id
-            , value.hash!
-            , value
-            , (raw, t) => {
-                const arr = value.get(raw, t) as any[];
-                return arr.map(x => Value.constant(valueType.of, x).cast(to.of).get(raw, t));
-            });
+        return this.toSingleColumn(_to, value);
     }
 
     toText(to: _IType, value: Evaluator) {
@@ -496,6 +498,20 @@ export class ArrayType extends TypeBase<any[]> {
                 return this.list
                     ? '(' + data + ')'
                     : '{' + data + '}';
+            });
+    }
+
+    toSingleColumn(to: _IType, value: Evaluator) {
+        const valueType = value.type as ArrayType;
+        return new Evaluator(
+            to
+            , value.id
+            , value.hash!
+            , value
+            , (raw, t) => {
+                const arr = value.get(raw, t) as any[];
+                const ret = Value.constant(valueType.of, arr[0]).cast(to).get(raw, t)
+                return ret;
             });
     }
 
