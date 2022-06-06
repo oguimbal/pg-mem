@@ -205,5 +205,39 @@ describe('Conversions', () => {
             .to.deep.equal([{ col: '{"a":42,"b":51}' }]);
         expect(many(`select '"abc"'::jsonb::text col`))
             .to.deep.equal([{ col: '"abc"' }]);
+    });
+
+
+    function usersAndData() {
+        none(`create table user_data(usr int, data text);
+        insert into user_data(usr, data) values (1, 'a'), (1, 'b'), (1, 'b'), (2, 'c');
+        create table users(id int, value jsonb);
+        insert into users(id) values (1);`);
+    }
+    it('casts aggregation selection to single value', () => {
+        usersAndData();
+        // used to fail
+        expect(many(`
+            UPDATE users
+            SET
+                value = (select jsonb_agg(distinct data) from user_data WHERE usr=1)
+            WHERE id = 1;
+            select * from users;
+            `))
+            .to.deep.equal([{ id: 1, value: ['a', 'b'] }])
+
+    })
+
+    it('cannot cast multiple results to single value', () => {
+        usersAndData();
+        // used to fail
+        assert.throws(() => many(`
+            UPDATE users
+            SET
+                value = (select jsonb_agg(distinct data), 42 bla from user_data WHERE usr=1)
+            WHERE id = 1;
+            select * from users;
+            `), /subquery must return only one column/)
+
     })
 });
