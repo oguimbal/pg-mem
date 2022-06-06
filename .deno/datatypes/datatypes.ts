@@ -486,6 +486,7 @@ export class ArrayType extends TypeBase<any[]> {
 
     toText(to: _IType, value: Evaluator) {
         const valueType = value.type as ArrayType;
+        const converter = Value.converter(valueType.of, Types.text());
         return new Evaluator(
             to
             , value.id
@@ -493,16 +494,17 @@ export class ArrayType extends TypeBase<any[]> {
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                const strs = arr.map(x => Value.constant(valueType.of, x).cast(Types.text()).get(raw, t));
+                const strs = arr.map(x => converter(x, t));
                 const data = strs.join(',');
                 return this.list
                     ? '(' + data + ')'
                     : '{' + data + '}';
-            });
+            }, { forceNotConstant: true });
     }
 
     toSingleColumn(to: _IType, value: Evaluator) {
         const valueType = value.type as ArrayType;
+        const converter = Value.converter(valueType.of, to);
         return new Evaluator(
             to
             , value.id
@@ -510,8 +512,7 @@ export class ArrayType extends TypeBase<any[]> {
             , value
             , (raw, t) => {
                 const arr = value.get(raw, t) as any[];
-                const ret = Value.constant(valueType.of, arr[0]).cast(to).get(raw, t)
-                return ret;
+                return converter(arr[0], t);
             });
     }
 
