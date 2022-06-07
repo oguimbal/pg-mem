@@ -185,5 +185,18 @@ describe('Alter table', () => {
         many(`create table mytable(id text);
             alter table mytable add if not exists other text;
             alter table mytable add if not exists id text;`);
-    })
+    });
+
+
+    it('(bugfix) supports droping/recreating indexed column', () => {
+        // this used to throw
+        none(`create table if not exists users (
+            id text not null primary key
+        );
+        alter table users add email text default null;
+        create unique index users_by_email on users ((lower(email)));
+        drop index if exists users_by_email;
+        alter table users alter column email type jsonb;
+        create unique index users_by_email on users ((email->>'sha256'));`)
+    });
 });
