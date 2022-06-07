@@ -161,6 +161,7 @@ export class ColRef implements _Column {
                 throw NotSupported.never(alter, 'alter column type');
         }
         this.table.db.onSchemaChange();
+        this.table.selection.rebuild();
         return this;
     }
 
