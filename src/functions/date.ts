@@ -22,7 +22,7 @@ export const dateFunctions: FunctionDefinition[] = [
     },
     {
         name: 'now',
-        returns: DataType.timestamp,
+        returns: DataType.timestamptz,
         impure: true,
         implementation: () => new Date(),
     },

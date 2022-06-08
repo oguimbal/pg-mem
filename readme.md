@@ -1,4 +1,3 @@
-
 <p align="center">
   <a href="https://npmjs.org/package/pg-mem"><img src="http://img.shields.io/npm/v/pg-mem.svg"></a>
   <a href="https://npmjs.org/package/pg-mem"><img src="https://img.shields.io/npm/dm/pg-mem.svg"></a>
@@ -9,7 +8,6 @@
 <p align="center">
   <img src="./.github/pg_mem.png" width="200">
 </p>
-
 
  <h3 align="center">pg-mem is an experimental in-memory emulation of a postgres database.</h3>
 
@@ -26,19 +24,17 @@
   👉 See it in action with <a href="https://oguimbal.github.io/pg-mem-playground/">pg-mem playground</a>
 </p>
 
-
-* [Usage](#-usage)
-* [Features](#-features)
-* [Libraries adapters](#-libraries-adapters)
-* [Inspection](#-inspection)
-* [Development](#-development)
-* [FAQ](https://github.com/oguimbal/pg-mem/wiki/FAQ)
-
+- [Usage](#-usage)
+- [Features](#-features)
+- [Libraries adapters](#-libraries-adapters)
+- [Inspection](#-inspection)
+- [Development](#-development)
+- [FAQ](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
 # 📐 Usage
 
-
 ## Using Node.js
+
 As always, it starts with an:
 
 ```bash
@@ -48,10 +44,10 @@ npm i pg-mem --save
 Then, assuming you're using something like webpack, if you're targeting a browser:
 
 ```typescript
-import { newDb } from 'pg-mem';
+import { newDb } from "pg-mem";
 
 const db = newDb();
-db.public.many(/* put some sql here */)
+db.public.many(/* put some sql here */);
 ```
 
 ## Using Deno
@@ -59,17 +55,15 @@ db.public.many(/* put some sql here */)
 Pretty straightforward :)
 
 ```typescript
-import { newDb } from 'https://deno.land/x/pg_mem/mod.ts';
+import { newDb } from "https://deno.land/x/pg_mem/mod.ts";
 
 const db = newDb();
-db.public.many(/* put some sql here */)
+db.public.many(/* put some sql here */);
 ```
-
 
 ## Only use the SQL syntax parser
 
 ❤ Head to the [pgsql-ast-parser](https://github.com/oguimbal/pgsql-ast-parser) repo
-
 
 ## ⚠ Disclaimer
 
@@ -96,22 +90,23 @@ This is super useful if you intend to use `pg-mem` to mock your database for uni
 
 You could:
 
-1) Create your schema only once (which could be a heavy operation for a single unit test)
-2) Insert test data which will be shared by all test
-2) Create a restore point
-3) Run your tests with the same db instance, executing a `backup.restore()` before each test (which instantly resets db to the state it has after creating the restore point)
+1. Create your schema only once (which could be a heavy operation for a single unit test)
+2. Insert test data which will be shared by all test
+3. Create a restore point
+4. Run your tests with the same db instance, executing a `backup.restore()` before each test (which instantly resets db to the state it has after creating the restore point)
 
 Usage:
+
 ```typescript
 const db = newDb();
 db.public.none(`create table test(id text);
                 insert into test values ('value');`);
 // create a restore point & mess with data
 const backup = db.backup();
-db.public.none(`update test set id='new value';`)
+db.public.none(`update test set id='new value';`);
 // restore it !
 backup.restore();
-db.public.many(`select * from test`) // => {test: 'value'}
+db.public.many(`select * from test`); // => {test: 'value'}
 ```
 
 ## Custom functions
@@ -120,11 +115,11 @@ You can declare custom functions like this:
 
 ```typescript
 db.public.registerFunction({
-            name: 'say_hello',
-            args: [DataType.text],
-            returns: DataType.text,
-            implementation: x => 'hello ' + x,
-        })
+  name: "say_hello",
+  args: [DataType.text],
+  returns: DataType.text,
+  implementation: (x) => "hello " + x,
+});
 ```
 
 And then use them like in SQL `select say_hello('world')`.
@@ -132,7 +127,6 @@ And then use them like in SQL `select say_hello('world')`.
 Custom functions support overloading and variadic arguments.
 
 ⚠ However, the value you return is not type checked. It MUST correspond to the datatype you provided as 'returns' (it won't fail if not, but could lead to weird bugs).
-
 
 ## Custom types
 
@@ -145,13 +139,13 @@ You can register it like this:
 
 ```typescript
 db.public.registerEquivalentType({
-    name: 'macaddr',
-    // which type is it equivalent to (will be able to cast it from it)
-    equivalentTo: DataType.text,
-    isValid(val: string) {
-        // check that it will be this format
-        return isValidMacAddress(val);
-    }
+  name: "macaddr",
+  // which type is it equivalent to (will be able to cast it from it)
+  equivalentTo: DataType.text,
+  isValid(val: string) {
+    // check that it will be this format
+    return isValidMacAddress(val);
+  },
 });
 ```
 
@@ -169,10 +163,9 @@ If you feel your implementation of a type matches the standard, and would like t
 No native extension is implemented (pull requests are welcome), but you can define kind-of extensions like this:
 
 ```typescript
-
-db.registerExtension('my-ext', schema => {
-    // install your ext in 'schema'
-    // ex:  schema.registerFunction(...)
+db.registerExtension("my-ext", (schema) => {
+  // install your ext in 'schema'
+  // ex:  schema.registerFunction(...)
 });
 ```
 
@@ -194,7 +187,6 @@ pg-mem provides handy shortcuts to create instances of popular libraries that wi
 
 # 💥 Inspection
 
-
 ## Intercept queries
 
 If you would like to hook your database, and return ad-hoc results, you can do so like this:
@@ -202,13 +194,13 @@ If you would like to hook your database, and return ad-hoc results, you can do s
 ```typescript
 const db = newDb();
 
-db.public.interceptQueries(sql => {
-    if (sql === 'select * from whatever') {
-        // intercept this statement, and return something custom:
-        return [{something: 42}];
-    }
-    // proceed to actual SQL execution for other requests.
-    return null;
+db.public.interceptQueries((sql) => {
+  if (sql === "select * from whatever") {
+    // intercept this statement, and return something custom:
+    return [{ something: 42 }];
+  }
+  // proceed to actual SQL execution for other requests.
+  return null;
 });
 ```
 
@@ -217,7 +209,7 @@ db.public.interceptQueries(sql => {
 You can manually inspect a table content using the `find()` method:
 
 ```typescript
-for (const item of db.public.getTable<TItem>('mytable').find(itemTemplate)) {
+for (const item of db.public.getTable<TItem>("mytable").find(itemTemplate)) {
   console.log(item);
 }
 ```
@@ -231,19 +223,20 @@ db.public.getTable<TItem>('mytable').insert({ /* item to insert */ }))
 ```
 
 ## Subscribe to events
+
 You can subscribe to some events, like:
 
 ```typescript
 const db = newDb();
 
 // called on each successful sql request
-db.on('query', sql => {  });
+db.on("query", (sql) => {});
 // called on each failed sql request
-db.on('query-failed', sql => { });
+db.on("query-failed", (sql) => {});
 // called on schema changes
-db.on('schema-change', () => {});
+db.on("schema-change", () => {});
 // called when a CREATE EXTENSION schema is encountered.
-db.on('create-extension', ext => {});
+db.on("create-extension", (ext) => {});
 ```
 
 ## Experimental events
@@ -266,23 +259,28 @@ db.getTable('myTable').on('seq-scan', () = {});
 db.on('catastrophic-join-optimization', () => {});
 ```
 
-
 # 🙋‍♂️ FAQ
 
 - [Why this instead of Docker ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-why-use-pg-mem-instead-of-an-instance-of-postgres-in-docker-) _TLDR : It's faster. Docker is overkill._
 - [What if I need an extension like uuid-ossp ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-what-if-i-need-an-extension-like-uuid-ossp-) _TLDR: You can mock those_
-- [How to import my production schema in pg-mem ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-how-to-import-my-production-schema-in-pg-mem-) _TLDR: pg\_dump with the right args_
+- [How to import my production schema in pg-mem ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-how-to-import-my-production-schema-in-pg-mem-) _TLDR: pg_dump with the right args_
 - [Does pg-mem supports sql migrations ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-does-pg-mem-support-sql-migrations-scripts-) _TLDR: yes._
 - [Does pg-mem supports plpgsql/other scripts/"create functions"/"do statements" ?](https://github.com/oguimbal/pg-mem/wiki/FAQ#-how-to-use-plpgsql-or-other-scripts-) _TLDR: kind of..._
 
 Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
+# ⚠️ Current limitations
+
+- Materialized views are implemented as views (meaning that they are always up-to-date, without needing them to refresh)
+- Indices implementations are basic
+- No support for timezones
 
 # 🐜 Development
 
 Pull requests are welcome :)
 
 To start hacking this lib, you'll have to:
+
 - Use VS Code
 - Install [mocha test explorer with HMR support](https://marketplace.visualstudio.com/items?itemName=oguimbal.vscode-mocha-test-adapter) extension
 - `npm start`

@@ -179,7 +179,7 @@ export class DbSchema implements _ISchema, ISchema {
             }
             return $of.asArray();
         }
-        const name = typeSynonyms[t.name] ?? t.name;
+        const name = (t.doubleQuoted ? null : typeSynonyms[t.name]) ?? t.name;
         const sizeable = this.sizeableTypes[name];
         if (sizeable) {
             const key = t.config?.length === 1

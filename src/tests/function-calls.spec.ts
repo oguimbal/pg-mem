@@ -138,7 +138,7 @@ describe('Functions', () => {
         const val2 = one(`select COALESCE('2021-12-07T13:49:53.458Z'::timestamp, '2021-12-07T13:49:53.458Z') x`).x;
         assert.instanceOf(val2, Date);
 
-        assert.throws(() => none(`select COALESCE(42, '2021-12-07T13:49:53.458Z'::timestamp)`), /COALESCE types integer and timestamp cannot be matched/);
+        assert.throws(() => none(`select COALESCE(42, '2021-12-07T13:49:53.458Z'::timestamp)`), /COALESCE types integer and timestamp without time zone cannot be matched/);
     });
 
     it('row_to_json() special function', () => {

@@ -149,13 +149,12 @@ class OverloadNode<T extends HasSig> {
         return null;
     }
 
-    private compatible(arg: IValue, type: _IType) {
-        if (arg.type === type) {
+    private compatible(givenArg: IValue, expectedArg: _IType) {
+        if (givenArg.type === expectedArg) {
             return true;
         }
-        if (this.implicitCastOnly) {
-            return arg.isConstantLiteral && arg.type.canConvertImplicit(type);
-        }
-        return arg.type.canCast(type);
+        return givenArg.isConstantLiteral
+            ? givenArg.type.canCast(expectedArg)
+            : givenArg.type.canConvertImplicit(expectedArg) ?? givenArg.type.canCast(expectedArg);
     }
 }

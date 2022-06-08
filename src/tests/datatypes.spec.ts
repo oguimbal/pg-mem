@@ -147,5 +147,129 @@ describe('Data types', () => {
             assert.throws(() => many(`select * from test where data -> 'val'`), /argument of WHERE must be type boolean, not type jsonb/);
             assert.throws(() => many(`select * from test where data -> 'val' OR 1=1`), /argument of OR must be type boolean, not type jsonb/);
         })
+    });
+
+    describe('implicit conversions between date & time types', () => {
+        it('implicit casts to timestamptz', () => {
+            many(`create function test_fn (a timestamptz) returns int as $$ select 42 $$ language sql;`);
+
+            many(`select test_fn(now()::timestamp)`);
+            many(`select test_fn(now()::timestamptz)`);
+            many(`select test_fn(now()::date)`);
+            assert.throws(() => many(`select test_fn(now()::time)`), /function test_fn\(time without time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::timetz)`), /function test_fn\(time with time zone\) does not exist/);
+        });
+
+        it('implicit casts to timestamp', () => {
+            many(`create function test_fn (a timestamp) returns int as $$ select 42 $$ language sql;`);
+
+            many(`select test_fn(now()::timestamp)`);
+            assert.throws(() => many(`select test_fn(now()::timestamptz)`), /function test_fn\(timestamp with time zone\) does not exist/);
+            many(`select test_fn(now()::date)`);
+            assert.throws(() => many(`select test_fn(now()::time)`), /function test_fn\(time without time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::timetz)`), /function test_fn\(time with time zone\) does not exist/);
+        });
+
+        it('implicit casts to date', () => {
+            many(`create function test_fn (a date) returns int as $$ select 42 $$ language sql;`);
+
+            assert.throws(() => many(`select test_fn(now()::timestamp)`), /function test_fn\(timestamp without time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::timestamptz)`), /function test_fn\(timestamp with time zone\) does not exist/);
+            many(`select test_fn(now()::date)`);
+            assert.throws(() => many(`select test_fn(now()::time)`), /function test_fn\(time without time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::timetz)`), /function test_fn\(time with time zone\) does not exist/);
+        });
+
+        it('implicit casts to time', () => {
+            many(`create function test_fn (a time) returns int as $$ select 42 $$ language sql;`);
+
+            assert.throws(() => many(`select test_fn(now()::timestamp)`), /function test_fn\(timestamp without time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::timestamptz)`), /function test_fn\(timestamp with time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::date)`), /function test_fn\(date\) does not exist/);
+            many(`select test_fn(now()::time)`);
+            assert.throws(() => many(`select test_fn(now()::timetz)`), /function test_fn\(time with time zone\) does not exist/);
+        });
+
+        it('implicit casts to timetz', () => {
+            many(`create function test_fn (a timetz) returns int as $$ select 42 $$ language sql;`);
+
+            assert.throws(() => many(`select test_fn(now()::timestamp)`), /function test_fn\(timestamp without time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::timestamptz)`), /function test_fn\(timestamp with time zone\) does not exist/);
+            assert.throws(() => many(`select test_fn(now()::date)`), /function test_fn\(date\) does not exist/);
+            many(`select test_fn(now()::time)`);
+            many(`select test_fn(now()::timetz)`);
+        });
+    });
+
+    describe('explicit conversions between date & time types', () => {
+        it('casts to timestamptz', () => {
+            many('select now()::timestamptz');
+
+            many(`select now()::timestamp::timestamptz`);
+            many(`select now()::timestamptz::timestamptz`);
+            many(`select now()::date::timestamptz`);
+            assert.throws(() => many(`select now()::time::timestamptz`), /cannot cast type time without time zone to timestamp with time zone/);
+            assert.throws(() => many(`select now()::timetz::timestamptz`), /cannot cast type time with time zone to timestamp with time zone/);
+        });
+        it('casts to timestamp', () => {
+            many('select now()::timestamp');
+            many(`select now()::timestamp::timestamp`);
+            many(`select now()::timestamptz::timestamp`);
+            many(`select now()::date::timestamp`);
+            assert.throws(() => many(`select now()::time::timestamp`), /cannot cast type time without time zone to timestamp without time zone/);
+            assert.throws(() => many(`select now()::timetz::timestamp`), /cannot cast type time with time zone to timestamp without time zone/);
+        });
+        it('casts to date', () => {
+            many('select now()::date');
+
+            many(`select now()::timestamp::date`);
+            many(`select now()::timestamptz::date`);
+            many(`select now()::date::date`);
+            assert.throws(() => many(`select now()::time::date`), /cannot cast type time without time zone to date/);
+            assert.throws(() => many(`select now()::timetz::date`), /cannot cast type time with time zone to date/);
+        });
+        it('casts to time', () => {
+            many('select now()::time');
+
+            many(`select now()::timestamp::time`);
+            many(`select now()::timestamptz::time`);
+            assert.throws(() => many(`select now()::date::time`), /cannot cast type date to time/);
+            many(`select now()::time::time`);
+            many(`select now()::timetz::time`);
+        });
+
+        it('casts to timetz', () => {
+            many('select now()::timetz');
+
+            assert.throws(() => many(`select now()::timestamp::timetz`), /cannot cast type timestamp without time zone to time with time zone/);
+            many(`select now()::timestamptz::timetz`);
+            assert.throws(() => many(`select now()::date::timetz`), /cannot cast type date to time with time zone/);
+            many(`select now()::time::timetz`);
+            many(`select now()::timetz::timetz`);
+        });
+    });
+
+
+    it('cannot call time function with date', () => {
+        assert.throws(() => many(`
+        create function test_fn (a time) returns int as $$ select 42 $$ language sql;
+        select test_fn(now())`), /function test_fn\(timestamp with time zone\) does not exist/);
+    });
+
+    it('cannot create fn with "timestamp with time zone" (double quoted) type', () => {
+        expect(many(`create function success (a timestamp with time zone) returns int as $$ select 42 $$ language sql;
+                select success(now())`)).to.deep.equal([{ success: 42 }]);
+        assert.throws(() => many(`create function failing (a "timestamp with time zone") returns int as $$ select 42 $$ language sql;`), /type "timestamp with time zone" does not exist/);
+    });
+
+    it('cannot call timestamp function with now()', () => {
+        many(`create function test_fn (a timestamp) returns int as $$ select 42 $$ language sql;`);
+
+        assert.throws(() => many(`select test_fn(now())`), /function test_fn\(timestamp with time zone\) does not exist/);
+    });
+
+    it('can build time from string', () => {
+        many(`select time '19:22:25'`);
+        many(`select timetz '19:22:25'`);
     })
 });

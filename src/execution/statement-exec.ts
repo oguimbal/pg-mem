@@ -127,6 +127,11 @@ export class StatementExec implements _IStatement {
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
 
+            case 'refresh materialized view':
+                // todo: a decent materialized view implementation
+                ignore(p);
+                return new SimpleExecutor(p, () => { });
+
             case 'tablespace':
                 throw new NotSupported('"TABLESPACE" statement');
             case 'prepare':

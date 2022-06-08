@@ -51,6 +51,7 @@ export enum DataType {
     timestamptz = 'timestamptz',
     date = 'date',
     time = 'time',
+    timetz = 'timetz',
     null = 'null',
     bool = 'bool',
 

@@ -50,6 +50,7 @@ export function buildMinMax(this: void, base: _ISelection, args: Expr[], op: 'ma
             case DataType.float:
             case DataType.text:
             case DataType.time:
+            case DataType.timetz:
             case DataType.timestamp:
             case DataType.timestamptz:
                 break;
