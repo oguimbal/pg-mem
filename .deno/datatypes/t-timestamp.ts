@@ -2,6 +2,7 @@ import { DataType, nil, QueryError, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../evaluator.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
+import { parseTime, nullIsh } from '../utils.ts';
 
 export class TimestampType extends TypeBase<Date> {
 
@@ -11,31 +12,64 @@ export class TimestampType extends TypeBase<Date> {
     }
 
     get name(): string {
-        if (!this.precision) {
-            return this.primary;
+        if (!nullIsh(this.precision)) {
+            return `${this.primary}(${this.precision})`;
         }
-        return `${this.primary}(${this.precision})`;
+        switch (this.primary) {
+            case DataType.timestamp:
+                return 'timestamp without time zone';
+            case DataType.timestamptz:
+                return 'timestamp with time zone';
+            case DataType.date:
+                return 'date';
+            case DataType.time:
+                return 'time without time zone';
+            case DataType.timetz:
+                return 'time with time zone';
+        }
+        return this.primary;
     }
 
     doCanCast(to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
+            case DataType.timestamptz:
             case DataType.date:
+                return this.primary !== DataType.time && this.primary !== DataType.timetz;
             case DataType.time:
-                return true;
+                return this.primary !== DataType.date;
+            case DataType.timetz:
+                return this.primary !== DataType.date && this.primary !== DataType.timestamp;
         }
         return null;
+    }
+
+    doCanConvertImplicit(to: _IType) {
+        switch (to.primary) {
+            case DataType.timestamp:
+                return this.primary === DataType.timestamp
+                    || this.primary === DataType.date;
+            case DataType.timestamptz:
+                return this.primary !== DataType.time;
+            case DataType.date:
+                return this.primary === DataType.date;
+            case DataType.time:
+                return this.primary === DataType.time; // nothing can implicitly cast to time
+        }
+        return false;
     }
 
     doCast(value: Evaluator, to: _IType) {
         switch (to.primary) {
             case DataType.timestamp:
+            case DataType.timestamptz:
                 return value;
             case DataType.date:
                 return value
                     .setConversion(raw => moment.utc(raw).startOf('day').toDate()
                         , toDate => ({ toDate }));
             case DataType.time:
+            case DataType.timetz:
                 return value
                     .setConversion(raw => moment.utc(raw).format('HH:mm:ss') + '.000000'
                         , toDate => ({ toDate }));
@@ -57,6 +91,7 @@ export class TimestampType extends TypeBase<Date> {
             case DataType.text:
                 switch (this.primary) {
                     case DataType.timestamp:
+                    case DataType.timestamptz:
                         return value
                             .setConversion(str => {
                                 const conv = moment.utc(str);
@@ -65,7 +100,7 @@ export class TimestampType extends TypeBase<Date> {
                                 }
                                 return conv.toDate()
                             }
-                                , toTs => ({ toTs }));
+                                , toTs => ({ toTs, t: this.primary }));
                     case DataType.date:
                         return value
                             .setConversion(str => {
@@ -76,6 +111,14 @@ export class TimestampType extends TypeBase<Date> {
                                 return conv.startOf('day').toDate();
                             }
                                 , toDate => ({ toDate }));
+                    case DataType.time:
+                    case DataType.timetz:
+                        return value
+                            .setConversion(str => {
+                                parseTime(str); // will throw an error if invalid format
+                                return str;
+                            }
+                                , toTime => ({ toTime, t: this.primary }));
                 }
         }
         return null;

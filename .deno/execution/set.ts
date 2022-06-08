@@ -1,5 +1,5 @@
 import { _IStatementExecutor, _Transaction, StatementResult, GLOBAL_VARS, QueryError } from '../interfaces-private.ts';
-import { SetGlobalStatement, SetTimezone } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { SetGlobalStatement, SetTimezone } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
 import { ignore } from '../utils.ts';
 import { ExecHelper } from './exec-utils.ts';
 

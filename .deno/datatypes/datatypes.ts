@@ -2,8 +2,8 @@ import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-pr
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
 import { nullIsh } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../misc/buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
@@ -589,7 +589,8 @@ export const Types = {
     [DataType.uuid]: new UUIDtype() as _IType,
     [DataType.date]: new TimestampType(DataType.date) as _IType,
     [DataType.interval]: new IntervalType() as _IType,
-    [DataType.time]: new TimeType() as _IType,
+    [DataType.time]: new TimeType(DataType.time) as _IType,
+    [DataType.timetz]: new TimeType(DataType.timetz) as _IType,
     [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
     [DataType.regtype]: new RegTypeImpl() as _IType,
     [DataType.regclass]: new RegClassImpl() as _IType,
@@ -646,12 +647,13 @@ function makeText(len: number | nil = null) {
     return got;
 }
 
-const timestamps = new Map<number | null, _IType>();
+const timestamps = new Map<string, _IType>();
 function makeTimestamp(primary: DataType, len: number | nil = null) {
     len = len ?? null;
-    let got = timestamps.get(len);
+    const key = primary + '/' + len;
+    let got = timestamps.get(key);
     if (!got) {
-        timestamps.set(len, got = new TimestampType(primary, len));
+        timestamps.set(key, got = new TimestampType(primary, len));
     }
     return got;
 }
@@ -684,13 +686,12 @@ export const typeSynonyms: { [key: string]: DataType } = {
     'real': DataType.float,
     'money': DataType.float,
 
-    'timestamptz': DataType.timestamp, //  => todo support timestamptz
-    'timestamp with time zone': DataType.timestamp, //  => todo support timestamptz
+    'timestamp with time zone': DataType.timestamptz,
     'timestamp without time zone': DataType.timestamp,
 
     'boolean': DataType.bool,
 
-    'time with time zone': DataType.time,
+    'time with time zone': DataType.timetz,
     'time without time zone': DataType.time,
 }
 

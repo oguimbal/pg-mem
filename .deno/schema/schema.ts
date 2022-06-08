@@ -2,7 +2,7 @@ import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, Schema
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private.ts';
 import { asSingleQName, isType, parseRegClass, randomString, schemaOf } from '../utils.ts';
 import { typeSynonyms } from '../datatypes/index.ts';
-import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
 import { MemoryTable } from '../table.ts';
 import { parseSql } from '../parser/parse-cache.ts';
 import { IMigrate } from '../migrate/migrate-interfaces.ts';
@@ -179,7 +179,7 @@ export class DbSchema implements _ISchema, ISchema {
             }
             return $of.asArray();
         }
-        const name = typeSynonyms[t.name] ?? t.name;
+        const name = (t.doubleQuoted ? null : typeSynonyms[t.name]) ?? t.name;
         const sizeable = this.sizeableTypes[name];
         if (sizeable) {
             const key = t.config?.length === 1

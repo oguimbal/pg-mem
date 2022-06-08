@@ -1,6 +1,6 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils.ts';
 import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private.ts';
-import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
 import { ExecuteCreateTable } from './schema-amends/create-table.ts';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence.ts';
 import { locOf, ExecHelper } from './exec-utils.ts';
@@ -124,6 +124,11 @@ export class StatementExec implements _IStatement {
             case 'comment':
             case 'raise':
             case 'deallocate':
+                ignore(p);
+                return new SimpleExecutor(p, () => { });
+
+            case 'refresh materialized view':
+                // todo: a decent materialized view implementation
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
 

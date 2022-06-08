@@ -146,7 +146,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         }
 
         // asks this type if it knows how to convert itself to target
-        if (this.doCanCast?.(to)) {
+        if (this.doCanConvertImplicit?.(to) || this.doCanCast?.(to)) {
             return true;
         }
 
@@ -157,7 +157,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     cast(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
         return this._convert(_a, _to, (a, to) => {
             if (!this.doCanCast?.(to) || !this.doCast) {
-                throw new CastError(this.primary, to.primary);
+                throw new CastError(this, to);
             }
             return this.doCast(a, to);
         })
@@ -167,7 +167,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     convertImplicit(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
         return this._convert(_a, _to, (a, to) => {
             if (!this.doCanConvertImplicit?.(to) || !this.doCast) {
-                throw new CastError(this.primary, to.primary);
+                throw new CastError(this, to);
             }
             return this.doCast(a, to);
         })
@@ -179,13 +179,13 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
             return a;
         }
         if (!(a instanceof Evaluator)) {
-            throw new CastError(this.primary, to.primary);
+            throw new CastError(this, to);
         }
 
         let converted: Evaluator | nil;
         if (to.doCanBuildFrom?.(this)) {
             if (!to.doBuildFrom) {
-                throw new CastError(this.primary, to.primary);
+                throw new CastError(this, to);
             }
             converted = to.doBuildFrom(a, this);
         } else {
@@ -193,7 +193,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         }
 
         if (!converted) {
-            throw new CastError(this.primary, to.primary);
+            throw new CastError(this, to);
         }
         return converted.setType(to);
     }

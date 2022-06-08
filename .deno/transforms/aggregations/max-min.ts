@@ -1,5 +1,5 @@
 import { AggregationComputer, AggregationGroupComputer, IValue, nil, QueryError, _ISelection, _IType, _Transaction } from '../../interfaces-private.ts';
-import { Expr } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { Expr } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { nullIsh } from '../../utils.ts';
 import { DataType } from '../../interfaces.ts';
@@ -50,6 +50,7 @@ export function buildMinMax(this: void, base: _ISelection, args: Expr[], op: 'ma
             case DataType.float:
             case DataType.text:
             case DataType.time:
+            case DataType.timetz:
             case DataType.timestamp:
             case DataType.timestamptz:
                 break;

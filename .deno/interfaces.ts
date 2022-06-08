@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@10.1.0/mod.ts';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
 
 
 export type nil = undefined | null;
@@ -51,6 +51,7 @@ export enum DataType {
     timestamptz = 'timestamptz',
     date = 'date',
     time = 'time',
+    timetz = 'timetz',
     null = 'null',
     bool = 'bool',
 
