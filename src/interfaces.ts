@@ -208,8 +208,13 @@ export interface LibAdapters {
     /** Create a pg-native instance bound to this db */
     createPgNative(queryLatency?: number): any;
 
-    /** Create a Typeorm connection bound to this db */
+    /** Create a Typeorm connection bound to this db
+     * @deprecated Use `createTypeormDataSource` instead. See https://github.com/oguimbal/pg-mem/pull/238.
+     */
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number): any;
+
+    /** Create a Typeorm data source bound to this db */
+    createTypeormDataSource(typeOrmConnection: any, queryLatency?: number): any;
 
     /** Create a Knex.js instance bound to this db */
     createKnex(queryLatency?: number, knexConfig?: object): any;
