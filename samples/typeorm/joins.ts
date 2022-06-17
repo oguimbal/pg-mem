@@ -35,7 +35,7 @@ export async function typeormJoinsSample() {
 
     //==== create a memory db
     const db = newDb({
-        // 👉 Recommanded when using Typeorm .synchronize(), which creates foreign keys but not indices !
+        // 👉 Recommended when using Typeorm .synchronize(), which creates foreign keys but not indices !
         autoCreateForeignKeyIndices: true,
     });
 
