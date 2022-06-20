@@ -790,7 +790,12 @@ describe('Joins', () => {
     it('can select * and column on join', () => {
         expect(many(`select *, a from concat('a') as a join concat('a') as b on a.a=b.b`))
             .to.deep.equal([{ a: 'a', b: 'a', a1: 'a' }]);
-    })
+    });
+
+    it('can select scope.* and on join', () => {
+        expect(many(`select a.* from concat('a') as a join concat('a') as b on a.a=b.b`))
+            .to.deep.equal([{ a: 'a' }]);
+    });
 
     it('can select selective * and column on join ', () => {
         expect(many(`select b.*, vala, a from (values ('x', 'a1')) as a(ida, vala) join (values ('x', 'b1')) as b(idb, valb) on a.ida=b.idb`))

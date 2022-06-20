@@ -161,13 +161,9 @@ export abstract class FilterBase<T> extends TransformBase<T> {
     }
 
     selectAlias(alias: string): nil | _IAlias {
-        // this is a filter... meaning that if the alias returned by the unfiltered datasource is itself,
-        // then the alias corresponds to the whole filtered data.
-        // ... if not, then it corresponds to some inner alias, which will be innaccessible to this filter.
-        if (this.base.selectAlias(alias) === this.base) {
-            return this;
-        }
-        return null;
+        // this is a filter... that the alias returned by the unfiltered datasource will
+        // be valid for the filtered datasource (aliases are only listing columns)
+        return this.base.selectAlias(alias);
     }
 
     /**

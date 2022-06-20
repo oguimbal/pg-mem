@@ -4,6 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { IMemoryDb } from '../interfaces';
 import { Types } from '../datatypes';
+import { preventCataJoin } from './test-utils';
 
 describe('Updates', () => {
 
@@ -109,5 +110,45 @@ describe('Updates', () => {
             where id= 'b';
             select * from users where id='b';
         `)).to.deep.equal([{ id: 'b', cnt: 3, books: ['bb', 'bc'] }]);
-    })
+    });
+
+
+    it('can update from select', () => {
+        preventCataJoin(db); // must use index
+        expect(many(`
+            create table test_table(id text primary key, value int);
+            insert into test_table values ('a', 1), ('b', 2), ('c', 3);
+
+            update test_table
+                set value = 42
+            from (select * from (values ('b')) ids(id)) as ids
+            where test_table.id = ids.id;
+
+        select * from test_table order by value;
+            `)).to.deep.equal([
+            { id: 'a', value: 1 },
+            { id: 'c', value: 3 },
+            { id: 'b', value: 42 },
+        ]);
+    });
+
+
+    it('does nothing when update from select has no match', () => {
+        preventCataJoin(db); // must use index
+        expect(many(`
+            create table test_table(id text primary key, value int);
+            insert into test_table values ('a', 1), ('b', 2), ('c', 3);
+
+            update test_table
+                set value = 42
+            from (select * from (values ('x')) ids(id)) as ids
+            where test_table.id = ids.id;
+
+        select * from test_table order by value;
+            `)).to.deep.equal([
+            { id: 'a', value: 1 },
+            { id: 'b', value: 2 },
+            { id: 'c', value: 3 },
+        ]);
+    });
 });
