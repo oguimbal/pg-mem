@@ -181,9 +181,9 @@ export class ForeignKey implements _IConstraint {
         // =====================
         //  prevent foreign table truncation
         // =====================
-        this.unsubs.push(ftable.onTruncate((t, cascade) => {
+        this.unsubs.push(ftable.onTruncate((t, { cascade }) => {
             if (cascade) {
-                this.table.truncate(t, true);
+                this.table.truncate(t, { cascade: true });
                 return;
             }
             throw new QueryError({

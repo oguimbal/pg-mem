@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler } from './interfaces-private';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
 import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -483,10 +483,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return got;
     }
 
-    truncate(t: _Transaction, cascade?: boolean): void {
+    truncate(t: _Transaction, _opts?: TruncateOpts): void {
+        const opts: TruncateOpts = _opts ?? {};
         // call truncate handlers
         for (const h of this.truncateHandlers) {
-            h(t, !!cascade);
+            h(t, opts);
         }
         // truncate indices
         for (const k of this.indexByHash.values()) {

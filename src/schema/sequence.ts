@@ -139,6 +139,10 @@ export class Sequence implements _ISequence {
         t.set(this.symbol, data);
     }
 
+    restart(t: _Transaction) {
+        t.delete(this.symbol);
+    }
+
     currentValue(t: _Transaction): number {
         const v = t.get<SeqData>(this.symbol)?.currval;
         if (v === undefined) {

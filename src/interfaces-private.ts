@@ -392,7 +392,7 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
 }
 
 export type DropHandler = (t: _Transaction, cascade: boolean) => void;
-export type TruncateHandler = (t: _Transaction, cascade: boolean) => void;
+export type TruncateHandler = (t: _Transaction, opts: TruncateOpts) => void;
 export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
 export interface _RelationBase {
@@ -443,7 +443,12 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
     onTruncate(sub: TruncateHandler): ISubscription;
-    truncate(t: _Transaction, cascade?: boolean): void;
+    truncate(t: _Transaction, truncateOpts?: TruncateOpts): void;
+}
+
+export interface TruncateOpts {
+    restartIdentity?: boolean;
+    cascade?: boolean;
 }
 
 export interface _IView extends _RelationBase {
@@ -766,6 +771,7 @@ export interface _ISequence extends _RelationBase {
     readonly type: 'sequence';
     alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this;
     nextValue(t: _Transaction): number;
+    restart(t: _Transaction): void;
     setValue(t: _Transaction, value: number): void;
     currentValue(t: _Transaction): number;
     drop(t: _Transaction): void;
