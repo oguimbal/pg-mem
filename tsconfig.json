@@ -9,6 +9,7 @@
         "types": [],
         "skipLibCheck": true,
         "moduleResolution": "node",
+        "isolatedModules": false,
         "jsx": "react",
         "declaration": true,
         "declarationMap": true,
