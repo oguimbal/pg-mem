@@ -44,7 +44,6 @@ function chooseStrategy(this: void, t: _Transaction, strategies: JoinStrategy[])
 }
 
 export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
-    returnJoinedSource?: boolean;
 
     get isExecutionWithNoResult(): boolean {
         return false;
@@ -323,11 +322,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         const { template, buildItem } = this.builder(item, side);
         let yielded = false;
         for (const cr of others) {
-            const { predicateItem, resultItem } = buildItem(cr);
-            const result = this.seqScanExpression.get(predicateItem, t);
+            const combined = buildItem(cr);
+            const result = this.seqScanExpression.get(combined, t);
             if (result) {
                 yielded = true;
-                yield resultItem;
+                yield combined;
             }
         }
         if (!this.innerJoin && !yielded) {
@@ -340,22 +339,22 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         // if we're in an inner join, and the chosen strategy
         // has inverted join order, then invert built items
         let template: any;
-        let buildItem: (x: any) => { resultItem: any; predicateItem: any };
+        let buildItem: (x: any) => any;
         if (side === 'joined') {
-            buildItem = x => this.buildItemResult(x, item);
+            buildItem = x => this.buildItem(x, item);
             template = this.buildItem(null as any, item);
         } else {
-            buildItem = x => this.buildItemResult(item, x);
+            buildItem = x => this.buildItem(item, x);
             template = this.buildItem(item, null as any);
         }
         return { buildItem, template };
     }
 
-    *iterateStrategyItem(outerItem: any, strategy: JoinStrategy, t: _Transaction) {
+    *iterateStrategyItem(item: any, strategy: JoinStrategy, t: _Transaction) {
 
-        const { template, buildItem } = this.builder(outerItem, strategy.iterateSide);
+        const { template, buildItem } = this.builder(item, strategy.iterateSide);
 
-        const joinValue = strategy.onValue.get(outerItem, t);
+        const joinValue = strategy.onValue.get(item, t);
         let yielded = false;
         if (!nullIsh(joinValue)) {
             // get corresponding right value(s)
@@ -366,11 +365,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
             })) {
 
                 // build item
-                const { resultItem, predicateItem } = buildItem(o);
+                const item = buildItem(o);
 
                 // check othre predicates (in case the join has an AND statement)
                 if (strategy.othersPredicate) {
-                    const others = strategy.othersPredicate.get(predicateItem, t);
+                    const others = strategy.othersPredicate.get(item, t);
                     if (!others) {
                         continue;
                     }
@@ -378,28 +377,12 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
                 // finally, yieldvalue
                 yielded = true;
-                yield resultItem;
+                yield item;
             }
         }
 
         if (!this.innerJoin && !yielded) {
             yield template;
-        }
-    }
-
-    buildItemResult(l: TLeft, r: TRight): { resultItem: any; predicateItem: any } {
-        const item = this.buildItem(l, r);
-        if (this.returnJoinedSource) {
-            // This is a hack to get the item that has been joined, see update.ts
-            return {
-                resultItem: r,
-                predicateItem: item,
-            };
-        }
-
-        return {
-            resultItem: item,
-            predicateItem: item,
         }
     }
 

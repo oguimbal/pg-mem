@@ -9,11 +9,13 @@ import { JoinSelection } from '../../transforms/join';
 export class Update extends MutationDataSourceBase<any> {
 
     private setter: Setter;
+    private fetchObjectToUpdate?: ((x: any) => any);
 
     constructor(ast: UpdateStatement) {
         const { schema } = buildCtx();
         const into = asTable(schema.getObject(ast.table));
         let mutatedSel: _ISelection;
+        let fetchObjectToUpdate: ((x: any) => any) | undefined;
         if (ast.from) {
 
             //  => UPDATE-FROM-SELECT
@@ -53,7 +55,7 @@ export class Update extends MutationDataSourceBase<any> {
                 throw new Error('Invalid select-from statement');
             }
             // use hack to get the full joined source in the selection
-            mutatedSel.returnJoinedSource = true;
+            fetchObjectToUpdate = x => x['>joined'];
         } else {
 
             //  => REGULAR UPDATE
@@ -66,6 +68,7 @@ export class Update extends MutationDataSourceBase<any> {
         super(into, mutatedSel, ast);
 
         this.setter = createSetter(this.table, this.mutatedSel, ast.sets);
+        this.fetchObjectToUpdate = fetchObjectToUpdate;
 
     }
 
@@ -73,8 +76,11 @@ export class Update extends MutationDataSourceBase<any> {
         // perform update
         const rows: any[] = [];
         for (const i of this.mutatedSel.enumerate(t)) {
-            this.setter(t, i, i);
-            rows.push(this.table.update(t, i));
+            const data = this.fetchObjectToUpdate
+                ? this.fetchObjectToUpdate(i)
+                : i;
+            this.setter(t, data, i);
+            rows.push(this.table.update(t, data));
         }
         return rows;
     }

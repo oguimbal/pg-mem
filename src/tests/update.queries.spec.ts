@@ -120,15 +120,15 @@ describe('Updates', () => {
             insert into test_table values ('a', 1), ('b', 2), ('c', 3);
 
             update test_table
-                set value = 42
-            from (select * from (values ('b')) ids(id)) as ids
-            where test_table.id = ids.id;
+                set value = value +  ids.val
+            from (select * from (values ('b', 42)) ids(oid, val)) as ids
+            where test_table.id = ids.oid;
 
         select * from test_table order by value;
             `)).to.deep.equal([
             { id: 'a', value: 1 },
             { id: 'c', value: 3 },
-            { id: 'b', value: 42 },
+            { id: 'b', value: 2 + 42 },
         ]);
     });
 
