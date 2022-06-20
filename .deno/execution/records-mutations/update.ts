@@ -2,6 +2,9 @@ import { _ITable, _Transaction, _Explainer, _ISchema, asTable, _ISelection, _IIn
 import { UpdateStatement } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { MutationDataSourceBase, Setter, createSetter } from './mutation-base.ts';
 import { buildCtx } from '../../parser/context.ts';
+import { buildSelect } from '../select.ts';
+import { Selection } from '../../transforms/selection.ts';
+import { JoinSelection } from '../../transforms/join.ts';
 
 export class Update extends MutationDataSourceBase<any> {
 
@@ -10,9 +13,55 @@ export class Update extends MutationDataSourceBase<any> {
     constructor(ast: UpdateStatement) {
         const { schema } = buildCtx();
         const into = asTable(schema.getObject(ast.table));
-        const mutatedSel = into
-            .selection
-            .filter(ast.where);
+        let mutatedSel: _ISelection;
+        if (ast.from) {
+
+            //  => UPDATE-FROM-SELECT
+
+            // build a join that selects the full record to update,
+            // based on the data from the original selection
+            mutatedSel = buildSelect({
+                type: 'select',
+                // join from:
+                from: [
+                    ast.from,
+                    {
+                        type: 'table',
+                        name: ast.table,
+                        join: {
+                            type: 'INNER JOIN',
+                            on: ast.where,
+                        }
+                    }],
+                // // select the whole updated record
+                columns: [{
+                    expr: {
+                        type: 'ref',
+                        table: ast.table,
+                        name: '*',
+                    }
+                }]
+            });
+
+            // this should have built a selection on a join statement
+            if (!(mutatedSel instanceof Selection)) {
+                throw new Error('Invalid select-from statement');
+            }
+            mutatedSel = mutatedSel.base;
+            if (!(mutatedSel instanceof JoinSelection)) {
+                // should not happen
+                throw new Error('Invalid select-from statement');
+            }
+            // use hack to get the full joined source in the selection
+            mutatedSel.returnJoinedSource = true;
+        } else {
+
+            //  => REGULAR UPDATE
+            mutatedSel = into
+                .selection
+                .filter(ast.where);
+        }
+
 
         super(into, mutatedSel, ast);
 
