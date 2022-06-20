@@ -483,10 +483,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return got;
     }
 
-    truncate(t: _Transaction): void {
+    truncate(t: _Transaction, cascade?: boolean): void {
         // call truncate handlers
         for (const h of this.truncateHandlers) {
-            h(t);
+            h(t, !!cascade);
         }
         // truncate indices
         for (const k of this.indexByHash.values()) {

@@ -47,6 +47,13 @@ describe('Foreign keys', () => {
         assert.throws(() => none('truncate "user"'), locked);
     });
 
+    it('can truncate cascade', () => {
+        usr('NO ACTION');
+        none('truncate "user" cascade');
+
+        expect(many(`select * from "user"`)).to.deep.equal([]);
+        expect(many(`select * from "photo"`)).to.deep.equal([]);
+    });
 
     it('cannot drop if foreign key exists even if cascade', () => {
         usr('CASCADE');

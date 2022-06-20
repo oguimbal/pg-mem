@@ -1,6 +1,6 @@
 import { ISubscription, NotSupported, QueryError } from '../interfaces';
-import { AlterColumnAddGenerated, Expr, ExprBinary, nil, TableConstraintForeignKey } from 'pgsql-ast-parser';
-import { asTable, CreateIndexColDef, _Column, _IConstraint, _ITable, _Transaction } from '../interfaces-private';
+import { AlterColumnAddGenerated, nil } from 'pgsql-ast-parser';
+import { _Column, _IConstraint, _ITable, _Transaction } from '../interfaces-private';
 import { nullIsh } from '../utils';
 
 export class GeneratedIdentityConstraint implements _IConstraint {

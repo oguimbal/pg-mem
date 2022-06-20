@@ -181,7 +181,11 @@ export class ForeignKey implements _IConstraint {
         // =====================
         //  prevent foreign table truncation
         // =====================
-        this.unsubs.push(ftable.onTruncate(() => {
+        this.unsubs.push(ftable.onTruncate((t, cascade) => {
+            if (cascade) {
+                this.table.truncate(t, true);
+                return;
+            }
             throw new QueryError({
                 error: `cannot truncate a table referenced in a foreign key constraint`,
                 details: `Table "${table.name}" references "${ftable.name}".`,
