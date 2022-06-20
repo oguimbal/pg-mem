@@ -47,7 +47,7 @@
     "lru-cache": "^6.0.0",
     "moment": "^2.27.0",
     "object-hash": "^2.0.3",
-    "pgsql-ast-parser": "^10.5.1"
+    "pgsql-ast-parser": "^10.5.2"
   },
   "devDependencies": {
     "@babel/cli": "^7.10.5",
@@ -75,7 +75,7 @@
     "dedent": "^0.7.0",
     "file-loader": "^6.0.0",
     "html-webpack-plugin": "^4.3.0",
-    "istanbul-instrumenter-loader": "^3.0.1",
+    "istanbul-instrumenter-loader": "^2.0.0",
     "knex": "^0.21.15",
     "mocha": "^8.0.1",
     "mochapack": "^2.0.6",
@@ -97,12 +97,12 @@
     "ts-loader": "^8.0.0",
     "ts-node": "^8.10.2",
     "typeorm": "0.2.29",
-    "typescript": "^3.9.6",
+    "typescript": "^4.7.2",
     "uuid": "^8.3.2",
     "vscode-mocha-hmr": "^1.0.0",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.12",
-    "webpack-dev-server": "^3.11.0",
+    "webpack-dev-server": "^4.9.2",
     "webpack-node-externals": "^1.7.2"
   },
   "peerDependencies": {

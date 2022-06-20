@@ -217,7 +217,7 @@ export class StatementExec implements _IStatement {
             return act();
         } catch (e) {
             // handle reeantrant calls (avoids including error tips twice)
-            if (e && typeof e === 'object' && e[detailsIncluded]) {
+            if (e && typeof e === 'object' && (e as any)[detailsIncluded]) {
                 throw e;
             }
 
@@ -255,7 +255,7 @@ export class StatementExec implements _IStatement {
             // set error location
             if (e && typeof e === 'object') {
                 (e as any).location = locOf(this.statement);
-                e[detailsIncluded] = true;
+                (e as any)[detailsIncluded] = true;
             }
             throw e;
         }
