@@ -3,12 +3,12 @@ import { Schema } from '../../interfaces.ts';
 import { Types } from '../../datatypes/index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
 
-// https://www.postgresql.org/docs/13/catalog-pg-range.html
-export class TableConstraint extends ReadOnlyTable implements _ITable {
+
+export class KeyColumnUsage extends ReadOnlyTable implements _ITable {
 
 
     _schema: Schema = {
-        name: 'table_constraints',
+        name: 'key_column_usage',
         fields: [
             { name: 'constraint_catalog', type: Types.text() }
             , { name: 'constraint_schema', type: Types.text() }
@@ -16,10 +16,9 @@ export class TableConstraint extends ReadOnlyTable implements _ITable {
             , { name: 'table_catalog', type: Types.text() }
             , { name: 'table_schema', type: Types.text() }
             , { name: 'table_name', type: Types.text() }
-            , { name: 'constraint_type', type: Types.text() }
-            , { name: 'is_deferrable', type: Types.bool }
-            , { name: 'initially_deferred', type: Types.bool }
-            , { name: 'enforced', type: Types.bool }
+            , { name: 'column_name', type: Types.text() }
+            , { name: 'ordinal_position', type: Types.integer }
+            , { name: 'position_in_unique_constraint', type: Types.integer }
         ]
     };
 

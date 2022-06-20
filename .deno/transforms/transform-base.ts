@@ -10,7 +10,7 @@ import type { buildUnion } from './union.ts';
 import type { buildOrderBy } from './order-by.ts';
 import type { buildDistinct } from './distinct.ts';
 
-import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, LimitStatement, OrderByStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { RestrictiveIndex } from './restrictive-index.ts';
 
 interface Fns {
@@ -76,7 +76,7 @@ export abstract class DataSourceBase<T> implements _ISelection<T> {
 
 
     selectAlias(alias: string): _IAlias | nil {
-        return this;
+        return null;
     }
 
 
@@ -158,6 +158,16 @@ export abstract class FilterBase<T> extends TransformBase<T> {
 
     get columns(): ReadonlyArray<IValue<any>> {
         return this.base.columns;
+    }
+
+    selectAlias(alias: string): nil | _IAlias {
+        // this is a filter... meaning that if the alias returned by the unfiltered datasource is itself,
+        // then the alias corresponds to the whole filtered data.
+        // ... if not, then it corresponds to some inner alias, which will be innaccessible to this filter.
+        if (this.base.selectAlias(alias) === this.base) {
+            return this;
+        }
+        return null;
     }
 
     /**

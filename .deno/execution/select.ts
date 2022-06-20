@@ -1,5 +1,5 @@
 import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema } from '../interfaces-private.ts';
-import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { Deletion } from './records-mutations/deletion.ts';
 import { Update } from './records-mutations/update.ts';
 import { Insert } from './records-mutations/insert.ts';
@@ -278,12 +278,20 @@ export class SelectExec implements _IStatementExecutor {
 
     execute(t: _Transaction): StatementResult {
         const rows = cleanResults([...this.selection.enumerate(t)]);
+        let unnamedFields = 0;
+        const nextDefaultFieldName = () => {
+            const unnamedField = `column${unnamedFields || ''}`;
+            unnamedFields += 1;
+            return unnamedField;
+        }
         return {
             result: {
                 rows,
                 rowCount: t.getTransient(MutationDataSourceBase.affectedRows) ?? rows.length,
                 command: this.p.type.toUpperCase(),
-                fields: [],
+                fields: this.selection.columns.map(
+                    c => ({ name: c.id ?? nextDefaultFieldName(), type: c.type.primary })
+                ),
                 location: locOf(this.p),
             },
             state: t,

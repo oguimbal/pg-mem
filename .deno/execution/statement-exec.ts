@@ -1,6 +1,6 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils.ts';
 import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private.ts';
-import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { ExecuteCreateTable } from './schema-amends/create-table.ts';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence.ts';
 import { locOf, ExecHelper } from './exec-utils.ts';
@@ -217,7 +217,7 @@ export class StatementExec implements _IStatement {
             return act();
         } catch (e) {
             // handle reeantrant calls (avoids including error tips twice)
-            if (e && typeof e === 'object' && e[detailsIncluded]) {
+            if (e && typeof e === 'object' && (e as any)[detailsIncluded]) {
                 throw e;
             }
 
@@ -255,7 +255,7 @@ export class StatementExec implements _IStatement {
             // set error location
             if (e && typeof e === 'object') {
                 (e as any).location = locOf(this.statement);
-                e[detailsIncluded] = true;
+                (e as any)[detailsIncluded] = true;
             }
             throw e;
         }

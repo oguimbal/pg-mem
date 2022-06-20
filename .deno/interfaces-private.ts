@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces.ts';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { Map as ImMap, Record, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -392,7 +392,7 @@ export type OnConflictHandler = { ignore: 'all' | _IIndex } | {
 }
 
 export type DropHandler = (t: _Transaction, cascade: boolean) => void;
-export type TruncateHandler = (t: _Transaction) => void;
+export type TruncateHandler = (t: _Transaction, opts: TruncateOpts) => void;
 export type IndexHandler = (act: 'create' | 'drop', idx: _INamedIndex) => void;
 
 export interface _RelationBase {
@@ -443,7 +443,12 @@ export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
     onTruncate(sub: TruncateHandler): ISubscription;
-    truncate(t: _Transaction): void;
+    truncate(t: _Transaction, truncateOpts?: TruncateOpts): void;
+}
+
+export interface TruncateOpts {
+    restartIdentity?: boolean;
+    cascade?: boolean;
 }
 
 export interface _IView extends _RelationBase {
@@ -766,6 +771,7 @@ export interface _ISequence extends _RelationBase {
     readonly type: 'sequence';
     alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this;
     nextValue(t: _Transaction): number;
+    restart(t: _Transaction): void;
     setValue(t: _Transaction, value: number): void;
     currentValue(t: _Transaction): number;
     drop(t: _Transaction): void;

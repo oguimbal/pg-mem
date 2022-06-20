@@ -165,6 +165,9 @@ export class Adapters implements LibAdapters {
         };
     }
 
+    /**
+     * @deprecated Use `createTypeormDataSource` instead.
+     */
     createTypeormConnection(postgresOptions: any, queryLatency?: number) {
         const that = this;
         (postgresOptions as any).postgres = that.createPg(queryLatency);
@@ -176,6 +179,19 @@ export class Adapters implements LibAdapters {
         const created = getConnectionManager().create(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
         return created.connect();
+    }
+
+    createTypeormDataSource(postgresOptions: any, queryLatency?: number) {
+        const that = this;
+        (postgresOptions as any).postgres = that.createPg(queryLatency);
+        if (postgresOptions?.type !== 'postgres') {
+            throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
+        }
+
+        const { DataSource } = __non_webpack_require__('typeorm')
+        const created = new DataSource(postgresOptions);
+        created.driver.postgres = that.createPg(queryLatency);
+        return created;
     }
 
     createSlonik(queryLatency?: number) {

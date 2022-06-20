@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces.ts';
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator, Statement } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 
 
 export type nil = undefined | null;
@@ -208,8 +208,13 @@ export interface LibAdapters {
     /** Create a pg-native instance bound to this db */
     createPgNative(queryLatency?: number): any;
 
-    /** Create a Typeorm connection bound to this db */
+    /** Create a Typeorm connection bound to this db
+     * @deprecated Use `createTypeormDataSource` instead. See https://github.com/oguimbal/pg-mem/pull/238.
+     */
     createTypeormConnection(typeOrmConnection: any, queryLatency?: number): any;
+
+    /** Create a Typeorm data source bound to this db */
+    createTypeormDataSource(typeOrmConnection: any, queryLatency?: number): any;
 
     /** Create a Knex.js instance bound to this db */
     createKnex(queryLatency?: number, knexConfig?: object): any;
@@ -218,19 +223,21 @@ export interface LibAdapters {
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
 }
 
+export type QueryOrAst = string | Statement | Statement[];
+
 export interface ISchema {
     /**
      * Execute a query and return many results
      */
-    many(query: string): any[];
+    many(query: QueryOrAst): any[];
     /**
      * Execute a query without results
      */
-    none(query: string): void;
+    none(query: QueryOrAst): void;
     /**
      * Execute a query with a single result
      */
-    one(query: string): any;
+    one(query: QueryOrAst): any;
     /**
      * Another way to create tables (equivalent to "create table" queries")
      */
@@ -238,13 +245,13 @@ export interface ISchema {
     /**
      * Execute a query
      */
-    query(text: string): QueryResult;
+    query(text: QueryOrAst): QueryResult;
 
 
     /**
      * Progressively executes a query, yielding results until the end of enumeration (or an exception)
      */
-    queries(text: string): Iterable<QueryResult>;
+    queries(text: QueryOrAst): Iterable<QueryResult>;
 
     /**
      * Get a table in this db to inspect it
@@ -354,6 +361,7 @@ export interface QueryResult {
 
 export interface FieldInfo {
     name: string;
+    type: DataType;
 }
 
 

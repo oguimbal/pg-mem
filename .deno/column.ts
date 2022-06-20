@@ -1,7 +1,7 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { nullIsh } from './utils.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './schema/btree-index.ts';
@@ -65,6 +65,13 @@ export class ColRef implements _Column {
                 case 'add generated':
                     new GeneratedIdentityConstraint(c.constraintName?.name, this)
                         .install(t, c);
+                    break;
+                case 'reference':
+                    this.table.addForeignKey({
+                        ...c,
+                        type: 'foreign key',
+                        localColumns: [{ name: this.name }],
+                    }, t);
                     break;
                 default:
                     throw NotSupported.never(c, 'add constraint type');

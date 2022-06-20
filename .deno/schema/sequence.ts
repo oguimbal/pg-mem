@@ -1,4 +1,4 @@
-import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { combineSubs, ignore, nullIsh } from '../utils.ts';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from '../interfaces-private.ts';
 import { ISubscription, nil, QueryError } from '../interfaces.ts';
@@ -137,6 +137,10 @@ export class Sequence implements _ISequence {
             nextval: value + this.inc,
         };
         t.set(this.symbol, data);
+    }
+
+    restart(t: _Transaction) {
+        t.delete(this.symbol);
     }
 
     currentValue(t: _Transaction): number {

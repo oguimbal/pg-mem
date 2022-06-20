@@ -1,10 +1,10 @@
 import { ISubscription, NotSupported, QueryError } from '../interfaces.ts';
-import { AlterColumnAddGenerated, Expr, ExprBinary, nil, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
-import { asTable, CreateIndexColDef, _Column, _IConstraint, _ITable, _Transaction } from '../interfaces-private.ts';
+import { AlterColumnAddGenerated, nil } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
+import { _Column, _IConstraint, _ITable, _Transaction } from '../interfaces-private.ts';
 import { nullIsh } from '../utils.ts';
 
 export class GeneratedIdentityConstraint implements _IConstraint {
-    private sub?: ISubscription;
+    private subs: ISubscription[] = [];
 
     private get table() {
         return this.column.table;
@@ -16,7 +16,10 @@ export class GeneratedIdentityConstraint implements _IConstraint {
     }
 
     uninstall(t: _Transaction): void {
-        this.sub?.unsubscribe();
+        for (const s of this.subs) {
+            s.unsubscribe();
+        };
+        this.subs = [];
     }
 
 
@@ -38,7 +41,7 @@ export class GeneratedIdentityConstraint implements _IConstraint {
 
         // todo : Review this... it's a complete bluff (dont have time to check spec)
         const mode = _c.always ?? 'always';
-        this.sub = this.table.onBeforeChange([this.column], (old, neu, dt, opts) => {
+        this.subs.push(this.table.onBeforeChange([this.column], (old, neu, dt, opts) => {
             // only act on new things
             if (old) {
                 return;
@@ -78,7 +81,14 @@ export class GeneratedIdentityConstraint implements _IConstraint {
                     throw NotSupported.never(mode);
             }
 
-        });
+        }));
+
+        this.subs.push(this.table.onTruncate((t, { restartIdentity }) => {
+            if (!restartIdentity) {
+                return;
+            }
+            seq.restart(t);
+        }))
     }
 
 }

@@ -1,11 +1,11 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces.ts';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler } from './interfaces-private.ts';
+import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts } from './interfaces-private.ts';
 import { buildValue } from './parser/expression-builder.ts';
 import { BIndex } from './schema/btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
@@ -483,10 +483,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return got;
     }
 
-    truncate(t: _Transaction): void {
+    truncate(t: _Transaction, _opts?: TruncateOpts): void {
+        const opts: TruncateOpts = _opts ?? {};
         // call truncate handlers
         for (const h of this.truncateHandlers) {
-            h(t);
+            h(t, opts);
         }
         // truncate indices
         for (const k of this.indexByHash.values()) {
@@ -674,7 +675,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    private addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
+    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
         const ihash = indexHash(cst.localColumns.map(x => x.name));
         const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
         if (!constraintName) {

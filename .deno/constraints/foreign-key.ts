@@ -1,5 +1,5 @@
 import { ISubscription, NotSupported, QueryError } from '../interfaces.ts';
-import { Expr, ExprBinary, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts';
+import { Expr, ExprBinary, TableConstraintForeignKey } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
 import { asTable, CreateIndexColDef, _IConstraint, _ITable, _Transaction } from '../interfaces-private.ts';
 import { nullIsh } from '../utils.ts';
 
@@ -181,7 +181,11 @@ export class ForeignKey implements _IConstraint {
         // =====================
         //  prevent foreign table truncation
         // =====================
-        this.unsubs.push(ftable.onTruncate(() => {
+        this.unsubs.push(ftable.onTruncate((t, { cascade }) => {
+            if (cascade) {
+                this.table.truncate(t, { cascade: true });
+                return;
+            }
             throw new QueryError({
                 error: `cannot truncate a table referenced in a foreign key constraint`,
                 details: `Table "${table.name}" references "${ftable.name}".`,
