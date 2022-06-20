@@ -66,6 +66,13 @@ export class ColRef implements _Column {
                     new GeneratedIdentityConstraint(c.constraintName?.name, this)
                         .install(t, c);
                     break;
+                case 'reference':
+                    this.table.addForeignKey({
+                        ...c,
+                        type: 'foreign key',
+                        localColumns: [{ name: this.name }],
+                    }, t);
+                    break;
                 default:
                     throw NotSupported.never(c, 'add constraint type');
             }

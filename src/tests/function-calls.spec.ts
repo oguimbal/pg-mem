@@ -154,5 +154,32 @@ describe('Functions', () => {
 
         select row_to_json(e)  from example e `))
             .to.deep.equal([{ row_to_json: { a: 1, b: 2 } }]);
-    })
+    });
+
+
+    it('resolves arg cast from constant literal', () => {
+        db.public.registerFunction({
+            name: 'jsonb_array_length',
+            args: [DataType.jsonb],
+            returns: DataType.integer,
+            implementation: a => a.length,
+        });
+
+        expect(many(`select jsonb_array_length('[42,51]') result`))
+            .to.deep.equal([{ result: 2 }])
+        assert.throws(() => many(`select jsonb_array_length('test') result`), /invalid input syntax/);
+    });
+
+    it('resolves variadic cast from constant literal', () => {
+        db.public.registerFunction({
+            name: 'jsonb_array_length',
+            argsVariadic: DataType.jsonb,
+            returns: DataType.integer,
+            implementation: a => a.length,
+        });
+
+        expect(many(`select jsonb_array_length('[42,51]') result`))
+            .to.deep.equal([{ result: 2 }])
+        assert.throws(() => many(`select jsonb_array_length('test') result`), /invalid input syntax/);
+    });
 });

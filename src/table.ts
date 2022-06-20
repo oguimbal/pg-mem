@@ -674,7 +674,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }));
     }
 
-    private addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
+    addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
         const ihash = indexHash(cst.localColumns.map(x => x.name));
         const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
         if (!constraintName) {

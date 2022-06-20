@@ -102,6 +102,18 @@ describe('Foreign keys', () => {
     });
 
 
+    it('can create inline foreign keys', () => {
+        none(`CREATE TABLE "user" ("id" integer primary key, "name" text unique);
+        CREATE TABLE "photo" ("id" integer primary key, "userName" text REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION);
+        INSERT INTO "user"("id","name") VALUES (1, null);
+        INSERT INTO "user"("id","name") VALUES (2, 'me');
+        INSERT INTO "photo"("id", "userName") VALUES (1, null);
+        INSERT INTO "photo"("id", "userName") VALUES (2, 'me');`);
+
+        // check throws on matching username
+        assert.throws(() => none('delete from "user" where id = 2;'));
+    });
+
     it('prevents updating foreign key', () => {
         none(`CREATE TABLE "user" ("id" integer primary key, "name" text unique);
         CREATE TABLE "photo" ("id" integer primary key, "userName" text);
