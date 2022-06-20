@@ -1,8 +1,8 @@
-import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition } from '../interfaces';
+import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition, QueryOrAst } from '../interfaces';
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private';
 import { asSingleQName, isType, parseRegClass, randomString, schemaOf } from '../utils';
 import { typeSynonyms } from '../datatypes';
-import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement } from 'pgsql-ast-parser';
+import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'pgsql-ast-parser';
 import { MemoryTable } from '../table';
 import { parseSql } from '../parser/parse-cache';
 import { IMigrate } from '../migrate/migrate-interfaces';
@@ -43,32 +43,34 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
 
-    none(query: string): void {
+    none(query: QueryOrAst): void {
         this.query(query);
     }
 
-    one(query: string): any {
+    one(query: QueryOrAst): any {
         const [result] = this.many(query);
         return result;
     }
 
-    many(query: string): any[] {
+    many(query: QueryOrAst): any[] {
         return this.query(query).rows;
     }
 
 
-    query(text: string): QueryResult {
+    query(text: QueryOrAst): QueryResult {
         // intercept ?
-        for (const { intercept } of this.interceptors) {
-            const ret = intercept(text);
-            if (ret) {
-                return {
-                    command: text,
-                    fields: [],
-                    location: { start: 0, end: text.length },
-                    rowCount: 0,
-                    rows: ret,
-                };
+        if (typeof text === 'string') {
+            for (const { intercept } of this.interceptors) {
+                const ret = intercept(text);
+                if (ret) {
+                    return {
+                        command: text,
+                        fields: [],
+                        location: { start: 0, end: text.length },
+                        rowCount: 0,
+                        rows: ret,
+                    };
+                }
             }
         }
 
@@ -78,20 +80,23 @@ export class DbSchema implements _ISchema, ISchema {
             last = r;
         }
         return last ?? {
-            command: text,
+            command: typeof text === 'string' ? text : '<custom ast>',
             fields: [],
-            location: { start: 0, end: text.length },
+            location: { start: 0, end: typeof text === 'string' ? text.length : 0 },
             rowCount: 0,
             rows: [],
         };
     }
 
-    private parse(query: string) {
-        return parseSql(query);
+    private parse(query: QueryOrAst): Statement[] {
+        if (typeof query === 'string') {
+            return parseSql(query);
+        }
+        return Array.isArray(query) ? query : [query];
     }
 
-    *queries(query: string): Iterable<QueryResult> {
-        query = query + ';';
+    *queries(query: QueryOrAst): Iterable<QueryResult> {
+        query = typeof query === 'string' ? query + ';' : query;
         try {
 
             // Parse statements
@@ -99,7 +104,7 @@ export class DbSchema implements _ISchema, ISchema {
             if (!Array.isArray(parsed)) {
                 parsed = [parsed];
             }
-            const singleSql = parsed.length === 1 ? query : undefined;
+            const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
 
             // Prepare statements
             const prepared = parsed

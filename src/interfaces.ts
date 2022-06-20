@@ -1,5 +1,5 @@
 import { IMigrate } from './migrate/migrate-interfaces';
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator } from 'pgsql-ast-parser';
+import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator, Statement } from 'pgsql-ast-parser';
 
 
 export type nil = undefined | null;
@@ -223,19 +223,21 @@ export interface LibAdapters {
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
 }
 
+export type QueryOrAst = string | Statement | Statement[];
+
 export interface ISchema {
     /**
      * Execute a query and return many results
      */
-    many(query: string): any[];
+    many(query: QueryOrAst): any[];
     /**
      * Execute a query without results
      */
-    none(query: string): void;
+    none(query: QueryOrAst): void;
     /**
      * Execute a query with a single result
      */
-    one(query: string): any;
+    one(query: QueryOrAst): any;
     /**
      * Another way to create tables (equivalent to "create table" queries")
      */
@@ -243,13 +245,13 @@ export interface ISchema {
     /**
      * Execute a query
      */
-    query(text: string): QueryResult;
+    query(text: QueryOrAst): QueryResult;
 
 
     /**
      * Progressively executes a query, yielding results until the end of enumeration (or an exception)
      */
-    queries(text: string): Iterable<QueryResult>;
+    queries(text: QueryOrAst): Iterable<QueryResult>;
 
     /**
      * Get a table in this db to inspect it
