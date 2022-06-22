@@ -242,9 +242,9 @@ export class StatementExec implements _IStatement {
                         msgs.push(`*️⃣ Failed SQL statement: ${this.pAsSql}`);
                     } else {
                         try {
-                            msgs.push(`*️⃣ Reconsituted failed SQL statement: ${toSql.statement(this.statement)}`);
+                            msgs.push(`*️⃣ Reconstituted failed SQL statement: ${toSql.statement(this.statement)}`);
                         } catch (f) {
-                            msgs.push(`*️⃣ <Failed to reconsitute SQL - ${errorMessage(f)}>`);
+                            msgs.push(`*️⃣ <Failed to reconstitute SQL - ${errorMessage(f)}>`);
                         }
                     }
                 }
