@@ -173,6 +173,31 @@ describe('Inserts', () => {
             .to.deep.equal([{ val: 'oldA' }]);
     });
 
+
+    it('does not do nothing when conflict on a non unique index', () => {
+        expect(many(`create table test(id text primary key, value text);
+                        create index on test(value);
+                        insert into test values ('ida', 'value') on conflict do nothing;
+                        insert into test values ('idb', 'value') on conflict do nothing;
+                        select * from test`))
+            .to.deep.equal([
+                { id: 'ida', value: 'value' },
+                { id: 'idb', value: 'value' },
+            ]);
+    });
+
+
+    it('conflict on unique index works', () => {
+        expect(many(`create table test(id text primary key, value text);
+                        create unique index on test(value);
+                        insert into test values ('ida', 'value') on conflict do nothing;
+                        insert into test values ('idb', 'value') on conflict do nothing;
+                        select * from test`))
+            .to.deep.equal([
+                { id: 'ida', value: 'value' },
+            ]);
+    });
+
     it('ensures serials are transactional', () => {
         expect(many(`create table test(id serial primary key, val text);
                         insert into test(val) values ('x');
