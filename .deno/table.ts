@@ -327,6 +327,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             if ('ignore' in onConflict) {
                 if (onConflict.ignore === 'all') {
                     for (const k of this.indexByHash.values()) {
+                        if (!k.index.unique) {
+                            continue;
+                        }
                         const key = k.index.buildKey(toInsert, t);
                         const found = k.index.eqFirst(key, t);
                         if (found) {
