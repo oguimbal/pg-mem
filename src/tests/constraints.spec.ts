@@ -38,6 +38,13 @@ describe('Constraints', () => {
         )`);
     });
 
+    it('names primary keys with the right name', () => {
+        none(`create table test(a text, b text, c text, primary key(a,b));
+            alter table test drop constraint test_pkey;
+            alter table test add primary key (a, b, c);
+        `);
+    });
+
     it('can drop an index via drop constraint', () => {
         none(`create table test(id text);
             alter table test add constraint abc unique (id);

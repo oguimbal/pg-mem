@@ -75,7 +75,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
     private it = 0;
     private cstGen = 0;
-    hasPrimary = false;
+    private hasPrimary: BIndex | null = null;
     private readonly = false;
     hidden = false;
     private dataId = Symbol();
@@ -561,6 +561,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
+        if (!_indexName && _type === 'primary') {
+            _indexName = `${this.name}_pkey`;
+        }
         if (Array.isArray(expressions)) {
             const keys: CreateIndexColDef[] = [];
             for (const e of expressions) {
@@ -625,7 +628,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
         this.indexByHash.set(ihash, { index, expressions: index.expressions });
         if (expressions.primary) {
-            this.hasPrimary = true;
+            this.hasPrimary = index;
         }
         const ret = new SubscriptionConstraint(indexName, t => this.dropIndex(t, indexName));
         return new ConstraintWrapper(this.constraintsByName, ret);
@@ -660,6 +663,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         u.dropFromData(t);
         this.ownerSchema._reg_unregister(u);
         this.constraintsByName.delete(uName);
+        if (this.hasPrimary === u) {
+            this.hasPrimary = null;
+        }
     }
 
 
