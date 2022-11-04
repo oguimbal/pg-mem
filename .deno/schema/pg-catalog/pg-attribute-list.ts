@@ -24,7 +24,7 @@ export class PgAttributeTable extends ReadOnlyTable implements _ITable {
             , { name: 'atthasdef', type: Types.bool }
             , { name: 'atthasmissing', type: Types.bool }
             , { name: 'attidntity', type: Types.text(1) } // char(1)
-            , { name: 'attisdroppd', type: Types.bool }
+            , { name: 'attisdropped', type: Types.bool }
             , { name: 'attislocal', type: Types.bool }
             , { name: 'attinhcount', type: Types.integer }
             , { name: 'attcollation', type: Types.integer } // oid

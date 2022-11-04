@@ -415,11 +415,16 @@ interface ErrorData {
 }
 export class QueryError extends Error {
     readonly data: ErrorData;
+    readonly code: string | undefined;
     constructor(err: string | ErrorData, code?: string) {
         super(typeof err === 'string' ? err : errDataToStr(err));
-        this.data = typeof err === 'string'
-            ? { error: err, code }
-            : err;
+        if (typeof err === 'string') {
+            this.data = { error: err, code };
+            this.code = code;
+        } else {
+            this.data = err;
+            this.code = err.code;
+        }
     }
 }
 

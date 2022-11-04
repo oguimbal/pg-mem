@@ -635,7 +635,6 @@ export type IndexOp = {
 }
 
 export interface TableRecordDef<T> {
-    hasPrimary?: boolean;
     readonly?: boolean;
     hidden?: boolean;
     name?: string;

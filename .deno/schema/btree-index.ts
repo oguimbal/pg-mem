@@ -163,8 +163,8 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         if (this.unique && !hasNil && this.hasKey(key, t)) {
             const idCols = this.cols.map(it => it.value.id);
             throw new QueryError({
-                error: `insert into "${this.onTable.name}" (${Object.keys(raw).join(', ')}) `
-                    + `values (${Object.keys(raw).map((_, i) => `$${i + 1}`).join(', ')}) returning "${idCols}" `
+                error: `insert into "${this.onTable.name}" (${Object.keys(raw as any).join(', ')}) `
+                    + `values (${Object.keys(raw as any).map((_, i) => `$${i + 1}`).join(', ')}) returning "${idCols}" `
                     + `- duplicate key value violates unique constraint "${this.onTable.name}_pkey"`,
                 details: `Key (${idCols})=(${key}) already exists.`,
                 code: '23505'
