@@ -106,12 +106,20 @@
     "webpack-node-externals": "^1.7.2"
   },
   "peerDependencies": {
+    "@mikro-orm/core": ">=4.5.3",
+    "@mikro-orm/postgresql": ">=4.5.3",
     "knex": ">=0.20",
     "pg-promise": ">=10.8.7",
     "slonik": ">=23.0.1",
     "typeorm": ">=0.2.29"
   },
   "peerDependenciesMeta": {
+    "@mikro-orm/core": {
+      "optional": true
+    },
+    "@mikro-orm/postgresql": {
+      "optional": true
+    },
     "pg-promise": {
       "optional": true
     },
@@ -122,9 +130,6 @@
       "optional": true
     },
     "knex": {
-      "optional": true
-    },
-    "mikro-orm": {
       "optional": true
     }
   },
