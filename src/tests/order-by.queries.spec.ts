@@ -50,7 +50,7 @@ describe('Order by', () => {
             ]);
     });
 
-    it('can order by with nulls last', () => {
+    it('can order by desc with nulls last', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val desc nulls last`))
@@ -61,7 +61,7 @@ describe('Order by', () => {
             ]);
     });
 
-    it('can order by with nulls first', () => {
+    it('can order by desc with nulls first', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val desc nulls first`))
@@ -69,6 +69,17 @@ describe('Order by', () => {
                 { value: null }
                 , { value: 'b' }
                 , { value: 'a' }
+            ]);
+    });
+
+    it('can order by asc with nulls last', () => {
+        expect(many(`create table test(val text);
+            insert into test values ('b'), ('a'), (null);
+            select t.val as value from test t order by t.val asc nulls last`))
+            .to.deep.equal([
+                { value: 'a' }
+                , { value: 'b' }
+                , { value: null }
             ]);
     });
 
