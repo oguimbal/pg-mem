@@ -5,13 +5,16 @@ import { BIndex } from './schema/btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
 import { Map as ImMap } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
-import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
+import { CreateColumnDef, TableConstraintForeignKey, TableConstraint, Expr, Name, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
 import { ColRef } from './column.ts';
 import { buildAlias, Alias } from './transforms/alias.ts';
 import { DataSourceBase } from './transforms/transform-base.ts';
 import { ForeignKey } from './constraints/foreign-key.ts';
 import { Types } from './datatypes/index.ts';
 import { withSelection } from './parser/context.ts';
+import { SubscriptionConstraint } from './constraints/subscription.ts';
+import { ConstraintWrapper } from './constraints/wrapped.ts';
+import { IndexConstraint } from './constraints/index-cst.ts';
 
 
 type Raw<T> = ImMap<string, T>;
@@ -556,7 +559,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
 
     createIndex(t: _Transaction, expressions: CreateIndexDef): _IConstraint | nil;
-    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string): _IConstraint;
+    createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string | nil): _IConstraint;
     createIndex(t: _Transaction, expressions: Name[] | CreateIndexDef, _type?: 'primary' | 'unique', _indexName?: string): _IConstraint | nil {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
@@ -630,8 +633,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (expressions.primary) {
             this.hasPrimary = index;
         }
-        const ret = new SubscriptionConstraint(indexName, t => this.dropIndex(t, indexName));
-        return new ConstraintWrapper(this.constraintsByName, ret);
+        const ret = new IndexConstraint(indexName, index, this);
+        this.constraintsByName.set(indexName, ret);
+        return ret;
     }
 
     private determineIndexRelName(indexName: string | nil, ihash: string, ifNotExists: boolean | nil, sufix: string): string | nil {
@@ -788,27 +792,5 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             }
         }
 
-    }
-}
-
-class SubscriptionConstraint implements _IConstraint {
-    constructor(readonly name: string, readonly uninstall: (t: _Transaction) => void) {
-    }
-}
-
-class ConstraintWrapper implements _IConstraint {
-    constructor(private refs: Map<string, _IConstraint>, private inner: _IConstraint) {
-        if (inner.name) {
-            refs.set(inner.name, this);
-        }
-    }
-    get name() {
-        return this.inner.name;
-    }
-    uninstall(t: _Transaction): void {
-        this.inner.uninstall(t);
-        if (this.name) {
-            this.refs.delete(this.name);
-        }
     }
 }

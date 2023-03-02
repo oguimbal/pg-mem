@@ -1,5 +1,5 @@
 import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor, asTable, StatementResult, _IStatement, TruncateOpts } from '../../interfaces-private.ts';
-import { TruncateTableStatement } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
+import { TruncateTableStatement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { buildCtx } from '../../parser/context.ts';
 

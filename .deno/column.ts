@@ -1,7 +1,7 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@10.5.2/mod.ts';
+import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
 import { nullIsh } from './utils.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './schema/btree-index.ts';
@@ -41,7 +41,8 @@ export class ColRef implements _Column {
                     this.table.createIndex(t, {
                         columns: [{ value: this.expression }],
                         primary: true,
-                        indexName: cname?.name,
+                        // default constraint name:
+                        indexName: cname?.name ?? `${this.table.name}_pkey`,
                     });
                     break;
                 case 'unique':
@@ -49,7 +50,8 @@ export class ColRef implements _Column {
                         columns: [{ value: this.expression }],
                         notNull: notNull,
                         unique: true,
-                        indexName: cname?.name,
+                        // default constraint name:
+                        indexName: cname?.name ?? `${this.table.name}_${this.name}_key`,
                     });
                     break;
                 case 'default':
