@@ -41,7 +41,8 @@ export class ColRef implements _Column {
                     this.table.createIndex(t, {
                         columns: [{ value: this.expression }],
                         primary: true,
-                        indexName: cname?.name,
+                        // default constraint name:
+                        indexName: cname?.name ?? `${this.table.name}_pkey`,
                     });
                     break;
                 case 'unique':
@@ -49,7 +50,8 @@ export class ColRef implements _Column {
                         columns: [{ value: this.expression }],
                         notNull: notNull,
                         unique: true,
-                        indexName: cname?.name,
+                        // default constraint name:
+                        indexName: cname?.name ?? `${this.table.name}_${this.name}_key`,
                     });
                     break;
                 case 'default':

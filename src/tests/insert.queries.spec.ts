@@ -103,6 +103,35 @@ describe('Inserts', () => {
         }]);
     });
 
+    it('supports on conflict on constraint, and sets the right default constraint name', () => {
+
+        // example from https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-upsert/
+        none(`
+        CREATE TABLE customers (
+            customer_id serial PRIMARY KEY,
+            name VARCHAR UNIQUE,
+            email VARCHAR NOT NULL,
+            active bool NOT NULL DEFAULT TRUE
+        );
+
+        INSERT INTO
+            customers (name, email)
+        VALUES
+            ('IBM', 'contact@ibm.com'),
+            ('Microsoft', 'contact@microsoft.com'),
+            ('Intel', 'contact@intel.com');
+
+
+           INSERT INTO customers (NAME, email)
+        VALUES('Microsoft','hotline@microsoft.com')
+        ON CONFLICT ON CONSTRAINT customers_name_key
+        DO NOTHING;`);
+
+        expect(many(`select email from customers where name = 'Microsoft'`)).to.deep.equal([{
+            email: 'contact@microsoft.com'
+        }]);
+    })
+
     it('does not update when where is NOK on conflict', () => {
         // https://github.com/oguimbal/pg-mem/issues/168
         onConflictWhere();

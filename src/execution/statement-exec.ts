@@ -138,6 +138,10 @@ export class StatementExec implements _IStatement {
                 throw new NotSupported('"PREPARE" statement');
             case 'create composite type':
                 throw new NotSupported('create composite type');
+            case 'drop trigger':
+                throw new NotSupported('"drop trigger" statement');
+            case 'alter index':
+                throw new NotSupported('"alter index" statement');
             default:
                 throw NotSupported.never(p, 'statement type');
         }

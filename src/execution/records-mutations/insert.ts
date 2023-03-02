@@ -1,4 +1,4 @@
-import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement } from '../../interfaces-private';
+import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement, NotSupported } from '../../interfaces-private';
 import { InsertStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
@@ -7,6 +7,7 @@ import { MutationDataSourceBase, createSetter } from './mutation-base';
 import { ArrayFilter } from '../../transforms/array-filter';
 import { withSelection, buildCtx } from '../../parser/context';
 import { buildValues, buildSelect } from '../../execution/select';
+import { IndexConstraint } from '../../constraints/index-cst';
 
 export class Insert extends MutationDataSourceBase<any> {
 
@@ -67,14 +68,28 @@ export class Insert extends MutationDataSourceBase<any> {
         let ignoreConflicts: OnConflictHandler | nil = undefined;
         if (ast.onConflict) {
             // find the targeted index
-            const _on = ast.onConflict.on;
-            const on = _on && withSelection(this.table.selection, () => _on?.map(x => buildValue(x)));
             let onIndex: _IIndex | nil = null;
-            if (on) {
-                onIndex = this.table.getIndex(...on);
-                if (!onIndex?.unique) {
-                    throw new QueryError(`There is no unique or exclusion constraint matching the ON CONFLICT specification`);
-                }
+            const _on = ast.onConflict.on;
+            switch (_on?.type) {
+                case 'on expr':
+                    const exprs = _on.exprs;
+                    const on = withSelection(this.table.selection, () => exprs.map(x => buildValue(x)));
+                    onIndex = this.table.getIndex(...on);
+                    break;
+                case 'on constraint':
+                    const cst = this.table.getConstraint(_on.constraint.name);
+                    if (cst instanceof IndexConstraint) {
+                        onIndex = cst.index;
+                    }
+                    break;
+                case undefined:
+                    // on "on constraint" in statement
+                    break;
+                default:
+                    throw NotSupported.never(_on, 'unexpected "on conflict" type');
+            }
+            if (!!_on && !onIndex?.unique) {
+                throw new QueryError(`There is no unique or exclusion constraint matching the ON CONFLICT specification`);
             }
 
             // check if 'do nothing'
