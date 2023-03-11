@@ -53,6 +53,47 @@ describe('Binary operators', () => {
             .to.deep.equal({ test: ['b', 'b', 'c'] });
         expect(one(`select '["a", "b", "b", "c"]'::jsonb - 3 as test`))
             .to.deep.equal({ test: ['a', 'b', 'b'] });
-    })
+    });
+
+
+    // https://www.postgresql.org/docs/15/functions-json.html
+
+    it('supports Is the first JSON value contained in the second?', () => {
+        expect(one(`select '{"b":2}'::jsonb <@ '{"a":1, "b":2}'::jsonb as test`))
+            .to.deep.equal({ test: true });
+        expect(one(`select '{"a":1, "b":2}'::jsonb <@ '{"a":1, "b":2}'::jsonb as test`))
+            .to.deep.equal({ test: true });
+        expect(one(`select '{"c":3}'::jsonb <@ '{"a":1, "b":2}'::jsonb as test`))
+        .to.deep.equal({ test: false });
+    });
+
+    it('supports Does the text string exist as a top-level key or array element within the JSON value?', () => {
+        expect(one(`select '{"a":1, "b":2}'::jsonb ? 'a' as test`))
+            .to.deep.equal({ test: true });
+        expect(one(`select '{"a":1, "b":2}'::jsonb ? 'b' as test`))
+            .to.deep.equal({ test: true });
+        expect(one(`select '{"a":1, "b":2}'::jsonb ? 'c' as test`))
+            .to.deep.equal({ test: false });
+
+        expect(one(`select '["a", "b", "c"]'::jsonb ? 'b' as test`))
+            .to.deep.equal({ test: true });
+    });
+
+    it('supports Do any of the strings in the text array exist as top-level keys or array elements?', () => {
+        expect(one(`select '{"a":1, "b":2, "c":3}'::jsonb ?| array['b', 'd'] as test`))
+            .to.deep.equal({ test: true });
+        expect(one(`select '{"a":1, "b":2, "c":3}'::jsonb ?| array['b', 'c'] as test`))
+            .to.deep.equal({ test: true });
+        expect(one(`select '{"a":1, "b":2, "c":3}'::jsonb ?| array['d', 'e'] as test`))
+            .to.deep.equal({ test: false });
+    });
+
+    it('supports Do all of the strings in the text array exist as top-level keys or array elements?', () => {
+        expect(one(`select '{"a":1, "b":2, "c":3}'::jsonb ?& array['a', 'b'] as test`))
+            .to.deep.equal({ test: true });
+
+        expect(one(`select '["a", "b", "c"]'::jsonb ?& array['a', 'b'] as test`))
+            .to.deep.equal({ test: true });
+    });
 
 });

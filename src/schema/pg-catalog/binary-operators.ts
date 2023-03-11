@@ -107,6 +107,54 @@ function registerJsonOperators(schema: _ISchema) {
         implementation: (a, b) => queryJson(b, a),
     });
 
+    // ======= "json <@ json" query operator
+    schema.registerOperator({
+        operator: '<@',
+        left: Types.jsonb,
+        right: Types.jsonb,
+        returns: Types.bool,
+        implementation: (a, b) => queryJson(a, b),
+    });
+
+    // ======= "json ? text"
+    schema.registerOperator({
+        operator: '?',
+        left: Types.jsonb,
+        right: Types.text(),
+        returns: Types.bool,
+        implementation: (a: Record<string, unknown> | unknown[], b: string) => {
+            if (a instanceof Array) {
+                return a.includes(b);
+            } else {
+                return Object.keys(a).includes(b);
+            }
+        },
+    })
+
+    // ======= "json ?| text[]"
+    schema.registerOperator({
+        operator: '?|',
+        left: Types.jsonb,
+        right: Types.text().asArray(),
+        returns: Types.bool,
+        implementation: (a: Record<string, unknown>, b: string[]) => b.some((value) => Object.keys(a).includes(value)),
+    })
+
+    // ======= "json ?& text[]"
+    schema.registerOperator({
+        operator: '?&',
+        left: Types.jsonb,
+        right: Types.text().asArray(),
+        returns: Types.bool,
+        implementation: (a: Record<string, unknown> | unknown[], b: string[]) => {
+            if (a instanceof Array) {
+                return b.every((value) => a.includes(value));
+            } else {
+                return b.every((value) => Object.keys(a).includes(value));
+            }
+        },
+    })
+
     // ======= "json - text" (remove key)
     schema.registerOperator({
         operator: '-',
