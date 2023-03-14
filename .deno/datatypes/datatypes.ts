@@ -18,7 +18,7 @@ import { INetType } from './t-inet.ts';
 import { buildCtx } from '../parser/context.ts';
 
 
-class UUIDtype extends TypeBase<Date> {
+class UUIDtype extends TypeBase<string> {
 
 
     get primary(): DataType {
@@ -367,7 +367,7 @@ class TextType extends TypeBase<string> {
                 }
                 return value
                     .setConversion(str => {
-                        if (str?.length > toStr.len!) {
+                        if (str && str.length > toStr.len!) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
                         return str;
@@ -664,7 +664,7 @@ function makeTimestamp(primary: DataType, len: number | nil = null) {
 
 
 
-export const typeSynonyms: { [key: string]: DataType } = {
+export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreConfig: boolean } } = {
     'varchar': DataType.text,
     'char': DataType.text,
     'character': DataType.text,
@@ -682,7 +682,7 @@ export const typeSynonyms: { [key: string]: DataType } = {
     'decimal': DataType.float,
     'float': DataType.float,
     'double precision': DataType.float,
-    'numeric': DataType.float,
+    'numeric': { type: DataType.float, ignoreConfig: true },
     'real': DataType.float,
     'money': DataType.float,
 

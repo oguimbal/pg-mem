@@ -697,7 +697,7 @@ export class IteratorHelper<T> implements Iterable<T> {
     }
 }
 
-export function fromEntries<K, V>(iterable: [K, V][]): Map<K, V> {
+export function fromEntries<K, V>(iterable: readonly (readonly [K, V])[]): Map<K, V> {
     const ret = new Map<K, V>();
     for (const [k, v] of iterable) {
         ret.set(k, v);

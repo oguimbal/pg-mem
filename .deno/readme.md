@@ -274,6 +274,7 @@ Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 - Materialized views are implemented as views (meaning that they are always up-to-date, without needing them to refresh)
 - Indices implementations are basic
 - No support for timezones
+- All number-like types are all handled as javascript numbers, meaning that types like `numeric(x,y)` could not behave as expected.
 
 # 🐜 Development
 

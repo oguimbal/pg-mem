@@ -526,9 +526,11 @@ export class JoinIndex<T> implements _IIndex<T> {
             }
         } else {
             this.owner.db.raiseGlobal('catastrophic-join-optimization');
-            const all = [...this.other.enumerate(op.t)];
+            const all = [...this.base.enumerate(op)];
 
-            for (const i of this.base.enumerate(op)) {
+            let hasYielded = false;
+            for (const i of this.other.enumerate(op.t)) {
+                hasYielded = true;
                 yield* this.owner.iterateCatastrophicItem(i, all, this.side, op.t);
             }
         }
