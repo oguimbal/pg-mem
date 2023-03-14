@@ -188,7 +188,8 @@ export class Adapters implements LibAdapters {
             throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
         }
 
-        const { DataSource } = __non_webpack_require__('typeorm')
+        const nr = __non_webpack_require__('typeorm');
+        const { DataSource } = nr;
         const created = new DataSource(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
         return created;

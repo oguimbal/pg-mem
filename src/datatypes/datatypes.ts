@@ -18,7 +18,7 @@ import { INetType } from './t-inet';
 import { buildCtx } from '../parser/context';
 
 
-class UUIDtype extends TypeBase<Date> {
+class UUIDtype extends TypeBase<string> {
 
 
     get primary(): DataType {
@@ -367,7 +367,7 @@ class TextType extends TypeBase<string> {
                 }
                 return value
                     .setConversion(str => {
-                        if (str?.length > toStr.len!) {
+                        if (str && str.length > toStr.len!) {
                             throw new QueryError(`value too long for type character varying(${toStr.len})`);
                         }
                         return str;
