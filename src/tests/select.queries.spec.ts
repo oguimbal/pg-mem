@@ -153,6 +153,17 @@ describe('Selections', () => {
             ])
     })
 
+    it('can order by asc with nulls first', () => {
+        // see https://github.com/oguimbal/pg-mem/issues/133
+        expect(many(`create table test(val text);
+            insert into test values ('b'), ('a'), (null);
+            select t.val as value from test t order by t.val asc nulls first`))
+            .to.deep.equal([
+                { value: null }
+                , { value: 'a' }
+                , { value: 'b' }
+            ]);
+    });
 
     it('can select from values', () => {
         expect(many(`select * from (values (1, 'one'), (2, 'two')) as  tbl (num, str);`))
