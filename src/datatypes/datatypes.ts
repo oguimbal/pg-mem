@@ -664,7 +664,7 @@ function makeTimestamp(primary: DataType, len: number | nil = null) {
 
 
 
-export const typeSynonyms: { [key: string]: DataType } = {
+export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreConfig: boolean } } = {
     'varchar': DataType.text,
     'char': DataType.text,
     'character': DataType.text,
@@ -682,7 +682,7 @@ export const typeSynonyms: { [key: string]: DataType } = {
     'decimal': DataType.float,
     'float': DataType.float,
     'double precision': DataType.float,
-    'numeric': DataType.float,
+    'numeric': { type: DataType.float, ignoreConfig: true },
     'real': DataType.float,
     'money': DataType.float,
 

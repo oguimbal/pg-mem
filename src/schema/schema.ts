@@ -1,6 +1,6 @@
 import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition, QueryOrAst } from '../interfaces';
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private';
-import { asSingleQName, isType, parseRegClass, randomString, schemaOf } from '../utils';
+import { asSingleQName, ignore, isType, parseRegClass, randomString, schemaOf } from '../utils';
 import { typeSynonyms } from '../datatypes';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'pgsql-ast-parser';
 import { MemoryTable } from '../table';
@@ -184,7 +184,16 @@ export class DbSchema implements _ISchema, ISchema {
             }
             return $of.asArray();
         }
-        const name = (t.doubleQuoted ? null : typeSynonyms[t.name]) ?? t.name;
+        // fetch synonyms
+        const synonym = t.doubleQuoted ? null : typeSynonyms[t.name];
+        let name: string;
+        let ignoreConfig = false;
+        if (typeof synonym === 'object' && synonym && 'type' in synonym) {
+            name = synonym.type;
+            ignoreConfig = synonym.ignoreConfig;
+        } else {
+            name = synonym ?? t.name;
+        }
         const sizeable = this.sizeableTypes[name];
         if (sizeable) {
             const key = t.config?.length === 1
@@ -195,6 +204,8 @@ export class DbSchema implements _ISchema, ISchema {
                 sizeable.regs.set(key, ret = sizeable.ctor(...t.config ?? []));
             }
             return ret;
+        } else if (ignoreConfig) {
+            ignore(t.config);
         }
 
         return this.simpleTypes[name] ?? null;
