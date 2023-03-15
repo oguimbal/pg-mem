@@ -53,10 +53,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private seqScanExpression!: IValue<any>;
     private joinId: number;
     private columnsMappingParentToThis = new Map<IValue, IValue>();
-    private columnsMappingThisToParent = new Map<IValue, {
-        side: 'joined' | 'restrictive';
-        col: IValue;
-    }>();
+    // mapping of the left table columns mapped to the actual their inner value
+    private indexOnRestrictingTableByValue = new Map<IValue, _IIndex>();
     private indexCache = new Map<IValue, _IIndex>();
     strategies: JoinStrategy[] = [];
     private building = false;
@@ -87,7 +85,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     constructor(readonly restrictive: _ISelection<TLeft>
         , readonly joined: _ISelection<TRight>
         , on: JoinClause
-        , private innerJoin: boolean) {
+        , readonly innerJoin: boolean) {
         super(buildCtx().schema);
 
 
@@ -99,10 +97,9 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 continue;
             }
             this._columns.push(nc);
-            this.columnsMappingThisToParent.set(nc, {
-                col: c,
-                side: 'restrictive'
-            });
+            if (c.index) {
+                this.indexOnRestrictingTableByValue.set(nc, c.index);
+            }
         }
         for (const c of this.joined.listSelectableIdentities()) {
             const nc = c.setWrapper(this, x => (x as any)['>joined']);
@@ -111,10 +108,6 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
                 continue;
             }
             this._columns.push(nc);
-            this.columnsMappingThisToParent.set(nc, {
-                col: c,
-                side: 'joined',
-            });
         }
 
         withSelection(this, () => {
@@ -418,16 +411,14 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         if (this.indexCache.has(forValue)) {
             return this.indexCache.get(forValue);
         }
+        // check if the restrictive table (left part) has an index
+        // cant use indexes on joined table (right part), see #306 unit test
         // todo: filter using indexes of tables (index propagation)'
-        const mapped = this.columnsMappingThisToParent.get(forValue);
+        const mapped = this.indexOnRestrictingTableByValue.get(forValue);
         if (!mapped) {
             return null;
         }
-        const originIndex = mapped.col.index;
-        if (!originIndex) {
-            return null;
-        }
-        const ret = new JoinIndex(this, originIndex, mapped.side);
+        const ret = new JoinIndex(this, mapped);
         this.indexCache.set(forValue, ret);
         return ret;
     }
@@ -468,7 +459,7 @@ class JoinMapAlias implements _IAlias {
 }
 
 export class JoinIndex<T> implements _IIndex<T> {
-    constructor(readonly owner: JoinSelection<T>, private base: _IIndex, private side: 'restrictive' | 'joined') {
+    constructor(readonly owner: JoinSelection<T>, private base: _IIndex) {
     }
 
     get expressions(): IndexExpression[] {
@@ -487,7 +478,7 @@ export class JoinIndex<T> implements _IIndex<T> {
         const strategy = this.chooseStrategy(op.t);
         if (!strategy) {
             // very high entropy (catastophic join)
-            return this.base.entropy(op) * this.other.entropy(op.t);
+            return this.base.entropy(op) * this.owner.joined.entropy(op.t);
         }
         // todo: multiply that by the mean count per keys in strategy.joinIndex ?
         return this.base.entropy(op);
@@ -505,17 +496,11 @@ export class JoinIndex<T> implements _IIndex<T> {
     }
 
     private chooseStrategy(t: _Transaction) {
-        const strats = this.owner.strategies.filter(x => x.iterateSide === this.side);
+        const strats = this.owner.strategies.filter(x => x.iterateSide === 'restrictive');
         if (!strats.length) {
             return null;
         }
         return chooseStrategy(t, strats);
-    }
-
-    private get other() {
-        return this.side === 'joined'
-            ? this.owner.restrictive
-            : this.owner.joined;
     }
 
     *enumerate(op: IndexOp): Iterable<T> {
@@ -525,13 +510,12 @@ export class JoinIndex<T> implements _IIndex<T> {
                 yield* this.owner.iterateStrategyItem(i, strategy, op.t);
             }
         } else {
+            // not sure we can reach that...
             this.owner.db.raiseGlobal('catastrophic-join-optimization');
-            const all = [...this.base.enumerate(op)];
+            const all = [...this.owner.joined.enumerate(op.t)];
 
-            let hasYielded = false;
-            for (const i of this.other.enumerate(op.t)) {
-                hasYielded = true;
-                yield* this.owner.iterateCatastrophicItem(i, all, this.side, op.t);
+            for (const i of this.base.enumerate(op)) {
+                yield* this.owner.iterateCatastrophicItem(i, all, 'restrictive', op.t);
             }
         }
     }
