@@ -2,10 +2,11 @@ const rimraf = require('rimraf');
 const fs = require('fs');
 const path = require('path');
 
-const outDir = path.join(__dirname, '.deno');
+const basedir = path.resolve(__dirname, '..');
+const outDir = path.join(basedir, '.deno');
 const excluded = [
-    path.join(__dirname, 'src', 'tests'),
-    path.join(__dirname, 'src', 'parser', 'syntax', 'spec-utils.ts'),
+    path.join(basedir, 'src', 'tests'),
+    path.join(basedir, 'src', 'parser', 'syntax', 'spec-utils.ts'),
 ]
 function traverse(dir, relative, perform) {
     const rdir = path.join(outDir, relative);
@@ -51,7 +52,7 @@ if (process.argv.includes('--copy')) {
     }
 
 
-    traverse(path.join(__dirname, 'src'), '', (iname, ipath, rpath) => {
+    traverse(path.join(basedir, 'src'), '', (iname, ipath, rpath) => {
         const ext = path.extname(iname);
         switch (ext) {
             case '.ts':
@@ -62,13 +63,13 @@ if (process.argv.includes('--copy')) {
     });
 
     fs.writeFileSync(path.join(outDir, 'mod.ts'), `export * from './index';`);
-    fs.copyFileSync(path.join(__dirname, 'readme.md'), path.join(outDir, 'readme.md'));
+    fs.copyFileSync(path.join(basedir, 'readme.md'), path.join(outDir, 'readme.md'));
 
 } else if (process.argv.includes('--process')) {
     // ============= TRANSPILE
 
 
-    const package = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json')));
+    const package = JSON.parse(fs.readFileSync(path.join(basedir, 'package.json')));
     const bindings = {
         'moo': 'https://deno.land/x/moo@0.5.1-deno.2/mod.ts',
         'nearley': 'https://deno.land/x/nearley@2.19.7-deno/mod.ts',

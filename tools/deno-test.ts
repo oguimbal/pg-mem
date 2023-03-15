@@ -1,4 +1,4 @@
-import {newDb} from './.deno/mod.ts';
+import { newDb } from '../.deno/mod.ts';
 
 const db = newDb();
 

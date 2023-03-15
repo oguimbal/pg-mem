@@ -1,8 +1,9 @@
 const webpack = require('webpack');
 const path = require('path');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
-const APP_DIR = path.resolve(__dirname, './playground');
-const MONACO_DIR = path.resolve(__dirname, './node_modules/monaco-editor');
+const resolve = (file) => path.resolve(__dirname, '..', file);
+const APP_DIR = resolve('playground');
+const MONACO_DIR = resolve('node_modules', 'monaco-editor');
 const HtmlWebPackPlugin = require('html-webpack-plugin');
 const libConfig = require('./webpack.config.js');
 const CopyPlugin = require('copy-webpack-plugin');
@@ -11,7 +12,7 @@ const mode = process.argv.includes('--prod')
     ? 'production'
     : 'development';
 process.env.NODE_ENV = mode;
-const ouptutpath = path.resolve(__dirname, 'dist');
+const ouptutpath = resolve('dist');
 require('rimraf').sync(ouptutpath);
 
 const common = {
@@ -39,7 +40,7 @@ const common = {
                 },
             }, {
                 test: /\.(js|mjs)$/,
-                include: path.resolve(__dirname, 'node_modules/react-data-grid'),
+                include: resolve('node_modules/react-data-grid'),
                 exclude: /@babel(?:\/|\\{1,2})runtime/,
                 loader: require.resolve('babel-loader'),
                 options: {
@@ -99,18 +100,18 @@ module.exports = [
             },
         },
         devServer: {
-            contentBase: path.join(__dirname, 'dist'),
+            contentBase: resolve('dist'),
             compress: true,
             port: 9000
         },
         plugins: [
             new HtmlWebPackPlugin({
-                template: path.resolve(__dirname, 'playground/index.html'),
+                template: resolve('playground/index.html'),
                 filename: 'index.html'
             }),
             new CopyPlugin({
                 patterns: [
-                    { from: 'playground/index.css', to: 'index.css' },
+                    { from: resolve('playground/index.css'), to: 'index.css' },
                 ],
             }),
             new MonacoWebpackPlugin({
@@ -120,7 +121,7 @@ module.exports = [
             new webpack.EnvironmentPlugin({ NODE_ENV: 'development' }),
         ],
         entry: {
-            playground: ['react-hot-loader/patch', './playground/index.tsx'],
+            playground: ['react-hot-loader/patch', resolve('playground/index.tsx')],
         },
         output: {
             path: ouptutpath,

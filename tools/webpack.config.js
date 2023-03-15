@@ -2,6 +2,7 @@ const webpack = require('webpack');
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 const CopyPlugin = require('copy-webpack-plugin');
+const resolve = file => path.resolve(__dirname, '..', file);
 
 var isCoverage = process.env.NODE_ENV === 'coverage';
 const mode = process.argv.includes('--prod')
@@ -10,12 +11,12 @@ const mode = process.argv.includes('--prod')
 
 module.exports = {
     entry: mode === 'production' ? {
-        'index': './src/index.ts',
+        'index': resolve('src/index.ts'),
     } : {
-            'tests': isCoverage
-                ? ['./tests-index.js']
-                : ['webpack/hot/poll?100', './tests-index.js']
-        },
+        'tests': isCoverage
+            ? [resolve('tools/tests-index.js')]
+            : ['webpack/hot/poll?100', resolve('tools/tests-index.js')]
+    },
     watch: mode === 'development',
     optimization: {
         minimize: false,
@@ -71,11 +72,11 @@ module.exports = {
         library: '',
         libraryTarget: 'commonjs',
         path: mode === 'production'
-            ? path.join(__dirname, 'lib')
-            : path.join(__dirname, 'output'),
+            ? resolve('lib')
+            : resolve('output'),
         // this ensures that source maps are mapped to actual files (not "webpack:" uris)
         devtoolModuleFilenameTemplate: mode === 'production'
             ? info => info.resourcePath
-            : info => path.resolve(__dirname, info.resourcePath),
+            : info => resolve(info.resourcePath),
     },
 };
