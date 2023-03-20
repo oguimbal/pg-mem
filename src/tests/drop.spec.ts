@@ -140,4 +140,11 @@ describe('Drop', () => {
 
     });
 
+    it('test dropping unique constraint', async () => {
+        db.public.query(
+            'CREATE TABLE "table" ("id" character varying NOT NULL, "col" character varying, CONSTRAINT "REL_constraint" UNIQUE ("col"), CONSTRAINT "PK_constraint" PRIMARY KEY ("id"))',
+        );
+        db.public.query('ALTER TABLE "table" DROP CONSTRAINT "REL_constraint"');
+        db.public.query('ALTER TABLE "table" DROP COLUMN "col"');
+    });
 });
