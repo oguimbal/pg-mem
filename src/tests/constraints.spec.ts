@@ -53,6 +53,14 @@ describe('Constraints', () => {
         `);
     });
 
+    it('can drop an index via drop constraint, and then drop the column', () => {
+        none(`create table test(id text, col text);
+            alter table test add constraint abc unique (col);
+            alter table test drop constraint abc;
+            alter table test drop column col;
+        `);
+    });
+
     it('can use if exists on drop constraint', () => {
         none(`create table test(id text);
             alter table test drop constraint if exists abc;
