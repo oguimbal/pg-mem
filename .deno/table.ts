@@ -670,6 +670,11 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.hasPrimary === u) {
             this.hasPrimary = null;
         }
+	for (const col of u.expressions) {
+            for (const used of col.usedColumns) {
+                this.getColumnRef(used.id!).usedInIndexes.delete(u);
+            }
+        }
     }
 
 
