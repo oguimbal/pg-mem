@@ -127,14 +127,18 @@ export class Adapters implements LibAdapters {
                     // clone rows to avoid leaking symbols
                     rows: res.rows.map(row => {
                         const rowCopy: any = {};
+                        // copy all
+                        for (const [k, v] of Object.entries(row)) {
+                            rowCopy[k] = v;
+                        }
+                        // ...but amend fields based on their types
                         for (const f of res.fields) {
                             const type = (f as any)[TYPE_SYMBOL] as _IType;
-                            let value = row[f.name];
+                            const value = row[f.name];
                             // enum arrays are returned as strings... see #224
                             if (type instanceof ArrayType && type.of instanceof CustomEnumType && Array.isArray(value)) {
-                                value = `{${value.join(',')}}`;
+                                rowCopy[f.name] = `{${value.join(',')}}`;
                             }
-                            rowCopy[f.name] = value;
                         }
                         return rowCopy;
                     }),
