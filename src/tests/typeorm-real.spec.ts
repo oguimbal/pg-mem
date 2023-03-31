@@ -38,6 +38,26 @@ describe('Typeorm - real manips', () => {
             relations: ['user']
         });
     });
+
+    typeOrm('handles enum arrays deserialization #224', () => [WithArrays], null, async ({ db }) => {
+        const repo = db.getRepository(WithArrays);
+        const got = repo.create({
+            enums: [TestUserRole.ADMIN, TestUserRole.EDITOR]
+        });
+        await got.save();
+        let all = await repo.findByIds([1]);
+        expect(all.map(x => x.enums)).to.deep.equal([[TestUserRole.ADMIN, TestUserRole.EDITOR]]);
+    });
+
+    typeOrm('handles int arrays deserialization #224', () => [WithArrays], null, async ({ db }) => {
+        const repo = db.getRepository(WithArrays);
+        const got = repo.create({
+            ints: [1, 2, 3]
+        });
+        await got.save();
+        let all = await repo.findByIds([1]);
+        expect(all.map(x => x.ints)).to.deep.equal([[1, 2, 3]]);
+    });
 });
 
 @Entity()
@@ -47,4 +67,33 @@ class WithJsonb extends BaseEntity {
 
     @Column({ type: 'jsonb' })
     data: any;
+}
+
+
+export enum TestUserRole {
+    ADMIN = "admin",
+    EDITOR = "editor",
+    GHOST = "ghost",
+}
+
+@Entity()
+export class WithArrays extends BaseEntity {
+
+    @PrimaryGeneratedColumn()
+    id!: number
+
+    @Column({
+        type: "enum",
+        enum: TestUserRole,
+        array: true,
+        nullable: true,
+    })
+    enums?: TestUserRole[]
+
+    @Column({
+        type: "integer",
+        array: true,
+        nullable: true,
+    })
+    ints?: number[]
 }
