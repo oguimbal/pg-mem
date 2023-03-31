@@ -290,7 +290,11 @@ export class SelectExec implements _IStatementExecutor {
                 rowCount: t.getTransient(MutationDataSourceBase.affectedRows) ?? rows.length,
                 command: this.p.type.toUpperCase(),
                 fields: this.selection.columns.map(
-                    c => ({ name: c.id ?? nextDefaultFieldName(), type: c.type.primary })
+                    c => ({
+                        name: c.id ?? nextDefaultFieldName(),
+                        type: c.type.primary,
+                        [TYPE_SYMBOL]: c.type,
+                    })
                 ),
                 location: locOf(this.p),
             },
@@ -299,6 +303,7 @@ export class SelectExec implements _IStatementExecutor {
     }
 }
 
+export const TYPE_SYMBOL = Symbol('type');
 
 
 function checkReadonlyWithable(st: WithStatementBinding) {

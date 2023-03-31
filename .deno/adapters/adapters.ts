@@ -1,7 +1,11 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from '../interfaces.ts';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult, DataType } from '../interfaces.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { compareVersions } from '../utils.ts';
 import { toLiteral } from '../misc/pg-utils.ts';
+import { _IType } from '../interfaces-private.ts';
+import { TYPE_SYMBOL } from '../execution/select.ts';
+import { ArrayType } from '../datatypes/index.ts';
+import { CustomEnumType } from '../datatypes/t-custom-enum.ts';
 declare var __non_webpack_require__: any;
 
 
@@ -122,10 +126,17 @@ export class Adapters implements LibAdapters {
                     ...res,
                     // clone rows to avoid leaking symbols
                     rows: res.rows.map(row => {
-                        return Object.entries(row).reduce((obj, [key, val]) => {
-                            obj[key] = val;
-                            return obj;
-                        }, {} as any);
+                        const rowCopy: any = {};
+                        for (const f of res.fields) {
+                            const type = (f as any)[TYPE_SYMBOL] as _IType;
+                            let value = row[f.name];
+                            // enum arrays are returned as strings... see #224
+                            if (type instanceof ArrayType && type.of instanceof CustomEnumType && Array.isArray(value)) {
+                                value = `{${value.join(',')}}`;
+                            }
+                            rowCopy[f.name] = value;
+                        }
+                        return rowCopy;
                     }),
                     get fields() {
                         // to implement if needed ? (never seen a lib that uses it)
