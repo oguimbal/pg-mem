@@ -66,7 +66,7 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             args,
             code: fn.code,
             returns,
-            functioName: fn.name.name,
+            functionName: fn.name.name,
             schema: schema,
         });
 
