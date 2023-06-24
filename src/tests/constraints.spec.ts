@@ -53,6 +53,15 @@ describe('Constraints', () => {
         `);
     });
 
+    it('can create and drop a constraint and index on the same column', () => {
+        none(`create table test (col text);
+            alter table test add constraint uq unique (col);
+            create index idx on test(col);
+            drop index idx;
+            alter table test drop constraint uq;
+        `);
+    });
+
     it('can use if exists on drop constraint', () => {
         none(`create table test(id text);
             alter table test drop constraint if exists abc;
