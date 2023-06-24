@@ -1,5 +1,5 @@
-import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ColumnNotFound, ISubscription, nil, DataType } from './interfaces';
-import { _ISelection, IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _IDb, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, OnConflictHandler, DropHandler, IndexHandler, asIndex, RegClass, RegType, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts } from './interfaces-private';
+import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ISubscription, nil } from './interfaces';
+import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
 import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -84,10 +84,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private dataId = Symbol();
     private serialsId: symbol = Symbol();
     private constraintsByName = new Map<string, _IConstraint>();
-    private indexByHash = new Map<string, {
+    private indexByHashAndName = new Map<string, Map<string, {
         index: BIndex<T>;
         expressions: IValue[];
-    }>();
+    }>>();
     readonly columnMgr = new ColumnManager();
     name: string;
 
@@ -329,14 +329,16 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (onConflict) {
             if ('ignore' in onConflict) {
                 if (onConflict.ignore === 'all') {
-                    for (const k of this.indexByHash.values()) {
-                        if (!k.index.unique) {
-                            continue;
-                        }
-                        const key = k.index.buildKey(toInsert, t);
-                        const found = k.index.eqFirst(key, t);
-                        if (found) {
-                            return found; // ignore.
+                    for (const map of this.indexByHashAndName.values()) {
+                        for (const k of map.values()) {
+                            if (!k.index.unique) {
+                                continue;
+                            }
+                            const key = k.index.buildKey(toInsert, t);
+                            const found = k.index.eqFirst(key, t);
+                            if (found) {
+                                return found; // ignore.
+                            }
                         }
                     }
                 } else {
@@ -454,8 +456,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
         // remove old version from index
         if (exists) {
-            for (const k of this.indexByHash.values()) {
-                k.index.delete(exists, t);
+            for (const map of this.indexByHashAndName.values()) {
+                for (const k of map.values()) {
+                    k.index.delete(exists, t);
+                }
             }
         }
 
@@ -481,8 +485,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         changePlan.after();
 
         // remove from indices
-        for (const k of this.indexByHash.values()) {
-            k.index.delete(got, t);
+        for (const map of this.indexByHashAndName.values()) {
+            for (const k of map.values()) {
+                k.index.delete(got, t);
+            }
         }
         this.setBin(t, bin.delete(id));
 
@@ -496,16 +502,20 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             h(t, opts);
         }
         // truncate indices
-        for (const k of this.indexByHash.values()) {
-            k.index.truncate(t);
+        for (const map of this.indexByHashAndName.values()) {
+            for (const k of map.values()) {
+                k.index.truncate(t);
+            }
         }
         this.setBin(t, ImMap());
     }
 
 
     private indexElt(t: _Transaction, toInsert: T) {
-        for (const k of this.indexByHash.values()) {
-            k.index.add(toInsert, t);
+        for (const map of this.indexByHashAndName.values()) {
+            for (const k of map.values()) {
+                k.index.add(toInsert, t);
+            }
         }
     }
 
@@ -519,7 +529,8 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return null;
         }
         const ihash = indexHash(forValues);
-        const got = this.indexByHash.get(ihash);
+        const map = this.indexByHashAndName.get(ihash);
+        const got = map?.values().next().value;
         return got?.index ?? null;
     }
 
@@ -629,7 +640,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 this.getColumnRef(used.id!).usedInIndexes.add(index);
             }
         }
-        this.indexByHash.set(ihash, { index, expressions: index.expressions });
+        const indexesByHash = this.indexByHashAndName.get(ihash) || new Map<string, {index: BIndex<T>; expressions: IValue[]}>();
+        indexesByHash.set(indexName, { index, expressions: index.expressions });
+        this.indexByHashAndName.set(ihash, indexesByHash);
         if (expressions.primary) {
             this.hasPrimary = index;
         }
@@ -659,18 +672,21 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
 
     dropIndex(t: _Transaction, uName: string) {
         const u = asIndex(this.ownerSchema.getOwnObject(uName)) as BIndex;
-        if (!u || !this.indexByHash.has(u.hash)) {
+        if (!u || !this.indexByHashAndName.has(u.hash) || !this.indexByHashAndName.get(u.hash)?.has(uName)) {
             throw new QueryError('Cannot drop index that does not belong to this table: ' + uName);
         }
         this.indexHandlers.forEach(h => h('drop', u));
-        this.indexByHash.delete(u.hash);
+        this.indexByHashAndName.get(u.hash)?.delete(uName);
+        if (this.indexByHashAndName.get(u.hash)?.size == 0) {
+            this.indexByHashAndName.delete(u.hash);
+        }
         u.dropFromData(t);
         this.ownerSchema._reg_unregister(u);
         this.constraintsByName.delete(uName);
         if (this.hasPrimary === u) {
             this.hasPrimary = null;
         }
-	for (const col of u.expressions) {
+        for (const col of u.expressions) {
             for (const used of col.usedColumns) {
                 this.getColumnRef(used.id!).usedInIndexes.delete(u);
             }
@@ -686,11 +702,15 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     listIndices(): IndexDef[] {
-        return [...this.indexByHash.values()]
-            .map<IndexDef>(x => ({
-                name: x.index.name!,
-                expressions: x.expressions.map(x => x.id!),
-            }));
+        return ([] as IndexDef[]).concat(...
+            [...this.indexByHashAndName.values()]
+                .map(indexMap => [...indexMap.values()]
+                    .map<IndexDef>(x => ({
+                        name: x.index.name!,
+                        expressions: x.expressions.map(x => x.id!)
+                    }))
+                )
+        );
     }
 
     addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
@@ -773,8 +793,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     drop(t: _Transaction, cascade: boolean) {
         this.drophandlers.forEach(d => d(t, cascade));
         t.delete(this.dataId);
-        for (const i of this.indexByHash.values()) {
-            i.index.dropFromData(t);
+        for (const map of this.indexByHashAndName.values()) {
+            for (const i of map.values()) {
+                i.index.dropFromData(t);
+            }
         }
         // todo should also check foreign keys, cascade, ...
         return this.ownerSchema._reg_unregister(this);
