@@ -1,7 +1,7 @@
 import { DataSourceBase } from '../../transforms/transform-base.ts';
 import { ArrayFilter } from '../../transforms/array-filter.ts';
 import { cleanResults } from '../clean-results.ts';
-import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement } from '../../interfaces-private.ts';
+import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement, QueryError, _Column } from '../../interfaces-private.ts';
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
 import { buildSelection } from '../../transforms/selection.ts';
 import { MemoryTable } from '../../table.ts';
@@ -124,8 +124,13 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
 export type Setter = (t: _Transaction, target: any, source: any) => void;
 export function createSetter(this: void, setTable: _ITable, setSelection: _ISelection, _sets: SetStatement[]): Setter {
     return withSelection(setSelection, () => {
+        const alreadySet = new Set<_Column>();
         const sets = _sets.map(x => {
             const col = (setTable as MemoryTable).getColumnRef(x.column.name);
+            if (alreadySet.has(col)) {
+                throw new QueryError(` multiple assignments to same column "${col.name}"`, '42601');
+            }
+            alreadySet.add(col);
             return {
                 col,
                 value: x.value,
