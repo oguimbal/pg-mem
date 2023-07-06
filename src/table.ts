@@ -529,6 +529,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return null;
         }
         const ihash = indexHash(forValues);
+        if (this.hasPrimary?.hash === ihash) {
+            return this.hasPrimary;
+        }
         const map = this.indexByHashAndName.get(ihash);
         const got = map?.values().next().value;
         return got?.index ?? null;

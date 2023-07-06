@@ -236,7 +236,17 @@ describe('Inserts', () => {
                         insert into test(val) values ('x');
                         select id from test`))
             .to.deep.equal([{ id: 1 }]);
-    })
+    });
+
+    it('allow on conflict when there is a unique index and a primary key', () => {
+
+        none(`CREATE TABLE "user" ("name" text primary key, cnt int not null default 0);
+                create index user_by_name on "user"(name);
+                insert into "user"(name) values ('toto');`);
+
+        // used to throw an error:
+        none(`insert into "user"(name) values ('toto') on conflict(name) do update set cnt = excluded.cnt + 1;`);
+    });
 
     it('[bugfix] allows returning statement', () => {
         expect(many(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));

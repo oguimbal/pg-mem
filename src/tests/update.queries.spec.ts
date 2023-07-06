@@ -151,4 +151,12 @@ describe('Updates', () => {
             { id: 'c', value: 3 },
         ]);
     });
+
+    it('cannot update multiple times the same column in one query', () => {
+        none(`create table test_table(id text primary key, value int);
+        insert into test_table values ('a', 1), ('b', 2), ('c', 3);`)
+        expect(() => many(`
+            update test_table set value = 42, value = 43;
+        `)).to.throw();
+    });
 });
