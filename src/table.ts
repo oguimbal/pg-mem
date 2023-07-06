@@ -519,6 +519,9 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
             return null;
         }
         const ihash = indexHash(forValues);
+        if (this.hasPrimary?.hash === ihash) {
+            return this.hasPrimary;
+        }
         const got = this.indexByHash.get(ihash);
         return got?.index ?? null;
     }
@@ -670,7 +673,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         if (this.hasPrimary === u) {
             this.hasPrimary = null;
         }
-	for (const col of u.expressions) {
+        for (const col of u.expressions) {
             for (const used of col.usedColumns) {
                 this.getColumnRef(used.id!).usedInIndexes.delete(u);
             }
