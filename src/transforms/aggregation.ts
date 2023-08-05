@@ -13,6 +13,7 @@ import { buildAvg } from './aggregations/avg';
 import { Selection } from './selection';
 import { buildCtx, withSelection } from '../parser/context';
 import { buildJsonAgg } from './aggregations/json_aggs';
+import { buildStringAgg } from './aggregations/string_agg';
 import { nullIsh } from '../utils';
 import { buildBoolAgg } from './aggregations/bool-aggregs';
 
@@ -371,6 +372,8 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
             case 'jsonb_agg':
             case 'json_agg':
                 return buildJsonAgg(this.base, call, name);
+            case 'string_agg':
+                return buildStringAgg(this.base, call, name);
             case 'bool_and':
             case 'bool_or':
                 return buildBoolAgg(this.base, call, name);
