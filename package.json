@@ -1,6 +1,6 @@
 {
   "name": "pg-mem-string-agg",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
@@ -18,8 +18,8 @@
     "cover": "cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text npm run test"
   },
   "author": "Olivier Guimbal",
-  "repository": "https://github.com/oguimbal/pg-mem",
-  "issues": "https://github.com/oguimbal/pg-mem/issues",
+  "repository": "https://github.com/kurple/pg-mem-string-agg",
+  "issues": "https://github.com/kurple/pg-mem-string-agg/issues",
   "keywords": [
     "postgres",
     "pg-mock",
