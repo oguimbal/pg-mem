@@ -41,8 +41,6 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@mikro-orm/core": "^5.7.14",
-    "@mikro-orm/postgresql": "^5.7.14",
     "functional-red-black-tree": "^1.0.1",
     "immutable": "^4.0.0-rc.12",
     "json-stable-stringify": "^1.0.1",
@@ -56,6 +54,8 @@
     "@babel/core": "^7.10.5",
     "@babel/preset-env": "^7.10.4",
     "@hot-loader/react-dom": "^16.13.0",
+    "@mikro-orm/core": "^5.7.14",
+    "@mikro-orm/postgresql": "^5.7.14",
     "@types/chai": "^4.2.11",
     "@types/json-stable-stringify": "^1.0.34",
     "@types/lru-cache": "^5.1.0",
@@ -109,6 +109,8 @@
     "webpack-node-externals": "^1.7.2"
   },
   "peerDependencies": {
+    "@mikro-orm/core": ">=4.5.3",
+    "@mikro-orm/postgresql": ">=4.5.3",
     "knex": ">=0.20",
     "kysely": ">=0.26",
     "pg-promise": ">=10.8.7",
@@ -116,6 +118,12 @@
     "typeorm": ">=0.2.29"
   },
   "peerDependenciesMeta": {
+    "@mikro-orm/core": {
+      "optional": true
+    },
+    "@mikro-orm/postgresql": {
+      "optional": true
+    },
     "pg-promise": {
       "optional": true
     },
