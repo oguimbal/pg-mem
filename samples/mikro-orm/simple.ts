@@ -42,6 +42,7 @@ export async function mikroOrmSample() {
     // bind an instance of mikro-orm to our pg-mem instance
     const orm: MikroORM = await db.adapters.createMikroOrm({
         entities: [Author, Book],
+        allowGlobalContext: true,
     });
 
     // create schema

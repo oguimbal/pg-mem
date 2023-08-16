@@ -35,6 +35,7 @@ describe('IRL tests', () => {
         orm = await db.adapters.createMikroOrm({
             entities: [bookSchema],
             debug: true,
+            allowGlobalContext: true,
         });
 
         await orm.getSchemaGenerator().createSchema();
