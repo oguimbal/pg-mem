@@ -37,8 +37,6 @@ function replaceQueryArgs$(this: void, sql: string, values: any[]) {
 
 
 export class Adapters implements LibAdapters {
-    private _mikroPatched?: boolean;
-
     constructor(private db: IMemoryDb) {
     }
 
@@ -338,7 +336,7 @@ export class Adapters implements LibAdapters {
     async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
 
         const { MikroORM } = __non_webpack_require__('@mikro-orm/core');
-        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = __non_webpack_require__('@mikro-orm/postgresql');
+        const { AbstractSqlDriver, AbstractSqlPlatform, PostgreSqlConnection, PostgreSqlPlatform, PostgreSqlSchemaHelper } = __non_webpack_require__('@mikro-orm/postgresql');
         const that = this;
 
         // see https://github.com/mikro-orm/mikro-orm/blob/aa71065d0727920db7da9bfdecdb33e6b8165cb5/packages/postgresql/src/PostgreSqlConnection.ts#L5
@@ -348,24 +346,30 @@ export class Adapters implements LibAdapters {
             }
 
         }
-        // see https://github.com/mikro-orm/mikro-orm/blob/master/packages/postgresql/src/PostgreSqlDriver.ts
-        class PgMemDriver extends AbstractSqlDriver<PgMemConnection> {
-            constructor(config: any) {
-                super(config, new PostgreSqlPlatform(), PgMemConnection, ['knex', 'pg']);
+
+        class PgMemPostgreSqlSchemaHelper extends PostgreSqlSchemaHelper {
+           constructor(platform: typeof AbstractSqlPlatform) {
+            super(platform);
+           }
+           getSchemaBeginning(charset: string): string  {
+                // hack: this query is not supported by pgsql-ast-parser
+                return super.getSchemaBeginning(charset).replace(`set names 'utf8';`, '');
+           }
+        }
+
+        class PgMemPostgreSqlPlatform extends PostgreSqlPlatform {
+            constructor() {
+                super();
+                this.schemaHelper = new PgMemPostgreSqlSchemaHelper(this);
             }
         }
 
-        // hack: this query is not supported by pgsql-ast-parser
-        if (!this._mikroPatched) {
-            this.db.public.interceptQueries(q => {
-                if (q === `set names 'utf8';`) {
-                    return [];
-                }
-                return null;
-            });
-            this._mikroPatched = true;
+        // see https://github.com/mikro-orm/mikro-orm/blob/master/packages/postgresql/src/PostgreSqlDriver.ts
+        class PgMemDriver extends AbstractSqlDriver<PgMemConnection> {
+            constructor(config: any) {
+                super(config, new PgMemPostgreSqlPlatform(), PgMemConnection, ['knex', 'pg']);
+            }
         }
-
 
         const orm = await MikroORM.init({
             ...mikroOrmOptions,
