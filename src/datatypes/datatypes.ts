@@ -432,6 +432,46 @@ class BoolType extends TypeBase<boolean> {
     get primary(): DataType {
         return DataType.bool;
     }
+
+    doCanCast(to: _IType): boolean | nil {
+        switch (to.primary) {
+            case DataType.text:
+            case DataType.citext:
+            case DataType.bool:
+            case DataType.integer:
+                return true;
+        }
+        return false;
+    }
+
+    doCast(value: Evaluator, to: _IType) {
+        switch (to.primary) {
+            case DataType.text:
+            case DataType.citext:
+                return new Evaluator(
+                  to
+                  , value.id
+                  , value.hash!
+                  , value
+                  , (raw, t) => {
+                      const got = value.get(raw, t);
+                      return got ? 'true' : 'false';
+                  });
+            case DataType.bool:
+                return value;
+            case DataType.integer:
+                return new Evaluator(
+                  to
+                  , value.id
+                  , value.hash!
+                  , value
+                  , (raw, t) => {
+                      const got = value.get(raw, t);
+                      return got ? 1 : 0;
+                  });
+        }
+        throw new Error('Unexpected cast error');
+    }
 }
 
 export class ArrayType extends TypeBase<any[]> {
