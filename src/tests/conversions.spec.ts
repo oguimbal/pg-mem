@@ -151,6 +151,12 @@ describe('Conversions', () => {
             .to.deep.equal([{ text: '42' }]);
     })
 
+    it('can cast bool', () => {
+        expect(one('select true::bool as val')).to.deep.equal({ val: true });
+        expect(one('select true::int as val')).to.deep.equal({ val: 1 });
+        expect(one('select true::text as val')).to.deep.equal({ val: 'true' });
+    });
+
     it('can cast float to text', () => {
         expect(many(`SELECT 42.3::text`))
             .to.deep.equal([{ text: '42.3' }]);

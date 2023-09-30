@@ -4,6 +4,7 @@ import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { preventSeqScan } from './test-utils';
 import moment from 'moment';
+import { MemoryTable } from '../table';
 
 describe('Schema manipulation', () => {
 
@@ -14,6 +15,14 @@ describe('Schema manipulation', () => {
         db.public.none(`insert into test(id, value) values ('A', 'Value A')`);
         const many = db.public.many(`select value from test where id='A'`);
         expect(many).to.deep.equal([{ value: 'Value A' }]);
+
+        // check that cannot be null
+        const idCol = (db.public.getTable('test') as MemoryTable).getColumnRef('id');
+        assert.isTrue(idCol.notNull);
+
+        //check that can add not null constraint
+        db.public.none(`alter table test alter column id set not null`);
+        db.public.none(`alter table test alter column id set not null`);
     });
 
     it('table without primary', () => {
