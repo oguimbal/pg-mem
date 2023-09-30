@@ -25,7 +25,7 @@ export class ColRef implements _Column {
     }
 
     addConstraints(clist: ColumnConstraint[], t: _Transaction): this {
-        const notNull = clist.some(x => x.type === 'not null');
+        const notNull = clist.some(x => x.type === 'not null' || x.type === 'primary key');
         const acceptNil = clist.some(x => x.type === 'null');
         if (notNull && acceptNil) {
             throw new QueryError(`conflicting NULL/NOT NULL declarations for column "${this.name}" of table "${this.table.name}"`)
@@ -122,6 +122,7 @@ export class ColRef implements _Column {
         // === do nasty things to rename column
         this.replaceExpression(to, this.expression.type);
         this.table.db.onSchemaChange();
+        this.table.selection.rebuild();
         this.name = to;
         return this;
     }

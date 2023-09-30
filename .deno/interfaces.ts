@@ -159,7 +159,7 @@ export type LanguageCompiler = (options: ToCompile) => CompiledFunction;
 
 export interface ToCompile {
     /** Function being compiled (null for "DO" statements compilations) */
-    functioName?: string | nil;
+    functionName?: string | nil;
     /** Code to compile */
     code: string;
     /** Schema against which this compilation is performed */
