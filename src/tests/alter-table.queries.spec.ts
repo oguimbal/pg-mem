@@ -199,4 +199,11 @@ describe('Alter table', () => {
         alter table users alter column email type jsonb;
         create unique index users_by_email on users ((email->>'sha256'));`)
     });
+
+    it('can insert values referring to renamed column', () => {
+        none(`create table test("id" integer not null default 1, "col" character varying, constraint "PK" primary key ("id"));
+                  alter table test RENAME column "col" TO "newcol";
+                  insert into test(id, newcol) values (default, '1') RETURNING "id";
+        `);
+    });
 });

@@ -122,6 +122,7 @@ export class ColRef implements _Column {
         // === do nasty things to rename column
         this.replaceExpression(to, this.expression.type);
         this.table.db.onSchemaChange();
+        this.table.selection.rebuild();
         this.name = to;
         return this;
     }
