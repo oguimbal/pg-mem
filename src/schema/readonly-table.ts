@@ -1,7 +1,7 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler } from '../interfaces-private';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
-import { Schema, ColumnNotFound, nil, ISubscription } from '../interfaces';
+import { Schema, ColumnNotFound, nil, ISubscription, ColumnDef } from '../interfaces';
 import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
@@ -11,6 +11,14 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
 
     get isExecutionWithNoResult(): boolean {
         return false;
+    }
+
+    get primaryIndex(): nil | IndexDef {
+        return null;
+    }
+
+    getColumns(): Iterable<ColumnDef> {
+        throw new Error('Method not implemented on schema tables.');
     }
 
     abstract entropy(t: _Transaction): number;

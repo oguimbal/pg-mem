@@ -259,6 +259,11 @@ export interface ISchema {
     getTable(table: string): IMemoryTable;
     getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
 
+    /**
+     * List all tables in this schema
+     */
+    listTables(): Iterable<IMemoryTable>
+
     /** Register a function */
     registerFunction(fn: FunctionDefinition, orReplace?: boolean): this;
 
@@ -369,11 +374,18 @@ export interface FieldInfo {
 export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
-export interface IMemoryTable<T = any> {
+export interface IMemoryTable<T = unknown> {
+    readonly name: string;
+    readonly primaryIndex: IndexDef | nil;
+
+    /** List columns in this table */
+    getColumns(): Iterable<ColumnDef>;
+
     /** Subscribe to an event on this table */
     on(event: TableEvent, handler: () => any): ISubscription;
     /** List existing indices defined on this table */
     listIndices(): IndexDef[];
+
 
     /**
      * Inserts a raw item into this table.
@@ -387,13 +399,20 @@ export interface IMemoryTable<T = any> {
 }
 
 
+export interface ColumnDef {
+    readonly name: string;
+    readonly type: IType;
+    readonly nullable: boolean;
+}
+
+
 export interface ISubscription {
     unsubscribe(): void;
 }
 
 export interface IndexDef {
-    name: string;
-    expressions: string[];
+    readonly name: string;
+    readonly expressions: string[];
 }
 
 export class NotSupported extends Error {

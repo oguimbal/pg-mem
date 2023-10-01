@@ -1,4 +1,4 @@
-import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ISubscription, nil } from './interfaces';
+import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ISubscription, nil, ColumnDef } from './interfaces';
 import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
 import { BIndex } from './schema/btree-index';
@@ -643,7 +643,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 this.getColumnRef(used.id!).usedInIndexes.add(index);
             }
         }
-        const indexesByHash = this.indexByHashAndName.get(ihash) || new Map<string, {index: BIndex<T>; expressions: IValue[]}>();
+        const indexesByHash = this.indexByHashAndName.get(ihash) || new Map<string, { index: BIndex<T>; expressions: IValue[] }>();
         indexesByHash.set(indexName, { index, expressions: index.expressions });
         this.indexByHashAndName.set(ihash, indexesByHash);
         if (expressions.primary) {
@@ -716,6 +716,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         );
     }
 
+    get primaryIndex(): IndexDef | null {
+        return this.hasPrimary && {
+            name: this.hasPrimary.name!,
+            expressions: this.hasPrimary.expressions.map(x => x.id!)
+        };
+    }
+
     addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
         const ihash = indexHash(cst.localColumns.map(x => x.name));
         const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
@@ -757,6 +764,16 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
     onCheckChange(columns: string[], check: ChangeHandler<T>): ISubscription {
         return this._subChange('before', columns, check);
+    }
+
+    *getColumns(): Iterable<ColumnDef> {
+        for (const c of this.columns) {
+            yield {
+                name: c.id!,
+                type: c.type,
+                nullable: !this.columnMgr.get(c.id!)!.notNull,
+            };
+        }
     }
 
     private _subChange(key: keyof ChangeSub<T>, columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription {
