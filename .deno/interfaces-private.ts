@@ -48,7 +48,7 @@ export interface _ISchema extends ISchema {
     getTable(table: string): _ITable;
     getTable(table: string, nullIfNotFound?: boolean): _ITable;
     tablesCount(t: _Transaction): number;
-    listTables(t: _Transaction): Iterable<_ITable>;
+    listTables(t?: _Transaction): Iterable<_ITable>;
     declareTable(table: Schema, noSchemaChange?: boolean): _ITable;
     createSequence(t: _Transaction, opts: CreateSequenceOptions | nil, name: QName | nil): _ISequence;
     /** Get functions matching this overload */
@@ -411,7 +411,7 @@ export interface ChangeOpts {
     overriding?: 'user' | 'system' | nil;
 }
 
-export interface _ITable<T = any> extends IMemoryTable<T>, _RelationBase {
+export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
     readonly db: _IDb;
