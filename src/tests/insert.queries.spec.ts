@@ -1,7 +1,7 @@
 import 'mocha';
 import 'chai';
 import { newDb } from '../db';
-import { IMemoryDb } from '../interfaces';
+import { IMemoryDb, QueryResult } from '../interfaces';
 import { assert, expect } from 'chai';
 
 describe('Inserts', () => {
@@ -194,12 +194,12 @@ describe('Inserts', () => {
             .to.deep.equal([{ ka: 'a', kb: 1, val: 'newA' }]);
     });
 
-    it('returns the right thing on conflict', () => {
+    it('does not returns on conflict do nothing', () => {
         expect(many(`create table test(ka text, kb integer, val text,  primary key (ka, kb));
                         insert into test values ('a', 1, 'oldA');
                         insert into test values ('a', 1, 'whatever')
                             on conflict do nothing returning val;`))
-            .to.deep.equal([{ val: 'oldA' }]);
+            .to.deep.equal([]);
     });
 
 

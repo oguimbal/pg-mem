@@ -290,12 +290,15 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(toInsert: T): T {
+    insert(toInsert: T): T | null {
         const ret = this.doInsert(this.db.data, deepCloneSimple(toInsert));
+        if (ret == null) {
+            return null
+        }
         return deepCloneSimple(ret);
     }
 
-    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T {
+    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T | null {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -337,7 +340,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                             const key = k.index.buildKey(toInsert, t);
                             const found = k.index.eqFirst(key, t);
                             if (found) {
-                                return found; // ignore.
+                                // This function returns the inserted row,
+                                // but in this case we had a conflict and no row was inserted.
+                                // So we return null.
+                                return null; // ignore.
                             }
                         }
                     }
