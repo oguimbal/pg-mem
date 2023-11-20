@@ -179,7 +179,10 @@ export class Insert extends MutationDataSourceBase<any> {
                 //     toInsert[columns[i]] = converted.get();
                 // }
             }
-            ret.push(this.table.doInsert(t, toInsert, this.opts));
+            const insertedRow = this.table.doInsert(t, toInsert, this.opts)
+            if (insertedRow) {
+                ret.push(insertedRow);
+            }
         }
 
         return ret;

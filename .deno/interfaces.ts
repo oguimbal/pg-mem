@@ -392,7 +392,7 @@ export interface IMemoryTable<T = unknown> {
      * ⚠ Neither the record you provided, nor the returned value are the actual item stored. You wont be able to mutate internal state.
      * @returns A copy of the inserted item (with assigned defaults)
      */
-    insert(item: Partial<T>): T;
+    insert(item: Partial<T>): T | null;
 
     /** Find all items matching a specific template */
     find(template?: Partial<T> | nil, columns?: (keyof T)[]): Iterable<T>;
