@@ -417,7 +417,7 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     readonly db: _IDb;
     readonly selection: _ISelection<T>;
     readonly ownerSchema: _ISchema;
-    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T;
+    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T | null;
     setHidden(): this;
     setReadonly(): this;
     delete(t: _Transaction, toDelete: T): void;
