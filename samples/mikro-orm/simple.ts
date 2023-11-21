@@ -47,9 +47,13 @@ export async function mikroOrmSample() {
     // create schema
     await orm.getSchemaGenerator().createSchema();
 
+    // MikroORM started enforcing forking EM at some point
+    // normally it's done in some kind of middleware etc.
+    const forkedEm = orm.em.fork();
+
     // do things
-    const books = orm.em.getRepository(Book);
-    const authors = orm.em.getRepository(Author);
+    const books = forkedEm.getRepository(Book);
+    const authors = forkedEm.getRepository(Author);
 
     const hugo = authors.create({
         id: 'hugo',
@@ -61,7 +65,7 @@ export async function mikroOrmSample() {
         title: 'Les Misérables',
     });
 
-    await orm.em.persistAndFlush([hugo, miserables]);
+    await books.getEntityManager().persistAndFlush([hugo, miserables]);
 
     return db;
 }
