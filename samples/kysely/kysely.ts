@@ -41,11 +41,7 @@ export async function kyselySample() {
         .createTable('accounts')
         .addColumn('id', 'serial', (cb) => cb.primaryKey())
         .addColumn('account_name', 'varchar(255)')
-        .addColumn(
-            'user_id',
-            'integer',
-            // (cb) => cb.unsigned().references('users.id') // not supported yet...
-        )
+        .addColumn('user_id', 'integer', (cb) => cb.references('users.id'))
         .addForeignKeyConstraint('fk_user_id', ['user_id'], 'users', ['id'])
         .execute();
 
