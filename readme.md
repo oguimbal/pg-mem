@@ -181,6 +181,7 @@ pg-mem provides handy shortcuts to create instances of popular libraries that wi
 - slonik
 - typeorm
 - knex
+- kysely
 - mikro-orm
 
 [See the wiki for more details](https://github.com/oguimbal/pg-mem/wiki/Libraries-adapters)
