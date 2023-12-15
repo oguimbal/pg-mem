@@ -324,6 +324,16 @@ export class Adapters implements LibAdapters {
         return knex;
     }
 
+    createKysely(queryLatency?: number, kyselyConfig?: object): any {
+        const { Kysely, PostgresDialect } = __non_webpack_require__('kysely');
+        const pg = this.createPg(queryLatency);
+        return new Kysely({
+            ...kyselyConfig,
+            dialect: new PostgresDialect({
+                pool: new pg.Pool(),
+            }),
+        });
+    }
 
     async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
 
