@@ -1,4 +1,4 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult, DataType } from '../interfaces';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from '../interfaces';
 import lru from 'lru-cache';
 import { compareVersions } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
