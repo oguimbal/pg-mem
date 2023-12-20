@@ -223,6 +223,42 @@ describe('Operators', () => {
             expect(trimNullish(got)).to.deep.equal([{ id: 'id2', str: 'str2' }, { id: 'id4', str: 'str4' }]);
         });
 
+
+
+        // see #castArrayIn
+        it('[bugfix] should convert str to int "in"', () => {
+            expect(many(`
+            create table test(vals int);
+            insert into test values (1),(2),(3);
+            select * from test where vals in ('1');
+        `))
+                .to.deep.equal([{ vals: 1 }]);
+        })
+
+        it('[bugfix] should convert int to str on "not(in)"', () => {
+            expect(many(`
+            create table test(vals int);
+            insert into test values (1),(2),(3);
+            select * from test where NOT(vals in ('1'));
+        `))
+                .to.deep.equal([{ vals: 2 }, { vals: 3 }]);
+        })
+
+
+        it('[bugfix] should convert int to str on "notin"', () => {
+            expect(many(`
+            create table test(vals int);
+            insert into test values (1),(2),(3);
+            select * from test where vals not in ('1');
+        `))
+                .to.deep.equal([{ vals: 2 }, { vals: 3 }]);
+        })
+
+        it('[bugfix] fix in with literal int as string', () => {
+            expect(many(`select 1 in ('1') as x`))
+                .to.deep.equal([{ x: true }]);
+        })
+
     })
 
 
