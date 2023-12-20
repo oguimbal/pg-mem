@@ -1,11 +1,9 @@
 
 import { _ISchema } from '../interfaces-private'
-import { IMigrate } from './migrate-interfaces'
 
-import MigrationFile = IMigrate.MigrationFile
-import MigrationParams = IMigrate.MigrationParams
-import MigrationData = IMigrate.MigrationData
+
 import { literal } from '../misc/pg-escape'
+import { MigrationData, MigrationFile, MigrationParams } from './migrate-interfaces';
 
 declare var __non_webpack_require__: any;
 declare var process: any;

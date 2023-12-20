@@ -5,7 +5,6 @@ import { typeSynonyms } from '../datatypes';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'pgsql-ast-parser';
 import { MemoryTable } from '../table';
 import { parseSql } from '../parser/parse-cache';
-import { IMigrate } from '../migrate/migrate-interfaces';
 import { migrate } from '../migrate/migrate';
 import { CustomEnumType } from '../datatypes/t-custom-enum';
 import { regGen } from '../datatypes/datatype-base';
@@ -14,6 +13,7 @@ import { OverloadResolver } from './overload-resolver';
 import { ExecuteCreateSequence } from '../execution/schema-amends/create-sequence';
 import { StatementExec } from '../execution/statement-exec';
 import { SelectExec } from '../execution/select';
+import { MigrationParams } from '../migrate/migrate-interfaces';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -628,7 +628,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
 
-    async migrate(config?: IMigrate.MigrationParams) {
+    async migrate(config?: MigrationParams) {
         await migrate(this, config);
     }
 

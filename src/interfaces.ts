@@ -1,5 +1,5 @@
-import { IMigrate } from './migrate/migrate-interfaces';
 import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator, Statement } from 'pgsql-ast-parser';
+import { MigrationParams } from './migrate/migrate-interfaces';
 
 
 export type nil = undefined | null;
@@ -288,7 +288,7 @@ export interface ISchema {
      * Database migration, node-sqlite flavor
      * ⚠ Only working when runnin nodejs !
      */
-    migrate(config?: IMigrate.MigrationParams): Promise<void>;
+    migrate(config?: MigrationParams): Promise<void>;
 
 
     /**
