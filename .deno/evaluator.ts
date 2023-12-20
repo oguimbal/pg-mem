@@ -1,11 +1,10 @@
 import { IValue, _IIndex, _ISelection, _IType, _Transaction, _Explainer, _ExprExplanation, _ISchema, Parameter } from './interfaces-private.ts';
 import { DataType, QueryError, CastError, nil, ISchema, IType, ArgDefDetails } from './interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { Types, ArrayType, isNumeric } from './datatypes/index.ts';
+import { Types, ArrayType, isNumeric, reconciliateTypes } from './datatypes/index.ts';
 import { buildCall } from './parser/function-call.ts';
 import { nullIsh, executionCtx } from './utils.ts';
 import { QName } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
-import { buildCtx } from './parser/context.ts';
 
 
 export class Evaluator<T = any> implements IValue<T> {
@@ -385,6 +384,12 @@ export const Value = {
             array = Value.list([array]);
         }
         const of = (array.type as ArrayType).of;
+
+        // cast both sides (see #castArrayIn in uts)
+        const type = reconciliateTypes([value, Value.null(of)])
+        value = value.cast(type);
+        array = array.cast(type.asArray());
+
         return new Evaluator(
             Types.bool
             , null

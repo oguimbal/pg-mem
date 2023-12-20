@@ -5,7 +5,6 @@ import { typeSynonyms } from '../datatypes/index.ts';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
 import { MemoryTable } from '../table.ts';
 import { parseSql } from '../parser/parse-cache.ts';
-import { IMigrate } from '../migrate/migrate-interfaces.ts';
 import { migrate } from '../migrate/migrate.ts';
 import { CustomEnumType } from '../datatypes/t-custom-enum.ts';
 import { regGen } from '../datatypes/datatype-base.ts';
@@ -14,6 +13,7 @@ import { OverloadResolver } from './overload-resolver.ts';
 import { ExecuteCreateSequence } from '../execution/schema-amends/create-sequence.ts';
 import { StatementExec } from '../execution/statement-exec.ts';
 import { SelectExec } from '../execution/select.ts';
+import { MigrationParams } from '../migrate/migrate-interfaces.ts';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -628,7 +628,7 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
 
-    async migrate(config?: IMigrate.MigrationParams) {
+    async migrate(config?: MigrationParams) {
         await migrate(this, config);
     }
 

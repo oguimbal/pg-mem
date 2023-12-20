@@ -1,11 +1,9 @@
 
 import { _ISchema } from '../interfaces-private.ts';
-import { IMigrate } from './migrate-interfaces.ts';
 
-import MigrationFile = IMigrate.MigrationFile
-import MigrationParams = IMigrate.MigrationParams
-import MigrationData = IMigrate.MigrationData
+
 import { literal } from '../misc/pg-escape.ts';
+import { MigrationData, MigrationFile, MigrationParams } from './migrate-interfaces.ts';
 
 declare var __non_webpack_require__: any;
 declare var process: any;
