@@ -35,7 +35,9 @@
     "ut",
     "sql",
     "pgsql",
-    "postgresql"
+    "postgresql",
+    "knex",
+    "kysely"
   ],
   "license": "MIT",
   "dependencies": {
@@ -77,6 +79,7 @@
     "html-webpack-plugin": "^4.3.0",
     "istanbul-instrumenter-loader": "^2.0.0",
     "knex": "^0.21.15",
+    "kysely": "^0.26.3",
     "mocha": "^8.0.1",
     "mochapack": "^2.0.6",
     "monaco-editor": "^0.20.0",
@@ -107,6 +110,7 @@
   },
   "peerDependencies": {
     "knex": ">=0.20",
+    "kysely": ">=0.26",
     "pg-promise": ">=10.8.7",
     "slonik": ">=23.0.1",
     "typeorm": ">=0.2.29"
@@ -122,6 +126,9 @@
       "optional": true
     },
     "knex": {
+      "optional": true
+    },
+    "kysely": {
       "optional": true
     },
     "mikro-orm": {

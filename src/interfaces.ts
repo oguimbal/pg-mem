@@ -219,6 +219,9 @@ export interface LibAdapters {
     /** Create a Knex.js instance bound to this db */
     createKnex(queryLatency?: number, knexConfig?: object): any;
 
+    /** Create a Kysely instance bound to this db */
+    createKysely(queryLatency?: number, kyselyConfig?: object): any;
+
     /** Create a mikro-orm instance bound to this db */
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
 }
