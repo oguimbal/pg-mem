@@ -1,4 +1,4 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult, DataType } from '../interfaces.ts';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from '../interfaces.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { compareVersions } from '../utils.ts';
 import { toLiteral } from '../misc/pg-utils.ts';
@@ -324,6 +324,16 @@ export class Adapters implements LibAdapters {
         return knex;
     }
 
+    createKysely(queryLatency?: number, kyselyConfig?: object): any {
+        const { Kysely, PostgresDialect } = __non_webpack_require__('kysely');
+        const pg = this.createPg(queryLatency);
+        return new Kysely({
+            ...kyselyConfig,
+            dialect: new PostgresDialect({
+                pool: new pg.Pool(),
+            }),
+        });
+    }
 
     async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
 
