@@ -771,7 +771,7 @@ export interface _ISequence extends _RelationBase {
     alter(t: _Transaction, opts: CreateSequenceOptions | AlterSequenceChange): this;
     nextValue(t: _Transaction): number;
     restart(t: _Transaction): void;
-    setValue(t: _Transaction, value: number): void;
+    setValue(t: _Transaction, value: number, increase?: boolean): void;
     currentValue(t: _Transaction): number;
     drop(t: _Transaction): void;
 }
