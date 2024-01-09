@@ -1,6 +1,6 @@
 import { newDb } from '../..';
-import * as Knex from 'knex';
 import { expect } from 'chai';
+import type { Knex } from 'knex';
 
 // Objection has vulnerabilities: https://github.com/advisories/GHSA-r659-8xfp-j327
 // import { knexSnakeCaseMappers } from 'objection'; 👉  just copy pasted the required utils
@@ -44,7 +44,7 @@ describe('IRL tests', () => {
         const knex = mem.adapters.createKnex(0, {
             // https://vincit.github.io/objection.js/api/objection/#knexsnakecasemappers
             ...knexSnakeCaseMappers(),
-        }) as import('knex');
+        }) as Knex;
         await up(knex);
 
         mem.public.none(`insert into room_characteristics(id,name,is_enabled) values ('roomid', 'roomname', true)`);

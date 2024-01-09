@@ -1,6 +1,7 @@
 import { newDb } from '../db';
 import { kyselySample } from '../../samples/kysely/kysely';
 import { expect } from 'chai';
+import type { Kysely } from "kysely";
 
 describe('Kysely', () => {
     it('can perform sample', async () => {
@@ -15,7 +16,7 @@ describe('Kysely', () => {
             {
                 plugins: [camelCasePlugin]
             }
-        ) as import('kysely').Kysely<any>;
+        ) as Kysely<any>;
         const executor = kysely.getExecutor();
         expect(executor.plugins).to.deep.equal([camelCasePlugin]);
     });
@@ -29,7 +30,7 @@ describe('Kysely', () => {
                     pool: {} as any,
                 })
             }
-        ) as import('kysely').Kysely<any>;
+        ) as Kysely<any>;
         const executor = kysely.getExecutor();
         expect(executor.adapter).to.be.instanceOf((await import('kysely')).PostgresAdapter);
     });

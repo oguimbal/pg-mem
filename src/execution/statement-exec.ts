@@ -105,6 +105,7 @@ export class StatementExec implements _IStatement {
             case 'show':
                 return new ShowExecutor(p);
             case 'set':
+            case 'set names':
             case 'set timezone':
                 return new SetExecutor(p);
             case 'create enum':

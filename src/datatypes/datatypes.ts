@@ -712,7 +712,9 @@ export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreC
 
     'int': DataType.integer,
     'int4': DataType.integer,
+    'int8': DataType.bigint,
     'serial': DataType.integer,
+    'serial8': DataType.bigint,
     'bigserial': DataType.integer,
     'smallserial': DataType.integer,
     'smallint': DataType.integer,
