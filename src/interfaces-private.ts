@@ -1,6 +1,7 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces';
 import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
+import { CustomEnumType } from "./datatypes/t-custom-enum";
 
 export * from './interfaces';
 

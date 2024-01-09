@@ -23,6 +23,7 @@ import { DoStatementExec } from './schema-amends/do';
 import { SelectExec } from './select';
 import { withSelection, withStatement, withNameResolver, INameResolver } from '../parser/context';
 import { DropType } from './schema-amends/drop-type';
+import { AlterEnum } from "./schema-amends/alter-enum";
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -110,6 +111,8 @@ export class StatementExec implements _IStatement {
                 return new SetExecutor(p);
             case 'create enum':
                 return new CreateEnum(this, p);
+            case 'alter enum':
+                return new AlterEnum(this,p)
             case 'create view':
                 return new CreateView(this, p);
             case 'create materialized view':

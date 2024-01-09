@@ -1,8 +1,14 @@
 import { Evaluator } from '../evaluator';
 import { TypeBase } from './datatype-base';
-import { CastError, DataType, nil, QueryError } from '../interfaces';
-import { _ISchema, _IType, _Transaction } from '../interfaces-private';
+import { DataType, nil, QueryError } from '../interfaces';
+import {_IRelation, _ISchema, _IType, _Transaction} from '../interfaces-private';
 
+export function asEnum(o: _IRelation | null): CustomEnumType  {
+    if (o && o.type === 'type' && o instanceof CustomEnumType) {
+        return o;
+    }
+    throw new QueryError(`"${o?.name}" is not a enum`);
+}
 export class CustomEnumType extends TypeBase<string> {
 
     get primary(): DataType {

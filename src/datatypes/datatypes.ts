@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private';
+import { IValue, _IType } from '../interfaces-private';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces';
 import { nullIsh } from '../utils';
 import { Evaluator, Value } from '../evaluator';
