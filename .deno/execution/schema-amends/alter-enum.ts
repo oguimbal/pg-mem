@@ -1,9 +1,4 @@
-import {
-    _ISchema,
-    _Transaction,
-    _IStatementExecutor,
-    _IStatement,
-} from '../../interfaces-private';
+import { _ISchema, _Transaction, _IStatementExecutor, _IStatement } from '../../interfaces-private.ts';
 import { AlterEnumType } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { ignore } from '../../utils.ts';
