@@ -1,8 +1,13 @@
-import { _ISchema, _Transaction, _IStatementExecutor, _IStatement } from '../../interfaces-private';
-import { AlterEnumType } from 'pgsql-ast-parser';
-import { ExecHelper } from '../exec-utils';
-import { ignore } from '../../utils';
-import { asEnum, CustomEnumType } from "../../datatypes/t-custom-enum";
+import {
+    _ISchema,
+    _Transaction,
+    _IStatementExecutor,
+    _IStatement,
+} from '../../interfaces-private';
+import { AlterEnumType } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
+import { ExecHelper } from '../exec-utils.ts';
+import { ignore } from '../../utils.ts';
+import { asEnum, CustomEnumType } from '../../datatypes/t-custom-enum.ts';
 
 export class AlterEnum extends ExecHelper implements _IStatementExecutor {
     private onSchema: _ISchema;

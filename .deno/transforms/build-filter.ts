@@ -9,7 +9,7 @@ import { OrFilter } from './or-filter.ts';
 import { SeqScanFilter } from './seq-scan.ts';
 import { InFilter } from './in-filter.ts';
 import { NotInFilter } from './not-in-filter.ts';
-import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { Expr, ExprBinary, ExprUnary, ExprTernary } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { StartsWithFilter } from './startswith-filter.ts';
 import { IneqFilter } from './ineq-filter.ts';
 import { hasNullish, nullIsh } from '../utils.ts';

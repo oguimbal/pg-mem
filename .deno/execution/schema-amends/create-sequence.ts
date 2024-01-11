@@ -1,5 +1,5 @@
 import { _ISchema, _Transaction, NotSupported, _ISequence, _IStatementExecutor } from '../../interfaces-private.ts';
-import { QName, CreateSequenceStatement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { QName, CreateSequenceStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { Sequence } from '../../schema/sequence.ts';
 import { checkExistence, ExecHelper } from '../exec-utils.ts';
 

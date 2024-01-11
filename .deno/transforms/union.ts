@@ -3,7 +3,7 @@ import { DataSourceBase } from './transform-base.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { columnEvaluator } from './selection.ts';
 import { reconciliateTypes } from '../datatypes/datatypes.ts';
-import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { colByName } from '../utils.ts';
 
 // https://www.postgresql.org/docs/current/typeconv-union-case.html

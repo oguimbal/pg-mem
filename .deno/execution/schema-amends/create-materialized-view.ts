@@ -1,5 +1,5 @@
 import { _Transaction, asTable, _ISchema, NotSupported, CreateIndexColDef, _ITable, CreateIndexDef, _IStatement, _IStatementExecutor, asView, _IView, QueryError } from '../../interfaces-private.ts';
-import { CreateMaterializedViewStatement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { CreateMaterializedViewStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { View } from '../../schema/view.ts';
 import { buildSelect } from '../select.ts';

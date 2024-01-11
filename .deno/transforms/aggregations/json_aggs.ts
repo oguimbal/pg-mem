@@ -1,5 +1,5 @@
 import { _ISelection, QueryError, AggregationComputer, IValue, _IType, _Transaction, AggregationGroupComputer } from '../../interfaces-private.ts';
-import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { withSelection } from '../../parser/context.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { nullIsh } from '../../utils.ts';

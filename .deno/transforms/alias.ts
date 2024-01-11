@@ -2,7 +2,7 @@ import { TransformBase, FilterBase } from './transform-base.ts';
 import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private.ts';
 import { Evaluator } from '../evaluator.ts';
 import { Types, RecordCol } from '../datatypes/index.ts';
-import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { asSingleName, colToStr } from '../utils.ts';
 import { ColumnNotFound } from '../interfaces.ts';
 import { RecordType } from '../datatypes/t-record.ts';

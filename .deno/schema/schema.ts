@@ -2,7 +2,7 @@ import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, Schema
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private.ts';
 import { asSingleQName, ignore, isType, parseRegClass, randomString, schemaOf } from '../utils.ts';
 import { typeSynonyms } from '../datatypes/index.ts';
-import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { MemoryTable } from '../table.ts';
 import { parseSql } from '../parser/parse-cache.ts';
 import { migrate } from '../migrate/migrate.ts';

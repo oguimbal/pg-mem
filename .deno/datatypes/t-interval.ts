@@ -1,5 +1,5 @@
 import { DataType, nil, _IType } from '../interfaces-private.ts';
-import { Interval, normalizeInterval, parseIntervalLiteral } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { Interval, normalizeInterval, parseIntervalLiteral } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../evaluator.ts';
 import { intervalToSec } from '../utils.ts';

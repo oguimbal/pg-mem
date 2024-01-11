@@ -1,9 +1,9 @@
-import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private.ts';
+import { IValue, _IType } from '../interfaces-private.ts';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces.ts';
 import { nullIsh } from '../utils.ts';
 import { Evaluator, Value } from '../evaluator.ts';
-import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
-import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { parseArrayLiteral } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
+import { parseGeometricLiteral } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { bufCompare, bufFromString, bufToString, TBuffer } from '../misc/buffer-deno.ts';
 import { TypeBase } from './datatype-base.ts';
 import { BoxType, CircleType, LineType, LsegType, PathType, PointType, PolygonType } from './datatypes-geometric.ts';
@@ -712,7 +712,9 @@ export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreC
 
     'int': DataType.integer,
     'int4': DataType.integer,
+    'int8': DataType.bigint,
     'serial': DataType.integer,
+    'serial8': DataType.bigint,
     'bigserial': DataType.integer,
     'smallserial': DataType.integer,
     'smallint': DataType.integer,

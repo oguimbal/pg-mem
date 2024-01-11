@@ -1,7 +1,7 @@
 import { _IDb, _ISchema, _Transaction, _IType, IValue, _Explainer, _ISelection, setId, getId } from '../../interfaces-private.ts';
 import { parseSql } from '../../parser/parse-cache.ts';
 import { QueryError, NotSupported, DataType } from '../../interfaces.ts';
-import { Statement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { executionCtx as executionCtx, pushExecutionCtx, hasExecutionCtx, ExecCtx, randomString } from '../../utils.ts';
 import { SelectExec } from '../../execution/select.ts';
 import { withParameters } from '../../parser/context.ts';

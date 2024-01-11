@@ -1,5 +1,5 @@
 import { _ISchema, _Transaction, _ISequence, _IStatementExecutor, _IStatement, asSeq } from '../../interfaces-private.ts';
-import { AlterSequenceStatement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { AlterSequenceStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { ExecHelper } from '../exec-utils.ts';
 import { ignore } from '../../utils.ts';
 

@@ -1,5 +1,5 @@
 import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema } from '../interfaces-private.ts';
-import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { Deletion } from './records-mutations/deletion.ts';
 import { Update } from './records-mutations/update.ts';
 import { Insert } from './records-mutations/insert.ts';

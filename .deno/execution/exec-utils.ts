@@ -1,4 +1,4 @@
-import { QName, Statement, NodeLocation, toSql } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { QName, Statement, NodeLocation, toSql } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { _ISchema, QueryError, _Transaction, _IDb } from '../interfaces-private.ts';
 
 export function checkExistence(schema: _ISchema, name: QName, ifNotExists: boolean | undefined, act: () => void): boolean {

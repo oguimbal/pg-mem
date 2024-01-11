@@ -2,7 +2,7 @@
 import { QueryError } from '../interfaces.ts';
 import LRUCache from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
-import { Expr, parse, Statement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { Expr, parse, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { errorMessage } from '../utils.ts';
 
 

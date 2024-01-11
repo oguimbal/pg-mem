@@ -1,4 +1,4 @@
-import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { AlterSequenceChange, CreateSequenceOptions } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { combineSubs, ignore, nullIsh } from '../utils.ts';
 import { NotSupported, asTable, _ISchema, _ISequence, _IType, _Transaction, RegClass, Reg } from '../interfaces-private.ts';
 import { ISubscription, nil, QueryError } from '../interfaces.ts';

@@ -1,5 +1,5 @@
 import { _ISchema, _Transaction, SchemaField, NotSupported, _ITable, _IStatementExecutor, asTable, QueryError, _IStatement } from '../../interfaces-private.ts';
-import { AlterTableStatement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { AlterTableStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { ignore } from '../../utils.ts';
 import { ExecHelper } from '../exec-utils.ts';
 

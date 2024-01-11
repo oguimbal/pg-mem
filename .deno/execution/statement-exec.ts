@@ -1,6 +1,6 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils.ts';
 import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private.ts';
-import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { ExecuteCreateTable } from './schema-amends/create-table.ts';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence.ts';
 import { locOf, ExecHelper } from './exec-utils.ts';
@@ -23,6 +23,7 @@ import { DoStatementExec } from './schema-amends/do.ts';
 import { SelectExec } from './select.ts';
 import { withSelection, withStatement, withNameResolver, INameResolver } from '../parser/context.ts';
 import { DropType } from './schema-amends/drop-type.ts';
+import { AlterEnum } from './schema-amends/alter-enum.ts';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -105,10 +106,13 @@ export class StatementExec implements _IStatement {
             case 'show':
                 return new ShowExecutor(p);
             case 'set':
+            case 'set names':
             case 'set timezone':
                 return new SetExecutor(p);
             case 'create enum':
                 return new CreateEnum(this, p);
+            case 'alter enum':
+                return new AlterEnum(this,p)
             case 'create view':
                 return new CreateView(this, p);
             case 'create materialized view':

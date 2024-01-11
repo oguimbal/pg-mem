@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } fr
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from '../evaluator.ts';
 import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@11.0.1/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, getAggregator } from '../transforms/aggregation.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';

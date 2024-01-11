@@ -355,18 +355,6 @@ export class Adapters implements LibAdapters {
             }
         }
 
-        // hack: this query is not supported by pgsql-ast-parser
-        if (!this._mikroPatched) {
-            this.db.public.interceptQueries(q => {
-                if (q === `set names 'utf8';`) {
-                    return [];
-                }
-                return null;
-            });
-            this._mikroPatched = true;
-        }
-
-
         const orm = await MikroORM.init({
             ...mikroOrmOptions,
             dbName: 'public',
