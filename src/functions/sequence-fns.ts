@@ -66,4 +66,18 @@ export const sequenceFunctions: FunctionDefinition[] = [
         },
         impure: true,
     },
+    {
+        name: 'setval',
+        args: [Types.regclass, Types.integer, Types.bool],
+        returns: Types.integer,
+        implementation: (seqId: RegClass, val: number, increase: boolean) => {
+            const { seq, t } = getSeq(seqId);
+            if (typeof val !== 'number') {
+                throw new QueryError('Invalid setval() value');
+            }
+            seq.setValue(t, val, increase);
+            return val;
+        },
+        impure: true,
+    },
 ]
