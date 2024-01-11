@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ISelection, _IType, _ISchema } from '../interfaces-private';
+import { IValue, _IType } from '../interfaces-private';
 import { DataType, CastError, IType, QueryError, nil } from '../interfaces';
 import { nullIsh } from '../utils';
 import { Evaluator, Value } from '../evaluator';
@@ -712,7 +712,9 @@ export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreC
 
     'int': DataType.integer,
     'int4': DataType.integer,
+    'int8': DataType.bigint,
     'serial': DataType.integer,
+    'serial8': DataType.bigint,
     'bigserial': DataType.integer,
     'smallserial': DataType.integer,
     'smallint': DataType.integer,

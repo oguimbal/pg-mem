@@ -22,6 +22,20 @@ describe('Custom types', () => {
     });
 
 
+    it('can rename enum type', () => {
+        none(`create type myType as enum ('a', 'b')`);
+        none(`ALTER TYPE myType RENAME TO myNewType`);
+        expect(many(`select 'b'::myNewType;
+            `)).to.deep.equal([{ mynewtype: 'b' }]);
+        assert.throws(() => none(`select 'b'::myType;`)
+            , /type "mytype" does not exist/);
+    });
+
+    it('can add value to enum type', () => {
+        none(`create type myType as enum ('a', 'b')`);
+        none(`ALTER TYPE myType ADD VALUE 'c'`);
+    });
+
     it('can cast to enum', () => {
         expect(many(`create type myType as enum ('a', 'b');
                     select 'b'::myType;

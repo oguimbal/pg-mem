@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { newDb } from '../../src/db';
+import type { Knex } from "knex";
 
 export async function knexSample() {
 
@@ -10,7 +11,7 @@ export async function knexSample() {
 
     // create a Knex instance bound to this db
     //  =>  This replaces require('knex')({ ... })
-    const knex = mem.adapters.createKnex() as import('knex');
+    const knex = mem.adapters.createKnex() as Knex;
 
 
     // ========= USE AS USUAL ==========

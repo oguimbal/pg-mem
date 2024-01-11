@@ -1,11 +1,11 @@
 import { _IStatementExecutor, _Transaction, StatementResult, GLOBAL_VARS, QueryError } from '../interfaces-private';
-import { SetGlobalStatement, SetTimezone } from 'pgsql-ast-parser';
+import { SetGlobalStatement, SetTimezone, SetNames } from 'pgsql-ast-parser';
 import { ignore } from '../utils';
 import { ExecHelper } from './exec-utils';
 
 export class SetExecutor extends ExecHelper implements _IStatementExecutor {
 
-    constructor(private p: SetGlobalStatement | SetTimezone) {
+    constructor(private p: SetGlobalStatement | SetTimezone | SetNames) {
         super(p);
         // todo handle set statements timezone ?
         // They are just ignored as of today (in order to handle pg_dump exports)

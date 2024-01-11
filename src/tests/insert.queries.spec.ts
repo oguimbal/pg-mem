@@ -328,6 +328,11 @@ describe('Inserts', () => {
             assert.throws(() => none(`insert into test (select * from (values ('a', 42, '[]') ) as t)`), /column "c" is of type jsonb but expression is of type text/);
         })
 
+        it('should allow string for bigint columns on insert', () => {
+            none(`create table test(a bigint, b int8);`);
+            expect(many(`insert into test values ('123456','111') returning a`)).to.deep.equal([{a: 123456}]);
+        })
+
         it('checks that insert values has enough columns', () => {
             none(`create table test(a varchar(4), b int, c jsonb);`);
             assert.throws(() => none(`insert into test(a) (select * from (values ('a', 42, '[]') ) as t)`), /INSERT has more expressions than target columns/);

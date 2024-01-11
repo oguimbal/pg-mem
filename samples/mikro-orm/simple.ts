@@ -47,9 +47,11 @@ export async function mikroOrmSample() {
     // create schema
     await orm.getSchemaGenerator().createSchema();
 
+    const em = orm.em.fork()
+
     // do things
-    const books = orm.em.getRepository(Book);
-    const authors = orm.em.getRepository(Author);
+    const books = em.getRepository(Book);
+    const authors = em.getRepository(Author);
 
     const hugo = authors.create({
         id: 'hugo',
@@ -61,7 +63,7 @@ export async function mikroOrmSample() {
         title: 'Les Misérables',
     });
 
-    await orm.em.persistAndFlush([hugo, miserables]);
+    await em.persistAndFlush([hugo, miserables]);
 
     return db;
 }
