@@ -210,7 +210,7 @@ export class Adapters implements LibAdapters {
         return created;
     }
 
-    createSlonik(queryLatency?: number) {
+    createSlonik(queryLatency?: number, clientConfigurationInput?: any) {
         const { createMockPool, createMockQueryResult } = __non_webpack_require__('slonik');
         return createMockPool({
             query: async (sql: string, args: any[]) => {
@@ -219,7 +219,7 @@ export class Adapters implements LibAdapters {
                 const ret = this.db.public.many(formatted);
                 return createMockQueryResult(ret);
             },
-        });
+        }, clientConfigurationInput);
     }
 
 
