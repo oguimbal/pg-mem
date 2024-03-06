@@ -24,7 +24,7 @@ function timeoutOrImmediate(fn: () => void, time: number) {
 
 const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
 
-function replaceQueryArgs$(this: void, sql: string, values: any[]) {
+export function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     return sql.replace(/\$(\d+)/g, (str: any, istr: any) => {
         const i = Number.parseInt(istr);
         if (i > values.length) {
