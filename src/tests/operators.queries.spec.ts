@@ -56,6 +56,23 @@ describe('Operators', () => {
         expect(dt.toString()).to.equal(moment.utc().startOf('day').add(1, 'day').toDate().toString());
     });
 
+    it('date - date', () => {
+        const result = many(`select '2020-01-02'::date - '2020-01-01'::date as dt`);
+        expect(result[0]?.dt).to.equal(1);
+        const result2 = many(`select '2020-01-03'::date - '2020-01-01'::date as dt`);
+        expect(result2[0]?.dt).to.equal(2);
+        const result3 = many(`select '2022-01-01'::date - '2020-01-01'::date as dt`);
+        expect(result3[0]?.dt).to.equal(731);
+
+        const nullResult1 = many(`select '2020-01-03'::date - null::date as dt`);
+        expect(nullResult1[0]?.dt).to.equal(null);
+
+        const nullResult2 = many(`select null::date - '2020-01-03'::date as dt`);
+        expect(nullResult2[0]?.dt).to.equal(null);
+
+        const nullResult3 = many(`select null::date - null::date as dt`);
+        expect(nullResult3[0]?.dt).to.equal(null);
+    });
 
     it('timestamp + interval', () => {
         const result = many(`select now() + interval '1 day' as dt`);
