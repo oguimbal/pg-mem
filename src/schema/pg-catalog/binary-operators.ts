@@ -68,6 +68,16 @@ function registerNumericOperators(schema: _ISchema) {
 
 
 function registerDatetimeOperators(schema: _ISchema) {
+    // ======= date "-" date =======
+    schema.registerOperator({
+        operator: '-',
+        commutative: false,
+        left: Types.date,
+        right: Types.date,
+        returns: Types.interval,
+        implementation: (a, b) => moment(a).diff(moment(b), 'days'),
+    })
+
     // ======= date/time "+ -" timestamp =======
     for (const dt of dateTypes) {
         for (const [operator, f] of [['+', 1], ['-', -1]] as const) {
