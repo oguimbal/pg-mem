@@ -119,8 +119,10 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
     private _getColumn(column: string | ExprRef): IValue | nil {
         if (typeof column !== 'string'
             && column.table) {
-            if (!column.table.schema
-                && column.table.name !== this.name) {
+            if (column.table.schema && column.table.schema !== this.ownerSchema.name) {
+                return null;
+            }
+            if (column.table.name !== this.name) {
                 return null;
             }
             column = column.name;
