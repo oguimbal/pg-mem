@@ -241,6 +241,33 @@ export class Adapters implements LibAdapters {
         return db;
     }
 
+    createPostgresJs(queryLatency = 0) {
+        const that = this;
+
+        const queryDb = (query: string, queryLatency: number) => {
+            return {
+                async then(callback: any) {
+                    await delay(queryLatency);
+                    const result = that.db.public.query(query).rows;
+                    callback(result);
+                }
+            };
+        }
+
+        const sql = function sql(strings: TemplateStringsArray, ...values: any[]) {
+            const sql = strings.reduce((prev, curr, i) => {
+                return prev + curr + (values[i] ?? '');
+            }, '');
+            return queryDb(sql, queryLatency);
+        }
+
+        sql.unsafe = function unsafe(query: string, args = [], options = {}) {
+            return queryDb(query, queryLatency); // discard args and options for now
+        }
+
+        return sql;
+    }
+
     createPgNative(queryLatency?: number) {
         queryLatency = queryLatency ?? 0;
         const prepared = new lru<string, string>({

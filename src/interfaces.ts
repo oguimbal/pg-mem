@@ -205,6 +205,9 @@ export interface LibAdapters {
     /** Create a slonik pool bound to this db */
     createSlonik(queryLatency?: number): any;
 
+    /** Create a postgres-js mimic instance bound to this db */
+    createPostgresJs(queryLatency?: number): any;
+
     /** Create a pg-native instance bound to this db */
     createPgNative(queryLatency?: number): any;
 
