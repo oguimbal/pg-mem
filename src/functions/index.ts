@@ -2,6 +2,7 @@ import { stringFunctions } from './string';
 import { dateFunctions } from './date';
 import { systemFunctions } from './system';
 import { sequenceFunctions } from './sequence-fns';
+import { numberFunctions } from './numbers';
 
 
 export const allFunctions = [
@@ -9,4 +10,5 @@ export const allFunctions = [
     , ... dateFunctions
     , ... systemFunctions
     , ... sequenceFunctions
+    , ... numberFunctions
 ]
