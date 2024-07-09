@@ -157,7 +157,7 @@ export class Adapters implements LibAdapters {
                     };
                 } else {
                     // clean copy to avoid mutating things outside our scope
-                    query = { ...query };
+                    query = { ...query, values: query.values || values };
                 }
                 if (!query.values?.length) {
                     return query;
