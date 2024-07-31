@@ -390,4 +390,10 @@ describe('Selections', () => {
             rowCount: 2,
         })
     })
+
+    it('can select fully qualified column names', () => {
+        stuff();
+        expect(many(`SELECT "public"."test"."val" FROM "public"."test"`))
+            .to.deep.equal([{ val: 999 }, { val: 0 }, { val: 1 }, { val: 2 }, { val: 3 }]);
+    });
 });
