@@ -203,13 +203,7 @@ export interface LibAdapters {
     createPgPromise(queryLatency?: number): any;
 
     /** Create a slonik pool bound to this db */
-    createSlonik(opts?: {
-        queryLatency?: number;
-        // options you would give to the createPool() function
-        createPoolOptions?: any;
-        // add zod validation interceptor to create pool options, like with https://github.com/gajus/slonik?tab=readme-ov-file#result-parser-interceptor
-        zodValidation?: boolean;
-    }): Promise<any>;
+    createSlonik(opts?: SlonikAdapterOptions): Promise<any>;
 
     /** Create a pg-native instance bound to this db */
     createPgNative(queryLatency?: number): any;
@@ -230,6 +224,16 @@ export interface LibAdapters {
 
     /** Create a mikro-orm instance bound to this db */
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
+}
+
+export interface SlonikAdapterOptions {
+    queryLatency?: number;
+    /** options you would give to the createPool() function */
+    createPoolOptions?: any;
+    /** add zod validation interceptor to create pool options, like with https://github.com/gajus/slonik?tab=readme-ov-file#result-parser-interceptor */
+    zodValidation?: boolean;
+    /** old versions of slonik, this be passed as client configuration  */
+    clientConfigurationInput?: any;
 }
 
 export type QueryOrAst = string | Statement | Statement[];

@@ -1,4 +1,4 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult } from '../interfaces';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions } from '../interfaces';
 import lru from 'lru-cache';
 import { compareVersions } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
@@ -210,11 +210,7 @@ export class Adapters implements LibAdapters {
         return created;
     }
 
-    createSlonik(opts?: {
-        queryLatency?: number;
-        createPoolOptions?: any;
-        zodValidation?: boolean;
-    }) {
+    createSlonik(opts?: SlonikAdapterOptions) {
         const slonik = __non_webpack_require__('slonik');
         if (typeof slonik.createMockPool !== 'function') {
             // see https://github.com/gajus/slonik/blob/main/packages/slonik/src/factories/createPool.ts
@@ -288,7 +284,7 @@ export class Adapters implements LibAdapters {
                     const ret = this.db.public.many(formatted);
                     return slonik.createMockQueryResult(ret);
                 },
-            });
+            }, opts?.clientConfigurationInput);
         }
     }
 
