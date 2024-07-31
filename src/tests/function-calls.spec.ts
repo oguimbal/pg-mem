@@ -35,6 +35,26 @@ describe('Functions', () => {
             .to.deep.equal([{ concat: 'text-123-end' }]);
     });
 
+    it('GREATEST 2 arguments', () => {
+        expect(many(`select GREATEST(0, -1);`))
+            .to.deep.equal([{ greatest: 0 }]);
+    });
+
+    it('GREATEST 4 arguments', () => {
+        expect(many(`select GREATEST(3, 8, 10, 4);`))
+            .to.deep.equal([{ greatest: 10 }]);
+    });
+
+    it('LEAST 2 arguments', () => {
+        expect(many(`select LEAST(0, -1);`))
+            .to.deep.equal([{ least: -1 }]);
+    });
+
+    it('LEAST 4 arguments', () => {
+        expect(many(`select LEAST(3, 8, 1, 4);`))
+            .to.deep.equal([{ least: 1 }]);
+    });
+
     it('can declare & call function', () => {
         db.registerLanguage('mylang', ({ code, args, returns }) => {
             expect(code).to.equal('some code');
