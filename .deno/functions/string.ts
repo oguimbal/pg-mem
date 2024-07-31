@@ -21,4 +21,12 @@ export const stringFunctions: FunctionDefinition[] = [
         allowNullArguments: true,
         implementation: (...x: string[]) => x?.join(''),
     },
+    {
+        name: 'concat_ws',
+        args: [DataType.text],
+        argsVariadic: DataType.text,
+        returns: DataType.text,
+        allowNullArguments: true,
+        implementation: (separator: string, ...x: string[]) => x?.join(separator),
+    },
 ]

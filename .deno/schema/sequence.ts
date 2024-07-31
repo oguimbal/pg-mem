@@ -125,7 +125,7 @@ export class Sequence implements _ISequence {
         return v;
     }
 
-    setValue(t: _Transaction, value: number) {
+    setValue(t: _Transaction, value: number, increase: boolean = true) {
         if (value > this.max) {
             throw new QueryError(`reached maximum value of sequence "${this.name}"`);
         }
@@ -134,7 +134,7 @@ export class Sequence implements _ISequence {
         }
         const data: SeqData = {
             currval: value,
-            nextval: value + this.inc,
+            nextval: increase ? value + this.inc : value,
         };
         t.set(this.symbol, data);
     }
