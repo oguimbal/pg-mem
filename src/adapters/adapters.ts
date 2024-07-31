@@ -413,6 +413,12 @@ export class Adapters implements LibAdapters {
                 return that.createKnex();
             }
 
+            async execute(query: string, params: any[] = [], method: 'all' | 'get' | 'run' = 'all'): Promise<any> {
+                // pg-mem does not support `set names 'utf8';` yet
+                // the hack in line 355 works only for a single query while this one works beforehand to strip it from multiline queries
+                return super.execute(query.replace('set names \'utf8\';', ''), params, method);
+            }
+
         }
         // see https://github.com/mikro-orm/mikro-orm/blob/master/packages/postgresql/src/PostgreSqlDriver.ts
         class PgMemDriver extends AbstractSqlDriver<PgMemConnection> {
