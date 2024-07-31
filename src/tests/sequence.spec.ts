@@ -77,9 +77,45 @@ describe('Sequences', () => {
         }])
     });
 
+    it('can query set value when increase is true', () => {
+        const res = many(`create sequence test;
+                    select setval('test', 41, true);
+                    select nextval('test');`);
+        expect(res).to.deep.equal([{
+            nextval: 42
+        }])
+    });
+
+    it('can query set value when increase is false', () => {
+        const res = many(`create sequence test;
+                    select setval('test', 41, false);
+                    select nextval('test');`);
+        expect(res).to.deep.equal([{
+            nextval: 41
+        }])
+    });
+
     it('can query current value', () => {
         const res = many(`create sequence test;
                     select setval('test', 42);
+                    select CURRval('test');`);
+        expect(res).to.deep.equal([{
+            currval: 42
+        }])
+    });
+
+    it('can query current value when increase is true', () => {
+        const res = many(`create sequence test;
+                    select setval('test', 42, true);
+                    select CURRval('test');`);
+        expect(res).to.deep.equal([{
+            currval: 42
+        }])
+    });
+
+    it('can query current value when increase is false', () => {
+        const res = many(`create sequence test;
+                    select setval('test', 42, false);
                     select CURRval('test');`);
         expect(res).to.deep.equal([{
             currval: 42
