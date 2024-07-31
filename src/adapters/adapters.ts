@@ -210,16 +210,86 @@ export class Adapters implements LibAdapters {
         return created;
     }
 
-    createSlonik(queryLatency?: number) {
-        const { createMockPool, createMockQueryResult } = __non_webpack_require__('slonik');
-        return createMockPool({
-            query: async (sql: string, args: any[]) => {
-                await delay(queryLatency ?? 0);
-                const formatted = replaceQueryArgs$(sql, args);
-                const ret = this.db.public.many(formatted);
-                return createMockQueryResult(ret);
-            },
-        });
+    createSlonik(opts?: {
+        queryLatency?: number;
+        createPoolOptions?: any;
+        zodValidation?: boolean;
+    }) {
+        const slonik = __non_webpack_require__('slonik');
+        if (typeof slonik.createMockPool !== 'function') {
+            // see https://github.com/gajus/slonik/blob/main/packages/slonik/src/factories/createPool.ts
+            // and @slonik/pg-driver https://github.com/gajus/slonik/blob/main/packages/pg-driver/src/factories/createPgDriverFactory.ts
+            const { createDriverFactory } = __non_webpack_require__('@slonik/driver');
+            const createResultParserInterceptor = () => {
+                return {
+                    transformRow: async (executionContext: any, actualQuery: any, row: any) => {
+                        const { resultParser } = executionContext;
+                        if (!resultParser) {
+                            return row;
+                        }
+                        // It is recommended (but not required) to parse async to avoid blocking the event loop during validation
+                        const validationResult = await resultParser.safeParseAsync(row);
+
+                        if (!validationResult.success) {
+                            throw new slonik.SchemaValidationError(
+                                actualQuery,
+                                row,
+                                validationResult.error.issues
+                            );
+                        }
+
+                        return validationResult.data;
+                    },
+                };
+            };
+            return slonik.createPool('', {
+                ...opts?.createPoolOptions ?? {},
+                ...opts?.zodValidation ? { interceptors: [createResultParserInterceptor(), ...opts?.createPoolOptions?.interceptors ?? []] } : {},
+                // driverFactory:  factory,
+                driverFactory: createDriverFactory(() => {
+                    let connected = false;
+                    return {
+                        createPoolClient: async () => {
+                            return {
+                                connect: async () => {
+                                    await delay(opts?.queryLatency ?? 0);
+                                    connected = true;
+                                },
+                                end: async () => {
+                                    await delay(opts?.queryLatency ?? 0);
+                                    connected = false;
+                                },
+                                query: async (sql: string, args: any[]) => {
+                                    if (!connected) {
+                                        throw new Error('your fake pg pool is not connected');
+                                    }
+                                    if (sql === 'DISCARD ALL') {
+                                        return { rows: [] };
+                                    }
+                                    await delay(opts?.queryLatency ?? 0);
+                                    const formatted = replaceQueryArgs$(sql, args);
+                                    const result = this.db.public.query(formatted);
+                                    return result;
+                                },
+                                stream: (sql: any, values: any) => {
+                                    throw new Error('pg-mem does not support streaming');
+                                },
+                            }
+                        },
+                    }
+                })
+            })
+        } else {
+            // old slonik versions
+            return slonik.createMockPool({
+                query: async (sql: string, args: any[]) => {
+                    await delay(opts?.queryLatency ?? 0);
+                    const formatted = replaceQueryArgs$(sql, args);
+                    const ret = this.db.public.many(formatted);
+                    return slonik.createMockQueryResult(ret);
+                },
+            });
+        }
     }
 
 

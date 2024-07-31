@@ -3,7 +3,8 @@ import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
 import { _IDb } from '../interfaces-private';
-import { DatabasePoolType, sql } from 'slonik';
+import { DatabasePool, sql } from 'slonik';
+import { z } from 'zod';
 
 describe('slonik', () => {
 
@@ -24,9 +25,9 @@ describe('slonik', () => {
 
     it('can open select without arg', async () => {
         simpleDb();
-        const pool = db.adapters.createSlonik() as DatabasePoolType;
+        const pool = await db.adapters.createSlonik() as DatabasePool;
         await pool.connect(async (connection) => {
-            const got = await connection.query(sql`select * from data`);
+            const got = await connection.query(sql.unsafe`select * from data`);
             assert.deepEqual(got.rows, [{
                 id: 'str',
                 data: { data: true } as any,
@@ -38,16 +39,24 @@ describe('slonik', () => {
 
     it('can open select with arg', async () => {
         simpleDb();
-        const pool = db.adapters.createSlonik() as DatabasePoolType;
+        const pool = await db.adapters.createSlonik() as DatabasePool;
         await pool.connect(async (connection) => {
             const str = 'str';
-            const got = await connection.query(sql`select * from data where id=${str}`);
+            const got = await connection.query(sql.unsafe`select * from data where id=${str}`);
             assert.deepEqual(got.rows, [{
                 id: 'str',
                 data: { data: true } as any,
                 num: 42,
                 var: 'varchar',
             }]);
+        });
+    });
+
+    it('can select bigint (i.e. it runs zod coerce)', async () => {
+        const pool = await db.adapters.createSlonik({ zodValidation: true }) as DatabasePool;
+        await pool.connect(async (connection) => {
+            const got = await connection.query(sql.type(z.object({ value: z.coerce.bigint() }))`select 234218741::bigint as value`);
+            assert.deepEqual(got.rows, [{ value: BigInt(234218741) as any }]);
         });
     });
 });

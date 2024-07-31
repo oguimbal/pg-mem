@@ -7,7 +7,7 @@
         "esModuleInterop": true,
         "experimentalDecorators": true,
         "types": ["node"],
-        "lib": ["es2019"],
+        "lib": ["es2022"],
         "skipLibCheck": true,
         "moduleResolution": "node",
         "isolatedModules": false,

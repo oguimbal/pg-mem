@@ -203,7 +203,13 @@ export interface LibAdapters {
     createPgPromise(queryLatency?: number): any;
 
     /** Create a slonik pool bound to this db */
-    createSlonik(queryLatency?: number): any;
+    createSlonik(opts?: {
+        queryLatency?: number;
+        // options you would give to the createPool() function
+        createPoolOptions?: any;
+        // add zod validation interceptor to create pool options, like with https://github.com/gajus/slonik?tab=readme-ov-file#result-parser-interceptor
+        zodValidation?: boolean;
+    }): Promise<any>;
 
     /** Create a pg-native instance bound to this db */
     createPgNative(queryLatency?: number): any;
