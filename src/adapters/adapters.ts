@@ -1,26 +1,13 @@
 import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions } from '../interfaces';
 import lru from 'lru-cache';
-import { compareVersions, doRequire } from '../utils';
+import { compareVersions, delay, doRequire, timeoutOrImmediate } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
 import { _IType } from '../interfaces-private';
 import { TYPE_SYMBOL } from '../execution/select';
 import { ArrayType } from '../datatypes';
 import { CustomEnumType } from '../datatypes/t-custom-enum';
+import { socketAdapter } from './pg-socket-adapter';
 
-// setImmediate does not exist in Deno
-declare var setImmediate: any;
-
-// see https://github.com/oguimbal/pg-mem/issues/170
-function timeoutOrImmediate(fn: () => void, time: number) {
-    if (time || typeof setImmediate === 'undefined') {
-        return setTimeout(fn, time);
-    }
-    // nothing to wait for, but still executing "later"
-    //  in case calling code relies on some actual async behavior
-    return setImmediate(fn);
-}
-
-const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
 
 export function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     return sql.replace(/\$(\d+)/g, (str: any, istr: any) => {
@@ -433,4 +420,13 @@ export class Adapters implements LibAdapters {
         return orm;
     }
 
+    createPostgresJsTag(queryLatency?: number): any {
+        const pg = doRequire('postgres').default;
+        const sql = pg({
+            socket: async () => {
+                return socketAdapter()(this.db.public, queryLatency);
+            },
+        });
+        return sql;
+    }
 }

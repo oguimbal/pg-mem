@@ -736,3 +736,41 @@ export function modifyIfNecessary<T>(values: T[], mapper: (input: T) => T | nil)
     }
     return ret ?? values;
 }
+
+
+
+export type LazySync<T> = (() => T) & { invalidate: () => void };
+export function lazySync<T>(ctor: () => T): LazySync<T> {
+    let cached: T;
+    let retreived = false;
+    const ret = () => {
+        if (retreived) {
+            return cached;
+        }
+        cached = ctor();
+        retreived = true;
+        return cached;
+    };
+    ret.invalidate = () => {
+        retreived = false;
+        cached = undefined as T;
+    };
+    return ret as LazySync<T>;
+}
+
+
+
+// setImmediate does not exist in Deno
+declare var setImmediate: any;
+
+// see https://github.com/oguimbal/pg-mem/issues/170
+export function timeoutOrImmediate(fn: () => void, time: number) {
+    if (time || typeof setImmediate === 'undefined') {
+        return setTimeout(fn, time);
+    }
+    // nothing to wait for, but still executing "later"
+    //  in case calling code relies on some actual async behavior
+    return setImmediate(fn);
+}
+
+export const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));

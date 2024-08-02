@@ -13,7 +13,7 @@
     "build:playground": "NODE_OPTIONS=--openssl-legacy-provider webpack --config ./tools/playground.webpack.config.js --prod",
     "release:playground": "npm run build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "NODE_OPTIONS=--openssl-legacy-provider mochapack src/**/*.spec.ts --webpack-config ./tools/webpack.config.js",
+    "test": "bun test",
     "build:deno": "node ./tools/deno-transpile.js --copy && node ./tools/deno-transpile.js --process",
     "cover": "NODE_OPTIONS=--openssl-legacy-provider cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text npm run test"
   },
@@ -88,6 +88,8 @@
     "nyc": "^15.1.0",
     "pg": "^8.5.1",
     "pg-promise": "^10.8.7",
+    "pg-server": "^0.1.5",
+    "postgres": "^3.4.4",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-hot-loader": "^4.12.21",
@@ -117,9 +119,17 @@
     "kysely": ">=0.26",
     "pg-promise": ">=10.8.7",
     "slonik": ">=23.0.1",
-    "typeorm": ">=0.2.29"
+    "typeorm": ">=0.2.29",
+    "postgres": "^3.4.4",
+    "pg-server": "^0.1.5"
   },
   "peerDependenciesMeta": {
+    "pg-server": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
+    },
     "@mikro-orm/core": {
       "optional": true
     },
