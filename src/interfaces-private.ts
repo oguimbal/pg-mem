@@ -40,6 +40,8 @@ export interface _ISchema extends ISchema {
     readonly name: string;
     readonly db: _IDb;
     readonly dualTable: _ITable;
+    /** @deprecated for debug purposes */
+    lastSelect?: _ISelection;
     /** If the given name refers to another schema, then get it. Else, get this */
     getThisOrSiblingFor(name: QName): _ISchema;
     executeCreateExtension(p: CreateExtensionStatement): void;
