@@ -6,7 +6,7 @@ import { buildSelect } from '../select';
 import { Selection } from '../../transforms/selection';
 import { JoinSelection } from '../../transforms/join';
 
-export class Update extends MutationDataSourceBase<any> {
+export class Update extends MutationDataSourceBase {
 
     private setter: Setter;
     private fetchObjectToUpdate?: ((x: any) => any);

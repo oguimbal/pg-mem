@@ -1,9 +1,9 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats, Row } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { DataType, CastError, QueryError } from '../interfaces';
 import { nullIsh } from '../utils';
 
-export class InFilter<T = any> extends FilterBase<T> {
+export class InFilter extends FilterBase {
 
 
     private index: _IIndex;
@@ -20,13 +20,13 @@ export class InFilter<T = any> extends FilterBase<T> {
         return ret;
     }
 
-    hasItem(item: T, t: _Transaction) {
+    hasItem(item: Row, t: _Transaction) {
         const val = this.onValue.get(item, t);
         return !nullIsh(val)
             && this.elts.some(x => this.onValue.type.equals(x, val));
     }
 
-    constructor(private onValue: IValue<T>
+    constructor(private onValue: IValue
         , private elts: any[]) {
         super(onValue.origin!);
         this.index = onValue.index!;
@@ -53,7 +53,7 @@ export class InFilter<T = any> extends FilterBase<T> {
         return ret;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         for (const a of this.elts) {
             yield* this.index.enumerate({
                 type: 'eq',

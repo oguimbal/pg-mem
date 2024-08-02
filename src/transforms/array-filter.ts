@@ -1,7 +1,7 @@
 import { FilterBase } from './transform-base';
-import { _ISelection, _Explainer, _SelectExplanation, _Transaction, Stats } from '../interfaces-private';
+import { _ISelection, _Explainer, _SelectExplanation, _Transaction, Stats, Row } from '../interfaces-private';
 
-export class ArrayFilter<T = any> extends FilterBase<T> {
+export class ArrayFilter extends FilterBase {
 
     get index() {
         return null;
@@ -11,7 +11,7 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
         return this.rows.length;
     }
 
-    hasItem(raw: T): boolean {
+    hasItem(raw: Row): boolean {
         return this.rows.includes(raw);
     }
 
@@ -19,11 +19,11 @@ export class ArrayFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    constructor(fromTable: _ISelection<T>, public rows: T[]) {
+    constructor(fromTable: _ISelection, public rows: Row[]) {
         super(fromTable);
     }
 
-    enumerate(): Iterable<T> {
+    enumerate(): Iterable<Row> {
         return this.rows;
     }
 

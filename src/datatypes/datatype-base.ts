@@ -154,7 +154,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     /** Perform cast */
-    cast(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+    cast(_a: IValue<TRaw>, _to: _IType<any>): IValue {
         return this._convert(_a, _to, (a, to) => {
             if (!this.doCanCast?.(to) || !this.doCast) {
                 throw new CastError(this, to);
@@ -164,7 +164,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     /** Perform implicit conversion */
-    convertImplicit(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+    convertImplicit(_a: IValue<TRaw>, _to: _IType<any>): IValue {
         return this._convert(_a, _to, (a, to) => {
             if (!this.doCanConvertImplicit?.(to) || !this.doCast) {
                 throw new CastError(this, to);
@@ -173,7 +173,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         })
     }
 
-    private _convert(a: IValue<TRaw>, _to: _IType<any>, perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil): IValue<any> {
+    private _convert(a: IValue<TRaw>, _to: _IType<any>, perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil): IValue {
         const to = _to as TypeBase;
         if (to === this) {
             return a;

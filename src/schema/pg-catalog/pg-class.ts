@@ -105,14 +105,14 @@ export class PgClassListTable extends ReadOnlyTable implements _ITable {
     }
 
 
-    makeInedx(t: _IIndex<any>): any {
+    makeInedx(t: _IIndex): any {
         if (!t) {
             return null;
         }
         // relkind , i = index, S = sequence, t = TOAST table, v = view, m = materialized view, c = composite type, f = foreign table, p = partitioned table, I = partitioned index
         throw new Error('todo');
     }
-    makeTable(t: _ITable<any>): any {
+    makeTable(t: _ITable): any {
         if (!t) {
             return null;
         }

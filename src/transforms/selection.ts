@@ -1,4 +1,4 @@
-import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias } from '../interfaces-private';
+import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias, _IAggregation, Row } from '../interfaces-private';
 import { QueryError, ColumnNotFound, AmbiguousColumn, nil } from '../interfaces';
 import { buildValue } from '../parser/expression-builder';
 import { Evaluator } from '../evaluator';
@@ -110,7 +110,7 @@ export interface CustomAlias {
     expr?: Expr
 }
 
-export class Selection<T = any> extends TransformBase<T> implements _ISelection<T> {
+export class Selection extends TransformBase implements _ISelection {
 
     private columnIds: string[] = [];
     private columnsOrigin: IValue[] = [];
@@ -121,7 +121,7 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
 
     readonly columns: IValue[] = [];
 
-    isAggregation() {
+    isAggregation(): this is _IAggregation {
         return false;
     }
 
@@ -195,13 +195,13 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
     }
 
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         for (const item of this.base.enumerate(t)) {
             yield this.build(item, t);
         }
     }
 
-    build(item: any, t: _Transaction): T {
+    build(item: any, t: _Transaction): Row {
         const ret: any = {};
         setId(ret, getId(item));
         ret[this.symbol] = this.symbol;
@@ -212,7 +212,7 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
         return ret as any;
     }
 
-    hasItem(value: T, t: _Transaction): boolean {
+    hasItem(value: Row, t: _Transaction): boolean {
         return (value as any)[this.symbol] === this.symbol;
     }
 
@@ -238,8 +238,11 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
         }
         const mapped = this.columnMapping.get(val);
         const originIndex = this.base.getIndex(mapped!);
-        const ret = originIndex && new SelectionIndex(this, originIndex);
-        this.indexCache.set(val, ret!);
+        if (!originIndex) {
+            return null;
+        }
+        const ret = new SelectionIndex(this, originIndex);
+        this.indexCache.set(val, ret);
         return ret;
     }
 
@@ -257,8 +260,8 @@ export class Selection<T = any> extends TransformBase<T> implements _ISelection<
 }
 
 
-export class SelectionIndex<T> implements _IIndex<T> {
-    constructor(readonly owner: Selection<T>, private base: _IIndex) {
+export class SelectionIndex implements _IIndex {
+    constructor(readonly owner: Selection, private base: _IIndex) {
     }
 
     stats(t: _Transaction, key?: IndexKey) {
@@ -282,7 +285,7 @@ export class SelectionIndex<T> implements _IIndex<T> {
         return this.base.eqFirst(rawKey, t);
     }
 
-    *enumerate(op: IndexOp): Iterable<T> {
+    *enumerate(op: IndexOp): Iterable<Row> {
         for (const i of this.base.enumerate(op)) {
             yield this.owner.build(i, op.t);
         }

@@ -135,7 +135,7 @@ export class Evaluator<T = any> implements IValue<T> {
         );
     }
 
-    setOrigin(origin: _ISelection): IValue<T> {
+    setOrigin(origin: _ISelection): IValue {
         const ret = this.clone();
         ret.origin = origin;
         return ret;
@@ -226,11 +226,11 @@ export class Evaluator<T = any> implements IValue<T> {
         return !!this.type.canCast(to);
     }
 
-    cast<T = any>(to: _IType<T>): IValue<T> {
+    cast<T = any>(to: _IType<T>): IValue {
         return this.type.cast(this, to);
     }
 
-    convertImplicit<T = any>(to: _IType<T>): IValue<T> {
+    convertImplicit<T = any>(to: _IType<T>): IValue {
         return this.type.convertImplicit(this, to);
     }
 
@@ -305,7 +305,7 @@ export class Evaluator<T = any> implements IValue<T> {
 //         return this.type.canCast(to);
 //     }
 
-//     cast<T = any>(to: DataType | _IType<T>): IValue<T> {
+//     cast<T = any>(to: DataType | _IType<T>): IValue {
 //         return this.type.cast(this, to);
 //     }
 // }

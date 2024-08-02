@@ -11,7 +11,7 @@ describe('Joins', () => {
     let many: (str: string) => any[];
     let none: (str: string) => void;
     beforeEach(() => {
-        db = newDb() as _IDb;
+        db = newDb() as unknown as _IDb;
         many = db.public.many.bind(db.public);
         none = db.public.none.bind(db.public);
     });

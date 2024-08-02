@@ -132,7 +132,6 @@ describe('Test utils', () => {
         const inserted = table.insert(orig);
         if (inserted == null) {
             assert(false);
-            return; // satisfy typescript
         }
 
         // mutate original + check query result not impacted

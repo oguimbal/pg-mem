@@ -1,5 +1,5 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ISubscription, nil, ColumnDef } from './interfaces';
-import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts } from './interfaces-private';
+import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts, Row } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
 import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
@@ -17,15 +17,15 @@ import { ConstraintWrapper } from './constraints/wrapped';
 import { IndexConstraint } from './constraints/index-cst';
 
 
-type Raw<T> = ImMap<string, T>;
+type Raw = ImMap<string, Row>;
 
 
-interface ChangeSub<T> {
-    before: Set<ChangeHandler<T>>;
-    after: Set<ChangeHandler<T>>;
+interface ChangeSub {
+    before: Set<ChangeHandler>;
+    after: Set<ChangeHandler>;
 }
 
-interface ChangePlan<T> {
+interface ChangePlan {
     before(): void
     after(): void;
 }
@@ -60,12 +60,12 @@ class ColumnManager {
     }
 }
 
-export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTable, _ITable<T> {
+export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _ITable {
     get isExecutionWithNoResult(): boolean {
         return false;
     }
     private handlers = new Map<TableEvent, Set<() => void>>();
-    readonly selection: Alias<T>;
+    readonly selection: Alias;
     private _reg?: Reg;
     get reg(): Reg {
         if (!this._reg) {
@@ -85,13 +85,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     private serialsId: symbol = Symbol();
     private constraintsByName = new Map<string, _IConstraint>();
     private indexByHashAndName = new Map<string, Map<string, {
-        index: BIndex<T>;
+        index: BIndex;
         expressions: IValue[];
     }>>();
     readonly columnMgr = new ColumnManager();
     name: string;
 
-    private changeHandlers = new Map<_Column | null, ChangeSub<T>>();
+    private changeHandlers = new Map<_Column | null, ChangeSub>();
     private truncateHandlers = new Set<TruncateHandler>();
     private drophandlers = new Set<DropHandler>();
     private indexHandlers = new Set<IndexHandler>();
@@ -108,14 +108,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return this.bin(t).size;
     }
 
-    isOriginOf(a: IValue<any>): boolean {
+    isOriginOf(a: IValue): boolean {
         return a.origin === this.selection;
     }
 
     constructor(schema: _ISchema, t: _Transaction, _schema: Schema) {
         super(schema);
         this.name = _schema.name;
-        this.selection = buildAlias(this, this.name) as Alias<T>;
+        this.selection = buildAlias(this, this.name) as Alias;
 
         // fields
         for (const s of _schema.fields) {
@@ -151,14 +151,14 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
         this.name = name;
         this.ownerSchema._reg_rename(this, on, name);
-        (this.selection as Alias<T>).name = this.name;
+        (this.selection as Alias).name = this.name;
         this.db.onSchemaChange();
         return this;
     }
 
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
         return colByName(this.columnMgr.map, column, nullIfNotFound)
             ?.expression;
     }
@@ -231,10 +231,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
     bin(t: _Transaction) {
-        return t.getMap<Raw<T>>(this.dataId);
+        return t.getMap<Raw>(this.dataId);
     }
 
-    setBin(t: _Transaction, val: Raw<T>) {
+    setBin(t: _Transaction, val: Raw) {
         return t.set(this.dataId, val);
     }
 
@@ -267,18 +267,18 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         this.raise('seq-scan');
         for (const v of this.bin(t).values()) {
             yield deepCloneSimple(v); // copy the original data to prevent it from being mutated.
         }
     }
 
-    find(template?: T, columns?: (keyof T)[]): Iterable<T> {
+    find(template?: Row, columns?: (keyof Row)[]): Iterable<Row> {
         return findTemplate(this.selection, this.db.data, template, columns);
     }
 
-    remapData(t: _Transaction, modify: (newCopy: T) => any) {
+    remapData(t: _Transaction, modify: (newCopy: Row) => any) {
         // convert raw data (⚠ must copy the whole thing,
         // because it can throw in the middle of this process !)
         //  => this would result in partially converted tables.
@@ -290,15 +290,15 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         this.setBin(t, converted);
     }
 
-    insert(toInsert: T): T | null {
+    insert(toInsert: Row): Row | null {
         const ret = this.doInsert(this.db.data, deepCloneSimple(toInsert));
-        if (ret == null) {
+        if (!ret) {
             return null
         }
         return deepCloneSimple(ret);
     }
 
-    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T | null {
+    doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | null {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -381,13 +381,13 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return toInsert;
     }
 
-    private changePlan(t: _Transaction, old: T | null, neu: T | null, _opts: ChangeOpts | nil): ChangePlan<T> {
+    private changePlan(t: _Transaction, old: Row | null, neu: Row | null, _opts: ChangeOpts | nil): ChangePlan {
         const opts = _opts ?? {};
-        let iter: () => IterableIterator<ChangeSub<T>>;
+        let iter: () => IterableIterator<ChangeSub>;
         if (!old || !neu) {
             iter = () => this.changeHandlers.values();
         } else {
-            const ret: ChangeSub<T>[] = [];
+            const ret: ChangeSub[] = [];
             const global = this.changeHandlers.get(null);
             if (global) {
                 ret.push(global);
@@ -434,7 +434,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    update(t: _Transaction, toUpdate: T): T {
+    update(t: _Transaction, toUpdate: Row): Row {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);
         }
@@ -477,7 +477,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         return toUpdate;
     }
 
-    delete(t: _Transaction, toDelete: T) {
+    delete(t: _Transaction, toDelete: Row) {
         const id = getId(toDelete);
         const bin = this.bin(t);
         const got = bin.get(id);
@@ -517,7 +517,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
     }
 
 
-    private indexElt(t: _Transaction, toInsert: T) {
+    private indexElt(t: _Transaction, toInsert: Row) {
         for (const map of this.indexByHashAndName.values()) {
             for (const k of map.values()) {
                 k.index.add(toInsert, t);
@@ -525,7 +525,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    hasItem(item: T, t: _Transaction) {
+    hasItem(item: Row, t: _Transaction) {
         const id = getId(item);
         return this.bin(t).has(id);
     }
@@ -649,7 +649,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
                 this.getColumnRef(used.id!).usedInIndexes.add(index);
             }
         }
-        const indexesByHash = this.indexByHashAndName.get(ihash) || new Map<string, { index: BIndex<T>; expressions: IValue[] }>();
+        const indexesByHash = this.indexByHashAndName.get(ihash) || new Map<string, { index: BIndex; expressions: IValue[] }>();
         indexesByHash.set(indexName, { index, expressions: index.expressions });
         this.indexByHashAndName.set(ihash, indexesByHash);
         if (expressions.primary) {
@@ -765,10 +765,10 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription {
+    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription {
         return this._subChange('before', columns, check);
     }
-    onCheckChange(columns: string[], check: ChangeHandler<T>): ISubscription {
+    onCheckChange(columns: string[], check: ChangeHandler): ISubscription {
         return this._subChange('before', columns, check);
     }
 
@@ -782,7 +782,7 @@ export class MemoryTable<T = any> extends DataSourceBase<T> implements IMemoryTa
         }
     }
 
-    private _subChange(key: keyof ChangeSub<T>, columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription {
+    private _subChange(key: keyof ChangeSub, columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription {
         const unsubs: (() => void)[] = [];
 
         const add = (ref: _Column | ColRef | null) => {

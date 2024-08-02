@@ -1,6 +1,6 @@
 import { Expr } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
-import { IValue, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private';
+import { IValue, Row, Stats, _Explainer, _ISelection, _SelectExplanation, _Transaction } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import objectHash from 'object-hash';
 import { withSelection } from '../parser/context';
@@ -17,7 +17,7 @@ export function buildDistinct(on: _ISelection, exprs?: Expr[]) {
 
 // todo: use indices to optimize this (avoid iterating everything)
 
-class Distinct<T> extends FilterBase<any> {
+class Distinct extends FilterBase {
 
     get index() {
         return null;
@@ -29,7 +29,7 @@ class Distinct<T> extends FilterBase<any> {
         return this.base.entropy(t);
     }
 
-    hasItem(raw: T, t: _Transaction): boolean {
+    hasItem(raw: Row, t: _Transaction): boolean {
         return this.base.hasItem(raw, t);
     }
 
@@ -41,7 +41,7 @@ class Distinct<T> extends FilterBase<any> {
         return this.base.stats(t);
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         const got = new Set();
         for (const i of this.base.enumerate(t)) {
             const vals = this.exprs.map(v => v.type.hash(v.get(i, t)));
