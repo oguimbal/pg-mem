@@ -1,10 +1,10 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
 import { Types } from '../datatypes';
-import { preventCataJoin } from './test-utils';
+import { expectQueryError, preventCataJoin } from './test-utils';
 
 describe('Updates', () => {
 
@@ -39,21 +39,21 @@ describe('Updates', () => {
 
 
     it('rollbacks in case of update failure', () => {
-        assert.throws(() => none(`create table test(key text, val integer unique);
+        expectQueryError(() => none(`create table test(key text, val integer unique);
                     insert into test values ('a', 1), ('x', 2), ('a', 3);
                     commit;
                     update test set val = 1 where key = 'a';`));
         expect(many(`select * from test`))
-            .to.deep.equal([{ key: 'a', val: 1 }, { key: 'x', val: 2 }, { key: 'a', val: 3 }])
+            .toEqual([{ key: 'a', val: 1 }, { key: 'x', val: 2 }, { key: 'a', val: 3 }])
     });
 
     it('rollbacks all in case of update failure', () => {
-        assert.throws(() => none(`create table test(key text, val integer unique);
+        expectQueryError(() => none(`create table test(key text, val integer unique);
                     insert into test values ('a', 1), ('x', 2), ('a', 3);
                     commit;
                     update test set val = 3 where key = 'a';`));
         expect(many(`select * from test`))
-            .to.deep.equal([{ key: 'a', val: 1 }, { key: 'x', val: 2 }, { key: 'a', val: 3 }])
+            .toEqual([{ key: 'a', val: 1 }, { key: 'x', val: 2 }, { key: 'a', val: 3 }])
     });
 
     it('works if update matches constraint because same element', () => {
@@ -62,7 +62,7 @@ describe('Updates', () => {
                     commit;
                     update test set val = 2 where key = 'x';`);
         expect(many(`select * from test`))
-            .to.deep.equal([{ key: 'a', val: 1 }, { key: 'a', val: 3 }, { key: 'x', val: 2 }])
+            .toEqual([{ key: 'a', val: 1 }, { key: 'a', val: 3 }, { key: 'x', val: 2 }])
     });
 
 
@@ -71,7 +71,7 @@ describe('Updates', () => {
         none(`insert into data(id, str) values ('some id', 'some str')`);
         expect(many(`update data set str='something new';
                      select str from data;`))
-            .to.deep.equal([{ str: 'something new' }]);
+            .toEqual([{ str: 'something new' }]);
     })
 
     it('can update multiple', () => {
@@ -79,7 +79,7 @@ describe('Updates', () => {
                     insert into test values ('a', 1), ('x', 2), ('a', 3);
                     update test set val = 42 where key = 'a';
                     select * from test`))
-            .to.deep.equal([{ key: 'a', val: 42 }, { key: 'x', val: 2 }, { key: 'a', val: 42 }])
+            .toEqual([{ key: 'a', val: 42 }, { key: 'x', val: 2 }, { key: 'a', val: 42 }])
     });
 
     it('can handle jsonb update', () => {
@@ -87,7 +87,7 @@ describe('Updates', () => {
                     insert into test values ('{"data": true}');
                     update test set val = '{"other": true}';
                     select * from test`))
-            .to.deep.equal([{ val: { other: true } }])
+            .toEqual([{ val: { other: true } }])
     });
 
     it('can handle bool update', () => {
@@ -95,7 +95,7 @@ describe('Updates', () => {
                     insert into test values ('Y');
                     update test set val = 'N';
                     select * from test`))
-            .to.deep.equal([{ val: false }])
+            .toEqual([{ val: false }])
     });
 
     it('can use count in update subquery', () => {
@@ -109,7 +109,7 @@ describe('Updates', () => {
                  cnt = (select count(*) from books where books.user_id = 'b')
             where id= 'b';
             select * from users where id='b';
-        `)).to.deep.equal([{ id: 'b', cnt: 3, books: ['bb', 'bc'] }]);
+        `)).toEqual([{ id: 'b', cnt: 3, books: ['bb', 'bc'] }]);
     });
 
 
@@ -125,7 +125,7 @@ describe('Updates', () => {
             where test_table.id = ids.oid;
 
         select * from test_table order by value;
-            `)).to.deep.equal([
+            `)).toEqual([
             { id: 'a', value: 1 },
             { id: 'c', value: 3 },
             { id: 'b', value: 2 + 42 },
@@ -145,7 +145,7 @@ describe('Updates', () => {
             where test_table.id = ids.id;
 
         select * from test_table order by value;
-            `)).to.deep.equal([
+            `)).toEqual([
             { id: 'a', value: 1 },
             { id: 'b', value: 2 },
             { id: 'c', value: 3 },
@@ -155,8 +155,8 @@ describe('Updates', () => {
     it('cannot update multiple times the same column in one query', () => {
         none(`create table test_table(id text primary key, value int);
         insert into test_table values ('a', 1), ('b', 2), ('c', 3);`)
-        expect(() => many(`
+        expectQueryError(() => many(`
             update test_table set value = 42, value = 43;
-        `)).to.throw();
+        `));
     });
 });

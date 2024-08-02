@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
@@ -19,7 +19,7 @@ describe('Joins', () => {
     function explainMapSelect() {
         const expl = db.public.explainLastSelect()!;
         if (expl._ !== 'map') {
-            assert.fail('should be a map');
+            throw new Error('should be a map');
         }
         return expl.of;
     }
@@ -36,12 +36,12 @@ describe('Joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             id: 2,
             inner: true,
@@ -74,7 +74,7 @@ describe('Joins', () => {
                                 join tb on ta.bid = tb.bid`);
 
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             id: 2,
             inner: true,
@@ -88,7 +88,7 @@ describe('Joins', () => {
             }
         })
 
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
@@ -107,7 +107,7 @@ describe('Joins', () => {
 
                             select * from ta join tb on ta.bid = tb.bid`);
 
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', bid: 'bid1', bid1: 'bid1' },
             { val: 'val2', aid: 'aid2', bid: 'bid2', bid1: 'bid2' },
         ]);
@@ -128,12 +128,12 @@ describe('Joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             id: 2,
             inner: true,
@@ -167,11 +167,11 @@ describe('Joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             id: 2,
             inner: true,
@@ -204,7 +204,7 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
 
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
         ]);
     });
@@ -222,13 +222,13 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 left outer join tb on ta.bid = tb.bid`);
 
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: null, aid: 'aid2', abid: 'bid2', bbid: null }
         ]);
 
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             id: 2,
             restrictive: { _: 'table', table: 'ta' },
@@ -266,7 +266,7 @@ describe('Joins', () => {
                                 right outer join tb on ta.bida = tb.bid`);
 
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             inner: false,
             id: 2,
@@ -283,7 +283,7 @@ describe('Joins', () => {
                 matches: { on: 'tb', col: 'bid' },
             },
         });
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' }
         ]);
         watch.check();
@@ -305,11 +305,11 @@ describe('Joins', () => {
                                 join tb on ta.bid = tb.bid
                             where ta.num > 42`);
 
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'seqFilter',
             id: 2,
             filtered: {
@@ -347,11 +347,11 @@ describe('Joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid
                             where tb.num < 12`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
         ]);
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'seqFilter',
             id: 2,
             filtered: {
@@ -391,13 +391,13 @@ describe('Joins', () => {
                              from ta
                                 join tb on ta.bid = tb.bid
                             where ta.num < 10 OR tb.num < 10`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2', anum: 100, bnum: 1 },
             { val: 'val1', aid: 'aid3', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 100 },
         ]);
 
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'seqFilter',
             id: 2,
             filtered: {
@@ -436,7 +436,7 @@ describe('Joins', () => {
                                 from ta
                                     join tb on ta.bid = tb.bid
                                 where ta.num < 10 AND tb.num < 10`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1', anum: 1, bnum: 1 },
         ]);
     });
@@ -468,7 +468,7 @@ describe('Joins', () => {
             JOIN "photo" "photo" ON "photo"."userId"="user"."id"`;
         const sel = db.public.explainSelect(query);
         delete (sel as any)['select'];
-        assert.deepEqual(sel, {
+        expect(sel).toEqual({
             _: 'map',
             id: 1,
             of: {
@@ -500,7 +500,7 @@ describe('Joins', () => {
         })
         const result = many(query);
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
                 { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
                 { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
@@ -516,7 +516,7 @@ describe('Joins', () => {
             JOIN "photo" "photo" ON "photo"."userId"="user"."id" AND "photo"."url" like 'you%'`;
         const sel = db.public.explainSelect(query);
         delete (sel as any)['select'];
-        assert.deepEqual(sel, {
+        expect(sel).toEqual({
             _: 'map',
             id: 1,
             of: {
@@ -549,7 +549,7 @@ describe('Joins', () => {
         })
         const result = many(query);
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
                 { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
             ]);
@@ -563,7 +563,7 @@ describe('Joins', () => {
             JOIN "photo" "photo" ON "photo"."userId"="user"."id" AND "user"."name" like 'yo%'`;
         const sel = db.public.explainSelect(query);
         delete (sel as any)['select'];
-        assert.deepEqual(sel, {
+        expect(sel).toEqual({
             _: 'map',
             id: 1,
             of: {
@@ -596,7 +596,7 @@ describe('Joins', () => {
         })
         const result = many(query);
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
                 { user_id: 'u2', user_name: 'you', photo_id: 'p4', photo_url: 'you-2.jpg', photo_userId: 'u2' },
             ]);
@@ -609,7 +609,7 @@ describe('Joins', () => {
                             FROM "user" "user"
                             LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
                 { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
                 { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
@@ -646,7 +646,7 @@ describe('Joins', () => {
         function check() {
             expect(many(`select * from child
         join toy on id=child_id`))
-                .to.deep.equal([{
+                .toEqual([{
                     id: 1,
                     child_id: 1,
                     name: 'Tom',
@@ -658,8 +658,8 @@ describe('Joins', () => {
 
     it('throws on selection ambiguity', () => {
         childrenToys();
-        assert.throws(() => none(`select name from child
-        join toy on id=child_id`), /column reference "name" is ambiguous/);
+        expect(() => none(`select name from child
+        join toy on id=child_id`)).toThrow(/column reference "name" is ambiguous/);
     });
 
 
@@ -680,7 +680,7 @@ describe('Joins', () => {
 
         it('can left join', () => {
             expect(many(`select * from rates left join names using (id)`))
-                .to.deep.equal([{
+                .toEqual([{
                     id: 1, // ==> IDENTIFIED AS UNIQUE !
                     name: 'Me',
                     rate: 10,
@@ -689,7 +689,7 @@ describe('Joins', () => {
 
         it('it outputs two ID columns when not using "USING"', () => {
             expect(many(`select * from rates left join names ON rates.id = names.id`))
-                .to.deep.equal([{
+                .toEqual([{
                     id: 1,
                     id1: 1,
                     name: 'Me',
@@ -707,7 +707,7 @@ describe('Joins', () => {
                             FROM "user" "user"
                             RIGHT JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
                 { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
                 { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },
@@ -733,7 +733,7 @@ describe('Joins', () => {
                                 test a
                                 join test b on a.friend = b.usr;`);
             expect(got)
-                .to.deep.equal([
+                .toEqual([
                     // nb: this is not exactly the same order as we'd get with pg
                     //   (but there is no order clause)
                     { usr: 'me', friend: 'you', usr1: 'you', friend1: 'me' },
@@ -749,7 +749,7 @@ describe('Joins', () => {
                                 test a
                                 right join test b on a.friend = b.usr;`);
             expect(got)
-                .to.deep.equal([
+                .toEqual([
                     { usr: 'you', friend: 'you' }
                     , { usr: 'you', friend: 'other1' }
                     , { usr: 'me', friend: 'me' }
@@ -762,7 +762,7 @@ describe('Joins', () => {
                                 test a
                                 left join test b on a.friend = b.usr;`);
             expect(got)
-                .to.deep.equal([
+                .toEqual([
                     { usr: 'me', friend: 'me' },
                     { usr: 'me', friend: 'other2' },
                     { usr: 'me', friend: null },
@@ -777,7 +777,7 @@ describe('Joins', () => {
                                 test a
                                 join test b on a.friend = b.usr;`);
             expect(got)
-                .to.deep.equal([
+                .toEqual([
                     { usr: 'me', friend: 'me' },
                     { usr: 'me', friend: 'other2' },
                     { usr: 'you', friend: 'you' },
@@ -789,17 +789,17 @@ describe('Joins', () => {
 
     it('can select * and column on join', () => {
         expect(many(`select *, a from concat('a') as a join concat('a') as b on a.a=b.b`))
-            .to.deep.equal([{ a: 'a', b: 'a', a1: 'a' }]);
+            .toEqual([{ a: 'a', b: 'a', a1: 'a' }]);
     });
 
     it('can select scope.* and on join', () => {
         expect(many(`select a.* from concat('a') as a join concat('a') as b on a.a=b.b`))
-            .to.deep.equal([{ a: 'a' }]);
+            .toEqual([{ a: 'a' }]);
     });
 
     it('can select selective * and column on join ', () => {
         expect(many(`select b.*, vala, a from (values ('x', 'a1')) as a(ida, vala) join (values ('x', 'b1')) as b(idb, valb) on a.ida=b.idb`))
-            .to.deep.equal([{
+            .toEqual([{
                 idb: 'x',
                 valb: 'b1',
                 vala: 'a1',
@@ -822,7 +822,7 @@ describe('Joins', () => {
                             FROM "user" "user"
                             FULL JOIN "photo" "photo" ON "photo"."userId"="user"."id"`);
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { user_id: 'u1', user_name: 'me', photo_id: 'p1', photo_url: 'me-1.jpg', photo_userId: 'u1' },
                 { user_id: 'u1', user_name: 'me', photo_id: 'p2', photo_url: 'me-2.jpg', photo_userId: 'u1' },
                 { user_id: 'u2', user_name: 'you', photo_id: 'p3', photo_url: 'you-1.jpg', photo_userId: 'u2' },

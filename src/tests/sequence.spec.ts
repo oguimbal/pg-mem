@@ -1,7 +1,8 @@
-import { describe, it, beforeEach } from 'bun:test';
-import { assert, expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Sequences', () => {
 
@@ -23,7 +24,7 @@ describe('Sequences', () => {
     it('can query next value non qualified default', () => {
         const res = many(`create sequence test;
                     select nextval('test')`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 1
         }])
     });
@@ -31,7 +32,7 @@ describe('Sequences', () => {
     it('can query next value non qualified inc', () => {
         const res = many(`create sequence test increment 5;
                             select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 1
         }])
     });
@@ -39,7 +40,7 @@ describe('Sequences', () => {
     it('can query next value non qualified start', () => {
         const res = many(`create sequence test start 5 increment 2;
                             select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 5
         }])
     });
@@ -49,11 +50,11 @@ describe('Sequences', () => {
         let res = many(`create sequence test start 5 increment 2;
                         select nextval('test');
                         select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 7
         }]);
         res = many(`select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 9
         }])
     });
@@ -62,7 +63,7 @@ describe('Sequences', () => {
     it('can query next value qualified', () => {
         const res = many(`create sequence test;
                     select nextval('public."test"')`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 1
         }])
     });
@@ -72,7 +73,7 @@ describe('Sequences', () => {
         const res = many(`create sequence test;
                     select setval('test', 41);
                     select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 42
         }])
     });
@@ -81,7 +82,7 @@ describe('Sequences', () => {
         const res = many(`create sequence test;
                     select setval('test', 41, true);
                     select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 42
         }])
     });
@@ -90,7 +91,7 @@ describe('Sequences', () => {
         const res = many(`create sequence test;
                     select setval('test', 41, false);
                     select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 41
         }])
     });
@@ -99,7 +100,7 @@ describe('Sequences', () => {
         const res = many(`create sequence test;
                     select setval('test', 42);
                     select CURRval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             currval: 42
         }])
     });
@@ -108,7 +109,7 @@ describe('Sequences', () => {
         const res = many(`create sequence test;
                     select setval('test', 42, true);
                     select CURRval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             currval: 42
         }])
     });
@@ -117,7 +118,7 @@ describe('Sequences', () => {
         const res = many(`create sequence test;
                     select setval('test', 42, false);
                     select CURRval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             currval: 42
         }])
     });
@@ -125,7 +126,7 @@ describe('Sequences', () => {
     it('fails to get currval without initialization', () => {
         many(`create sequence test start 5 increment 2;`);
 
-        assert.throws(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
+        expectQueryError(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
     });
 
 
@@ -134,7 +135,7 @@ describe('Sequences', () => {
         none(`CREATE SEQUENCE if not exists public.test START WITH 40 INCREMENT BY 2 NO MINVALUE NO MAXVALUE CACHE 1 as bigint cycle`);
 
         const res = many(`select nextval('test');`);
-        expect(res).to.deep.equal([{
+        expect(res).toEqual([{
             nextval: 40
         }])
     });
@@ -145,8 +146,8 @@ describe('Sequences', () => {
                 select nextval('test');
                 select nextval('test');
                 select nextval('test');`))
-            .to.deep.equal([{ nextval: 3 }]);
-        assert.throws(() => none(`select nextval('test');`), /reached maximum value of sequence "test"/)
+            .toEqual([{ nextval: 3 }]);
+        expectQueryError(() => none(`select nextval('test');`), /reached maximum value of sequence "test"/)
     })
 
     it('can create an identity sequence', () => {
@@ -157,7 +158,7 @@ describe('Sequences', () => {
                     );
 
                     insert into color(name) values ('red'), ('green'), ('blue');
-                    select * from color;`)).to.deep.equal([
+                    select * from color;`)).toEqual([
             { name: 'red', color_id: 10, },
             { name: 'green', color_id: 20, },
             { name: 'blue', color_id: 30, },
@@ -172,11 +173,11 @@ describe('Sequences', () => {
         none(`ALTER SEQUENCE test RESTART WITH 0;`);
 
         // checks on currval & nextval
-        assert.throws(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
+        expectQueryError(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
         expect(one(`select nextval('test');`))
-            .to.deep.equal({ nextval: 0 });
+            .toEqual({ nextval: 0 });
         expect(one(`select currval('test');`))
-            .to.deep.equal({ currval: 0 });
+            .toEqual({ currval: 0 });
 
     });
 
@@ -185,12 +186,12 @@ describe('Sequences', () => {
 
         none(`create sequence test minvalue 5;`);
         // restart sequence
-        assert.throws(() => none(`ALTER SEQUENCE test RESTART WITH 4;`), /RESTART value \(4\) cannot be less than MINVALUE \(5\)/);
+        expectQueryError(() => none(`ALTER SEQUENCE test RESTART WITH 4;`), /RESTART value \(4\) cannot be less than MINVALUE \(5\)/);
 
         none(`ALTER SEQUENCE test RESTART WITH 5;`);
 
         expect(one(`select nextval('test');`))
-            .to.deep.equal({ nextval: 5 });
+            .toEqual({ nextval: 5 });
 
     });
 
@@ -199,26 +200,26 @@ describe('Sequences', () => {
     it('can restart sequence after usage', () => {
         expect(one(`create sequence test;
                     select setval('test', 41);`))
-            .to.deep.equal({ setval: 41 });
+            .toEqual({ setval: 41 });
 
         // checks on currval & nextval
         expect(one(`select currval('test');`))
-            .to.deep.equal({ currval: 41 });
+            .toEqual({ currval: 41 });
         expect(one(`select nextval('test');`))
-            .to.deep.equal({ nextval: 42 });
+            .toEqual({ nextval: 42 });
         expect(one(`select currval('test');`))
-            .to.deep.equal({ currval: 42 });
+            .toEqual({ currval: 42 });
 
         // restart sequence
         none(`ALTER SEQUENCE test RESTART WITH 1;`);
 
         // checks on currval & nextval
         expect(one(`select currval('test');`))
-            .to.deep.equal({ currval: 42 }, 'Current value should not have moved after reset');
+            .toEqual({ currval: 42 }) // 'Current value should not have moved after reset');
         expect(one(`select nextval('test');`))
-            .to.deep.equal({ nextval: 1 });
+            .toEqual({ nextval: 1 });
         expect(one(`select currval('test');`))
-            .to.deep.equal({ currval: 1 });
+            .toEqual({ currval: 1 });
     });
 
     it('can restart sequence when not used', () => {
@@ -227,11 +228,11 @@ describe('Sequences', () => {
         none(`ALTER SEQUENCE test RESTART WITH 5;`);
 
         // checks on currval & nextval
-        assert.throws(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
+        expectQueryError(() => none(`select currval('test');`), /currval of sequence "test" is not yet defined in this session/);
         expect(one(`select nextval('test');`))
-            .to.deep.equal({ nextval: 5 });
+            .toEqual({ nextval: 5 });
         expect(one(`select currval('test');`))
-            .to.deep.equal({ currval: 5 });
+            .toEqual({ currval: 5 });
 
 
     })

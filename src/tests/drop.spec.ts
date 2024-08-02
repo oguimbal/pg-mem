@@ -1,9 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
-import { preventSeqScan } from './test-utils';
+import { expectQueryError, preventSeqScan } from './test-utils';
 
 describe('Drop', () => {
 
@@ -23,12 +23,12 @@ describe('Drop', () => {
     it('can drop table', () => {
         none(`create table test(a text);
             drop table test;`);
-        assert.throws(() => none('select * from test'), /relation "test" does not exist/);
+        expectQueryError(() => none('select * from test'), /relation "test" does not exist/);
     });
 
     it('cannot drop table when exists but is not a table', () => {
         none(`create sequence test`);
-        assert.throws(() => none(`drop table test;`), /"test" is not a table/);
+        expectQueryError(() => none(`drop table test;`), /"test" is not a table/);
     });
 
 
@@ -36,7 +36,7 @@ describe('Drop', () => {
         none(`create sequence test;
             SELECT  nextval('public."test"');
             drop sequence test;`);
-        assert.throws(() => none(`SELECT  nextval('public."test"')`), /relation "test" does not exist/);
+        expectQueryError(() => none(`SELECT  nextval('public."test"')`), /relation "test" does not exist/);
     });
 
 
@@ -50,7 +50,7 @@ describe('Drop', () => {
     });
 
     it('fails to drop type if not exists', () => {
-        assert.throws(() => none(`drop type test;`), /"test" does not exist/);
+        expectQueryError(() => none(`drop type test;`), /"test" does not exist/);
     })
 
 
@@ -59,13 +59,13 @@ describe('Drop', () => {
         none(`create type test as enum ('a', 'b');
             create table test_table(val test);
         `);
-        assert.throws(() => none(`drop type test`), /annot drop type test because other objects depend on it/);
+        expectQueryError(() => none(`drop type test`), /annot drop type test because other objects depend on it/);
     });
 
 
     it('cannot drop sequence when exists but is not a sequence', () => {
         none(`create table test(a text)`);
-        assert.throws(() => none(`drop sequence test;`), /"test" is not a sequence/);
+        expectQueryError(() => none(`drop sequence test;`), /"test" is not a sequence/);
     });
 
 
@@ -85,12 +85,12 @@ describe('Drop', () => {
         let seq = false;
         db.on('seq-scan', () => seq = true);
         none(`select * from test where a='a';`);
-        assert.isTrue(seq);
+        expect(seq).toBeTrue();
     })
 
     it('cannot drop index when exists but is not an index', () => {
         none(`create table test(a text)`);
-        assert.throws(() => none(`drop index test;`), /"test" is not an index/);
+        expectQueryError(() => none(`drop index test;`), /"test" is not an index/);
     });
 
     it('can recreate an index after drop', () => {
@@ -102,17 +102,17 @@ describe('Drop', () => {
 
 
     it('throws an error on ambiguous function drop', () => {
-        db.registerLanguage('sql', () => () => assert.fail('not supposed to be called'));
+        db.registerLanguage('sql', () => () => expect('not supposed to be called').toBe(''));
         none(`
             create function my_function(txt text) returns text as $$select '42'$$ language sql;
             create function my_function() returns text as $$select '42'$$ language sql;
             `);
-        assert.throws(() => none(`drop function my_function`), /function name "my_function" is not unique/);
+        expectQueryError(() => none(`drop function my_function`), /function name "my_function" is not unique/);
     });
 
     it('throws an error when no function to drop', () => {
-        assert.throws(() => none(`drop function my_function`), /could not find a function named "my_function"/);
-        assert.throws(() => none(`drop function my_function(text)`), /function my_function\(text\) does not exist/);
+        expectQueryError(() => none(`drop function my_function`), /could not find a function named "my_function"/);
+        expectQueryError(() => none(`drop function my_function(text)`), /function my_function\(text\) does not exist/);
     });
 
     it('accepts a function drop when not existing', () => {
@@ -125,7 +125,7 @@ describe('Drop', () => {
             select my_function();
             drop function my_function;`);
 
-        assert.throws(() => none(`select my_function()`), /function my_function\(\) does not exist/);
+        expectQueryError(() => none(`select my_function()`), /function my_function\(\) does not exist/);
     });
 
     it('drops the right overload', () => {
@@ -136,7 +136,7 @@ describe('Drop', () => {
             drop function my_function(text);
             select my_function() data;
             `))
-            .to.deep.equal([{ data: 'without arg' }])
+            .toEqual([{ data: 'without arg' }])
 
     });
 

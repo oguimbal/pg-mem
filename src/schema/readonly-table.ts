@@ -5,6 +5,7 @@ import { Schema, ColumnNotFound, nil, ISubscription, ColumnDef } from '../interf
 import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
+import { cleanResults } from '../execution/clean-results';
 
 export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _ISelection {
 
@@ -177,8 +178,8 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
     }
 
 
-    find(template?: Row, columns?: (keyof Row)[]): Iterable<Row> {
-        return findTemplate(this.selection, this.db.data, template, columns);
+    find(template?: Row, columns?: (keyof Row)[]): Row[] {
+        return cleanResults([...findTemplate(this.selection, this.db.data, template, columns)]);
     }
 
 

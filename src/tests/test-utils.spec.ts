@@ -1,6 +1,4 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
-import { expect, assert } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import { watchUse, queryJson } from '../utils';
 
 describe('Test utils', () => {
@@ -12,24 +10,24 @@ describe('Test utils', () => {
                 const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }] });
                 checked.a;
                 checked.b[0].c;
-                assert.notExists(check!());
+                expect(check!()).toBeFalsy();
             }
             {
                 const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }] });
                 checked.a;
-                assert.exists(check!());
+                expect(check!()).toBeTruthy();
             }
             {
                 const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }, { d: 1 }] });
                 checked.a;
                 checked.b[1].c;
-                assert.exists(check!());
+                expect(check!()).toBeTruthy();
             }
             {
                 const { checked, check } = watchUse({ a: 1, b: [{ c: 1 }, 5] });
                 checked.a;
                 (checked.b[0] as any).c;
-                assert.notExists(check!());
+                expect(check!()).toBeFalsy();
             }
         } finally {
             globalThis.process.env['NOCHECKFULLQUERYUSAGE'] = old;
@@ -38,12 +36,12 @@ describe('Test utils', () => {
 
 
     it('queryJson() works', () => {
-        assert.isTrue(queryJson({ a: 1 }, { a: 1, b: 2 }));
-        assert.isFalse(queryJson([{ a: 1 }], { a: 1, b: 2 }));
-        assert.isTrue(queryJson([{ a: 1 }], [{ a: 1, b: 2 }]));
-        assert.isFalse(queryJson({ a: 1 }, [{ a: 1, b: 2 }]));
-        assert.isTrue(queryJson({ a: [1] }, { a: [1, 2, 3] }));
-        assert.isTrue(queryJson({ a: [{ b: 'test' }] }, { a: [{ b: 'test', c: 42 }] }));
-        assert.isTrue(queryJson({ a: [{ b: 'test' }, { c: 12 }] }, { a: [{ c: 12 }, { b: 'test' }] }));
+        expect(queryJson({ a: 1 }, { a: 1, b: 2 })).toBeTrue();
+        expect(queryJson([{ a: 1 }], { a: 1, b: 2 })).toBeFalse();
+        expect(queryJson([{ a: 1 }], [{ a: 1, b: 2 }])).toBeTrue();
+        expect(queryJson({ a: 1 }, [{ a: 1, b: 2 }])).toBeFalse();
+        expect(queryJson({ a: [1] }, { a: [1, 2, 3] })).toBeTrue();
+        expect(queryJson({ a: [{ b: 'test' }] }, { a: [{ b: 'test', c: 42 }] })).toBeTrue();
+        expect(queryJson({ a: [{ b: 'test' }, { c: 12 }] }, { a: [{ c: 12 }, { b: 'test' }] })).toBeTrue();
     });
 });

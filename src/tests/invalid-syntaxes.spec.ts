@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Invalid syntaxes', () => {
 
@@ -21,7 +22,7 @@ describe('Invalid syntaxes', () => {
 
 
     it('checks this is an invalid syntax', () => {
-        assert.throws(() => none(`create table test(val integer);
+        expectQueryError(() => none(`create table test(val integer);
                 create index on test(val);
                 insert into test values (1), (2), (3), (4)
                 select * from test where val >= 2;`)); //   ^  missing a ";" ... but was not throwing.

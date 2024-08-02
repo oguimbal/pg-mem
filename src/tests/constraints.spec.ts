@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Constraints', () => {
 
@@ -18,7 +19,7 @@ describe('Constraints', () => {
     it('cannot add check constraint when value not matching', () => {
         none(`create table test(val int);
                 insert into test values (42);`);
-        assert.throws(() => none(`alter table test add constraint cstname check (val < 10)`)
+        expectQueryError(() => none(`alter table test add constraint cstname check (val < 10)`)
             , /check constraint "cstname" is violated by some row/);
     })
 
@@ -75,7 +76,7 @@ describe('Constraints', () => {
             alter table test drop constraint if exists abc;
         `);
 
-        assert.throws(() => none(`alter table test drop constraint abc;`), /constraint "abc" of relation "test" does not exist/);
+        expectQueryError(() => none(`alter table test drop constraint abc;`), /constraint "abc" of relation "test" does not exist/);
     })
 
     it('can drop a check via drop constraint', () => {
@@ -83,7 +84,7 @@ describe('Constraints', () => {
             alter table test add constraint abc check (id != 'a');
             `);
 
-        assert.throws(() => none(`insert into test values ('a');`));
+        expectQueryError(() => none(`insert into test values ('a');`));
 
         none(`alter table test drop constraint abc;
             insert into test values ('a');

@@ -1,9 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
-import { preventSeqScan } from './test-utils';
+import { expectQueryError, preventSeqScan } from './test-utils';
 
 describe('Count', () => {
 
@@ -18,26 +18,18 @@ describe('Count', () => {
         one = db.public.one.bind(db.public);
     });
 
-    function explainMapSelect() {
-        const expl = db.public.explainLastSelect()!;
-        if (expl._ !== 'map') {
-            assert.fail('should be a map');
-        }
-        return expl.of;
-    }
-
     it('selects simple count', () => {
         expect(one(`create table test(val text);
             insert into test values ('a'), ('b'), (null);
             select count(*) as cnt from test`))
-            .to.deep.equal({ cnt: 3 });
+            .toEqual({ cnt: 3 });
     });
 
     it('selects simple count in expression', () => {
         expect(one(`create table test(val text);
             insert into test values ('a'), ('b'), (null);
             select count(*)+1 as cnt from test`))
-            .to.deep.equal({ cnt: 4 });
+            .toEqual({ cnt: 4 });
     });
 
 
@@ -46,7 +38,7 @@ describe('Count', () => {
         expect(one(`create table test(val int, val2 int);
         insert into test values (1, null), (null, 1), (1, 1), (2, 3), (null, null);
         select count(COALESCE(val,val2)) as a, COUNT(val+val2) as b, count(*) as c from test;`))
-            .to.deep.equal({ a: 4, b: 2, c: 5 });
+            .toEqual({ a: 4, b: 2, c: 5 });
     });
 
 
@@ -54,7 +46,7 @@ describe('Count', () => {
         expect(many(`create table test(val int, val2 int);
                         insert into test values (1, null), (null, 1), (1, 1), (2, 3), (null, null);
                         select count(val2) as val2cnt, count(val) as valCnt,val from test group by val;`))
-            .to.deep.equal([
+            .toEqual([
                 { val2cnt: 1, valcnt: 2, val: 1 }
                 , { val2cnt: 1, valcnt: 0, val: null }
                 , { val2cnt: 1, valcnt: 1, val: 2 }
@@ -67,7 +59,7 @@ describe('Count', () => {
                         create index on test((a+b));
                         insert into test values (1, 1), (2, 0), (3, 0), (4, 0), (4, null);
                         select count(*) as cnt, b+a as g from test group by a+b;`))
-            .to.deep.equal([
+            .toEqual([
                 { g: 2, cnt: 2 }
                 , { g: 3, cnt: 1 }
                 , { g: 4, cnt: 1 }
@@ -78,14 +70,14 @@ describe('Count', () => {
     it('count on empty table', () => {
         expect(one(`create table test(val text);
             select count(val) as cnt from test`))
-            .to.deep.equal({ cnt: 0 });
+            .toEqual({ cnt: 0 });
     });
 
     it('count on empty selection', () => {
         expect(one(`create table test(id int, val text);
             insert into test values (1, 'a');
             select count(*) as cnt from test where id = 2`))
-            .to.deep.equal({ cnt: 0 });
+            .toEqual({ cnt: 0 });
     });
 
 
@@ -94,7 +86,7 @@ describe('Count', () => {
         expect(one(`create table test(val int);
             insert into test values (0), (1), (1), (2), (3), (1);
             select count (distinct(val)) from test where val > 0`))
-            .to.deep.equal({ count: 3 });
+            .toEqual({ count: 3 });
     });
 
 
@@ -102,27 +94,27 @@ describe('Count', () => {
         expect(one(`create table test(a int, b int);
             insert into test values (0, 0), (1, 0), (1, 1), (1, 1), (2, 0), (0, 1), (2, 0);
             select count (distinct(a, b)) from test`))
-            .to.deep.equal({ count: 5 });
+            .toEqual({ count: 5 });
     });
 
     it('can select multiple counts', () => {
         expect(one(`create table test(a int, b int);
                 insert into test values (0, 0), (1, 0), (1, 1), (1, 1), (2, 0), (0, 1), (2, 0);
                 select count (*) as a, count(distinct(a, b)) as b from test`))
-            .to.deep.equal({ a: 7, b: 5 });
+            .toEqual({ a: 7, b: 5 });
     });
 
     it('cannot count distinct *', () => {
         one(`create table test(val int);
             insert into test values (0), (1), (1), (2), (3), (1);`);
-        assert.throws(() => one(`select count (distinct(*)) from test`));
+        expectQueryError(() => one(`select count (distinct(*)) from test`));
     });
 
     it('distincts jsonb values', () => {
         expect(one(`create table test(v jsonb);
                     insert into test values ('{}'), ('{}'), ('[]');
                     select count(distinct(v)) from test;`))
-            .to.deep.equal({ count: 2 });
+            .toEqual({ count: 2 });
     });
 
 
@@ -131,16 +123,16 @@ describe('Count', () => {
         expect(one(`create table test(v jsonb);
                     insert into test values ('{}'), ('{}'), ('[]'), (null);
                     select count(distinct(v)) from test;`))
-            .to.deep.equal({ count: 2 });
+            .toEqual({ count: 2 });
     })
 
     it('behaves nicely with nulls on multiple count', () => {
         expect(one(`create table test(v jsonb, i int);
                     insert into test values ('{}',0), ('{}',0), ('[]',null), (null, 1);
                     select count(distinct(v,i)) from test;`))
-            .to.deep.equal({ count: 3 });
+            .toEqual({ count: 3 });
         expect(one(`insert into test values (null, null);
                         select count(distinct(v,i)) from test;`))
-            .to.deep.equal({ count: 4 });
+            .toEqual({ count: 4 });
     });
 });

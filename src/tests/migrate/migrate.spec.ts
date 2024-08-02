@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../../interfaces-private';
 import path from 'path';
 
@@ -23,7 +23,7 @@ describe('Migrate', () => {
         });
 
         expect(many(`select id, name from migrations`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 1, name: 'initial' }
                 , { id: 2, name: 'some-feature' }
                 , { id: 3, name: 'test-cert' }

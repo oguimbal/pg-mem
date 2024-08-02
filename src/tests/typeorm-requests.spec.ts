@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 
 describe('Typeorm - requests', () => {
@@ -25,9 +25,9 @@ describe('Typeorm - requests', () => {
     it('can process typeorm columns schema selection', () => {
         simpleDb();
         expect(many(`SELECT *, ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`).length)
-            .to.equal(4);
+            .toBe(4);
         expect(many(`SELECT ('"' || "udt_schema" || '"."' || "udt_name" || '"')::"regtype" AS "regtype" FROM "information_schema"."columns" WHERE ("table_schema" = 'public' AND "table_name" = 'data')`))
-            .to.deep.equal([{ regtype: 'text' }
+            .toEqual([{ regtype: 'text' }
                 , { regtype: 'jsonb' }
                 , { regtype: 'integer' }
                 , { regtype: 'text' }]);
@@ -53,7 +53,7 @@ describe('Typeorm - requests', () => {
                                                 AND "a"."attnum" = ANY ("cnst"."conkey")
             WHERE "t"."relkind" = 'r'
                     AND (("ns"."nspname" = 'public' AND "t"."relname" = 'data'))`);
-        expect(result).to.deep.equal([])
+        expect(result).toEqual([])
     });
 
     it('can select table schema 2', () => {
@@ -78,7 +78,7 @@ describe('Typeorm - requests', () => {
                                     WHERE "t"."relkind" = 'r'
                                         AND "cnst"."contype" IS NULL
                                         AND (("ns"."nspname" = 'public' AND "t"."relname" = 'user'));`);
-        expect(result).to.deep.equal([])
+        expect(result).toEqual([])
     });
 
 
@@ -134,12 +134,12 @@ describe('Typeorm - requests', () => {
                                 INNER JOIN "pg_class" "cl" ON "cl"."oid" = "con"."confrelid"
                                 INNER JOIN "pg_namespace" "ns" ON "cl"."relnamespace" = "ns"."oid"
                                 INNER JOIN "pg_attribute" "att2" ON "att2"."attrelid" = "con"."conrelid" AND "att2"."attnum" = "con"."parent";`);
-        expect(result).to.deep.equal([])
+        expect(result).toEqual([])
     });
 
     it('can select table schema 4', () => {
         const result = many(`SELECT * FROM "information_schema"."tables" WHERE "table_schema" = current_schema`);
-        expect(result).to.deep.equal([])
+        expect(result).toEqual([])
     });
 
 
@@ -150,14 +150,14 @@ describe('Typeorm - requests', () => {
                                     "age" integer NOT NULL,
                                     CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id")
                                 );`);
-        assert.exists(db.getTable('user'), 'Table should have been created');
+        expect(db.getTable('user')).toBeTruthy()// 'Table should have been created');
     });
 
 
     function explainMapSelect() {
         const expl = db.public.explainLastSelect()!;
         if (expl._ !== 'map') {
-            assert.fail('should be a map');
+            throw new Error('should be a map');
         }
         return expl.of;
     }
@@ -185,7 +185,7 @@ describe('Typeorm - requests', () => {
             LEFT JOIN "photo" "photo" ON "photo"."userId"="user"."id"
             WHERE "user"."name" = 'me';`);
 
-        assert.deepEqual(explainMapSelect(), {
+        expect(explainMapSelect()).toEqual({
             _: 'seqFilter',
             id: 2,
             filtered: {
@@ -207,7 +207,7 @@ describe('Typeorm - requests', () => {
             }
         })
 
-        expect(got).to.deep.equal([
+        expect(got).toEqual([
             { user_id: 1, user_name: 'me', photo_id: 1, photo_url: 'photo-of-me-1.jpg', photo_userId: 1 },
             { user_id: 1, user_name: 'me', photo_id: 2, photo_url: 'photo-of-me-2.jpg', photo_userId: 1 },
         ])

@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { preventSeqScan, preventCataJoin, watchCataJoins } from './test-utils';
 import { _IDb } from '../interfaces-private';
 
@@ -19,7 +19,7 @@ describe('Cross/Carthesian joins', () => {
     function explainMapSelect() {
         const expl = db.public.explainLastSelect()!;
         if (expl._ !== 'map') {
-            assert.fail('should be a map');
+            throw new Error('should be a map');
         }
         return expl.of;
     }
@@ -51,7 +51,7 @@ describe('Cross/Carthesian joins', () => {
 
     it('simple cross join without condition', () => {
         ab();
-        expect(many(`select * from  ta, tb`)).to.deep.equal([
+        expect(many(`select * from  ta, tb`)).toEqual([
             { ida: 'a1', va: 1, idb: 'b1', vb: 11 },
             { ida: 'a1', va: 1, idb: 'b2', vb: 12 },
             { ida: 'a2', va: 2, idb: 'b1', vb: 11 },
@@ -72,12 +72,12 @@ describe('Cross/Carthesian joins', () => {
 
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta
                                 join tb on ta.bid = tb.bid`);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);
         const expl = explainMapSelect();
-        assert.deepEqual(expl, {
+        expect(expl).toEqual({
             _: 'join',
             id: 2,
             inner: true,
@@ -110,7 +110,7 @@ describe('Cross/Carthesian joins', () => {
                             select val, aid, ta.bid as abid, tb.bid as bbid from ta, tb
                                 where ta.bid = tb.bid`);
         preventSeqScan(db);
-        expect(result).to.deep.equal([
+        expect(result).toEqual([
             { val: 'val1', aid: 'aid1', abid: 'bid1', bbid: 'bid1' },
             { val: 'val2', aid: 'aid2', abid: 'bid2', bbid: 'bid2' },
         ]);

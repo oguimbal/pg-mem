@@ -1,9 +1,10 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 import { DataType, QueryError } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Custom types', () => {
 
@@ -26,8 +27,8 @@ describe('Custom types', () => {
         none(`create type myType as enum ('a', 'b')`);
         none(`ALTER TYPE myType RENAME TO myNewType`);
         expect(many(`select 'b'::myNewType;
-            `)).to.deep.equal([{ mynewtype: 'b' }]);
-        assert.throws(() => none(`select 'b'::myType;`)
+            `)).toEqual([{ mynewtype: 'b' }]);
+        expectQueryError(() => none(`select 'b'::myType;`)
             , /type "mytype" does not exist/);
     });
 
@@ -39,23 +40,23 @@ describe('Custom types', () => {
     it('can cast to enum', () => {
         expect(many(`create type myType as enum ('a', 'b');
                     select 'b'::myType;
-            `)).to.deep.equal([{ mytype: 'b' }]);
+            `)).toEqual([{ mytype: 'b' }]);
     });
 
     it('can convert enum back to text', () => {
         expect(many(`create type myType as enum ('a', 'b');
                     select 'b'::myType::text;
-            `)).to.deep.equal([{ text: 'b' }]);
+            `)).toEqual([{ text: 'b' }]);
     });
 
     it('cannot convert enum to something else', () => {
-        assert.throws(() => none(`create type myType as enum ('a', 'b');
+        expectQueryError(() => none(`create type myType as enum ('a', 'b');
                     select 'b'::myType::int;`)
             , /cannot cast type mytype to integer/);
     });
 
     it('cannot cast invalid enum', () => {
-        assert.throws(() => none(`create type myType as enum ('a', 'b');
+        expectQueryError(() => none(`create type myType as enum ('a', 'b');
                                     select 'c'::myType;`)
             , /invalid input value for enum mytype: "c"/);
     });
@@ -65,7 +66,7 @@ describe('Custom types', () => {
                 create table test (val mytype);
                 insert into test values ('a');
                 select * from test`))
-            .to.deep.equal([{ val: 'a' }])
+            .toEqual([{ val: 'a' }])
     });
 
 
@@ -73,7 +74,7 @@ describe('Custom types', () => {
         none(`create type myType as enum ('a', 'b');
                 create table test (val mytype);`);
 
-        assert.throws(() => none(`insert into test values ('c');`)
+        expectQueryError(() => none(`insert into test values ('c');`)
             , /invalid input value for enum mytype: "c"/);
     });
 
@@ -92,8 +93,8 @@ describe('Custom types', () => {
 
         none(`SELECT 'something'::custom`);
 
-        assert.throws(() => none(`SELECT 'throw'::custom`), /Nope/);
-        assert.throws(() => none(`SELECT 'whatever'::custom`), /invalid input syntax for type custom/);
-        assert.throws(() => none(`SELECT 42::custom`), /cannot cast type integer to custom/);
+        expectQueryError(() => none(`SELECT 'throw'::custom`), /Nope/);
+        expectQueryError(() => none(`SELECT 'whatever'::custom`), /invalid input syntax for type custom/);
+        expectQueryError(() => none(`SELECT 42::custom`), /cannot cast type integer to custom/);
     })
 });

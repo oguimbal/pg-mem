@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../../src/db';
 import { Sequelize, DataTypes } from 'sequelize';
 

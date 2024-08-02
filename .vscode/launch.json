@@ -16,6 +16,17 @@
                 "node_modules/core-js/**",
                 "output/**",
             ]
-        }
+        },
+        {
+          "type": "bun",
+          "request": "attach",
+          "name": "Debug --only UT",
+
+          // The URL of the WebSocket inspector to attach to.
+          // This value can be retrieved by using `bun --inspect`.
+          //  bun test --inspect-wait=0.0.0.0:6499
+          "url": "ws://0.0.0.0:6499/mapi-ut",
+          "preLaunchTask": "launch-only-ut"
+      },
     ]
 }

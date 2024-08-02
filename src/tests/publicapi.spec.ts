@@ -1,9 +1,8 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
-import { expect, assert } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../db';
 import { IMemoryDb, QueryError } from '../interfaces';
 import { cleanResults } from '../execution/clean-results';
+import { expectQueryError } from './test-utils';
 
 describe('Test utils', () => {
 
@@ -32,19 +31,21 @@ describe('Test utils', () => {
 
     it('matches constraints', () => {
         const table = simple();
-        assert.throws(() => table.insert({}), /null value in column "id" violates not-null constraint/);
+        expect(() => table.insert({})).toThrow(/null value in column "id" violates not-null constraint/);
     })
 
     it('cannot insert twice', () => {
         const table = simple();
         table.insert({ id: 'x' });
-        expect(() => table.insert({ id: 'x' })).to.throw().that.satisfies((e: QueryError) => e.data.code === '23505')
+        expectQueryError(() => table.insert({ id: 'x' }), {
+            code: '23505'
+        })
     })
 
     it('sets defaults', () => {
         const table = simple();
         const [got] = cleanResults([table.insert({ id: 'x' })]);
-        expect(got).to.deep.equal({
+        expect(got).toEqual({
             id: 'x',
             obj: null,
             dt: null,
@@ -57,7 +58,7 @@ describe('Test utils', () => {
     it('does not set default when explicitely null', () => {
         const table = simple();
         const [got] = cleanResults([table.insert({ id: 'x', })]);
-        expect(got).to.deep.equal({
+        expect(got).toEqual({
             id: 'x',
             obj: null,
             dt: null,
@@ -74,7 +75,7 @@ describe('Test utils', () => {
 
         const got = [...table.find(null, ['id'])];
 
-        expect(got).to.deep.equal([
+        expect(got).toEqual([
             { id: 'a' },
             { id: 'b' },
             { id: 'c' },
@@ -92,7 +93,7 @@ describe('Test utils', () => {
 
         const got = [...table.find({ n: 42, i: 51 }, ['id'])];
 
-        expect(got).to.deep.equal([
+        expect(got).toEqual([
             { id: 'd' },
             { id: 'e' },
         ]);
@@ -108,7 +109,7 @@ describe('Test utils', () => {
 
         const got = [...table.find({ n: null }, ['id'])];
 
-        expect(got).to.deep.equal([
+        expect(got).toEqual([
             { id: 'd' },
         ]);
     })
@@ -117,7 +118,7 @@ describe('Test utils', () => {
     it('copies input', () => {
         const table = simple();
         const orig: Partial<R> = { id: 'id', obj: { sub: 42 }, n: 42 };
-        const check = () => expect(cleanResults([...table.find()])).to.deep.equal([{
+        const check = () => expect(cleanResults([...table.find()])).toEqual([{
             id: 'id',
             obj: { sub: 42 },
             i: null,
@@ -130,16 +131,14 @@ describe('Test utils', () => {
         }
         // insert
         const inserted = table.insert(orig);
-        if (inserted == null) {
-            assert(false);
-        }
+        expect(inserted).toBeTruthy();
 
         // mutate original + check query result not impacted
         mutate(orig);
         check();
 
         // mutate inserted + check query result not impacted
-        mutate(inserted);
+        mutate(inserted!);
         check();
 
         // mutate query result + check query result not impacted

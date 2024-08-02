@@ -1,9 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
-import { preventSeqScan } from './test-utils';
+import { expectQueryError, preventSeqScan } from './test-utils';
 
 describe('Custom functions', () => {
 
@@ -22,20 +22,20 @@ describe('Custom functions', () => {
     it('can declare a custom implementation of plpgsql language', () => {
         let executed = false;
         db.registerLanguage('plpgsql', ({ code, args, returns }) => {
-            expect(code).to.equal('whatever');
+            expect(code).toBe('whatever');
             return () => {
                 executed = true;
             };
         });
         none(` do $$whatever$$;`);
-        assert.isTrue(executed, 'Cusotm language was not executed');
+        expect(executed, 'Cusotm language was not executed').toBeTrue();
     });
 
     it('can declare a custom language', () => {
         db.registerLanguage('mylanguage', ({ code, args, returns }) => {
-            expect(code).to.equal('whatever');
+            expect(code).toBe('whatever');
             return arg => {
-                expect(arg).to.equal('some arg');
+                expect(arg).toBe('some arg');
                 return 42;
             };
         });
@@ -44,7 +44,7 @@ describe('Custom functions', () => {
                 AS $$whatever$$
                 LANGUAGE mylanguage;`)
 
-        expect(one(`SELECT test_fn('some arg');`)).to.deep.equal({ test_fn: 42 });
+        expect(one(`SELECT test_fn('some arg');`)).toEqual({ test_fn: 42 });
     });
 
     it('can use sql language as single value', () => {
@@ -53,7 +53,7 @@ describe('Custom functions', () => {
                 LANGUAGE SQL;`)
 
 
-        expect(one(`SELECT test_fn('some arg');`)).to.deep.equal({ test_fn: 42 });
+        expect(one(`SELECT test_fn('some arg');`)).toEqual({ test_fn: 42 });
     });
 
 
@@ -63,7 +63,7 @@ describe('Custom functions', () => {
                 LANGUAGE SQL;`)
 
 
-        expect(one(`SELECT test_fn('hello');`)).to.deep.equal({ test_fn: 'hello world' });
+        expect(one(`SELECT test_fn('hello');`)).toEqual({ test_fn: 'hello world' });
     });
 
     it('can use sql language positional arguments in single value', () => {
@@ -71,14 +71,14 @@ describe('Custom functions', () => {
                 AS $$ select $1 || ' world' $$
                 LANGUAGE SQL;`)
 
-        expect(one(`SELECT test_fn('hello');`)).to.deep.equal({ test_fn: 'hello world' });
+        expect(one(`SELECT test_fn('hello');`)).toEqual({ test_fn: 'hello world' });
     });
 
     it('can override sql language', () => {
         db.registerLanguage('sql', ({ code, args, returns }) => {
-            expect(code).to.equal('whatever');
+            expect(code).toBe('whatever');
             return arg => {
-                expect(arg).to.equal('some arg');
+                expect(arg).toBe('some arg');
                 return 42;
             };
         });
@@ -87,7 +87,7 @@ describe('Custom functions', () => {
                 AS $$whatever$$
                 LANGUAGE SQL;`)
 
-        expect(one(`SELECT test_fn('some arg');`)).to.deep.equal({ test_fn: 42 });
+        expect(one(`SELECT test_fn('some arg');`)).toEqual({ test_fn: 42 });
     });
 
 
@@ -96,7 +96,7 @@ describe('Custom functions', () => {
                 AS $$ select * from (values('a') ) as foo(val) $$
                 LANGUAGE SQL;
 
-                SELECT * from test_fn();`)).to.deep.equal([{ val: 'a' }]);
+                SELECT * from test_fn();`)).toEqual([{ val: 'a' }]);
     });
 
     it('can use sql language as table with column subselection', () => {
@@ -105,7 +105,7 @@ describe('Custom functions', () => {
                 LANGUAGE SQL;
 
                 SELECT 'hi ' || a || b as col from test_fn();`))
-            .to.deep.equal([{ col: 'hi sarah conor' }]);
+            .toEqual([{ col: 'hi sarah conor' }]);
     });
 
     it('can reuse table function with different arguments in same statement', () => {
@@ -114,7 +114,7 @@ describe('Custom functions', () => {
                 LANGUAGE SQL;
 
                 select * from test_fn('world') union select * from test_fn('sarah conor');`))
-            .to.deep.equal([{ sentence: 'hello world' }, { sentence: 'hello sarah conor' }]);
+            .toEqual([{ sentence: 'hello world' }, { sentence: 'hello sarah conor' }]);
     });
 
     it('can reuse value function with different arguments in same statement', () => {
@@ -123,7 +123,7 @@ describe('Custom functions', () => {
                 LANGUAGE SQL;
 
                 select test_fn('world') || ' and ' || test_fn('sarah conor') as col;`))
-            .to.deep.equal([{ col: 'hello world and hello sarah conor' }]);
+            .toEqual([{ col: 'hello world and hello sarah conor' }]);
     })
 
     it('can use arguments in table function', () => {
@@ -133,7 +133,7 @@ describe('Custom functions', () => {
 
                 SELECT * from test_fn('world') where val like 'hello%';`))
 
-            .to.deep.equal([{ val: 'hello world' }]);
+            .toEqual([{ val: 'hello world' }]);
     });
 
 
@@ -146,7 +146,7 @@ describe('Custom functions', () => {
 
 
                select test_fn('hello');
-        `)).to.deep.equal({ test_fn: 'inner' });
+        `)).toEqual({ test_fn: 'inner' });
     })
 
     describe('should check things', () => {
@@ -156,7 +156,7 @@ describe('Custom functions', () => {
                     AS $$ select 'hello' $$
                     LANGUAGE SQL;`);
 
-            assert.throws(() => none(`CREATE OR REPLACE FUNCTION test_fn() RETURNS INT
+            expectQueryError(() => none(`CREATE OR REPLACE FUNCTION test_fn() RETURNS INT
                 AS $$ select 42 $$
                 LANGUAGE SQL;`), /cannot change return type of existing function/);
         });
@@ -166,31 +166,31 @@ describe('Custom functions', () => {
                     AS $$ select 'hello' $$
                     LANGUAGE SQL;`);
 
-            assert.throws(() => none(`CREATE OR REPLACE FUNCTION test_fn(new_arg text) RETURNS TEXT
+            expectQueryError(() => none(`CREATE OR REPLACE FUNCTION test_fn(new_arg text) RETURNS TEXT
                 AS $$ select 'hello' $$
                 LANGUAGE SQL;`), /cannot change name of input parameter "arg"/);
         });
 
         it('checks return type on single values', () => {
-            assert.throws(() => none(`CREATE or replace FUNCTION test_fn() RETURNS INT
+            expectQueryError(() => none(`CREATE or replace FUNCTION test_fn() RETURNS INT
             AS $$ select 'hello' $$
             LANGUAGE SQL`), /return type mismatch in function declared to return integer/); // error 42P13
         });
 
         it('checks column count on single values', () => {
-            assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS INT
+            expectQueryError(() => none(`CREATE FUNCTION test_fn() RETURNS INT
             AS $$ select * from (values(42, 'a') ) as foo(a,b) $$
             LANGUAGE SQL`), /return type mismatch in function declared to return integer/); // error 42P13
         });
 
         it('checks column count on table values', () => {
-            assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
+            expectQueryError(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
             AS $$ select * from (values('a') ) as foo(val) $$
             LANGUAGE SQL`), /return type mismatch in function declared to return record/); // error 42P13
         });
 
         it('checks column types on table values', () => {
-            assert.throws(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
+            expectQueryError(() => none(`CREATE FUNCTION test_fn() RETURNS table (a int, b int) stable
             AS $$ select * from (values(42, 'a') ) as foo(a,b) $$
             LANGUAGE SQL`), /return type mismatch in function declared to return record/); // error 42P13
         });

@@ -1,9 +1,10 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 import { DataType } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Extensions', () => {
 
@@ -24,7 +25,7 @@ describe('Extensions', () => {
 
         expect(many(`create extension ext;
                     select say_hello('world') as msg`))
-            .to.deep.equal([{
+            .toEqual([{
                 msg: 'hello world',
             }])
     })
@@ -32,7 +33,7 @@ describe('Extensions', () => {
 
     it('can call function declared in another schema', () => {
         expect(many(`select pg_catalog.col_description(1,2) as msg`))
-            .to.deep.equal([{
+            .toEqual([{
                 msg: 'Fake description provided by pg-mem',
             }])
     });
@@ -42,7 +43,7 @@ describe('Extensions', () => {
         db.registerExtension('ext', s => { });
 
         many('create extension "ext"');
-        assert.throws(() => many('create extension "ext"'));
+        expectQueryError(() => many('create extension "ext"'));
     });
 
     it('can recreate extension twice with "if not exists"', () => {

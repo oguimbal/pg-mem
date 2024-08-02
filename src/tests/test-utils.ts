@@ -1,7 +1,7 @@
 /* istanbul ignore file */
-import { describe, it } from 'bun:test';
-import { IMemoryDb, ISubscription } from '../interfaces';
-import { assert, expect } from 'chai';
+import { describe, it, expect } from 'bun:test';
+import { IMemoryDb, ISubscription, QueryError } from '../interfaces';
+
 import { BaseEntity, Connection } from 'typeorm';
 import { _IDb } from '../interfaces-private';
 import { newDb } from '../index';
@@ -10,18 +10,18 @@ import { Ctor } from '../utils';
 export function preventSeqScan(db: IMemoryDb, table?: string): ISubscription {
     if (table) {
         return db.getTable(table).on('seq-scan', () => {
-            assert.fail('Should have used index');
+            expect('Should have used index').toBe('');
         });
     } else {
         return db.on('seq-scan', table => {
-            assert.fail('Should have used index when requesting table ' + table);
+            expect('Should have used index when requesting table ' + table).toBe('');
         });
     }
 }
 
 export function preventCataJoin(db: IMemoryDb) {
     return db.on('catastrophic-join-optimization', () => {
-        assert.fail('Should have used index when performing join');
+        expect('Should have used index when performing join').toBe('');
     });
 }
 
@@ -32,7 +32,7 @@ export function watchCataJoins(db: IMemoryDb) {
     });
     return {
         check() {
-            expect(got).to.equal(0, 'Should have used index when performing join');
+            expect(got).toBe(0) // 'Should have used index when performing join'
         }
     }
 }
@@ -78,9 +78,32 @@ export async function expectSingle(query: string, value: any, name?: string) {
     it(name ?? query, () => {
         const db = newDb();
         const q = db.public.many(query);
-        expect(q.length).to.equal(1, 'Was only expecting one result');
+        expect(q.length).toBe(1)// 'Was only expecting one result'
         const keys = Object.keys(q[0]);
-        expect(keys.length).to.equal(1, 'Was only expecting one column');
-        expect(q[0][keys[0]]).to.deep.equal(value);
+        expect(keys.length).toBe(1)// 'Was only expecting one column'
+        expect(q[0][keys[0]]).toEqual(value);
     })
+}
+
+export function expectQueryError(fn: () => any, opts?: { code?: string, message?: string | RegExp } | RegExp) {
+    if (opts instanceof RegExp) {
+        opts = { message: opts };
+    }
+    try {
+        fn();
+    } catch (e: any) {
+        expect(e).toBeInstanceOf(QueryError);
+        if (opts?.code) {
+            expect(e.data.code).toBe(opts.code);
+        }
+        if (opts?.message) {
+            if (typeof opts.message === 'string') {
+                expect(e.message).toContain(opts.message);
+            } else {
+                expect(e.message).toMatch(opts.message);
+            }
+        }
+        return;
+    }
+    throw new Error('Expected to throw');
 }

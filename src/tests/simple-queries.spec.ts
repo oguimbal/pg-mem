@@ -1,10 +1,10 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
-import { expectSingle, preventSeqScan } from './test-utils';
+import { expectQueryError, expectSingle, preventSeqScan } from './test-utils';
 import { IMemoryDb } from '../interfaces';
 
 describe('Simple queries', () => {
@@ -41,16 +41,16 @@ describe('Simple queries', () => {
 
     it('handles show', () => {
         expect(many(`show server_version`))
-            .to.deep.equal([{ server_version: '12.2 (pg-mem)' }]);
+            .toEqual([{ server_version: '12.2 (pg-mem)' }]);
     })
 
     it('can insert and select null', () => {
         simpleDb();
         none(`insert into data(id, str) values ('some id', null)`);
         let got = many('select * from data where str is null');
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some id' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some id' }]);
         got = many('select * from data where str is not null');
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
     });
 
     it('supports "set" statement', () => {
@@ -62,7 +62,7 @@ describe('Simple queries', () => {
         simpleDb();
         expect(many(`insert into data(id) values ('key');
             select id, id from data`))
-            .to.deep.equal([{
+            .toEqual([{
                 id: 'key',
                 id1: 'key',
             }]);
@@ -86,12 +86,12 @@ describe('Simple queries', () => {
 
     it('can select NOT', () => {
         expect(many(`select not true as v`))
-            .to.deep.equal([{ v: false }])
+            .toEqual([{ v: false }])
     });
 
     it('can select negate', () => {
         expect(many(`select -(42) as v`))
-            .to.deep.equal([{ v: -42 }])
+            .toEqual([{ v: -42 }])
     });
 
     it('does not return twice the same entity on seq scan', () => {
@@ -99,8 +99,8 @@ describe('Simple queries', () => {
         none(`insert into data(id, str) values ('some id', null)`);
         const [first] = many('select * from data');
         const [second] = many('select * from data');
-        expect(first).to.deep.equal(second);
-        expect(first).not.to.equal(second);//<== should be a copy
+        expect(first).toEqual(second);
+        expect(first).not.toBe(second);//<== should be a copy
     });
 
     it('does not return twice the same entity on index scan', () => {
@@ -108,8 +108,8 @@ describe('Simple queries', () => {
         none(`insert into data(id, str) values ('some id', null)`);
         const [first] = many(`select * from data where id='some id'`);
         const [second] = many(`select * from data where id='some id'`);
-        expect(first).to.deep.equal(second);
-        expect(first).not.to.equal(second);//<== should be a copy
+        expect(first).toEqual(second);
+        expect(first).not.toBe(second);//<== should be a copy
     });
 
     it('does not equate null values on seq scan', () => {
@@ -120,7 +120,7 @@ describe('Simple queries', () => {
         none(`insert into data(id, str, otherstr) values ('id4', null, 'B')`);
         none(`insert into data(id, str, otherstr) values ('id5', 'A', null)`);
         const got = many('select * from data where str = otherstr');
-        expect(got).to.deep.equal([{ id: 'id2', str: 'A', otherstr: 'A' }]);
+        expect(got).toEqual([{ id: 'id2', str: 'A', otherstr: 'A' }]);
     });
 
 
@@ -129,9 +129,9 @@ describe('Simple queries', () => {
         preventSeqScan(db);
         none(`insert into data(id, str) values ('some id', 'some str')`);
         let got = many(`select * from data where id='some id' AND str='other'`);
-        expect(trimNullish(got)).to.deep.equal([]);
+        expect(trimNullish(got)).toEqual([]);
         got = many(`select * from data where id='some id' and str='some str'`);
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some id', str: 'some str' }]);
     });
 
 
@@ -139,11 +139,11 @@ describe('Simple queries', () => {
         simpleDb();
         none(`insert into data(id, str) values ('some id', 'some str')`);
         let got = many(`select * from data where id='other' OR str='other'`);
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
         got = many(`select * from data where id='some id' OR str='other'`);
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some id', str: 'some str' }]);
         got = many(`select * from data where id='some id' or str='some str'`);
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some id', str: 'some str' }]);
     });
 
 
@@ -158,20 +158,20 @@ describe('Simple queries', () => {
 
             SELECT *  FROM test
                     WHERE id in ('a', 'b') OR val = 'SOMETHING_IRRELEVANT';`))
-            .to.deep.equal([{ id: 'a', val: null }, { id: 'b', val: 'row b' }]);
+            .toEqual([{ id: 'a', val: null }, { id: 'b', val: 'row b' }]);
     });
 
 
-    it('insert returning', () => {
+    it.only('insert returning', () => {
         expect(many(`create table test(id serial primary key, val text, nl text);
                                 insert into test(val) values ('a'), ('b') returning id, val;`))
-            .to.deep.equal([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
+            .toEqual([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
     });
 
     it('supports bigserial data type', () => {
         expect(many(`create table test(id bigserial primary key, val text, nl text);
                                 insert into test(val) values ('a'), ('b') returning id, val;`))
-            .to.deep.equal([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
+            .toEqual([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);
     });
 
     it('can create two tables with different casing', () => {
@@ -182,11 +182,11 @@ describe('Simple queries', () => {
             insert into "Example" values ('three');`);
 
         expect(many('select * from example'))
-            .to.deep.equal([{ id: 'one' }, { id: 'two' }]);
+            .toEqual([{ id: 'one' }, { id: 'two' }]);
         expect(many('select * from Example'))
-            .to.deep.equal([{ id: 'one' }, { id: 'two' }]);
+            .toEqual([{ id: 'one' }, { id: 'two' }]);
         expect(many('select * from "Example"'))
-            .to.deep.equal([{ val: 'three' }]);
+            .toEqual([{ val: 'three' }]);
     })
 
 
@@ -194,12 +194,12 @@ describe('Simple queries', () => {
         simpleDb();
         none(`insert into data(id) values ('SOME STRING')`);
         const result = many(`select lower(id) from data`);
-        expect(result).to.deep.equal([{ lower: 'some string' }]);
+        expect(result).toEqual([{ lower: 'some string' }]);
     });
 
     it('cannot select from table with function syntax', () => {
         simpleDb();
-        assert.throws(() => many(`select * from data()`));
+        expectQueryError(() => many(`select * from data()`));
     });
 
     it('aliases are case insensitive', () => {
@@ -208,59 +208,59 @@ describe('Simple queries', () => {
     });
 
     it('now() does not behave as dual table', () => {
-        assert.throws(() => many(`select * from now`), /relation "now" does not exist/);
+        expectQueryError(() => many(`select * from now`), /relation "now" does not exist/);
     })
 
     it('can select * from now()', () => {
         const ret = many(`select * from now()`);
-        expect(ret.length).to.equal(1);
-        expect(ret[0].now).to.be.instanceOf(Date);
+        expect(ret.length).toBe(1);
+        expect(ret[0].now).toBeInstanceOf(Date);
     });
 
     it('can select now()', () => {
         expect(many(`select now()`)[0])
-            .to.have.property('now');
+            .toHaveProperty('now');
     })
 
     it('can select current_schema as classic table', () => {
         simpleDb();
-        expect(many('select * from current_schema')).to.deep.equal([{ current_schema: 'public' }]);
+        expect(many('select * from current_schema')).toEqual([{ current_schema: 'public' }]);
     });
 
 
     it('can select current_schema as table function', () => {
         simpleDb();
-        expect(many('select * from current_schema()')).to.deep.equal([{ current_schema: 'public' }]);
+        expect(many('select * from current_schema()')).toEqual([{ current_schema: 'public' }]);
     });
 
 
     it('can select current_schema as function', () => {
         simpleDb();
-        expect(many('select current_schema()')).to.deep.equal([{ current_schema: 'public' }]);
+        expect(many('select current_schema()')).toEqual([{ current_schema: 'public' }]);
     });
 
     it('can select current_schema as const', () => {
         simpleDb();
-        expect(many('select current_schema')).to.deep.equal([{ current_schema: 'public' }]);
+        expect(many('select current_schema')).toEqual([{ current_schema: 'public' }]);
     });
 
 
     it('can select info tables', () => {
         simpleDb();
-        expect(many('select table_name from information_schema.tables')).to.deep.equal([{ table_name: 'data' }]);
+        expect(many('select table_name from information_schema.tables')).toEqual([{ table_name: 'data' }]);
     });
 
     it('bugfix on info schema', () => {
         simpleDb();
         expect(many(`SELECT count(*) as hasUsersTable FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_catalog = 'test' AND table_name = 'users';`))
-            .to.deep.equal([{ hasuserstable: 0 }]);
+            .toEqual([{ hasuserstable: 0 }]);
     })
 
 
     it('can select info columns', () => {
         simpleDb();
         expect(many(`select column_name from information_schema.columns where table_name='data'`))
-            .to.deep.equal([{ column_name: 'id' }
+            .toEqual([{ column_name: 'id' }
                 , { column_name: 'str' }
                 , { column_name: 'otherstr' }]);
     });
@@ -268,12 +268,12 @@ describe('Simple queries', () => {
 
     it('supports to_date function', () => {
         expect(many(`select to_date('20170103','YYYYMMDD') as x`))
-            .to.deep.equal([{ x: new Date('2017-01-03') }]);
+            .toEqual([{ x: new Date('2017-01-03') }]);
         expect(many(`select to_date('20170103',null) as x`))
-            .to.deep.equal([{ x: null }]);
+            .toEqual([{ x: null }]);
         expect(many(`select to_date(NULL, 'YYYYMMDD') as x`))
-            .to.deep.equal([{ x: null }]);
-        assert.throws(() => many(`select to_date('invalid date','YYYYMMDD') as x`));
+            .toEqual([{ x: null }]);
+        expectQueryError(() => many(`select to_date('invalid date','YYYYMMDD') as x`));
     });
 
 
@@ -281,7 +281,7 @@ describe('Simple queries', () => {
         none(`create table test(val jsonb);
             insert into test values ('{"prop": "str"}'), ('{"prop": 42}'), ('{"prop": [42, "val"]}')`);
         expect(many(`select val->>'prop' as x from test`))
-            .to.deep.equal([
+            .toEqual([
                 { x: 'str' }
                 , { x: '42' }
                 , { x: `[42,"val"]` }
@@ -293,7 +293,7 @@ describe('Simple queries', () => {
         none(`create table test(val jsonb);
             insert into test values ('{"prop": "str"}'), ('{"prop": 42}'), ('{"prop": [42]}')`);
         expect(many(`select val->'prop' as x from test`))
-            .to.deep.equal([
+            .toEqual([
                 { x: 'str' }
                 , { x: 42 }
                 , { x: [42] }
@@ -301,12 +301,12 @@ describe('Simple queries', () => {
     });
 
     it('does not cast null to int', () => {
-        assert.throws(() => none(`select (('{"val":null}'::jsonb) -> 'val')::int`), /cannot cast jsonb null to type integer/);
+        expectQueryError(() => none(`select (('{"val":null}'::jsonb) -> 'val')::int`), /cannot cast jsonb null to type integer/);
     })
 
     it('does casts null to int when using ->>', () => {
         expect(many(`select (('{"val":null}'::jsonb) ->> 'val')::int val`))
-            .to.deep.equal([{ val: null }]);
+            .toEqual([{ val: null }]);
     })
 
 
@@ -314,11 +314,11 @@ describe('Simple queries', () => {
         expect(many(`create table test(id serial, txt text);
                     insert into test(txt) values ('a'), ('b');
                     select * from test;`))
-            .to.deep.equal([{ id: 1, txt: 'a' }, { id: 2, txt: 'b' }])
+            .toEqual([{ id: 1, txt: 'a' }, { id: 2, txt: 'b' }])
     });
 
     it('not null does not accept null values', () => {
-        assert.throws(() => none(`create table test(txt text not null);
+        expectQueryError(() => none(`create table test(txt text not null);
                     insert into test(txt) values (null);`));
     });
 
@@ -327,7 +327,7 @@ describe('Simple queries', () => {
         expect(many(`create table test(id text, val text not null default 'def');
                     insert into test(id) values ('id');
                     select * from test`))
-            .to.deep.equal([{ id: 'id', val: 'def' }]);
+            .toEqual([{ id: 'id', val: 'def' }]);
     });
 
 
@@ -335,12 +335,12 @@ describe('Simple queries', () => {
         const orig = many(`create table test(id text, time timestamp default now());
                     insert into test(id) values ('id1') returning time;`)
             .map(x => x.time)[0];
-        assert.instanceOf(orig, Date);
+        expect(orig).toBeInstanceOf(Date);
         await new Promise(done => setTimeout(done, 5)); // wait 5 ms
         const newtime = many(`insert into test(id) values ('id2') returning time;`)
             .map(x => x.time)[0];
-        assert.instanceOf(newtime, Date);
-        expect(orig).not.to.equal(newtime);
+        expect(newtime).toBeInstanceOf(Date);
+        expect(orig).not.toBe(newtime);
     });
 
 
@@ -357,7 +357,7 @@ describe('Simple queries', () => {
         ]) {
             it('can execute ANY(): ' + x.query, () => {
                 expect(many(x.query))
-                    .to.deep.equal([x.result]);
+                    .toEqual([x.result]);
             })
         }
 
@@ -365,9 +365,9 @@ describe('Simple queries', () => {
             expect(many(`create table vals(val int);
                             insert into vals values (0), (1), (50), (100), (101);
                             select 50 = any(select * from vals) as x`))
-                .to.deep.eq([{ x: true }])
+                .toEqual([{ x: true }])
             expect(many(`select 42 = any(select * from vals) as x`))
-                .to.deep.eq([{ x: false }])
+                .toEqual([{ x: false }])
 
         })
     })
@@ -375,7 +375,7 @@ describe('Simple queries', () => {
     it('can create table with compound primary key', () => {
         none(`create table test(ka text, kb integer, val text,  primary key (ka, kb));
             insert into test values ('a', 1, 'oldA');`);
-        assert.throws(() => none(`insert into test values ('a', 1, 'oldA');`));
+        expectQueryError(() => none(`insert into test values ('a', 1, 'oldA');`));
     });
 
 
@@ -391,19 +391,19 @@ describe('Simple queries', () => {
         ]) {
             it(k, () => {
                 expect(many(k))
-                    .to.deep.equal([{ v }]);
+                    .toEqual([{ v }]);
             })
         }
         it('fails with negative for', () => {
-            assert.throws(() => many(`select substring('012345678' for -1) as v`), /negative substring length not allowed/);
+            expectQueryError(() => many(`select substring('012345678' for -1) as v`), /negative substring length not allowed/);
         })
     })
 
     it('supports substring() as classic function range', () => {
         expect(many(`select substring('012345678', 2, 3) as v`))
-            .to.deep.equal([{ v: '123' }]);
+            .toEqual([{ v: '123' }]);
         expect(many(`select substring('012345678', 5) as v`))
-            .to.deep.equal([{ v: '45678' }]);
+            .toEqual([{ v: '45678' }]);
     })
 
     describe('overlay query as range', () => {
@@ -426,12 +426,12 @@ describe('Simple queries', () => {
         ]) {
             it(k, () => {
                 expect(many(k))
-                    .to.deep.equal([{ v }]);
+                    .toEqual([{ v }]);
             })
         }
         it('fails with negative from', () => {
-            assert.throws(() => many(`select overlay('12345678' placing 'ab' from -2) as v`), /negative substring length not allowed/);
-            assert.throws(() => many(`select overlay('12345678' placing 'ab' from 0) as v`), /negative substring length not allowed/);
+            expectQueryError(() => many(`select overlay('12345678' placing 'ab' from -2) as v`), /negative substring length not allowed/);
+            expectQueryError(() => many(`select overlay('12345678' placing 'ab' from 0) as v`), /negative substring length not allowed/);
         })
     })
 
@@ -441,36 +441,36 @@ describe('Simple queries', () => {
                 create table other.tother(id text);
                 insert into other.tother values ('x');
                 select * from other.tother`))
-            .to.deep.equal([{ id: 'x' }]);
+            .toEqual([{ id: 'x' }]);
     });
 
 
     it('can select list', () => {
         expect(many(`select (1, 2) as v`))
-            .to.deep.equal([{ v: [1, 2] }]);
+            .toEqual([{ v: [1, 2] }]);
     })
 
 
     it('can convert list to text', () => {
         expect(many(`select (1, 2)::text as v`))
-            .to.deep.equal([{ v: '(1,2)' }]);
+            .toEqual([{ v: '(1,2)' }]);
     })
 
     it('supports select ARRAY[]', () => {
         expect(many(`select ARRAY[1, 2] as v`))
-            .to.deep.equal([{ v: [1, 2] }])
+            .toEqual([{ v: [1, 2] }])
     });
 
     it('can convert array to text', () => {
         expect(many(`select ARRAY[1, 2]::text as v`))
-            .to.deep.equal([{ v: '{1,2}' }]);
+            .toEqual([{ v: '{1,2}' }]);
     })
 
     it('can execute ANY on ARRAY[]', () => {
         expect(many(`create table tbl (id text);
                     insert into tbl values ('A'), ('B'), ('C');
                     SELECT * FROM tbl WHERE id = ANY(array['A', 'C'])`))
-            .to.deep.equal([{ id: 'A' }, { id: 'C' }]);
+            .toEqual([{ id: 'A' }, { id: 'C' }]);
     });
 
 
@@ -484,10 +484,10 @@ describe('Simple queries', () => {
     });
 
     it('should not be able to determine the type of an empty array', () => {
-        assert.throw(() => none(`SELECT array[];`), /cannot determine type of empty array/);
+        expectQueryError(() => none(`SELECT array[];`), /cannot determine type of empty array/);
         none(`CREATE TABLE example (
             members               VARCHAR[]
         );`);
-        assert.throws(() => none(`INSERT INTO example (members) VALUES (ARRAY[])`), /cannot determine type of empty array/);
+        expectQueryError(() => none(`INSERT INTO example (members) VALUES (ARRAY[])`), /cannot determine type of empty array/);
     })
 });

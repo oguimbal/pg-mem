@@ -1,6 +1,6 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
-import { expect, assert } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
+
 import { typeormSimpleSample } from '../../samples/typeorm/simple';
 import { Photo, typeormJoinsSample, User } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
@@ -15,11 +15,11 @@ describe('Typeorm - real manips', () => {
         });
         await got.save();
         let all = await repo.findByIds([1]);
-        expect(all.map(x => x.data)).to.deep.equal([[{ someData: true }]]);
+        expect(all.map(x => x.data)).toEqual([[{ someData: true }]]);
         got.data = { other: true };
         await got.save();
         all = await repo.find();
-        expect(all.map(x => x.data)).to.deep.equal([{ other: true }]);
+        expect(all.map(x => x.data)).toEqual([{ other: true }]);
     });
 
     it('can perform simple sample', async () => {
@@ -46,7 +46,7 @@ describe('Typeorm - real manips', () => {
         });
         await got.save();
         let all = await repo.findByIds([1]);
-        expect(all.map(x => x.enums)).to.deep.equal([[TestUserRole.ADMIN, TestUserRole.EDITOR]]);
+        expect(all.map(x => x.enums)).toEqual([[TestUserRole.ADMIN, TestUserRole.EDITOR]]);
     });
 
     typeOrm('handles int arrays deserialization #224', () => [WithArrays], null, async ({ db }) => {
@@ -56,7 +56,7 @@ describe('Typeorm - real manips', () => {
         });
         await got.save();
         let all = await repo.findByIds([1]);
-        expect(all.map(x => x.ints)).to.deep.equal([[1, 2, 3]]);
+        expect(all.map(x => x.ints)).toEqual([[1, 2, 3]]);
     });
 });
 

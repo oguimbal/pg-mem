@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
@@ -55,40 +55,40 @@ describe('Null values', () => {
         const db = setupNulls();
         preventSeqScan(db);
         const got = many('select * from data where str = null');
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
     });
 
     it('returns nothing when using index on !=null', () => {
         const db = setupNulls();
         preventSeqScan(db);
         const got = many('select * from data where str != null');
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
     });
 
     it('returns nothing when seqscan on =null', () => {
         setupNulls(false);
         const got = many('select * from data where str = null');
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
     });
 
     it('returns nothing when seqscan on !=null', () => {
         setupNulls(false);
         const got = many('select * from data where str != null');
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
     });
 
     it('returns something on isnull when setting to default', () => {
         expect(many(`create table test(id text primary key, val text);
             insert into test values ('a', default);
             select * from test where val isnull`))
-            .to.deep.equal([{ id: 'a', val: null }]);
+            .toEqual([{ id: 'a', val: null }]);
     });
 
     it('returns nothing on notnull when setting to default', () => {
         expect(many(`create table test(id text primary key, val text);
             insert into test values ('a', default);
             select * from test where val notnull`))
-            .to.deep.equal([]);
+            .toEqual([]);
     });
 
     it('can select jsonb null', () => {
@@ -96,19 +96,19 @@ describe('Null values', () => {
         create table test(txt text);
                         insert into test values ('null'), (null);
                         select txt::jsonb as casted, txt::jsonb is null as "castedIsNil", txt::jsonb = null as "eqNil", txt::jsonb = 'null'::jsonb as "eqNilJson" from test;`))
-            .to.deep.equal([
+            .toEqual([
                 { casted: null, castedIsNil: false, eqNil: null, eqNilJson: true },
                 { casted: null, castedIsNil: true, eqNil: null, eqNilJson: null },
             ]);
 
         expect(many(`select 'null'::jsonb`))
-            .to.deep.equal([{ jsonb: null }]);
+            .toEqual([{ jsonb: null }]);
 
         expect(many(`select concat('nu','ll')::jsonb`))
-            .to.deep.equal([{ jsonb: null }]);
+            .toEqual([{ jsonb: null }]);
 
         expect(many(`select val, val isnull as "isNil", val = null as "eqNil", val = 'null'::jsonb as "eqNilJson" from (values ('{"abc":null}'::jsonb -> 'abc')) as tbl(val)`))
-            .to.deep.equal([{
+            .toEqual([{
                 val: null,
                 isNil: false,
                 eqNil: null,

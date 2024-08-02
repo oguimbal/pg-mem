@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { assert, expect } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 
 describe('pg', () => {
@@ -26,7 +26,7 @@ describe('pg', () => {
         const client = new Client();
         await client.connect();
         const got = await client.query('select * from data');
-        assert.deepEqual(got.rows, [{
+        expect(got.rows).toEqual([{
             id: 'str',
             data: { data: true },
             num: 42,
@@ -41,7 +41,7 @@ describe('pg', () => {
         const client = new Client();
         await client.connect();
         const got = await client.query('select * from data where id = $1', ['str']);
-        assert.deepEqual(got.rows, [{
+        expect(got.rows).toEqual([{
             id: 'str',
             data: { data: true },
             num: 42,
@@ -56,7 +56,7 @@ describe('pg', () => {
         const client = new Client();
         client.connect();
         client.query('select * from data where id = $1', ['str'], (err: any, res: any) => {
-            assert.deepEqual(res.rows, [{
+            expect(res.rows).toEqual([{
                 id: 'str',
                 data: { data: true },
                 num: 42,
@@ -75,7 +75,7 @@ describe('pg', () => {
         many(`create table dispute (id text);
                 insert into dispute values ('A'), ('B'), ('OTHER')`);
         const got = await client.query('select * from dispute where id = ANY($1)', [['A', 'B']]);
-        expect(got.rows).to.deep.equal([{ id: 'A' }, { id: 'B' }]);
+        expect(got.rows).toEqual([{ id: 'A' }, { id: 'B' }]);
         await client.end();
     });
 
@@ -87,7 +87,7 @@ describe('pg', () => {
         many('create table mytable (items varchar[]);');
         await client.query('insert into mytable (items) values ($1);', [[]]);
         const got = await client.query('select * from mytable;');
-        expect(got.rows).to.deep.equal([{ items: [] }]);
+        expect(got.rows).toEqual([{ items: [] }]);
         await client.end();
     });
 
@@ -99,7 +99,7 @@ describe('pg', () => {
         many(`create table mytable (msg varchar);
             insert into mytable values ('hello'), ('hi');`);
         const got = await client.query('select * from mytable;');
-        expect(Object.getOwnPropertySymbols(got.rows[0]).length).to.be.equal(0);
+        expect(Object.getOwnPropertySymbols(got.rows[0]).length).toBe(0);
         await client.end();
     });
 
@@ -116,7 +116,7 @@ describe('pg', () => {
             },
         };
         const got = await client.query('select * from data where id = $1', [complexValue]);
-        assert.deepEqual(got.rows, [{
+        expect(got.rows).toEqual([{
             id: 'str',
             data: { data: true },
             num: 42,

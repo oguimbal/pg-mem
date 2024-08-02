@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 import { preventCataJoin, preventSeqScan } from './test-utils';
 
@@ -35,28 +35,28 @@ describe('Github issues', () => {
 
             expect(many(`select  r.id rid, lr.id lrid  from foo r
                     left join foo lr on lr.sub_id = r.id
-                    where lr.id is null;`)).to.deep.equal([
+                    where lr.id is null;`)).toEqual([
                 { rid: '2c8ae58d-7d5a-47f4-b8c2-ee61154a46bd', lrid: null },
                 { rid: '3c7c772e-bb92-414e-8c83-44f50fbf43ec', lrid: null },
             ]);
 
             expect(many(`select r.* from foo r
                     left join foo lr on lr.sub_id = r.id
-                    where lr.id is null;`)).to.deep.equal([
+                    where lr.id is null;`)).toEqual([
                 { id: '2c8ae58d-7d5a-47f4-b8c2-ee61154a46bd', sub_id: null, bar: 2 },
                 { id: '3c7c772e-bb92-414e-8c83-44f50fbf43ec', sub_id: null, bar: 3 },
             ]);
 
             expect(many(`select lr.* from foo r
                     left join foo lr on lr.sub_id = r.id
-                    where lr.id is null;`)).to.deep.equal([
+                    where lr.id is null;`)).toEqual([
                 { id: null, sub_id: null, bar: null },
                 { id: null, sub_id: null, bar: null },
             ]);
 
             expect(many(`select r.* from foo r
                 inner join foo lr on lr.sub_id = r.id
-                where lr.id is null;`)).to.have.length(0);
+                where lr.id is null;`)).toHaveLength(0);
         }
 
         it('with index', () => {
@@ -88,7 +88,7 @@ describe('Github issues', () => {
 
             expect(many(`select  r.id rid, lr.id lrid  from foo r
                     left join foo lr on lr.sub_id = r.id
-                    where r.id = '2c8ae58d-7d5a-47f4-b8c2-ee61154a46bd';`)).to.deep.equal([
+                    where r.id = '2c8ae58d-7d5a-47f4-b8c2-ee61154a46bd';`)).toEqual([
                 { rid: '2c8ae58d-7d5a-47f4-b8c2-ee61154a46bd', lrid: null },
             ]);
 

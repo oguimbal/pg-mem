@@ -1,6 +1,6 @@
 import { newDb } from '../db';
 import { knexSample } from '../../samples/knex/knex';
-import { expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import type { Knex } from 'knex'
 
 describe('Knex', () => {
@@ -34,7 +34,7 @@ describe('Knex', () => {
             .where('user_id', 'uid');
 
         expect(result)
-            .to.deep.equal([
+            .toEqual([
                 { id: 'gid', name: 'gname', user_id: 'uid', group_id: 'gid' }
             ]);
     })
@@ -52,8 +52,8 @@ describe('Knex', () => {
         ) as Knex;
         const migrateConfig = knex.migrate;
         // TODO check knex 2.5.1 for migration config params stored
-        //expect(migrateConfig.tableName).to.equal('example_table');
-        //expect(migrateConfig.directory).to.equal('.example_migrations');
+        //expect(migrateConfig.tableName).toBe('example_table');
+        //expect(migrateConfig.directory).toBe('.example_migrations');
     })
 
     it('can name a column "group"', async () => {

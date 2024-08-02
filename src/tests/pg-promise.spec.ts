@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 
 describe('pg-promise', () => {
@@ -25,7 +25,7 @@ describe('pg-promise', () => {
         simpleDb();
         const pgp = db.adapters.createPgPromise();
         const got = await pgp.any('select * from data');
-        assert.deepEqual(got, [{
+        expect(got).toEqual([{
             id: 'str',
             data: { data: true },
             num: 42,
