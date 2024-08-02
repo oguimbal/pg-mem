@@ -1,4 +1,5 @@
 /* istanbul ignore file */
+import { describe, it } from 'bun:test';
 import { IMemoryDb, ISubscription } from '../interfaces';
 import { assert, expect } from 'chai';
 import { BaseEntity, Connection } from 'typeorm';

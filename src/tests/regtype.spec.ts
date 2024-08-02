@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';

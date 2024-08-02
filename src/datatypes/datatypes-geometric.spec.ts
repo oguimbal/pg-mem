@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
@@ -23,7 +23,7 @@ describe('Datatypes - geometric', () => {
         const [{ pt }] = many(`create table test(pt point);
                                 insert into test values ('1,2');
                                 select * from test`);
-        expect(pt).to.deep.equal({x: 1, y:2})
+        expect(pt).to.deep.equal({ x: 1, y: 2 })
 
         // modify it
         pt.x = 42;
