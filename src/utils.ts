@@ -5,6 +5,12 @@ import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval,
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces';
 import { bufClone, bufCompare, isBuf } from './misc/buffer-node';
 
+declare var __non_webpack_require__: any;
+export const doRequire = typeof __non_webpack_require__ !== 'undefined'
+    ? __non_webpack_require__
+    : require;
+
+
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
 }
@@ -313,7 +319,7 @@ export function sum(v: number[]): number {
     return v.reduce((sum, el) => sum + el, 0);
 }
 
-export function deepCloneSimple<T>(v: T): T {
+export function deepCloneSimple<T>(v: T, noSymbols?: boolean): T {
     if (!v || typeof v !== 'object' || v instanceof Date) {
         return v;
     }
@@ -328,8 +334,10 @@ export function deepCloneSimple<T>(v: T): T {
     for (const k of Object.keys(v)) {
         ret[k] = deepCloneSimple((v as any)[k]);
     }
-    for (const k of Object.getOwnPropertySymbols(v)) {
-        ret[k] = (v as any)[k]; // no need to deep clone that
+    if (!noSymbols) {
+        for (const k of Object.getOwnPropertySymbols(v)) {
+            ret[k] = (v as any)[k]; // no need to deep clone that
+        }
     }
     return ret;
 }
@@ -383,6 +391,10 @@ export function executionCtx(): ExecCtx {
 }
 export function hasExecutionCtx(): boolean {
     return curCtx.length > 0;
+}
+
+export function isTopLevelExecutionContext(): boolean {
+    return curCtx.length <= 1;
 }
 
 export function pushExecutionCtx<T>(ctx: ExecCtx, act: () => T): T {

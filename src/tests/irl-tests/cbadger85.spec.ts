@@ -41,8 +41,9 @@ describe('IRL tests', () => {
     });
 
     it('cbadger85 x mikro-orm', async () => {
+        const em = orm.em.fork()
         try {
-            await orm.em.getRepository(bookSchema).findOneOrFail({ id: 1 });
+            await em.getRepository(bookSchema).findOneOrFail({ id: 1 });
         } catch (e) {
             expect(e).not.toBeInstanceOf(DriverException);
             expect(errorMessage(e)).toMatch(/Book not found/);

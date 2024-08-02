@@ -4,7 +4,7 @@ import { IMemoryDb, QueryError } from '../interfaces';
 import { cleanResults } from '../execution/clean-results';
 import { expectQueryError } from './test-utils';
 
-describe('Test utils', () => {
+describe('Public api', () => {
 
     let db: IMemoryDb;
     let many: (str: string) => any[];
@@ -19,9 +19,9 @@ describe('Test utils', () => {
 
     interface R {
         id: string;
-        dt: Date;
+        dt: Date | null;
         obj: any;
-        i: number;
+        i: number | null;
         n: number | null;
     }
     function simple() {
