@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import 'chai';
 import { newDb } from '../db';
 import { IMemoryDb, QueryResult } from '../interfaces';
@@ -330,7 +330,7 @@ describe('Inserts', () => {
 
         it('should allow string for bigint columns on insert', () => {
             none(`create table test(a bigint, b int8);`);
-            expect(many(`insert into test values ('123456','111') returning a`)).to.deep.equal([{a: 123456}]);
+            expect(many(`insert into test values ('123456','111') returning a`)).to.deep.equal([{ a: 123456 }]);
         })
 
         it('checks that insert values has enough columns', () => {

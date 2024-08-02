@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import 'chai';
 import { expect, assert } from 'chai';
 import { typeormSimpleSample } from '../../samples/typeorm/simple';

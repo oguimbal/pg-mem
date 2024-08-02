@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import { assert, expect } from 'chai';
 import {
     BaseEntity,

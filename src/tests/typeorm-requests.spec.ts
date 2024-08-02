@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import 'chai';
 import { newDb } from '../db';
 import { expect, assert } from 'chai';
@@ -214,7 +214,7 @@ describe('Typeorm - requests', () => {
     })
 
 
-    it ('can perform photo join', () => {
+    it('can perform photo join', () => {
         createPhotosUsers();
         many(`SELECT "Photo"."id" AS "Photo_id", "Photo"."url" AS "Photo_url", "Photo"."userId" AS "Photo_userId", "Photo__user"."id" AS "Photo__user_id", "Photo__user"."name" AS "Photo__user_name" FROM "photo" "Photo" LEFT JOIN "user" "Photo__user" ON "Photo__user"."id"="Photo"."userId" WHERE "Photo"."id" = 42`)
     })

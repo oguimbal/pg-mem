@@ -1,4 +1,4 @@
-import 'mocha';
+import { describe, it, beforeEach } from 'bun:test';
 import { expect, assert } from 'chai';
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
@@ -29,7 +29,7 @@ describe('regclass', () => {
             }])
     });
 
-    it ('fails on non existing type', () => {
+    it('fails on non existing type', () => {
         assert.throws(() => none(`select 'xxx'::regclass;`), /relation "xxx" does not exist/);
         assert.throws(() => none(`select 'text'::regclass;`), /relation "text" does not exist/);
         assert.throws(() => many(`select '25abc'::regclass`), /relation "25abc" does not exist/)
