@@ -1,8 +1,8 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
-import { preventSeqScan } from './test-utils';
+
+import { expectQueryError, preventSeqScan } from './test-utils';
 import { Types } from '../datatypes';
 import { _IDb } from '../interfaces-private';
 
@@ -55,13 +55,13 @@ describe('Indices', () => {
         const db = setupNulls();
         preventSeqScan(db);
         const got = many('select * from data where str is null');
-        expect(got).to.deep.equal([{ id: 'id1', str: null, otherstr: null }, { id: 'id3', str: null, otherstr: null }]);
+        expect(got).toEqual([{ id: 'id1', str: null, otherstr: null }, { id: 'id3', str: null, otherstr: null }]);
     });
 
     it('returns something on seqscan for is null', () => {
         const db = setupNulls(false);
         const got = many('select * from data where str is null');
-        expect(got).to.deep.equal([{ id: 'id1', str: null, otherstr: null }, { id: 'id3', str: null, otherstr: null }]);
+        expect(got).toEqual([{ id: 'id1', str: null, otherstr: null }, { id: 'id3', str: null, otherstr: null }]);
     });
 
 
@@ -69,20 +69,20 @@ describe('Indices', () => {
         const db = setupNulls();
         preventSeqScan(db);
         const got = many('select id, str from data where str is not null');
-        expect(got).to.deep.equal([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
+        expect(got).toEqual([{ id: 'id2', str: 'notnull2' }, { id: 'id4', str: 'notnull4' }]);
     });
 
     it('primary index does not allow duplicates', () => {
         none(`create table test(id text primary key);
                 insert into test values ('id1');`);
-        assert.throws(() => none(`insert into test values ('id1')`));
-        expect(all().map(x => x.id)).to.deep.equal(['id1']);
+        expectQueryError(() => none(`insert into test values ('id1')`));
+        expect(all().map(x => x.id)).toEqual(['id1']);
     });
 
 
     it('primary index does not allow null values', () => {
         none(`create table test(id text primary key);`);
-        assert.throws(() => none(`insert into test values (null)`));
+        expectQueryError(() => none(`insert into test values (null)`));
     });
 
 
@@ -91,7 +91,7 @@ describe('Indices', () => {
             create unique index idx1 on test(col);
             insert into test values ('one'), ('two')`);
 
-        assert.throws(() => none(`insert into test values ('one')`), /constraint/);
+        expectQueryError(() => none(`insert into test values ('one')`), /constraint/);
     });
 
     it('can create partial indexes', () => {
@@ -101,7 +101,7 @@ describe('Indices', () => {
             CREATE UNIQUE INDEX my_idx ON my_table (col1, (col2 IS NULL)) WHERE col2 IS NULL;
             insert into my_table values ('a', 'a'), ('a', 'b'), ('a', null), ('b', null)`);
 
-        assert.throws(() => none(`insert into my_table values ('a', null)`), /constraint/);
+        expectQueryError(() => none(`insert into my_table values ('a', null)`), /constraint/);
     });
 
 
@@ -182,7 +182,7 @@ describe('Indices', () => {
             insert into test_table ("id", "unique_data", "deleted_at") VALUES('1', 'x', default );
             `)
 
-            assert.throws(() => none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', 'x', default );`), /duplicate key value violates unique constraint/);
+            expectQueryError(() => none(`insert into test_table ("id", "unique_data", "deleted_at") VALUES('2', 'x', default );`), /duplicate key value violates unique constraint/);
         });
 
 
@@ -228,7 +228,7 @@ describe('Indices', () => {
                         insert into test_table ("id", "unique_data") VALUES('1', default);
                 `);
 
-            assert.throws(() => none(`insert into test_table ("id", "unique_data") VALUES('2', default)`), /duplicate key value violates unique constraint/);
+            expectQueryError(() => none(`insert into test_table ("id", "unique_data") VALUES('2', default)`), /duplicate key value violates unique constraint/);
         });
 
         it('allows multiple null values in unique index', () => {
@@ -255,8 +255,8 @@ describe('Indices', () => {
              primary key (u1, u2)
             );`);
 
-            assert.throws(() => none(`insert into test_table ("u1", "u2") VALUES('1', default)`), /\s+null\s+/);
-            assert.throws(() => none(`insert into test_table ("u1", "u2") VALUES('1', null)`), /\s+null\s+/);
+            expectQueryError(() => none(`insert into test_table ("u1", "u2") VALUES('1', default)`), /\s+null\s+/);
+            expectQueryError(() => none(`insert into test_table ("u1", "u2") VALUES('1', null)`), /\s+null\s+/);
         });
     });
 
@@ -282,12 +282,12 @@ describe('Indices', () => {
     it('cannot create index twice', () => {
         none(`create table test(col text);
             create index idxname on test(col);`);
-        assert.throws(() => none(`create index idxname on test(col)`), /exists/);
+        expectQueryError(() => none(`create index idxname on test(col)`), /exists/);
     });
 
     it('cannot create index which has same name as a table', () => {
         none(`create table test(col text);`);
-        assert.throws(() => none(`create index test on test(col)`), /exists/);
+        expectQueryError(() => none(`create index test on test(col)`), /exists/);
     });
 
 
@@ -301,8 +301,8 @@ describe('Indices', () => {
     it('unique index does not allow duplicates', () => {
         none(`create table test(id text primary key, val text unique);
                 insert into test values ('id1', 'A');`);
-        assert.throws(() => none(`insert into test values ('id2', 'A')`));
-        expect(all().map(x => x.id)).to.deep.equal(['id1']);
+        expectQueryError(() => none(`insert into test values ('id2', 'A')`));
+        expect(all().map(x => x.id)).toEqual(['id1']);
     });
 
 
@@ -312,9 +312,9 @@ describe('Indices', () => {
                 insert into test values ('id1', 'A');
                 insert into test values ('id2', 'B');
                 insert into test values ('id3', 'A');`);
-        expect(all().map(x => x.id)).to.deep.equal(['id1', 'id2', 'id3']);
+        expect(all().map(x => x.id)).toEqual(['id1', 'id2', 'id3']);
         preventSeqScan(db); // <== should use index even if index is on expression
-        expect(many(`select id from test where val='A'`).map(x => x.id)).to.deep.equal(['id1', 'id3']);
+        expect(many(`select id from test where val='A'`).map(x => x.id)).toEqual(['id1', 'id3']);
     });
 
     it('can create index on an expression', () => {
@@ -324,7 +324,7 @@ describe('Indices', () => {
                 insert into test values ('id2', 'B');
                 insert into test values ('id3', 'a');`);
         preventSeqScan(db); // <== should use index even if index is on expression
-        expect(many(`select id from test where lower(val)='a'`).map(x => x.id)).to.deep.equal(['id1', 'id3']);
+        expect(many(`select id from test where lower(val)='a'`).map(x => x.id)).toEqual(['id1', 'id3']);
     });
 
 
@@ -335,7 +335,7 @@ describe('Indices', () => {
                 insert into test values (3, 4);`);
         preventSeqScan(db); // <== should use index even if index is on expression
         // notice that b+a is not the expression usedin index creation
-        expect(many(`select a from test where (b+a)=3`).map(x => x.a)).to.deep.equal([1]);
+        expect(many(`select a from test where (b+a)=3`).map(x => x.a)).toEqual([1]);
     });
 
 
@@ -353,7 +353,7 @@ describe('Indices', () => {
 
         const explain = db.public.explainLastSelect();
         // assert.deepEqual(explain, {} as any);
-        assert.deepEqual(explain, {
+        expect(explain).toEqual({
             _: 'ineq',
             entropy: 3,
             id: 1,
@@ -381,7 +381,7 @@ describe('Indices', () => {
         })
 
         expect(got)
-            .to.deep.equal([{ val: 2 }, { val: 3 }]);
+            .toEqual([{ val: 2 }, { val: 3 }]);
     });
 
     it('can use an index on an aliased selection & aliased var', () => {
@@ -397,7 +397,7 @@ describe('Indices', () => {
         select * from (select val as xx from test where txt != 'A') x where x.xx > 1`);
 
         const explain = db.public.explainSelect(`select * from (select val as xx from test where txt != 'A') x where x.xx > 1`);
-        assert.deepEqual(explain, {
+        expect(explain).toEqual({
             _: 'seqFilter',
             id: 1,
             filtered: {
@@ -424,7 +424,7 @@ describe('Indices', () => {
         });
 
         expect(got)
-            .to.deep.equal([{ xx: 2 }, { xx: 3 }]);
+            .toEqual([{ xx: 2 }, { xx: 3 }]);
     });
     it('can use an index on an aliased "!=" selection', () => {
         // preventSeqScan(db);
@@ -437,7 +437,7 @@ describe('Indices', () => {
                 insert into test values ('B', 2);
                 insert into test values ('C', 3);
                 select * from (select val as xx from test where txt != 'A') x where x.xx > 1`))
-            .to.deep.equal([{ xx: 2 }, { xx: 3 }]);
+            .toEqual([{ xx: 2 }, { xx: 3 }]);
     });
 
     it('can use an index on an aliased "=" selection', () => {
@@ -451,7 +451,7 @@ describe('Indices', () => {
                 insert into test values ('B', 2);
                 insert into test values ('C', 3);
                 select * from (select val as xx from test where txt = 'A') x where x.xx >= 1`))
-            .to.deep.equal([{ xx: 999 }, { xx: 1 }]);
+            .toEqual([{ xx: 999 }, { xx: 1 }]);
     });
 
     it('can use an index on an aliased "=" expression selection', () => {
@@ -465,7 +465,7 @@ describe('Indices', () => {
                 insert into test values ('B', 2);
                 insert into test values ('C', 3);
                 select * from (select val as xx from test where lower(txt) = 'a') x where x.xx >= 1`))
-            .to.deep.equal([{ xx: 999 }, { xx: 1 }]);
+            .toEqual([{ xx: 999 }, { xx: 1 }]);
     });
 
 
@@ -480,7 +480,7 @@ describe('Indices', () => {
                 insert into test values ('B', 2);
                 insert into test values ('C', 3);
                 select valx from (select val as valx, txt as txtx from test where val >= 1) x where lower(x.txtx) = 'a'`))
-            .to.deep.equal([{ valx: 1 }, { valx: 999 }]);
+            .toEqual([{ valx: 1 }, { valx: 999 }]);
     });
 
 
@@ -491,7 +491,7 @@ describe('Indices', () => {
                 insert into test values ('id2', 'B');
                 insert into test values ('id3', 'A');`);
         preventSeqScan(db); // <== should use index even if index is on expression
-        expect(many(`select id from test where concat(val, 'X')='AX'`).map(x => x.id)).to.deep.equal(['id1', 'id3']);
+        expect(many(`select id from test where concat(val, 'X')='AX'`).map(x => x.id)).toEqual(['id1', 'id3']);
     });
 
     it('can use constant in index expressions bis', () => {
@@ -501,26 +501,26 @@ describe('Indices', () => {
                 insert into test values ('id2', 1, 2);
                 insert into test values ('id3', 30, 12);`);
         preventSeqScan(db); // <== should use index even if index is on expression
-        expect(many(`select id from test where a+b=42`).map(x => x.id)).to.deep.equal(['id1', 'id3']);
+        expect(many(`select id from test where a+b=42`).map(x => x.id)).toEqual(['id1', 'id3']);
     });
 
     it('can use implicit cast index on index', () => {
         expect(many(`create table example(id int primary key);
                 insert into example(id) values (1);
                 select * from example where id='1';`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 1 }
             ]);
         expect(many(`select * from example where id>'0';`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 1 }
             ]);
         expect(many(`select * from example where id<'3';`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 1 }
             ]);
         expect(many(`select * from example where id>'1';`))
-            .to.deep.equal([]);
+            .toEqual([]);
     })
 
 
@@ -532,7 +532,7 @@ describe('Indices', () => {
                                 create index on test(val);
                                 insert into test values (1), (2), (3), (4);
                                 select * from test where val > 2`);
-            expect(result).to.deep.equal([{ val: 3 }, { val: 4 }]);
+            expect(result).toEqual([{ val: 3 }, { val: 4 }]);
         });
 
         it('uses desc index on > comparison', () => {
@@ -541,7 +541,7 @@ describe('Indices', () => {
                                 create index on test(val desc);
                                 insert into test values (1), (2), (3), (4);
                                 select * from test where val > 2`);
-            expect(result).to.deep.equal([{ val: 3 }, { val: 4 }]);
+            expect(result).toEqual([{ val: 3 }, { val: 4 }]);
         });
 
 
@@ -551,7 +551,7 @@ describe('Indices', () => {
                                 create index on test(val);
                                 insert into test values (1), (2), (3), (4);
                                 select * from test where val < 3`);
-            expect(result).to.deep.equal([{ val: 1 }, { val: 2 }]);
+            expect(result).toEqual([{ val: 1 }, { val: 2 }]);
         });
 
         it('uses desc index on < comparison', () => {
@@ -560,7 +560,7 @@ describe('Indices', () => {
                                 create index on test(val desc);
                                 insert into test values (1), (2), (3), (4);
                                 select * from test where val < 3`);
-            expect(result).to.deep.equal([{ val: 1 }, { val: 2 }]);
+            expect(result).toEqual([{ val: 1 }, { val: 2 }]);
         });
 
         it('uses index on <= comparison', () => {
@@ -569,7 +569,7 @@ describe('Indices', () => {
                                 create index on test(val);
                                 insert into test values (1), (2), (3), (4);
                                 select * from test where val <= 2`);
-            expect(result).to.deep.equal([{ val: 1 }, { val: 2 }]);
+            expect(result).toEqual([{ val: 1 }, { val: 2 }]);
         });
 
 
@@ -579,7 +579,7 @@ describe('Indices', () => {
                                 create index on test(val);
                                 insert into test values (1), (2), (3), (4);
                                 select * from test where val >= 2`);
-            expect(result).to.deep.equal([{ val: 2 }, { val: 3 }, { val: 4 }]);
+            expect(result).toEqual([{ val: 2 }, { val: 3 }, { val: 4 }]);
         });
 
     })

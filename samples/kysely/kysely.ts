@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../../src/db';
 
 type GeneratedAlways<T> = import('kysely').GeneratedAlways<T>;
@@ -16,7 +16,7 @@ interface DB {
 }
 
 export async function kyselySample() {
-    
+
     // ========= CONNECT ==========
 
     // Create a new DB instance
@@ -45,12 +45,12 @@ export async function kyselySample() {
         .addForeignKeyConstraint('fk_user_id', ['user_id'], 'users', ['id'])
         .execute();
 
-    // Then query user table...       
+    // Then query user table...
     await kysely.insertInto('users').values({ user_name: 'Tim' }).execute();
 
     // ... and check
     expect(mem.public.many('select * from users'))
-        .to.deep.equal([{
+        .toEqual([{
             id: 1,
             user_name: 'Tim',
         }]);
@@ -63,7 +63,7 @@ export async function kyselySample() {
 
     // ... and check
     expect(mem.public.many('select * from accounts'))
-        .to.deep.equal([{
+        .toEqual([{
             id: 1,
             account_name: 'kysely',
             user_id: 1,
@@ -76,7 +76,7 @@ export async function kyselySample() {
         .execute();
 
     expect(selectedRows)
-        .to.deep.equal([
+        .toEqual([
             { user: 'Tim', account: 'kysely' },
         ]);
 }

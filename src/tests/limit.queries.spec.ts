@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 import { preventSeqScan } from './test-utils';
 
@@ -23,7 +23,7 @@ describe('Limits', () => {
         expect(many(`create table test(val text);
             insert into test values ('a'), ('b'), ('c');
             select val from test limit 2`))
-            .to.deep.equal([
+            .toEqual([
                 { val: 'a' }
                 , { val: 'b' }
             ]);
@@ -33,7 +33,7 @@ describe('Limits', () => {
         expect(many(`create table test(val text);
             insert into test values ('a'), ('b'), ('c');
             select val from test limit 1 offset 1`))
-            .to.deep.equal([
+            .toEqual([
                 { val: 'b' }
             ]);
     });

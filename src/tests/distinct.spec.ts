@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 import { preventSeqScan } from './test-utils';
 
@@ -24,7 +24,7 @@ describe('Distinct', () => {
             insert into data values ('a', 'b');
             insert into data values ('a', 'c');
             select distinct a,b from data`))
-            .to.deep.equal([
+            .toEqual([
                 { a: 'a', b: 'b' },
                 { a: 'a', b: 'c' },
             ]);
@@ -37,7 +37,7 @@ describe('Distinct', () => {
                 insert into data values ('a', 'b', '2');
                 insert into data values ('a', 'c', '3');
                 select distinct a,b from data`))
-            .to.deep.equal([
+            .toEqual([
                 { a: 'a', b: 'b' },
                 { a: 'a', b: 'c' },
             ]);
@@ -51,7 +51,7 @@ describe('Distinct', () => {
         insert into data values ('a', 'c', '3');
         insert into data values ('a', 'c', '3');
         select distinct * from data`))
-            .to.deep.equal([
+            .toEqual([
                 { a: 'a', b: 'b', c: '1' },
                 { a: 'a', b: 'b', c: '2' },
                 { a: 'a', b: 'c', c: '3' },
@@ -64,7 +64,7 @@ describe('Distinct', () => {
             insert into data values ('a', 'b');
             insert into data values ('a', 'c');
             select distinct on (a) a,b from data`))
-            .to.deep.equal([
+            .toEqual([
                 { a: 'a', b: 'b' },
             ]);
     });
@@ -75,7 +75,7 @@ describe('Distinct', () => {
             insert into data values ('a', 'b', '2');
             insert into data values ('a', 'c', '3');
             select distinct on (a,b) c from data`))
-            .to.deep.equal([
+            .toEqual([
                 { c: '1' },
                 { c: '3' },
             ]);
@@ -88,7 +88,7 @@ describe('Distinct', () => {
         insert into data values ('a', 'c', '3');
         insert into data values ('a', 'c', '3');
         select distinct on (count(*)) b, count(*) from data group by b;`))
-            .to.deep.equal([
+            .toEqual([
                 { b: 'b', count: 2 }
             ])
     });
@@ -101,7 +101,7 @@ describe('Distinct', () => {
         insert into data values ('a', 'c', '3');
         insert into data values ('a', 'c', '3');
         select distinct on (b || ' ', count(*)) b as x, count(*) from data group by b;`))
-            .to.deep.equal([
+            .toEqual([
                 { x: 'b', count: 2 },
                 { x: 'c', count: 2 },
             ])
@@ -111,7 +111,7 @@ describe('Distinct', () => {
         expect(many(`create table test(v jsonb, i int);
                     insert into test values ('{}',0),  ('[]',1), ('{}',0), ('[]',null), (null, 1);
                     select distinct v, i from test order by v,i desc;`))
-            .to.deep.equal([
+            .toEqual([
                 { v: [], i: null },
                 { v: [], i: 1 },
                 { v: {}, i: 0 },
@@ -125,7 +125,7 @@ describe('Distinct', () => {
             insert into data values ('a', 'b', '2');
             insert into data values ('a', 'c', '3');
             select distinct on (a) c from data order by a, c desc`))
-            .to.deep.equal([
+            .toEqual([
                 { c: '3' },
             ]);
     });

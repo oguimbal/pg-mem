@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Foreign keys', () => {
 
@@ -29,7 +30,7 @@ describe('Foreign keys', () => {
     it('cannot delete line if foreign key exists', () => {
         usr('NO ACTION');
 
-        assert.throws(() => none('delete from "user" where id = 1'), violates);
+        expectQueryError(() => none('delete from "user" where id = 1'), violates);
 
         // check works if user is deleted
         many('truncate photo; delete from "user" where id = 1;')
@@ -39,25 +40,25 @@ describe('Foreign keys', () => {
 
     it('cannot truncate if foreign key exists when no action', () => {
         usr('NO ACTION');
-        assert.throws(() => none('truncate "user"'), locked);
+        expectQueryError(() => none('truncate "user"'), locked);
     });
 
     it('cannot truncate if foreign key exists even if cascade', () => {
         usr('CASCADE');
-        assert.throws(() => none('truncate "user"'), locked);
+        expectQueryError(() => none('truncate "user"'), locked);
     });
 
     it('can truncate cascade', () => {
         usr('NO ACTION');
         none('truncate "user" cascade');
 
-        expect(many(`select * from "user"`)).to.deep.equal([]);
-        expect(many(`select * from "photo"`)).to.deep.equal([]);
+        expect(many(`select * from "user"`)).toEqual([]);
+        expect(many(`select * from "photo"`)).toEqual([]);
     });
 
     it('cannot drop if foreign key exists even if cascade', () => {
         usr('CASCADE');
-        assert.throws(() => none('drop table "user"'), /cannot drop table "user" because other objects depend on it/);
+        expectQueryError(() => none('drop table "user"'), /cannot drop table "user" because other objects depend on it/);
     });
 
 
@@ -77,19 +78,19 @@ describe('Foreign keys', () => {
     it('can delete line when on delete cascade', () => {
         usr('CASCADE');
 
-        expect(many('select * from photo').length).to.equal(1);
+        expect(many('select * from photo').length).toBe(1);
 
         none(`delete from "user" where id = 1;`);
 
-        expect(many('select * from "user"').length).to.equal(0);
-        expect(many('select * from photo').length).to.equal(0);
+        expect(many('select * from "user"').length).toBe(0);
+        expect(many('select * from photo').length).toBe(0);
     });
 
 
     it('cannot create a foreign key if no unique constraint', () => {
         none(`CREATE TABLE "user" ("id" integer primary key, "name" text);
         CREATE TABLE "photo" ("id" integer primary key, "userName" text);`)
-        assert.throws(() => none(`ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;`))
+        expectQueryError(() => none(`ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;`))
     })
 
     it('does not check foreign key on null values', () => {
@@ -102,7 +103,7 @@ describe('Foreign keys', () => {
         INSERT INTO "photo"("id", "userName") VALUES (2, 'me');`);
 
         // check throws on matching username
-        assert.throws(() => none('delete from "user" where id = 2;'));
+        expectQueryError(() => none('delete from "user" where id = 2;'));
 
         // check no throw then they are null
         none('delete from "user" where id = 1');
@@ -118,7 +119,7 @@ describe('Foreign keys', () => {
         INSERT INTO "photo"("id", "userName") VALUES (2, 'me');`);
 
         // check throws on matching username
-        assert.throws(() => none('delete from "user" where id = 2;'));
+        expectQueryError(() => none('delete from "user" where id = 2;'));
     });
 
     it('prevents updating foreign key', () => {
@@ -131,7 +132,7 @@ describe('Foreign keys', () => {
         INSERT INTO "photo"("id", "userName") VALUES (2, 'me');`);
 
         // check throws on matching username
-        assert.throws(() => none(`update "user" set name='other' where id=2;`));
+        expectQueryError(() => none(`update "user" set name='other' where id=2;`));
 
         // check OK on no-match values
         none(`update "user" set name='other' where id=1;`)
@@ -144,7 +145,7 @@ describe('Foreign keys', () => {
         ALTER TABLE "photo" ADD CONSTRAINT "FK_4494006ff358f754d07df5ccc87" FOREIGN KEY ("userName") REFERENCES "user"("name") ON DELETE NO ACTION ON UPDATE NO ACTION;`);
 
         // check throws when forein key is NOK
-        assert.throws(() => none(`INSERT INTO "photo"("id", "userName") VALUES (2, 'blah');`));
+        expectQueryError(() => none(`INSERT INTO "photo"("id", "userName") VALUES (2, 'blah');`));
     })
 
 
@@ -170,7 +171,7 @@ describe('Foreign keys', () => {
         // https://github.com/oguimbal/pg-mem/issues/9
         none(`create table location(city_id int);
                 create table city(city_id int);`);
-        assert.throws(() => none(`ALTER TABLE ONLY public.location ADD CONSTRAINT city_id_fk FOREIGN KEY (city_id) REFERENCES public.city(city_id) MATCH FULL;`)
+        expectQueryError(() => none(`ALTER TABLE ONLY public.location ADD CONSTRAINT city_id_fk FOREIGN KEY (city_id) REFERENCES public.city(city_id) MATCH FULL;`)
             , /there is no unique constraint matching given keys for referenced table "city"/)
     });
 

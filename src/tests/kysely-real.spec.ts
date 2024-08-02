@@ -1,6 +1,6 @@
 import { newDb } from '../db';
 import { kyselySample } from '../../samples/kysely/kysely';
-import { expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import type { Kysely } from "kysely";
 
 describe('Kysely', () => {
@@ -18,7 +18,7 @@ describe('Kysely', () => {
             }
         ) as Kysely<any>;
         const executor = kysely.getExecutor();
-        expect(executor.plugins).to.deep.equal([camelCasePlugin]);
+        expect(executor.plugins).toEqual([camelCasePlugin]);
     });
 
     it('should ignore dialect prop in kysely config', async () => {
@@ -32,6 +32,6 @@ describe('Kysely', () => {
             }
         ) as Kysely<any>;
         const executor = kysely.getExecutor();
-        expect(executor.adapter).to.be.instanceOf((await import('kysely')).PostgresAdapter);
+        expect(executor.adapter).toBeInstanceOf((await import('kysely')).PostgresAdapter);
     });
 });

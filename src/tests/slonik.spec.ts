@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
 import { DatabasePool, sql } from 'slonik';
 import { z } from 'zod';
@@ -28,7 +28,7 @@ describe('slonik', () => {
         const pool = await db.adapters.createSlonik() as DatabasePool;
         await pool.connect(async (connection) => {
             const got = await connection.query(sql.unsafe`select * from data`);
-            assert.deepEqual(got.rows, [{
+            expect(got.rows).toEqual([{
                 id: 'str',
                 data: { data: true } as any,
                 num: 42,
@@ -43,7 +43,7 @@ describe('slonik', () => {
         await pool.connect(async (connection) => {
             const str = 'str';
             const got = await connection.query(sql.unsafe`select * from data where id=${str}`);
-            assert.deepEqual(got.rows, [{
+            expect(got.rows).toEqual([{
                 id: 'str',
                 data: { data: true } as any,
                 num: 42,
@@ -56,7 +56,7 @@ describe('slonik', () => {
         const pool = await db.adapters.createSlonik({ zodValidation: true }) as DatabasePool;
         await pool.connect(async (connection) => {
             const got = await connection.query(sql.type(z.object({ value: z.coerce.bigint() }))`select 234218741::bigint as value`);
-            assert.deepEqual(got.rows, [{ value: BigInt(234218741) as any }]);
+            expect(got.rows).toEqual([{ value: BigInt(234218741) as any }]);
         });
     });
 });

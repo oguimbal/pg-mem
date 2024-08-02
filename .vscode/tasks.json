@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "launch-only-ut",
+            "command": "bun", // Could be any other shell command
+            "args": ["test", "--only", "--inspect-wait=ws://0.0.0.0:6499/mapi-ut"],
+            "type": "shell",
+            "isBackground": true,
+            "runOptions": {
+                "instanceLimit": 1
+            },
+            // this ensures that the config in launch.json will not wait for this task to finish
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "_____"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*Listening.*$",
+                    "endsPattern": "^.*Inspect.*$"
+                }
+            }
+        }
+    ]
+}

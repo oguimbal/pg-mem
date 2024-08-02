@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('Alter table', () => {
 
@@ -25,7 +26,7 @@ describe('Alter table', () => {
         expect(many(`
         alter table test rename to newtable;
         select * from newtable;
-        `)).to.deep.equal([{ a: 'a' }])
+        `)).toEqual([{ a: 'a' }])
     });
 
 
@@ -40,7 +41,7 @@ describe('Alter table', () => {
         ALTER TABLE foo DROP COLUMN uuid;
 
         SELECT column_name from information_schema.columns where table_name='foo'; -- This should not show uuid anymore, but it does`))
-            .to.deep.equal([{ column_name: 'other' }])
+            .toEqual([{ column_name: 'other' }])
     });
 
     it('can rename column', () => {
@@ -48,10 +49,10 @@ describe('Alter table', () => {
         expect(many(`
         alter table test rename column a to b;
         select * from test;
-        `)).to.deep.equal([{ b: 'a' }])
+        `)).toEqual([{ b: 'a' }])
     });
     it('cannot rename override column', () => {
-        assert.throws(() => many(`
+        expectQueryError(() => many(`
         create table test(a text, b text);
         alter table test rename column a to b;
         `));
@@ -61,12 +62,12 @@ describe('Alter table', () => {
         simpleDb();
         expect(many(`alter table test add column b text;
             select * from test;`))
-            .to.deep.equal([{ a: 'a', b: null }])
+            .toEqual([{ a: 'a', b: null }])
     });
 
     it('cannot add an existing column', () => {
         simpleDb();
-        assert.throws(() => none('alter table test add column a text;'));
+        expectQueryError(() => none('alter table test add column a text;'));
     })
 
 
@@ -74,19 +75,19 @@ describe('Alter table', () => {
         simpleDb();
         expect(many(`alter table test add column if not exists a text;
             select * from test;`))
-            .to.deep.equal([{ a: 'a' }])
+            .toEqual([{ a: 'a' }])
     });
 
     it('cannot add not null column without default', () => {
         simpleDb();
-        assert.throws(() => many(`alter table test add column b text not null`));
+        expectQueryError(() => many(`alter table test add column b text not null`));
     });
 
     it('can add not null column with default', () => {
         simpleDb();
         expect(many(`alter table test add column b text not null default 'test';
             select * from test;`))
-            .to.deep.equal([{ a: 'a', b: 'test' }])
+            .toEqual([{ a: 'a', b: 'test' }])
     });
 
     it('drop column', () => {
@@ -94,7 +95,7 @@ describe('Alter table', () => {
             insert into test values ('a', 'b');
             alter table test drop column b;
             select * from test;`))
-            .to.deep.equal([{ a: 'a' }])
+            .toEqual([{ a: 'a' }])
     });
 
     it('set default', () => {
@@ -102,7 +103,7 @@ describe('Alter table', () => {
         alter table test alter b set default 'x';
         insert into test(a) values ('a');
         select * from test;`))
-            .to.deep.equal([{ a: 'a', b: 'x' }])
+            .toEqual([{ a: 'a', b: 'x' }])
     });
 
     it('drop default', () => {
@@ -112,19 +113,19 @@ describe('Alter table', () => {
         alter table test alter b drop default;
         insert into test(a) values ('a2');
         select * from test;`))
-            .to.deep.equal([{ a: 'a1', b: 'x' }, { a: 'a2', b: null }])
+            .toEqual([{ a: 'a1', b: 'x' }, { a: 'a2', b: null }])
     });
 
 
     it('set not null prevents inserting nulls', () => {
         simpleDb();
-        assert.throws(() => many(`alter table test alter a set not null;
+        expectQueryError(() => many(`alter table test alter a set not null;
         insert into test(a) values (null);`));
     });
 
     it('nulls prevents setting not null constraint', () => {
         simpleDb();
-        assert.throws(() => many(`
+        expectQueryError(() => many(`
             insert into test(a) values (null);
             alter table test alter a set not null;`));
     });
@@ -135,7 +136,7 @@ describe('Alter table', () => {
         alter table test alter a drop not null;
         insert into test(a) values (null);
         select * from test`))
-            .to.deep.equal([{ a: 'a' }, { a: null }])
+            .toEqual([{ a: 'a' }, { a: null }])
     });
 
 
@@ -144,7 +145,7 @@ describe('Alter table', () => {
                 create index on test(a, b);
                 alter table test drop a;`);
         expect(db.getTable('test').listIndices())
-            .to.deep.equal([]);
+            .toEqual([]);
     });
 
     it('can drop column part of its own index', () => {
@@ -152,13 +153,13 @@ describe('Alter table', () => {
                 create index on test(a);
                 alter table test drop a;`);
         expect(db.getTable('test').listIndices())
-            .to.deep.equal([]);
+            .toEqual([]);
     });
 
     it('cannot add generated on a nullable column', () => {
-        assert.throws(() => none(`create table city(name text, city_id int);
+        expectQueryError(() => none(`create table city(name text, city_id int);
             ALTER TABLE public.city ALTER COLUMN city_id ADD GENERATED ALWAYS AS IDENTITY;`)
-            , /column "city_id" of relation "city" must be declared NOT NULL before identity can be added/);
+            , { message: /column "city_id" of relation "city" must be declared NOT NULL before identity can be added/ });
     })
 
     it('can add generated column', () => {
@@ -175,7 +176,7 @@ describe('Alter table', () => {
                 insert into city(name) values ('Paris'), ('London');
                 select * from city;`);
 
-        expect(data).to.deep.equal([
+        expect(data).toEqual([
             { name: 'Paris', city_id: 0 },
             { name: 'London', city_id: 1 },
         ])

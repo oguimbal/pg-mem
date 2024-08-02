@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { _IDb } from '../interfaces-private';
+import { expectQueryError } from './test-utils';
 
 describe('Order by', () => {
 
@@ -21,7 +22,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select * from test order by val`))
-            .to.deep.equal([
+            .toEqual([
                 { val: 'a' }
                 , { val: 'b' }
                 , { val: null }
@@ -32,7 +33,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select * from test order by val desc`))
-            .to.deep.equal([
+            .toEqual([
                 { val: null }
                 , { val: 'b' }
                 , { val: 'a' }
@@ -43,7 +44,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val desc`))
-            .to.deep.equal([
+            .toEqual([
                 { value: null }
                 , { value: 'b' }
                 , { value: 'a' }
@@ -54,7 +55,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val desc nulls last`))
-            .to.deep.equal([
+            .toEqual([
                 { value: 'b' }
                 , { value: 'a' }
                 , { value: null }
@@ -65,7 +66,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val desc nulls first`))
-            .to.deep.equal([
+            .toEqual([
                 { value: null }
                 , { value: 'b' }
                 , { value: 'a' }
@@ -76,7 +77,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val asc nulls last`))
-            .to.deep.equal([
+            .toEqual([
                 { value: 'a' }
                 , { value: 'b' }
                 , { value: null }
@@ -87,7 +88,7 @@ describe('Order by', () => {
         expect(many(`create table test(val text);
             insert into test values ('b'), ('a'), (null);
             select t.val as value from test t order by t.val asc nulls first`))
-            .to.deep.equal([
+            .toEqual([
                 { value: null }
                 , { value: 'a' }
                 , { value: 'b' }
@@ -98,7 +99,7 @@ describe('Order by', () => {
         expect(many(`create table test(a integer, b integer);
             insert into test values (1, 13), (2, 11), (1, null), (1, 11), (2, 12), (1, 12), (null, 1), (null, 5);
             select * from test order by a, b desc`))
-            .to.deep.equal([
+            .toEqual([
                 { a: 1, b: null }
                 , { a: 1, b: 13 }
                 , { a: 1, b: 12 }
@@ -140,30 +141,30 @@ describe('Order by', () => {
         for (const [l, c, r] of trues) {
             it(`✅ ${l} ${c} ${r}`, () => {
                 expect(one(`select '${l}'::jsonb ${c} '${r}'::jsonb as v`))
-                    .to.deep.equal({ v: true });
+                    .toEqual({ v: true });
             });
         }
 
         for (const [l, c, r] of falses) {
             it(`⛔ ${l} ${c} ${r}`, () => {
                 expect(one(`select '${l}'::jsonb ${c} '${r}'::jsonb as v`))
-                    .to.deep.equal({ v: false });
+                    .toEqual({ v: false });
             });
         }
 
         it('cannot compare with null', () => {
             expect(one(`select '{}'::jsonb = null as v`))
-                .to.deep.equal({ v: null });
+                .toEqual({ v: null });
             expect(one(`select '{}'::jsonb < null as v`))
-                .to.deep.equal({ v: null });
+                .toEqual({ v: null });
             expect(one(`select '{}'::jsonb > null as v`))
-                .to.deep.equal({ v: null });
+                .toEqual({ v: null });
             expect(one(`select '[]'::jsonb = null as v`))
-                .to.deep.equal({ v: null });
+                .toEqual({ v: null });
             expect(one(`select 'null'::jsonb = null as v`))
-                .to.deep.equal({ v: null });
+                .toEqual({ v: null });
             expect(one(`select 'null'::jsonb = null as v`))
-                .to.deep.equal({ v: null });
+                .toEqual({ v: null });
         })
 
     })
@@ -175,11 +176,11 @@ describe('Order by', () => {
                 INSERT INTO test values (3),(1),(2);`);
 
         expect(many(`SELECT field FROM test ORDER BY field`).map(x => x.field))
-            .to.deep.equal([1, 2, 3]);
+            .toEqual([1, 2, 3]);
 
         // this used to throw
         expect(many(`SELECT field aliased FROM test ORDER BY aliased`).map(x => x.aliased))
-            .to.deep.equal([1, 2, 3]);
+            .toEqual([1, 2, 3]);
     })
 
     it('prefers aliased order when ambiguous', () => {
@@ -187,7 +188,7 @@ describe('Order by', () => {
                 INSERT INTO test values (3),(1),(2);`);
 
         expect(many(`SELECT field aliased, (-field) field FROM test ORDER BY field`).map(x => x.aliased))
-            .to.deep.equal([3, 2, 1]);
+            .toEqual([3, 2, 1]);
     });
 
     it('can order on base field computation', () => {
@@ -196,7 +197,7 @@ describe('Order by', () => {
 
 
         expect(many(`SELECT field FROM test ORDER BY  -field`).map(x => x.field))
-            .to.deep.equal([3, 2, 1]);
+            .toEqual([3, 2, 1]);
 
     });
 
@@ -205,6 +206,6 @@ describe('Order by', () => {
             INSERT INTO test values (3),(1),(2);`);
 
         // order on alias is just a trick... you cannot use them in actual computations.
-        assert.throws(() => many(`SELECT field aliased FROM test ORDER BY  -aliased`), /column "aliased" does not exist/);
+        expectQueryError(() => many(`SELECT field aliased FROM test ORDER BY  -aliased`), /column "aliased" does not exist/);
     });
 });

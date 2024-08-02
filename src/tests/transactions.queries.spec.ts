@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
 import { Types } from '../datatypes';
 
@@ -44,7 +44,7 @@ describe('Transactions', () => {
         expect(many(`update data set str='to rollback';
                      rollback;
                      select str from data;`))
-            .to.deep.equal([{ str: 'some str' }]);
+            .toEqual([{ str: 'some str' }]);
     });
 
 

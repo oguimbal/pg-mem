@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
@@ -43,7 +43,7 @@ describe('DB restore points', () => {
         const bck = db.backup();
         none(`update data set id='updatd';insert into data(id) values ('other')`);
         bck.restore();
-        expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
+        expect(trimNullish(many(`select * from data`))).toEqual([{ id: 'value' }]);
     });
 
 
@@ -53,10 +53,10 @@ describe('DB restore points', () => {
         const bck = db.backup();
         none(`update data set id='updatd';insert into data(id) values ('other')`);
         bck.restore();
-        expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
+        expect(trimNullish(many(`select * from data`))).toEqual([{ id: 'value' }]);
         none(`update data set id='updatd';insert into data(id) values ('other')`);
         bck.restore();
-        expect(trimNullish(many(`select * from data`))).to.deep.equal([{ id: 'value' }]);
+        expect(trimNullish(many(`select * from data`))).toEqual([{ id: 'value' }]);
     });
 
 });

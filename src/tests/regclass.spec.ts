@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import { expect, assert } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
 import { _ITable } from '../interfaces-private';
+import { expectQueryError } from './test-utils';
 
 describe('regclass', () => {
 
@@ -18,28 +19,28 @@ describe('regclass', () => {
 
     it('can select pg_catalog tables as regclass', () => {
         expect(many(`select 'pg_class'::regclass`))
-            .to.deep.equal([{ regclass: 'pg_class' }])
+            .toEqual([{ regclass: 'pg_class' }])
     })
 
     it('can select local table as regclass', () => {
         expect(many(`create table test (a text);
                 select 'TeSt'::regclass`))
-            .to.deep.equal([{
+            .toEqual([{
                 regclass: 'test'
             }])
     });
 
     it('fails on non existing type', () => {
-        assert.throws(() => none(`select 'xxx'::regclass;`), /relation "xxx" does not exist/);
-        assert.throws(() => none(`select 'text'::regclass;`), /relation "text" does not exist/);
-        assert.throws(() => many(`select '25abc'::regclass`), /relation "25abc" does not exist/)
+        expectQueryError(() => none(`select 'xxx'::regclass;`), /relation "xxx" does not exist/);
+        expectQueryError(() => none(`select 'text'::regclass;`), /relation "text" does not exist/);
+        expectQueryError(() => many(`select '25abc'::regclass`), /relation "25abc" does not exist/)
     });
 
 
     it('can cast back to string', () => {
         expect(many(`create table test (a text);
                 select 'TeSt'::regclass::text`))
-            .to.deep.equal([{
+            .toEqual([{
                 text: 'test'
             }])
     });
@@ -48,7 +49,7 @@ describe('regclass', () => {
     it('can cast back table to integer', () => {
         expect(many(`create table test (a text);
                 select 'TeSt'::regclass::integer`))
-            .to.deep.equal([{
+            .toEqual([{
                 integer: (db.public.getTable('test') as _ITable).reg.classId
             }])
     });
@@ -57,9 +58,9 @@ describe('regclass', () => {
     it('can cast existing from int', () => {
         none(`create table test (a text);`);
         const rt = (db.public.getTable('test') as _ITable).reg.classId;
-        assert.isNumber(rt);
+        expect(rt).toBeNumber();
         expect(many(`select ${rt}::regclass as asint, '${rt}'::regclass as asstr`))
-            .to.deep.equal([{
+            .toEqual([{
                 asint: rt,
                 asstr: 'test',
             }])
@@ -67,7 +68,7 @@ describe('regclass', () => {
 
     it('can cast non existing from int', () => {
         expect(many(`select 42424242::regclass`))
-            .to.deep.equal([{
+            .toEqual([{
                 regclass: 42424242,
             }]);;
     })

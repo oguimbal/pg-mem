@@ -409,9 +409,11 @@ export interface IMemoryTable<T> {
     insert(item: Partial<T>): T | null;
 
     /** Find all items matching a specific template */
-    find(template?: Partial<T> | nil, columns?: (keyof T)[]): Iterable<T>;
+    find<keys extends (keyof T)[]>(template?: Partial<T> | nil, columns?: keys): Pick<T, ArrayToUnionOr<keys, keyof T>>[];
 }
 
+
+type ArrayToUnionOr<T, Or> = T extends (infer U)[] ? U : Or;
 
 export interface ColumnDef {
     readonly name: string;

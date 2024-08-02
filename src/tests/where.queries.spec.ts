@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { preventSeqScan } from './test-utils';
@@ -41,9 +41,9 @@ describe('Where', () => {
         preventSeqScan(db);
         none(`insert into data(id) values ('some value')`);
         let got = many(`select * from data where id='SOME ID'`);
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
         got = many(`select * from data where id='some value'`);
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some value' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some value' }]);
 
     });
 
@@ -52,7 +52,7 @@ describe('Where', () => {
         simpleDb();
         none(`insert into data(id) values ('some value')`);
         let got = many('select * from data where 1 = 1');
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some value' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some value' }]);
     });
 
     it('where constant false', () => {
@@ -60,23 +60,23 @@ describe('Where', () => {
         preventSeqScan(db);
         none(`insert into data(id) values ('some value')`);
         let got = many('select * from data where 1 = 0');
-        expect(trimNullish(got)).to.deep.equal([]);
+        expect(trimNullish(got)).toEqual([]);
     });
 
     it('where on other', () => {
         simpleDb();
         none(`insert into data(id, str) values ('some id', 'some str')`);
         let got = many(`select * from data where str='none'`);
-        expect(got).to.deep.equal([]);
+        expect(got).toEqual([]);
         got = many(`select * from data where str='some str'`);
-        expect(trimNullish(got)).to.deep.equal([{ id: 'some id', str: 'some str' }]);
+        expect(trimNullish(got)).toEqual([{ id: 'some id', str: 'some str' }]);
     });
 
     it('call lower in condition', () => {
         simpleDb();
         none(`insert into data(id, str) values ('id1', 'SOME STRING'), ('id2', 'other string'), ('id3', 'Some String')`);
         const result = many(`select id from data where lower(str)='some string'`);
-        expect(result.map(x => x.id)).to.deep.equal(['id1', 'id3']);
+        expect(result.map(x => x.id)).toEqual(['id1', 'id3']);
     });
 
 

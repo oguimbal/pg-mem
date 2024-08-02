@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../../src/db';
 import type { Knex } from "knex";
 
@@ -38,7 +38,7 @@ export async function knexSample() {
 
     // ... and check
     expect(mem.public.many('select * from users'))
-        .to.deep.equal([{
+        .toEqual([{
             id: 1,
             user_name: 'Tim',
         }]);
@@ -49,7 +49,7 @@ export async function knexSample() {
 
     // ... and check
     expect(mem.public.many('select * from accounts'))
-        .to.deep.equal([{
+        .toEqual([{
             id: 1,
             account_name: 'knex',
             user_id: 1,
@@ -62,7 +62,7 @@ export async function knexSample() {
         .select('users.user_name as user', 'accounts.account_name as account')
 
     expect(selectedRows)
-        .to.deep.equal([
+        .toEqual([
             { user: 'Tim', account: 'knex' },
         ])
 

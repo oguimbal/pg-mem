@@ -1,5 +1,5 @@
-import { describe, it, beforeEach } from 'bun:test';
-import { assert, expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import {
     BaseEntity,
     DriverException,
@@ -44,10 +44,10 @@ describe('IRL tests', () => {
         try {
             await orm.em.getRepository(bookSchema).findOneOrFail({ id: 1 });
         } catch (e) {
-            expect(e).not.to.be.instanceOf(DriverException);
-            expect(errorMessage(e)).to.match(/Book not found/);
+            expect(e).not.toBeInstanceOf(DriverException);
+            expect(errorMessage(e)).toMatch(/Book not found/);
             return;
         }
-        assert.fail('Should have thrown');
+        expect('Should have thrown').toBe('');
     });
 });

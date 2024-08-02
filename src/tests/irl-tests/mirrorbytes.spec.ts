@@ -1,4 +1,4 @@
-import { assert, expect } from 'chai';
+
 import {
     BaseEntity,
     PrimaryGeneratedColumn,
@@ -14,6 +14,7 @@ import { typeOrm, TypeormSetup } from '../test-utils';
 import { DataType } from '../../interfaces';
 import { v4 } from 'uuid';
 import { typeormJoinsSample } from '../../../samples/typeorm/joins';
+import { describe, it, expect, beforeEach } from 'bun:test';
 export abstract class External extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     readonly id!: string;
@@ -120,16 +121,16 @@ describe('IRL tests', () => {
             relations: ['forms']
         });
 
-        expect(loaded.length).to.equal(1);
+        expect(loaded.length).toBe(1);
         const buf = loaded[0].password;
-        assert.instanceOf(buf, Buffer);
-        expect(buf.toString('utf-8')).to.equal('pwd');
+        expect(buf).toBeInstanceOf(Buffer);
+        expect(buf.toString('utf-8')).toBe('pwd');
 
 
         // test form query result
         const loaded_form = await Form.find({ user });
-        assert.exists(loaded_form);
-        expect(loaded.length).to.equal(1);
+        expect(loaded_form).toBeTruthy();
+        expect(loaded.length).toBe(1);
     });
 
 
@@ -149,13 +150,13 @@ describe('IRL tests', () => {
                 threw = true;
             }
 
-            assert.isTrue(threw, 'Was expecting to throw...')
+            expect(threw).toBeTrue() //'Was expecting to throw...')
 
             // just wait a bit until the unhandled exception has been logged
             await new Promise(d => setTimeout(d, 1));
 
             // this used to throw :(
-            assert.isFalse(unhandled, 'Unhandled exception raised !');
+            expect(unhandled).toBeFalse() // 'Unhandled exception raised !');
 
         } finally {
             process.off('unhandledRejection', check);

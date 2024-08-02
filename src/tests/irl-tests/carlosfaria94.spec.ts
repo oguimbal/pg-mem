@@ -1,5 +1,5 @@
 import { newDb } from '../..';
-import { expect } from 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
 import type { Knex } from 'knex';
 
 // Objection has vulnerabilities: https://github.com/advisories/GHSA-r659-8xfp-j327
@@ -53,7 +53,7 @@ describe('IRL tests', () => {
         const result = await knex('room_characteristics')
             .select('id', 'is_enabled');
 
-        expect(result).to.deep.equal([{
+        expect(result).toEqual([{
             id: 'roomid',
             // snake cased
             isEnabled: true,

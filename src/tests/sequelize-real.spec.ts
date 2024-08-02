@@ -1,3 +1,4 @@
+import { describe, it, beforeEach, expect } from 'bun:test';
 import { sequelizeSample } from '../../samples/sequelize/sequelize';
 
 describe('Sequelize', () => {

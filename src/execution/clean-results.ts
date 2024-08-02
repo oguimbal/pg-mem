@@ -18,6 +18,9 @@ export function cleanResults(results: any[]): any {
         if (!obj || typeof obj !== 'object') {
             return;
         }
+        for (const sym of Object.getOwnPropertySymbols(obj)) {
+            delete obj[sym];
+        }
         for (const [k, v] of Object.entries(obj)) {
             if (v === JSON_NIL) {
                 obj[k] = null;

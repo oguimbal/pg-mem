@@ -1,8 +1,9 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
 import { IMemoryDb, QueryResult } from '../interfaces';
-import { assert, expect } from 'chai';
+import { expectQueryError } from './test-utils';
+
 
 describe('Inserts', () => {
 
@@ -23,13 +24,13 @@ describe('Inserts', () => {
             insert into test values ('x');`);
 
         // just check that reinserting does not work
-        assert.throws(() => none(`insert into test values ('x');`))
+        expectQueryError(() => none(`insert into test values ('x');`))
 
         // however, this should work
         none(`insert into test values ('x') on conflict do nothing;`);
 
         expect(many('select * from test'))
-            .to.deep.equal([{ id: 'x' }]);
+            .toEqual([{ id: 'x' }]);
     });
 
     it('handles on on conflict do update single set', () => {
@@ -37,26 +38,26 @@ describe('Inserts', () => {
             insert into test values ('x', 'old');`);
 
         // just check that reinserting does not work
-        assert.throws(() => none(`insert into test values ('x');`), /duplicate key value violates unique constraint "test_pkey"/)
+        expectQueryError(() => none(`insert into test values ('x');`), /duplicate key value violates unique constraint "test_pkey"/)
 
         // however, this should work
         none(`insert into test values ('x') on conflict(id) do update set val='new';`);
 
         expect(many('select * from test'))
-            .to.deep.equal([{ id: 'x', val: 'new' }]);
+            .toEqual([{ id: 'x', val: 'new' }]);
     });
 
     it('cannot accept on conflict update without constraint', () => {
         none(`create table test(id text primary key, a text, b text);
             insert into test values ('x', 'oldA', 'oldB');`)
-        assert.throws(() => none(`insert into test values ('x') on conflict do update set a='new'`));
+        expectQueryError(() => none(`insert into test values ('x') on conflict do update set a='new'`));
     });
 
     it('cannot accept on conflict update referencing other values without alias', () => {
         none(`create table test(id text primary key, a text, b text);
             insert into test values ('x', 'oldA', 'oldB');`)
         // ambiguous:
-        assert.throws(() => none(`insert into test values ('x') on conflict do update set b=a`));
+        expectQueryError(() => none(`insert into test values ('x') on conflict do update set b=a`));
     });
 
     it('handles referencing other values in update', () => {
@@ -64,7 +65,7 @@ describe('Inserts', () => {
                         insert into test values ('x', 'oldA', 'oldB');
                         insert into test values ('x') on conflict(id) do update set b=test.a;
                         select * from test;`))
-            .to.deep.equal([{ id: 'x', a: 'oldA', b: 'oldA' }]);
+            .toEqual([{ id: 'x', a: 'oldA', b: 'oldA' }]);
     })
 
 
@@ -73,7 +74,7 @@ describe('Inserts', () => {
                         insert into test values ('x', '{"old": true}');
                         insert into test values ('x') on conflict(id) do update set val='{"new": true}';
                         select * from test;`))
-            .to.deep.equal([{ id: 'x', val: { new: true } }]);
+            .toEqual([{ id: 'x', val: { new: true } }]);
     });
 
     function onConflictWhere() {
@@ -98,7 +99,7 @@ describe('Inserts', () => {
             version = excluded.version,
             stuff = excluded.stuff
           WHERE test.version < excluded.version;`);
-        expect(many('select stuff from test')).to.deep.equal([{
+        expect(many('select stuff from test')).toEqual([{
             stuff: 'other stuff'
         }]);
     });
@@ -127,7 +128,7 @@ describe('Inserts', () => {
         ON CONFLICT ON CONSTRAINT customers_name_key
         DO NOTHING;`);
 
-        expect(many(`select email from customers where name = 'Microsoft'`)).to.deep.equal([{
+        expect(many(`select email from customers where name = 'Microsoft'`)).toEqual([{
             email: 'contact@microsoft.com'
         }]);
     })
@@ -141,7 +142,7 @@ describe('Inserts', () => {
             version = excluded.version,
             stuff = excluded.stuff
           WHERE test.version > excluded.version;`);
-        expect(many('select stuff from test')).to.deep.equal([{
+        expect(many('select stuff from test')).toEqual([{
             stuff: 'some stuff'
         }]);
     });
@@ -149,7 +150,7 @@ describe('Inserts', () => {
     it('must explicitely specify context in  where clause on conflict', () => {
         // https://github.com/oguimbal/pg-mem/issues/168
         onConflictWhere();
-        assert.throws(() => none(`INSERT INTO test (version, name, stuff)
+        expectQueryError(() => none(`INSERT INTO test (version, name, stuff)
           VALUES (2, 'example', 'other stuff')
           ON CONFLICT (name) DO UPDATE SET
             version = excluded.version,
@@ -162,7 +163,7 @@ describe('Inserts', () => {
                         insert into test values ('x', 'oldA', 'oldB');
                         insert into test values ('x', 'newA') on conflict(id) do update set b=EXCLUDED.a;
                         select * from test;`))
-            .to.deep.equal([{ id: 'x', a: 'oldA', b: 'newA' }]);
+            .toEqual([{ id: 'x', a: 'oldA', b: 'newA' }]);
     });
 
     it('handles on on conflict do update multiple sets', () => {
@@ -170,7 +171,7 @@ describe('Inserts', () => {
                 insert into test values ('x', 'oldA', 'oldB');
                 insert into test values ('x') on conflict(id) do update set a='newA', b='newB';
                 select * from test;`))
-            .to.deep.equal([{ id: 'x', a: 'newA', b: 'newB' }]);
+            .toEqual([{ id: 'x', a: 'newA', b: 'newB' }]);
     });
 
 
@@ -180,7 +181,7 @@ describe('Inserts', () => {
                         insert into test as t values ('x')
                                 on conflict(id) do update set a=t.b;
                         select * from test;`))
-            .to.deep.equal([{ id: 'x', a: 'oldB', b: 'oldB' }]);
+            .toEqual([{ id: 'x', a: 'oldB', b: 'oldB' }]);
     });
 
 
@@ -191,7 +192,7 @@ describe('Inserts', () => {
                         insert into test values ('a', 1, 'whatever')
                             on conflict(ka, kb) do update set val='newA';
                         select * from test;`))
-            .to.deep.equal([{ ka: 'a', kb: 1, val: 'newA' }]);
+            .toEqual([{ ka: 'a', kb: 1, val: 'newA' }]);
     });
 
     it('does not returns on conflict do nothing', () => {
@@ -199,7 +200,7 @@ describe('Inserts', () => {
                         insert into test values ('a', 1, 'oldA');
                         insert into test values ('a', 1, 'whatever')
                             on conflict do nothing returning val;`))
-            .to.deep.equal([]);
+            .toEqual([]);
     });
 
 
@@ -209,7 +210,7 @@ describe('Inserts', () => {
                         insert into test values ('ida', 'value') on conflict do nothing;
                         insert into test values ('idb', 'value') on conflict do nothing;
                         select * from test`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 'ida', value: 'value' },
                 { id: 'idb', value: 'value' },
             ]);
@@ -222,7 +223,7 @@ describe('Inserts', () => {
                         insert into test values ('ida', 'value') on conflict do nothing;
                         insert into test values ('idb', 'value') on conflict do nothing;
                         select * from test`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 'ida', value: 'value' },
             ]);
     });
@@ -235,7 +236,7 @@ describe('Inserts', () => {
                         rollback;
                         insert into test(val) values ('x');
                         select id from test`))
-            .to.deep.equal([{ id: 1 }]);
+            .toEqual([{ id: 1 }]);
     });
 
     it('allow on conflict when there is a unique index and a primary key', () => {
@@ -252,7 +253,7 @@ describe('Inserts', () => {
         expect(many(`CREATE TABLE "user" ("id" SERIAL NOT NULL, "name" text NOT NULL, CONSTRAINT "PK_cace4a159ff9f2512dd42373760" PRIMARY KEY ("id"));
                 ALTER TABLE "user" ADD data jsonb;
                 INSERT INTO "user"("name", "data") VALUES ('me', '{"tags":["nice"]}') RETURNING "id";`))
-            .to.deep.equal([{ id: 1 }])
+            .toEqual([{ id: 1 }])
     })
 
     it('can override value when generated by default', () => {
@@ -261,7 +262,7 @@ describe('Inserts', () => {
                 insert into test(id,val) values (51,'val51');
                 insert into test(id,val) overriding system value values (99,'val99');
                 select * from test;`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 1, val: 'val42' },
                 { id: 51, val: 'val51' },
                 { id: 99, val: 'val99' },
@@ -272,7 +273,7 @@ describe('Inserts', () => {
         expect(many(`create table test(id text, n int default 0);
                 insert into test(id) values ('x');
                 select * from test;`))
-            .to.deep.equal([
+            .toEqual([
                 { id: 'x', n: 0 },
             ]);
     });
@@ -281,7 +282,7 @@ describe('Inserts', () => {
         expect(many(`create table test(n int default 0);
             insert into test(n) values (default);
             select * from test;`))
-            .to.deep.equal([
+            .toEqual([
                 { n: 0 },
             ]);
     });
@@ -290,7 +291,7 @@ describe('Inserts', () => {
         expect(many(`create table test(n int default 0);
                 insert into test(n) values (null);
                 select * from test;`))
-            .to.deep.equal([
+            .toEqual([
                 { n: null },
             ]);
     });
@@ -299,8 +300,8 @@ describe('Inserts', () => {
 
     it('cannot override value when generated always', () => {
         none(`create table test(id int  GENERATED ALWAYS AS IDENTITY, val text);`);
-        assert.throws(() => none(`insert into test(id,val) values (42,'val');`), /cannot insert into column "id"/);
-        assert.throws(() => none(`insert into test(id,val) overriding user value values (42,'val');`), /cannot insert into column "id"/);
+        expectQueryError(() => none(`insert into test(id,val) values (42,'val');`), /cannot insert into column "id"/);
+        expectQueryError(() => none(`insert into test(id,val) overriding user value values (42,'val');`), /cannot insert into column "id"/);
     });
 
 
@@ -308,7 +309,7 @@ describe('Inserts', () => {
         expect(many(`create table test(id int  GENERATED ALWAYS AS IDENTITY, val text);
                 insert into test(id,val) overriding system value values (42,'val');
                 select * from test;`))
-            .to.deep.equal([{
+            .toEqual([{
                 id: 42,
                 val: 'val'
             }]);
@@ -320,43 +321,43 @@ describe('Inserts', () => {
             expect(many(`create table test(a varchar(4), b int, c jsonb);
                 insert into test (select * from (values ('a', 42, '[]'::jsonb) ) as t);
                 select * from test;`))
-                .to.deep.equal([{ a: 'a', b: 42, c: [] }])
+                .toEqual([{ a: 'a', b: 42, c: [] }])
         });
 
         it('cannot insert into select when not implicitely convertible', () => {
             none(`create table test(a varchar(4), b int, c jsonb);`);
-            assert.throws(() => none(`insert into test (select * from (values ('a', 42, '[]') ) as t)`), /column "c" is of type jsonb but expression is of type text/);
+            expectQueryError(() => none(`insert into test (select * from (values ('a', 42, '[]') ) as t)`), /column "c" is of type jsonb but expression is of type text/);
         })
 
         it('should allow string for bigint columns on insert', () => {
             none(`create table test(a bigint, b int8);`);
-            expect(many(`insert into test values ('123456','111') returning a`)).to.deep.equal([{ a: 123456 }]);
+            expect(many(`insert into test values ('123456','111') returning a`)).toEqual([{ a: 123456 }]);
         })
 
         it('checks that insert values has enough columns', () => {
             none(`create table test(a varchar(4), b int, c jsonb);`);
-            assert.throws(() => none(`insert into test(a) (select * from (values ('a', 42, '[]') ) as t)`), /INSERT has more expressions than target columns/);
+            expectQueryError(() => none(`insert into test(a) (select * from (values ('a', 42, '[]') ) as t)`), /INSERT has more expressions than target columns/);
         })
 
         it('can pick inserted values', () => {
             expect(many(`create table test(a varchar(4), b int, c jsonb);
                     insert into test(c, b) (select * from (values ('[]'::jsonb, 42) ) as t);
                     select * from test;`))
-                .to.deep.equal([{ a: null, b: 42, c: [] }])
+                .toEqual([{ a: null, b: 42, c: [] }])
         })
 
         it('skips values', () => {
             expect(many(`create table test(a varchar(4), b int, c jsonb);
                     insert into test (select * from (values ('a', 42) ) as t);
                     select * from test;`))
-                .to.deep.equal([{ a: 'a', b: 42, c: null }])
+                .toEqual([{ a: 'a', b: 42, c: null }])
         })
 
         it('preserves null jsonb alues', () => {
             expect(many(`create table test(val jsonb);
                     insert into test (select * from (values ('null'::jsonb) ) as t);
                     select val, val isnull as "isNil", val = 'null'::jsonb as "eqNilJson" from test;`))
-                .to.deep.equal([{ val: null, isNil: false, eqNilJson: true }])
+                .toEqual([{ val: null, isNil: false, eqNilJson: true }])
         })
     });
 });

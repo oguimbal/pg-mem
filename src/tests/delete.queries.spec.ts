@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
+
 import { IMemoryDb } from '../interfaces';
 
 describe('Deletes', () => {
@@ -20,7 +20,7 @@ describe('Deletes', () => {
             insert into test values ('a'), ('b'), ('c');
             delete from test where a <= 'b';
             select * from test;`))
-            .to.deep.equal([{ a: 'c' }])
+            .toEqual([{ a: 'c' }])
     });
 
     it('can delete with conditions within transaction', () => {
@@ -30,7 +30,7 @@ describe('Deletes', () => {
             delete from test where a <= 'b';
             commit;
             select * from test;`))
-            .to.deep.equal([{ a: 'c' }])
+            .toEqual([{ a: 'c' }])
     });
 
 
@@ -42,7 +42,7 @@ describe('Deletes', () => {
             delete from test where a <= 'b';
             rollback;
             select * from test;`))
-            .to.deep.equal([{ a: 'a' }, { a: 'b' }, { a: 'c' }])
+            .toEqual([{ a: 'a' }, { a: 'b' }, { a: 'c' }])
     });
 
     it('delete if in same rollbacked transaction', () => {
@@ -53,7 +53,7 @@ describe('Deletes', () => {
             delete from test where a <= 'b';
             rollback;
             select * from test;`))
-            .to.deep.equal([])
+            .toEqual([])
     });
 
     it('can truncate table', () => {
@@ -61,7 +61,7 @@ describe('Deletes', () => {
         insert into test values ('a'), ('b'), ('c');
         truncate test;
         select * from test;`))
-            .to.deep.equal([])
+            .toEqual([])
     });
 
     it('does not restart identity by default on truncation', () => {
@@ -70,7 +70,7 @@ describe('Deletes', () => {
         truncate test_table;
         insert into test_table(val) values ('d'), ('e');
         select * from test_table;`))
-            .to.deep.equal([{ id: 4, val: 'd' }, { id: 5, val: 'e' }])
+            .toEqual([{ id: 4, val: 'd' }, { id: 5, val: 'e' }])
     });
 
     it('can restart identity on truncation', () => {
@@ -79,7 +79,7 @@ describe('Deletes', () => {
         truncate test_table restart identity;
         insert into test_table(val) values ('d'), ('e');
         select * from test_table;`))
-            .to.deep.equal([{ id: 1, val: 'd' }, { id: 2, val: 'e' }])
+            .toEqual([{ id: 1, val: 'd' }, { id: 2, val: 'e' }])
     });
 
     it('cannot query primary key condition after truncate', () => {
@@ -88,7 +88,7 @@ describe('Deletes', () => {
         insert into test values ('a'), ('b'), ('c');
         truncate test;
         select * from test where a='a';`))
-            .to.deep.equal([])
+            .toEqual([])
     });
 
 
@@ -99,6 +99,6 @@ describe('Deletes', () => {
         insert into test values ('a'), ('b'), ('c');
         truncate test;
         select * from test where a='a';`))
-            .to.deep.equal([])
+            .toEqual([])
     });
 });

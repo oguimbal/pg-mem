@@ -1,8 +1,8 @@
-import { describe, it, beforeEach } from 'bun:test';
-import 'chai';
+import { describe, it, beforeEach, expect } from 'bun:test';
+
 import { newDb } from '../db';
-import { expect, assert } from 'chai';
-import { preventSeqScan } from './test-utils';
+
+import { expectQueryError, preventSeqScan } from './test-utils';
 import moment from 'moment';
 import { MemoryTable } from '../table';
 
@@ -14,11 +14,11 @@ describe('Schema manipulation', () => {
         preventSeqScan(db, 'test');
         db.public.none(`insert into test(id, value) values ('A', 'Value A')`);
         const many = db.public.many(`select value from test where id='A'`);
-        expect(many).to.deep.equal([{ value: 'Value A' }]);
+        expect(many).toEqual([{ value: 'Value A' }]);
 
         // check that cannot be null
         const idCol = (db.public.getTable('test') as MemoryTable).getColumnRef('id');
-        assert.isTrue(idCol.notNull);
+        expect(idCol.notNull).toBeTrue();
 
         //check that can add not null constraint
         db.public.none(`alter table test alter column id set not null`);
@@ -30,7 +30,7 @@ describe('Schema manipulation', () => {
         db.public.none(`create table test(value text)`);
         db.public.none(`insert into test(value) values ('Value A')`);
         const many = db.public.many(`select value from test where value is not null`);
-        expect(many).to.deep.equal([{ value: 'Value A' }]);
+        expect(many).toEqual([{ value: 'Value A' }]);
     });
 
     it('table int', () => {
@@ -38,7 +38,7 @@ describe('Schema manipulation', () => {
         db.public.none(`create table test(value int)`);
         db.public.none(`insert into test(value) values (42.5)`);
         const many = db.public.many(`select value from test where value is not null`);
-        expect(many).to.deep.equal([{ value: 43 }]); // must be rounded (int)
+        expect(many).toEqual([{ value: 43 }]); // must be rounded (int)
     });
 
     it('table integer', () => {
@@ -46,7 +46,7 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value integer);
                         insert into test(value) values (42.5);
                         select value from test where value is not null`);
-        expect(many).to.deep.equal([{ value: 43 }]); // must be rounded (int)
+        expect(many).toEqual([{ value: 43 }]); // must be rounded (int)
     });
 
     it('table varchar', () => {
@@ -54,7 +54,7 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value varchar);
                         insert into test(value) values ('test');
                         select value from test where value is not null;`);
-        expect(many).to.deep.equal([{ value: 'test' }]);
+        expect(many).toEqual([{ value: 'test' }]);
     });
 
     it('table varchar(n)', () => {
@@ -62,13 +62,13 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value varchar(5));
                         insert into test(value) values ('test');
                         select value from test where value is not null`);
-        expect(many).to.deep.equal([{ value: 'test' }]);
+        expect(many).toEqual([{ value: 'test' }]);
     });
 
     it('table varchar(n) with insert too long', () => {
         const db = newDb();
         db.public.none(`create table test(value varchar(5))`);
-        assert.throws(() => {
+        expectQueryError(() => {
             db.public.none(`insert into test(value) values ('12345678')`);
         });
     });
@@ -79,7 +79,7 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value float);
                         insert into test(value) values (42.5);
                         select value from test where value is not null`);
-        expect(many).to.deep.equal([{ value: 42.5 }]);
+        expect(many).toEqual([{ value: 42.5 }]);
     });
 
     it('table decimal', () => {
@@ -87,7 +87,7 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value decimal);;
                                     insert into test(value) values (42.5);
                                     select value from test where value is not null`);
-        expect(many).to.deep.equal([{ value: 42.5 }]);
+        expect(many).toEqual([{ value: 42.5 }]);
     });
 
 
@@ -96,8 +96,8 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value timestamp);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map(x => x.value instanceof Date)).toEqual([true]);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 03:04:05']);
     });
 
     it('table timestamp with time zone', () => {
@@ -105,8 +105,8 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value timestamp with time zone);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map(x => x.value instanceof Date)).toEqual([true]);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 03:04:05']);
     });
 
     it('table timestamp without time zone', () => {
@@ -114,8 +114,8 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value timestamp without time zone);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 03:04:05']);
+        expect(many.map(x => x.value instanceof Date)).toEqual([true]);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 03:04:05']);
     });
 
     it('table date', () => {
@@ -123,8 +123,8 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value date);
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
-        expect(many.map(x => x.value instanceof Date)).to.deep.equal([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).to.deep.equal(['2000-01-02 00:00:00']);
+        expect(many.map(x => x.value instanceof Date)).toEqual([true]);
+        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 00:00:00']);
     });
 
 
@@ -134,10 +134,10 @@ describe('Schema manipulation', () => {
                                     insert into test(value) values ('{2000-01-02 03:04:05,2000-01-02 03:04:05}');
                                     select * from test;`);
         if (!Array.isArray(value)) {
-            assert.fail('should be array');
+            expect('should be array').toBe('');
         }
-        expect(value.map(y => moment.utc(y)?.format('YYYY-MM-DD HH:mm:ss')))
-            .to.deep.equal(['2000-01-02 00:00:00', '2000-01-02 00:00:00']);
+        expect(value.map((y: any) => moment.utc(y)?.format('YYYY-MM-DD HH:mm:ss')))
+            .toEqual(['2000-01-02 00:00:00', '2000-01-02 00:00:00']);
     });
 
     it('table jsonb', () => {
@@ -145,7 +145,7 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value jsonb);
                                     insert into test(value) values ('{"a": 42}');
                                     select * from test;`);
-        expect(many).to.deep.equal([{ value: { a: 42 } }]);
+        expect(many).toEqual([{ value: { a: 42 } }]);
     });
 
 
@@ -154,13 +154,13 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value json);
                                     insert into test(value) values ('{"a": 42}');
                                     select * from test;`);
-        expect(many).to.deep.equal([{ value: { a: 42 } }]);
+        expect(many).toEqual([{ value: { a: 42 } }]);
     });
 
     it('table invalid jsonb', () => {
         const db = newDb();
         db.public.none(`create table test(value jsonb);`);
-        assert.throws(() => db.public.none(`insert into test(value) values ('{"a" 42}');`));
+        expectQueryError(() => db.public.none(`insert into test(value) values ('{"a" 42}');`));
     });
 
     it('bugfix 1', () => {

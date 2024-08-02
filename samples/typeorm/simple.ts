@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, Connection, BaseEntity, LessThan } from "typeorm";
 import { newDb } from '../../src/db';
-import { assert, expect } from 'chai';
+import { expect } from 'bun:test';
+
 
 // Declare an entity
 @Entity()
@@ -25,8 +26,8 @@ export async function typeormSimpleSample() {
     //==== create a memory db
     const db = newDb({
         // 👉 Recommended when using Typeorm .synchronize(), which creates foreign keys but not indices !
-       autoCreateForeignKeyIndices: true,
-   });
+        autoCreateForeignKeyIndices: true,
+    });
 
     //==== create a Typeorm connection
     const got: Connection = await db.adapters.createTypeormConnection({
@@ -64,7 +65,7 @@ export async function typeormSimpleSample() {
         });
 
         expect(youngJohns.map(x => x.lastName))  // outputs 'doe' !
-            .to.deep.equal(['doe']);
+            .toEqual(['doe']);
 
 
         //==== modify entities

@@ -7,7 +7,7 @@ import { buildSelection } from '../../transforms/selection';
 import { MemoryTable } from '../../table';
 import { buildValue } from '../../parser/expression-builder';
 import { withSelection, buildCtx } from '../../parser/context';
-import { colToStr } from '../../utils';
+import { colToStr, deepCloneSimple } from '../../utils';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 
