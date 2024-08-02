@@ -4,6 +4,7 @@ import { MigrationParams } from './migrate/migrate-interfaces';
 
 export type nil = undefined | null;
 
+
 export type Schema = {
     name: string;
     fields: SchemaField[];
@@ -254,7 +255,7 @@ export interface ISchema {
     /**
      * Another way to create tables (equivalent to "create table" queries")
      */
-    declareTable(table: Schema): IMemoryTable;
+    declareTable(table: Schema): IMemoryTable<any>;
     /**
      * Execute a query
      */
@@ -269,13 +270,13 @@ export interface ISchema {
     /**
      * Get a table in this db to inspect it
      */
-    getTable(table: string): IMemoryTable;
-    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
+    getTable(table: string): IMemoryTable<unknown>;
+    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable<unknown> | null;
 
     /**
      * List all tables in this schema
      */
-    listTables(): Iterable<IMemoryTable>
+    listTables(): Iterable<IMemoryTable<unknown>>
 
     /** Register a function */
     registerFunction(fn: FunctionDefinition, orReplace?: boolean): this;
@@ -387,7 +388,7 @@ export interface FieldInfo {
 export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
-export interface IMemoryTable<T = unknown> {
+export interface IMemoryTable<T> {
     readonly name: string;
     readonly primaryIndex: IndexDef | nil;
 

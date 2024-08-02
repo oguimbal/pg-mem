@@ -176,7 +176,8 @@ export interface _IAggregation {
     getAggregation(name: string, call: ExprCall): IValue;
 }
 
-export interface _ISelection<T = any> extends _IAlias {
+export type Row = any;
+export interface _ISelection extends _IAlias {
     readonly debugId?: string;
 
     readonly ownerSchema: _ISchema;
@@ -189,15 +190,15 @@ export interface _ISelection<T = any> extends _IAlias {
     isAggregation(): this is _IAggregation;
     /** Statistical measure of how many items will be returned by this selection */
     entropy(t: _Transaction): number;
-    enumerate(t: _Transaction): Iterable<T>;
+    enumerate(t: _Transaction): Iterable<Row>;
 
     /** Returns true if the given value is present in this */
-    hasItem(value: T, t: _Transaction): boolean;
+    hasItem(value: Row, t: _Transaction): boolean;
 
     stats(t: _Transaction): Stats | null;
 
     /** Gets the index associated with this value (or returns null) */
-    getIndex(...forValue: IValue[]): _IIndex<T> | nil;
+    getIndex(...forValue: IValue[]): _IIndex | nil;
     /** All columns. A bit like .columns`, but including records selections */
     listSelectableIdentities(): Iterable<IValue>;
     filter(where: Expr | nil): _ISelection;
@@ -412,17 +413,17 @@ export interface ChangeOpts {
     overriding?: 'user' | 'system' | nil;
 }
 
-export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
+export interface _ITable extends IMemoryTable<any>, _RelationBase {
     readonly type: 'table';
     readonly hidden: boolean;
     readonly db: _IDb;
-    readonly selection: _ISelection<T>;
+    readonly selection: _ISelection;
     readonly ownerSchema: _ISchema;
-    doInsert(t: _Transaction, toInsert: T, opts?: ChangeOpts): T | null;
+    doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | nil | void;
     setHidden(): this;
     setReadonly(): this;
-    delete(t: _Transaction, toDelete: T): void;
-    update(t: _Transaction, toUpdate: T): T;
+    delete(t: _Transaction, toDelete: Row): void;
+    update(t: _Transaction, toUpdate: Row): Row | never;
     createIndex(t: _Transaction, expressions: CreateIndexDef): _IConstraint | nil;
     createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string | nil): _IConstraint;
     setReadonly(): this;
@@ -438,9 +439,9 @@ export interface _ITable<T = any> extends IMemoryTable, _RelationBase {
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
-    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler<T>): ISubscription;
+    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler): ISubscription;
     /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
-    onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler<T>): ISubscription;
+    onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;
     onDrop(sub: DropHandler): ISubscription;
     onIndex(sub: IndexHandler): ISubscription;
     onTruncate(sub: TruncateHandler): ISubscription;
@@ -465,7 +466,7 @@ export interface _IConstraint {
     uninstall(t: _Transaction): void;
 }
 
-export type ChangeHandler<T = any> = (old: T | null, neu: T | null, t: _Transaction, opts: ChangeOpts) => void;
+export type ChangeHandler = (old: Row | null, neu: Row | null, t: _Transaction, opts: ChangeOpts) => void;
 
 export interface _Column {
     readonly notNull: boolean;
@@ -512,8 +513,8 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     le(a: TRaw, b: TRaw): boolean | null;
     canConvertImplicit(to: _IType<TRaw>): boolean | nil;
     canCast(to: _IType<TRaw>): boolean | nil;
-    cast<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue<T>;
-    convertImplicit<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue<T>;
+    cast<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue;
+    convertImplicit<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue;
     prefer(type: _IType<any>): _IType | nil;
 
     /** Build an array type for this type */
@@ -569,8 +570,8 @@ export interface IValue<TRaw = any> {
 
     setId(newId: string): IValue;
     canCast(to: _IType): boolean;
-    cast<T = any>(to: _IType<T>): IValue<T>;
-    convertImplicit<T = any>(to: _IType<T>): IValue<T>;
+    cast<T = any>(to: _IType<T>): IValue;
+    convertImplicit<T = any>(to: _IType<T>): IValue;
 
     /**
      * Creates a copy of this column that can
@@ -580,7 +581,7 @@ export interface IValue<TRaw = any> {
     map(unwrap: (val: TRaw) => TRaw): IValue<TRaw>;
     map<TNew>(unwrap: (val: TRaw) => TNew, newType: _IType<TNew>): IValue<TNew>;
     setOrigin(origin: _ISelection): IValue<TRaw>;
-    clone(): IValue<any>;
+    clone(): IValue;
 
     explain(e: _Explainer): _ExprExplanation;
 }
@@ -591,15 +592,15 @@ export interface IndexExpression {
     readonly type: _IType;
 }
 
-export interface _INamedIndex<T = any> extends _IIndex<T>, _RelationBase {
+export interface _INamedIndex extends _IIndex, _RelationBase {
     readonly type: 'index';
-    readonly onTable: _ITable<T>;
+    readonly onTable: _ITable;
     drop(t: _Transaction): void;
 }
 
 
 
-export interface _IIndex<T = any> {
+export interface _IIndex {
     readonly unique?: boolean;
     readonly expressions: IndexExpression[];
 
@@ -610,9 +611,9 @@ export interface _IIndex<T = any> {
     stats(t: _Transaction, key?: IndexKey): Stats | null;
 
     /** Get values equating the given key */
-    eqFirst(rawKey: IndexKey, t: _Transaction): T | null;
+    eqFirst(rawKey: IndexKey, t: _Transaction): Row | null;
 
-    enumerate(op: IndexOp): Iterable<T>;
+    enumerate(op: IndexOp): Iterable<Row>;
 
     explain(e: _Explainer): _IndexExplanation;
 
@@ -635,7 +636,7 @@ export type IndexOp = {
     t: _Transaction;
 }
 
-export interface TableRecordDef<T> {
+export interface TableRecordDef {
     readonly?: boolean;
     hidden?: boolean;
     name?: string;
@@ -643,12 +644,12 @@ export interface TableRecordDef<T> {
 
     serials: ImMap<string, number>;
     it: number;
-    indexByHash: ImMap<string, _IIndex<T>>;
-    indexByName: ImMap<string, _IIndex<T>>;
-    columnsByName: ImMap<string, CR<T>>;
+    indexByHash: ImMap<string, _IIndex>;
+    indexByName: ImMap<string, _IIndex>;
+    columnsByName: ImMap<string, CR>;
 }
 
-export interface TableColumnRecordDef<T> {
+export interface TableColumnRecordDef {
     default: IValue;
     notNull: boolean;
     usedInIndexes: ImSet<_IIndex>;
@@ -656,9 +657,9 @@ export interface TableColumnRecordDef<T> {
     name: string;
 }
 
-export type TR<T> = Record<TableRecordDef<T>>;
-export type CR<T> = Record<TableColumnRecordDef<T>>;
-export const EmtpyTable = Record<TableRecordDef<any>>({
+export type TR = Record<TableRecordDef>;
+export type CR = Record<TableColumnRecordDef>;
+export const EmtpyTable = Record<TableRecordDef>({
     serials: ImMap(),
     it: 0,
     indexByHash: ImMap(),
@@ -666,7 +667,7 @@ export const EmtpyTable = Record<TableRecordDef<any>>({
     columnsByName: ImMap(),
 });
 
-export const NewColumn = Record<TableColumnRecordDef<any>>({
+export const NewColumn = Record<TableColumnRecordDef>({
     default: null as any,
     notNull: false,
     usedInIndexes: ImSet(),

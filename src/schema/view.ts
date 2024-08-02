@@ -1,7 +1,7 @@
 import { QueryError, Reg, _Explainer, _ISchema, _ISelection, _IView, _Transaction } from '../interfaces-private';
 import { DataSourceBase, FilterBase } from '../transforms/transform-base';
 
-export class View extends FilterBase<any> implements _IView {
+export class View extends FilterBase implements _IView {
     get type(): 'view' {
         return 'view';
     }

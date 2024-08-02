@@ -1,4 +1,4 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private';
+import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, nil, Row } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { LimitStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
@@ -12,7 +12,7 @@ export function buildLimit(on: _ISelection, limit: LimitStatement) {
     });
 }
 
-class LimitFilter<T = any> extends FilterBase<T> {
+class LimitFilter extends FilterBase {
 
     get index() {
         return null;
@@ -22,11 +22,11 @@ class LimitFilter<T = any> extends FilterBase<T> {
         return this.selection.entropy(t);
     }
 
-    hasItem(raw: T, t: _Transaction): boolean {
+    hasItem(raw: Row, t: _Transaction): boolean {
         return this.base.hasItem(raw, t);
     }
 
-    constructor(private selection: _ISelection<T>, private take: IValue | nil, private skip: IValue | nil) {
+    constructor(private selection: _ISelection, private take: IValue | nil, private skip: IValue | nil) {
         super(selection);
     }
 
@@ -35,7 +35,7 @@ class LimitFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         let skip = this.skip?.get(null, t) ?? 0;
         let take = this.take?.get(null, t) ?? Number.MAX_SAFE_INTEGER;
         if (take <= 0) {

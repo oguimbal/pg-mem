@@ -10,7 +10,7 @@ let cnt = 0;
 export class ValuesTable extends ReadOnlyTable {
     private symbol = Symbol();
     _schema!: Schema;
-    private assignments!: (IValue<any> | "default")[][];
+    private assignments!: (IValue | "default")[][];
 
     entropy(t: _Transaction): number {
         return 0;

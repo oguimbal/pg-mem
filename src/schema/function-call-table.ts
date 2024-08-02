@@ -5,9 +5,9 @@ import { DataSourceBase } from '../transforms/transform-base';
 import { columnEvaluator } from '../transforms/selection';
 import { colByName, fromEntries } from '../utils';
 
-export class FunctionCallTable extends DataSourceBase<any> {
-    readonly columns: readonly IValue<any>[];
-    private readonly colsByName: Map<string, IValue<any>>;
+export class FunctionCallTable extends DataSourceBase {
+    readonly columns: readonly IValue[];
+    private readonly colsByName: Map<string, IValue>;
     private symbol = Symbol();
 
     get isExecutionWithNoResult(): boolean {
@@ -36,15 +36,15 @@ export class FunctionCallTable extends DataSourceBase<any> {
         return !!(value as any)[this.symbol];
     }
 
-    getColumn(column: string, nullIfNotFound?: boolean | undefined): IValue<any> {
+    getColumn(column: string, nullIfNotFound?: boolean | undefined): IValue {
         return colByName(this.colsByName, column, nullIfNotFound)!;
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | null | undefined {
+    getIndex(forValue: IValue): _IIndex | null | undefined {
         return null;
     }
 
-    isOriginOf(value: IValue<any>): boolean {
+    isOriginOf(value: IValue): boolean {
         return value.origin === this;
     }
 

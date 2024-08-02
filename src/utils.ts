@@ -147,8 +147,8 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
 
     // handle dates
     if (a instanceof Date || b instanceof Date || moment.isMoment(a) || moment.isMoment(b)) {
-        const am = moment(a);
-        const bm = moment(b);
+        const am = moment(a as any);
+        const bm = moment(b as any);
         if (am.isValid() !== bm.isValid()) {
             return am.isValid()
                 ? -1
@@ -163,8 +163,8 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
 
     // handle durations
     if (moment.isDuration(a) || moment.isDuration(b)) {
-        const da = moment.duration(a);
-        const db = moment.duration(b);
+        const da = moment.duration(a as any);
+        const db = moment.duration(b as any);
         if (da.isValid() !== db.isValid()) {
             return da.isValid()
                 ? -1
@@ -511,7 +511,7 @@ export function findTemplate<T>(this: void, selection: _ISelection, t: _Transact
             expr: { type: 'ref', name: x as string },
         })));
     }
-    return ret.enumerate(t);
+    return ret.enumerate(t) as any;
 }
 
 

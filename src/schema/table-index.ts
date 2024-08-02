@@ -2,7 +2,7 @@ import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplana
 import { PermissionDeniedError, NotSupported } from '../interfaces';
 
 export class TableIndex implements _IIndex {
-    readonly expressions: IValue<any>[];
+    readonly expressions: IValue[];
 
     get hash(): string {
         throw new Error('not implemented');

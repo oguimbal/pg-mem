@@ -17,7 +17,7 @@ import { BetweenFilter } from './between-filter';
 import { QueryError } from '../interfaces';
 import { withSelection } from '../parser/context';
 
-export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, parentName: string): _ISelection<T> {
+export function buildFilter(this: void, on: _ISelection, filter: Expr, parentName: string): _ISelection {
     return withSelection(on, () => {
         const where = buildValue(filter);
         if (!where.type.canConvertImplicit(Types.bool)) {
@@ -27,7 +27,7 @@ export function buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, par
     });
 }
 
-function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, built: IValue): _ISelection<T> | null {
+function _buildFilter(this: void, on: _ISelection, filter: Expr, built: IValue): _ISelection | null {
     // check if there is a direct index
     if (built.index) {
         if (built.index.expressions.length !== 1) {
@@ -62,7 +62,7 @@ function _buildFilter<T>(this: void, on: _ISelection<T>, filter: Expr, built: IV
     }
 }
 
-function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary): _ISelection<T> | null {
+function buildUnaryFilter(this: void, on: _ISelection, filter: ExprUnary): _ISelection | null {
     const { operand, op } = filter;
     switch (op) {
         case 'IS NULL':
@@ -77,7 +77,7 @@ function buildUnaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprUnary):
     return null;
 }
 
-function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null {
+function buildBinaryFilter(this: void, on: _ISelection, filter: ExprBinary): _ISelection | null {
     const { left, right, op } = filter;
     switch (op) {
         case '=':
@@ -159,7 +159,7 @@ function buildBinaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprBinary
     return null;
 }
 
-function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary): _ISelection<T> | null {
+function buildComparison(this: void, on: _ISelection, filter: ExprBinary): _ISelection | null {
     const { op, left, right } = filter;
     let leftValue = buildValue(left);
     let rightValue = buildValue(right);
@@ -213,7 +213,7 @@ function buildComparison<T>(this: void, on: _ISelection<T>, filter: ExprBinary):
     return null;
 }
 
-function buildTernaryFilter<T>(this: void, on: _ISelection<T>, filter: ExprTernary): _ISelection<T> | null {
+function buildTernaryFilter(this: void, on: _ISelection, filter: ExprTernary): _ISelection | null {
     switch (filter.op) {
         case 'BETWEEN':
         case 'NOT BETWEEN': {

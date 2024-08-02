@@ -6,7 +6,7 @@
         "sourceMap": true,
         "esModuleInterop": true,
         "experimentalDecorators": true,
-        "types": ["node"],
+        "types": ["node", "bun-types"],
         "lib": ["es2022"],
         "skipLibCheck": true,
         "moduleResolution": "node",
@@ -15,7 +15,7 @@
         "declaration": true,
         "declarationMap": true,
         "declarationDir": "lib-types",
-        "outDir": "lib-types"
+        "outDir": "lib-types",
     },
     "include": [
         "src/**/*.ts"

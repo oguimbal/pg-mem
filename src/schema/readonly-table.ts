@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler, Row } from '../interfaces-private';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription, ColumnDef } from '../interfaces';
@@ -6,7 +6,7 @@ import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
 
-export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implements _ITable, _ISelection {
+export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _ISelection {
 
 
     get isExecutionWithNoResult(): boolean {
@@ -22,8 +22,8 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
     abstract entropy(t: _Transaction): number;
-    abstract enumerate(t: _Transaction): Iterable<T>;
-    abstract hasItem(value: T, t: _Transaction): boolean;
+    abstract enumerate(t: _Transaction): Iterable<Row>;
+    abstract hasItem(value: Row, t: _Transaction): boolean;
     abstract readonly _schema: Schema;
 
     reg!: Reg;
@@ -68,14 +68,14 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         }
     }
 
-    get columns(): ReadonlyArray<IValue<any>> {
+    get columns(): ReadonlyArray<IValue> {
         this.build();
         return this._columns!;
     }
 
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
         this.build();
         if (typeof column !== 'string'
             && column.table) {
@@ -103,7 +103,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     rename(to: string): this {
         throw new PermissionDeniedError(this.name);
     }
-    update(t: _Transaction, toUpdate: any) {
+    update(t: _Transaction, toUpdate: any): never {
         throw new PermissionDeniedError(this.name);
     }
     addColumn(column: SchemaField | CreateColumnDef): _Column {
@@ -124,7 +124,7 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     doInsert(toInsert: any): void {
         throw new PermissionDeniedError(this.name);
     }
-    delete(t: _Transaction, toDelete: T): void {
+    delete(t: _Transaction, toDelete: Row): void {
         throw new PermissionDeniedError(this.name);
     }
     truncate(t: _Transaction): void {
@@ -148,18 +148,18 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
         return this;
     }
 
-    getIndex(...forValue: IValue[]): _IIndex<any> | nil {
+    getIndex(...forValue: IValue[]): _IIndex | nil {
         return null;
     }
 
     on(): any {
         throw new NotSupported('subscribing information schema');
     }
-    onBeforeChange(columns: string[], check: ChangeHandler<T>) {
+    onBeforeChange(columns: string[], check: ChangeHandler) {
         // nop
         return { unsubscribe() { } }
     }
-    onCheckChange(columns: string[], check: ChangeHandler<T>) {
+    onCheckChange(columns: string[], check: ChangeHandler) {
         // nop
         return { unsubscribe() { } }
     }
@@ -177,12 +177,12 @@ export abstract class ReadOnlyTable<T = any> extends DataSourceBase<T> implement
     }
 
 
-    find(template?: T, columns?: (keyof T)[]): Iterable<T> {
+    find(template?: Row, columns?: (keyof Row)[]): Iterable<Row> {
         return findTemplate(this.selection, this.db.data, template, columns);
     }
 
 
-    make(table: _ITable, i: number, t: IValue<any>): any {
+    make(table: _ITable, i: number, t: IValue): any {
         throw new Error('not implemented');
     }
 

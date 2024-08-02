@@ -1,7 +1,7 @@
 import { DataSourceBase } from '../../transforms/transform-base';
 import { ArrayFilter } from '../../transforms/array-filter';
 import { cleanResults } from '../clean-results';
-import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement, QueryError, _Column } from '../../interfaces-private';
+import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement, QueryError, _Column, _IAggregation, Row } from '../../interfaces-private';
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'pgsql-ast-parser';
 import { buildSelection } from '../../transforms/selection';
 import { MemoryTable } from '../../table';
@@ -12,11 +12,11 @@ import { colToStr } from '../../utils';
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 
 
-export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
+export abstract class MutationDataSourceBase extends DataSourceBase {
     public static readonly affectedRows = Symbol('affectedRows');
 
     /** Perform the mutation, and returns the affected elements */
-    protected abstract performMutation(t: _Transaction): T[];
+    protected abstract performMutation(t: _Transaction): Row[];
 
     private returningRows?: ArrayFilter;
     private returning?: _ISelection;
@@ -26,7 +26,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return !this.returning;
     }
 
-    isAggregation() {
+    isAggregation(): this is _IAggregation {
         return false;
     }
 
@@ -55,7 +55,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         // check if this mutation has already been executed in the statement being executed
         // and get the result from cache to avoid re-excuting it
         // see unit test "can use delete result multiple times in select"
-        let affected = t.getTransient<T[]>(this.mutationResult);
+        let affected = t.getTransient<any[]>(this.mutationResult);
         if (!affected) {
             // execute mutation if nescessary
             affected = this.performMutation(t);
@@ -92,7 +92,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return 0;
     }
 
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean | undefined): IValue<any> {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean | undefined): IValue {
         if (!this.returning) {
             throw new Error(`Cannot get column "${colToStr(column)}" from a mutation that has no returning statement`);
         }
@@ -103,7 +103,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         throw new Error('To fix: Joins cannot call hasItem on a mutation');
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | null | undefined {
+    getIndex(forValue: IValue): _IIndex | null | undefined {
         return null;
     }
 
@@ -111,7 +111,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         throw new Error('not implemented');
     }
 
-    isOriginOf(a: IValue<any>): boolean {
+    isOriginOf(a: IValue): boolean {
         return !!this.returning && a.origin === this.returning;
     }
 

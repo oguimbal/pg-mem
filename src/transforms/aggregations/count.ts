@@ -28,7 +28,7 @@ class CountStar implements AggregationComputer<number> {
         return Types.bigint;
     }
 
-    computeFromIndex(key: IndexKey, index: _IIndex<any>, t: _Transaction) {
+    computeFromIndex(key: IndexKey, index: _IIndex, t: _Transaction) {
         const stats = index.stats(t, key);
         return stats?.count;
     }

@@ -1,4 +1,4 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IAggregation } from '../interfaces-private';
+import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IAggregation, Row } from '../interfaces-private';
 import { FilterBase } from './transform-base';
 import { OrderByStatement, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
@@ -9,9 +9,9 @@ export function buildOrderBy(on: _ISelection, order: OrderByStatement[]) {
     return new OrderBy(on, order);
 }
 
-class OrderBy<T> extends FilterBase<any> implements _IAggregation {
+class OrderBy extends FilterBase implements _IAggregation {
     order: {
-        by: IValue<any>;
+        by: IValue;
         order: 'ASC' | 'DESC';
         nullsLast: boolean;
     }[];
@@ -20,7 +20,7 @@ class OrderBy<T> extends FilterBase<any> implements _IAggregation {
         return null;
     }
 
-    isAggregation() {
+    isAggregation(): this is _IAggregation {
         return this.selection.isAggregation();
     }
 
@@ -28,7 +28,7 @@ class OrderBy<T> extends FilterBase<any> implements _IAggregation {
         return this.asAggreg.getAggregation(name, call);
     }
 
-    checkIfIsKey(got: IValue<any>): IValue<any> {
+    checkIfIsKey(got: IValue): IValue {
         return this.asAggreg.checkIfIsKey(got);
     }
 
@@ -46,11 +46,11 @@ class OrderBy<T> extends FilterBase<any> implements _IAggregation {
         return ret * Math.log(ret + 1);
     }
 
-    hasItem(raw: T, t: _Transaction): boolean {
+    hasItem(raw: Row, t: _Transaction): boolean {
         return this.base.hasItem(raw, t);
     }
 
-    constructor(private selection: _ISelection<T>, order: OrderByStatement[]) {
+    constructor(private selection: _ISelection, order: OrderByStatement[]) {
         super(selection);
         this.order = withSelection(selection,
             () => order.map(x => {
@@ -69,12 +69,12 @@ class OrderBy<T> extends FilterBase<any> implements _IAggregation {
     }
 
 
-    getIndex(...forValue: IValue<any>[]) {
+    getIndex(...forValue: IValue[]) {
         // same index as underlying selection, given that ordering does not modify indices.
         return this.base.getIndex(...forValue);
     }
 
-    enumerate(t: _Transaction): Iterable<T> {
+    enumerate(t: _Transaction): Iterable<Row> {
         const all = [...this.base.enumerate(t)];
         all.sort((a, b) => {
             for (const o of this.order) {

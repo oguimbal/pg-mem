@@ -573,7 +573,7 @@ function buildMember(op: ExprMember): IValue {
                 if (!Array.isArray(value)) {
                     return null;
                 }
-                const i = op.member < 0
+                const i = (op.member as number) < 0
                     ? value.length + (op.member as number)
                     : op.member as number;
                 return conv(value[i]);
