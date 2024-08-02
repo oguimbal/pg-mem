@@ -1,13 +1,11 @@
 import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions } from '../interfaces';
 import lru from 'lru-cache';
-import { compareVersions } from '../utils';
+import { compareVersions, doRequire } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
 import { _IType } from '../interfaces-private';
 import { TYPE_SYMBOL } from '../execution/select';
 import { ArrayType } from '../datatypes';
 import { CustomEnumType } from '../datatypes/t-custom-enum';
-declare var __non_webpack_require__: any;
-
 
 // setImmediate does not exist in Deno
 declare var setImmediate: any;
@@ -190,7 +188,7 @@ export class Adapters implements LibAdapters {
             throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
         }
 
-        const { getConnectionManager } = __non_webpack_require__('typeorm')
+        const { getConnectionManager } = doRequire('typeorm')
         const created = getConnectionManager().create(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
         return created.connect();
@@ -203,7 +201,7 @@ export class Adapters implements LibAdapters {
             throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
         }
 
-        const nr = __non_webpack_require__('typeorm');
+        const nr = doRequire('typeorm');
         const { DataSource } = nr;
         const created = new DataSource(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
@@ -211,11 +209,11 @@ export class Adapters implements LibAdapters {
     }
 
     createSlonik(opts?: SlonikAdapterOptions) {
-        const slonik = __non_webpack_require__('slonik');
+        const slonik = doRequire('slonik');
         if (typeof slonik.createMockPool !== 'function') {
             // see https://github.com/gajus/slonik/blob/main/packages/slonik/src/factories/createPool.ts
             // and @slonik/pg-driver https://github.com/gajus/slonik/blob/main/packages/pg-driver/src/factories/createPgDriverFactory.ts
-            const { createDriverFactory } = __non_webpack_require__('@slonik/driver');
+            const { createDriverFactory } = doRequire('@slonik/driver');
             const createResultParserInterceptor = () => {
                 return {
                     transformRow: async (executionContext: any, actualQuery: any, row: any) => {
@@ -292,7 +290,7 @@ export class Adapters implements LibAdapters {
     createPgPromise(queryLatency?: number) {
         // https://vitaly-t.github.io/pg-promise/module-pg-promise.html
         // https://github.com/vitaly-t/pg-promise/issues/743#issuecomment-756110347
-        const pgp = __non_webpack_require__('pg-promise')();
+        const pgp = doRequire('pg-promise')();
         pgp.pg = this.createPg(queryLatency);
         const db = pgp('pg-mem');
         if (compareVersions('10.8.7', db.$config.version) < 0) {
@@ -380,7 +378,7 @@ export class Adapters implements LibAdapters {
     }
 
     createKnex(queryLatency?: number, knexConfig?: object): any {
-        const knex = __non_webpack_require__('knex')({
+        const knex = doRequire('knex')({
             connection: {},
             ...knexConfig,
             client: 'pg',
@@ -391,7 +389,7 @@ export class Adapters implements LibAdapters {
     }
 
     createKysely(queryLatency?: number, kyselyConfig?: object): any {
-        const { Kysely, PostgresDialect } = __non_webpack_require__('kysely');
+        const { Kysely, PostgresDialect } = doRequire('kysely');
         const pg = this.createPg(queryLatency);
         return new Kysely({
             ...kyselyConfig,
@@ -403,8 +401,8 @@ export class Adapters implements LibAdapters {
 
     async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
 
-        const { MikroORM } = __non_webpack_require__('@mikro-orm/core');
-        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = __non_webpack_require__('@mikro-orm/postgresql');
+        const { MikroORM } = doRequire('@mikro-orm/core');
+        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = doRequire('@mikro-orm/postgresql');
         const that = this;
 
         // see https://github.com/mikro-orm/mikro-orm/blob/aa71065d0727920db7da9bfdecdb33e6b8165cb5/packages/postgresql/src/PostgreSqlConnection.ts#L5

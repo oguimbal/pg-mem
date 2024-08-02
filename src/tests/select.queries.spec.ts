@@ -10,6 +10,7 @@ import { parseSql } from '../parser/parse-cache';
 import { withSelection } from '../parser/context';
 import { DataType, QueryResult } from '../interfaces';
 import { expectQueryError } from './test-utils';
+import { cleanResults } from '../execution/clean-results';
 
 describe('Selections', () => {
 
@@ -361,7 +362,7 @@ describe('Selections', () => {
 
     it('reports names and types of output columns in QueryResult.fields', () => {
         stuff();
-        expect(query(`
+        expect(cleanResults(query(`
         SELECT
             *, lower(txtx) AS v, valx + 1, valx + 2
         FROM (
@@ -371,7 +372,7 @@ describe('Selections', () => {
             FROM test
             WHERE val >= 1
         ) x
-        WHERE lower(x.txtx) = 'a'`)).toEqual({
+        WHERE lower(x.txtx) = 'a'`))).toEqual({
             command: 'SELECT',
             rows: [
                 { txtx: 'A', valx: 999, v: 'a', column: 1000, column1: 1001 },

@@ -162,7 +162,7 @@ describe('Simple queries', () => {
     });
 
 
-    it.only('insert returning', () => {
+    it('insert returning', () => {
         expect(many(`create table test(id serial primary key, val text, nl text);
                                 insert into test(val) values ('a'), ('b') returning id, val;`))
             .toEqual([{ id: 1, val: 'a' }, { id: 2, val: 'b' }]);

@@ -1,6 +1,5 @@
 import { DataSourceBase } from '../../transforms/transform-base';
 import { ArrayFilter } from '../../transforms/array-filter';
-import { cleanResults } from '../clean-results';
 import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement, QueryError, _Column, _IAggregation, Row } from '../../interfaces-private';
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'pgsql-ast-parser';
 import { buildSelection } from '../../transforms/selection';
@@ -70,7 +69,7 @@ export abstract class MutationDataSourceBase extends DataSourceBase {
 
     *enumerate(t: _Transaction): Iterable<any> {
 
-        const affected = this._doExecuteOnce(t);
+        let affected = this._doExecuteOnce(t);
 
         if (!this.returning) {
             return;
@@ -78,7 +77,6 @@ export abstract class MutationDataSourceBase extends DataSourceBase {
 
         // handle "returning" statement
         try {
-            cleanResults(affected);
             this.returningRows!.rows = affected;
             yield* this.returning.enumerate(t);
         } finally {
