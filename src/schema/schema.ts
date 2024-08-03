@@ -87,7 +87,7 @@ export class DbSchema implements _ISchema, ISchema {
             }
 
             const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
-            const ret = new PreparedQuery(this, parsed, singleSql);
+            const ret = new PreparedQuery(this, parsed, 0, singleSql);
             ret.executed = () => {
                 this.db.raiseGlobal('query', query);
             };
