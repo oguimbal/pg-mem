@@ -4,7 +4,6 @@
   "description": "A memory version of postgres",
   "main": "index.js",
   "scripts": {
-    "start": "NODE_OPTIONS=--openssl-legacy-provider webpack --config ./tools/webpack.config.js",
     "build": "rimraf lib && NODE_OPTIONS=--openssl-legacy-provider webpack --config ./tools/webpack.config.js --prod && bun build-types",
     "build-types": "rimraf lib/types && tsc --project tsconfig.json && copyfiles -u 2 \"lib-types/src/**/*.ts\" lib/types && rimraf lib/types/tests && rimraf lib-types && echo \"export * from './types';\" >> lib/index.d.ts",
     "release": "git diff --exit-code && bun test && bun build && bun build:deno && deno run tools/deno-test.ts && cd lib && npm publish && cd .. &&  bun release-deno",

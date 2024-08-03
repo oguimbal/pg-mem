@@ -43,7 +43,7 @@ describe('Prepared statements', () => {
         db.public.prepare(`select * from users`);
     });
 
-    it.only('can prepare with arguments', () => {
+    it('can prepare with arguments', () => {
         db.public.prepare(`select * from users where name = $1`);
     });
 
