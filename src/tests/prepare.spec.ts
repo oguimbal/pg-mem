@@ -16,7 +16,6 @@ describe('Prepared statements', () => {
             insert into users (name) values ('Alice');
             insert into users (name) values ('Bob');
             `);
-        debugger;
         const tag = db.adapters.createPostgresJsTag();
         const NOK = Symbol();
         sql = (strings: TemplateStringsArray, ...values: any[]) => {
@@ -41,8 +40,20 @@ describe('Prepared statements', () => {
     })
 
     it('can prepare without arguments', () => {
+        db.public.prepare(`select * from users`);
+    });
 
-        const prepared = db.public.prepare(`select * from users`);
+    it.only('can prepare with arguments', () => {
+        db.public.prepare(`select * from users where name = $1`);
+    });
+
+
+    it('can execute with arguments', () => {
+        const { rows } = db.public
+            .prepare(`select * from users where name = $1`)
+            .bind('Alice')
+            .executeAll();
+        expect(rows).toEqual([{ id: 1, name: 'Alice' }]);
     });
 
     it('invalid sql', () => {
@@ -51,11 +62,11 @@ describe('Prepared statements', () => {
 
 
     it('valid sql, but non existing', () => {
-        expectQueryError(() => db.public.prepare(`select * from indexistant`), /relation "indexistant" does not exist/);
+        expectQueryError(() => db.public.prepare(`select * from indexistant`).bind(), /relation "indexistant" does not exist/);
     });
 
-    it.only('does not have any effect before execution', () => {
-        debugger;
+    it('does not have any effect before execution', () => {
+        expect(db.public.many(`select * from users`)).toHaveLength(2);
         const prepared = db.public.prepare(`truncate users`);
         expect(db.public.many(`select * from users`)).toHaveLength(2);
         const bound = prepared.bind();
