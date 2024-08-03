@@ -53,7 +53,7 @@ export class PreparedQuery implements IPreparedQuery {
             }
 
             // Execute statement
-            const r = compiled.execute(t);
+            const r = statementExec.executeStatement(t);
             results.push(r);
             t = r.state;
         }
