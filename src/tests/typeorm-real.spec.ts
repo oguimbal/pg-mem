@@ -4,7 +4,7 @@ import { describe, it, beforeEach, expect } from 'bun:test';
 import { typeormSimpleSample } from '../../samples/typeorm/simple';
 import { Photo, typeormJoinsSample, User } from '../../samples/typeorm/joins';
 import { _IDb } from '../interfaces-private';
-import { Entity, BaseEntity, PrimaryColumn, PrimaryGeneratedColumn, Column, Connection } from 'typeorm';
+import { Entity, BaseEntity, PrimaryGeneratedColumn, Column, } from 'typeorm';
 import { typeOrm } from './test-utils';
 
 describe('Typeorm - real manips', () => {

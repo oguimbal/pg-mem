@@ -11,7 +11,7 @@ export class RecordType extends TypeBase<any> {
     }
 
     constructor(readonly columns: readonly RecordCol[]) {
-        super();
+        super(1083);
     }
 
     get primary(): DataType {

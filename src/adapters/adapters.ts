@@ -423,7 +423,7 @@ export class Adapters implements LibAdapters {
     createPostgresJsTag(queryLatency?: number): any {
         const pg = doRequire('postgres').default;
         const sql = pg({
-            socket: async () => {
+            socket: () => {
                 return socketAdapter()(this.db.public, queryLatency);
             },
         });

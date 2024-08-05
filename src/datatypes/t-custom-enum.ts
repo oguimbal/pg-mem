@@ -1,9 +1,9 @@
 import { Evaluator } from '../evaluator';
 import { TypeBase } from './datatype-base';
 import { DataType, nil, QueryError } from '../interfaces';
-import {_IRelation, _ISchema, _IType, _Transaction} from '../interfaces-private';
+import { _IRelation, _ISchema, _IType, _Transaction } from '../interfaces-private';
 
-export function asEnum(o: _IRelation | null): CustomEnumType  {
+export function asEnum(o: _IRelation | null): CustomEnumType {
     if (o && o.type === 'type' && o instanceof CustomEnumType) {
         return o;
     }
@@ -22,7 +22,7 @@ export class CustomEnumType extends TypeBase<string> {
     constructor(readonly schema: _ISchema
         , private readonly _name: string
         , readonly values: string[]) {
-        super();
+        super(null);
     }
 
     install() {

@@ -12,32 +12,37 @@ describe('Prepared statements', () => {
     beforeEach(() => {
         db = newDb();
         db.public.query(`
-            create table users (id serial primary key, name text);
-            insert into users (name) values ('Alice');
-            insert into users (name) values ('Bob');
+            create table users (id serial primary key, name text, is_ok boolean, data jsonb);
+            insert into users (name, is_ok, data) values
+                ('Alice', true, '{"gender":"female"}'),
+                ('Bob', false, null),
+                ('Anon', null, null);
             `);
         const tag = db.adapters.createPostgresJsTag();
         const NOK = Symbol();
         sql = (strings: TemplateStringsArray, ...values: any[]) => {
             return Promise.race([
-                delay(50).then(() => NOK),
+                delay(500).then(() => NOK),
                 tag(strings, ...values),
             ]).then((res) => {
                 if (res === NOK) {
                     expect('Adapter has timed out').toBe('');
                 }
-                return res;
+                // just remove other properties added by postgres.js:
+                // count,  state,  command,  columns, statement
+                return [...res];
             });
         }
     })
 
-    it.skip('query though postgres.js', async () => {
+    it('query though postgres.js', async () => {
         const results = await sql`select * from users`;
         expect(results).toEqual([
-            { id: 1, name: 'Alice' },
-            { id: 2, name: 'Bob' }
+            { id: 1, name: 'Alice', is_ok: true, data: { gender: 'female' } },
+            { id: 2, name: 'Bob', is_ok: false, data: null },
+            { id: 3, name: 'Anon', is_ok: null, data: null },
         ]);
-    })
+    });
 
     it('can prepare without arguments', () => {
         db.public.prepare(`select * from users`);
@@ -50,7 +55,7 @@ describe('Prepared statements', () => {
 
     it('can execute with arguments', () => {
         const { rows } = db.public
-            .prepare(`select * from users where name = $1`)
+            .prepare(`select id,name from users where name = $1`)
             .bind('Alice')
             .executeAll();
         expect(rows).toEqual([{ id: 1, name: 'Alice' }]);
@@ -66,11 +71,11 @@ describe('Prepared statements', () => {
     });
 
     it('does not have any effect before execution', () => {
-        expect(db.public.many(`select * from users`)).toHaveLength(2);
+        expect(db.public.many(`select * from users`)).toHaveLength(3);
         const prepared = db.public.prepare(`truncate users`);
-        expect(db.public.many(`select * from users`)).toHaveLength(2);
+        expect(db.public.many(`select * from users`)).toHaveLength(3);
         const bound = prepared.bind();
-        expect(db.public.many(`select * from users`)).toHaveLength(2);
+        expect(db.public.many(`select * from users`)).toHaveLength(3);
         bound.executeAll();
         expect(db.public.many(`select * from users`)).toHaveLength(0);
     });
