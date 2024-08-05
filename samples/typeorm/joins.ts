@@ -1,8 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Connection, BaseEntity, LessThan, DeleteDateColumn, OneToMany, ManyToOne } from "typeorm";
 import { newDb } from '../../src/db';
-import chai, { expect } from 'chai';
-import shallow from 'chai-shallow-deep-equal';
-chai.use(shallow);
+import { expect } from 'bun:test';
 
 @Entity()
 export class User extends BaseEntity {
@@ -74,7 +72,7 @@ export async function typeormJoinsSample() {
             .where('user.name = :name', { name: 'me' })
             .getOne();
 
-        expect(user).to.shallowDeepEqual({
+        expect(user).toEqual({
             id: 1,
             name: 'me',
             photos: [{
@@ -84,7 +82,7 @@ export async function typeormJoinsSample() {
                 id: 2,
                 url: "photo-of-me-2.jpg"
             }]
-        })
+        } as any)
 
     } finally {
         // do not forget to close the connection once done...

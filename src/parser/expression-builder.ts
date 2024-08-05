@@ -136,7 +136,11 @@ function _buildValueReal(val: Expr): IValue {
             if (!n) {
                 throw new Error('Unexpected parameter ref shape: ' + val.name);
             }
-            return getParameter(parseInt(n) - 1)!;
+            const p = getParameter(parseInt(n) - 1);
+            if (!p) {
+                throw new QueryError(`Parameter $${n} not found`, '42P02');
+            }
+            return p;
         case 'extract':
             return buildExtract(val);
         case 'overlay':

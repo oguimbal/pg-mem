@@ -5,12 +5,18 @@ import { isType, nullIsh } from '../utils';
 import objectHash from 'object-hash';
 import { QueryError } from '../interfaces';
 
-let regCnt = 0;
+let regCnt = 398420;
+function genId(num?: number | null): number {
+    if (num) {
+        return num;
+    }
+    return ++regCnt;
+}
 
-export function regGen(): Reg {
+export function regGen(typeId: number | null): Reg {
     return {
-        classId: ++regCnt,
-        typeId: ++regCnt,
+        classId: genId(),
+        typeId: genId(typeId),
     };
 }
 
@@ -25,8 +31,12 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         return 'type';
     }
 
-    constructor() {
-        this.reg = regGen();
+    /**
+     * select a.oid, a.typname, b.typcategory  from  pg_catalog.pg_type a
+        left join pg_catalog.pg_type b on b.oid = a.typelem
+     */
+    constructor(typeId: number | null) {
+        this.reg = regGen(typeId);
     }
 
     private _asArray?: _IType<TRaw[]>;

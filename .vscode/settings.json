@@ -1,14 +1,4 @@
 {
-    // bundle to watch
-    "mochaExplorer.hmrBundle": "output/tests.js",
-    // When using HMR, it is recommanded to configure a different debug port here.
-    // otherwise, you wont be able to use mocha tests in multiple instances of vscode.
-    "mochaExplorer.debuggerPort": 9239,
-    "mochaExplorer.timeout": 30000,
-    "mochaExplorer.require": "source-map-support/register",
-    "mochaExplorer.skipFrames": [
-        "src/tests/test-utils.ts"
-    ],
     "files.exclude": {
         "**/.git": true,
         "**/.svn": true,
@@ -17,19 +7,11 @@
         "**/.DS_Store": true,
         "node_modules": true,
         "output": true,
-        "package-lock.json": true,
         ".nyc_output": true,
         "coverage": true,
         "dist": true,
         "lib": true,
         ".deno": true
-    },
-    "mochaExplorer.env": {
-        // set this to 'true' to disable AST full utilization monitorying.
-        // ... this will not check that the full query is used anymore
-        //  but it is easyier to debug
-        //  ( ⚠ set it back to 'false' once you're done)
-        "NOCHECKFULLQUERYUSAGE": "false",
     },
     "editor.formatOnSave": true,
     "typescript.tsdk": "node_modules/typescript/lib",

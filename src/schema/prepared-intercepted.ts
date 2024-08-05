@@ -4,6 +4,10 @@ export class InterceptedPreparedQuery implements IPreparedQuery, IBoundQuery {
     constructor(private command: string, private result: any[]) {
     }
 
+    describe() {
+        return [];
+    }
+
     bind(...args: any[]): IBoundQuery {
         return this;
     }

@@ -7,8 +7,8 @@ import { parseTime, nullIsh } from '../utils';
 export class TimestampType extends TypeBase<Date> {
 
 
-    constructor(readonly primary: DataType, readonly precision: number | null = null) {
-        super();
+    constructor(readonly primary: DataType, typeId: number | null, readonly precision: number | null = null) {
+        super(typeId);
     }
 
     get name(): string {

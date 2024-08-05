@@ -102,8 +102,8 @@ export function isInteger(t: DataType | IType) {
 
 class NumberType extends TypeBase<number> {
 
-    constructor(readonly primary: DataType) {
-        super();
+    constructor(readonly primary: DataType, typeId: number) {
+        super(typeId);
     }
 
     doCanConvertImplicit(to: _IType) {
@@ -251,7 +251,7 @@ class TextType extends TypeBase<string> {
     }
 
     constructor(readonly len: number | null, private citext?: boolean) {
-        super();
+        super(25);
     }
 
     doPrefer(to: _IType) {
@@ -429,6 +429,11 @@ class TextType extends TypeBase<string> {
 
 
 class BoolType extends TypeBase<boolean> {
+
+    constructor() {
+        super(16);
+    }
+
     get primary(): DataType {
         return DataType.bool;
     }
@@ -449,26 +454,26 @@ class BoolType extends TypeBase<boolean> {
             case DataType.text:
             case DataType.citext:
                 return new Evaluator(
-                  to
-                  , value.id
-                  , value.hash!
-                  , value
-                  , (raw, t) => {
-                      const got = value.get(raw, t);
-                      return got ? 'true' : 'false';
-                  });
+                    to
+                    , value.id
+                    , value.hash!
+                    , value
+                    , (raw, t) => {
+                        const got = value.get(raw, t);
+                        return got ? 'true' : 'false';
+                    });
             case DataType.bool:
                 return value;
             case DataType.integer:
                 return new Evaluator(
-                  to
-                  , value.id
-                  , value.hash!
-                  , value
-                  , (raw, t) => {
-                      const got = value.get(raw, t);
-                      return got ? 1 : 0;
-                  });
+                    to
+                    , value.id
+                    , value.hash!
+                    , value
+                    , (raw, t) => {
+                        const got = value.get(raw, t);
+                        return got ? 1 : 0;
+                    });
         }
         throw new Error('Unexpected cast error');
     }
@@ -493,7 +498,7 @@ export class ArrayType extends TypeBase<any[]> {
 
 
     constructor(readonly of: _IType, private list: boolean) {
-        super();
+        super(null);
     }
 
     doCanCast(to: _IType) {
@@ -626,29 +631,29 @@ export const Types = {
     [DataType.citext]: new TextType(null, true),
     [DataType.timestamp]: (len: number | nil = null) => makeTimestamp(DataType.timestamp, len) as _IType,
     [DataType.timestamptz]: (len: number | nil = null) => makeTimestamp(DataType.timestamptz, len) as _IType,
-    [DataType.uuid]: new UUIDtype() as _IType,
-    [DataType.date]: new TimestampType(DataType.date) as _IType,
-    [DataType.interval]: new IntervalType() as _IType,
+    [DataType.uuid]: new UUIDtype(2950) as _IType,
+    [DataType.date]: new TimestampType(DataType.date, 1082) as _IType,
+    [DataType.interval]: new IntervalType(1186) as _IType,
     [DataType.time]: new TimeType(DataType.time) as _IType,
     [DataType.timetz]: new TimeType(DataType.timetz) as _IType,
-    [DataType.jsonb]: new JSONBType(DataType.jsonb) as _IType,
-    [DataType.regtype]: new RegTypeImpl() as _IType,
-    [DataType.regclass]: new RegClassImpl() as _IType,
-    [DataType.json]: new JSONBType(DataType.json) as _IType,
-    [DataType.null]: new NullType() as _IType,
-    [DataType.float]: new NumberType(DataType.float) as _IType,
-    [DataType.integer]: new NumberType(DataType.integer) as _IType,
-    [DataType.bigint]: new NumberType(DataType.bigint) as _IType,
-    [DataType.bytea]: new ByteArrayType() as _IType,
-    [DataType.point]: new PointType() as _IType,
-    [DataType.line]: new LineType() as _IType,
-    [DataType.lseg]: new LsegType() as _IType,
-    [DataType.box]: new BoxType() as _IType,
-    [DataType.inet]: new INetType() as _IType,
-    [DataType.path]: new PathType() as _IType,
-    [DataType.polygon]: new PolygonType() as _IType,
-    [DataType.circle]: new CircleType() as _IType,
-    default: new DefaultType() as _IType,
+    [DataType.jsonb]: new JSONBType(DataType.jsonb, 3802) as _IType,
+    [DataType.regtype]: new RegTypeImpl(2206) as _IType,
+    [DataType.regclass]: new RegClassImpl(2205) as _IType,
+    [DataType.json]: new JSONBType(DataType.json, 114) as _IType,
+    [DataType.null]: new NullType(null) as _IType,
+    [DataType.float]: new NumberType(DataType.float, 700) as _IType,
+    [DataType.integer]: new NumberType(DataType.integer, 23) as _IType,
+    [DataType.bigint]: new NumberType(DataType.bigint, 20) as _IType,
+    [DataType.bytea]: new ByteArrayType(17) as _IType,
+    [DataType.point]: new PointType(600) as _IType,
+    [DataType.line]: new LineType(628) as _IType,
+    [DataType.lseg]: new LsegType(601) as _IType,
+    [DataType.box]: new BoxType(603) as _IType,
+    [DataType.inet]: new INetType(869) as _IType,
+    [DataType.path]: new PathType(602) as _IType,
+    [DataType.polygon]: new PolygonType(604) as _IType,
+    [DataType.circle]: new CircleType(718) as _IType,
+    default: new DefaultType(null) as _IType,
 }
 
 export const dateTypes: ReadonlySet<DataType> = new Set([
@@ -693,7 +698,7 @@ function makeTimestamp(primary: DataType, len: number | nil = null) {
     const key = primary + '/' + len;
     let got = timestamps.get(key);
     if (!got) {
-        timestamps.set(key, got = new TimestampType(primary, len));
+        timestamps.set(key, got = new TimestampType(primary, 1114, len));
     }
     return got;
 }

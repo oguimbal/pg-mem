@@ -379,11 +379,11 @@ describe('Selections', () => {
                 { txtx: 'A', valx: 1, v: 'a', column: 2, column1: 3 },
             ],
             fields: [
-                { name: 'valx', type: DataType.integer },
-                { name: 'txtx', type: DataType.text },
-                { name: 'v', type: DataType.text },
-                { name: 'column', type: DataType.integer },
-                { name: 'column1', type: DataType.integer },
+                { name: 'valx', type: DataType.integer, typeId: 23 },
+                { name: 'txtx', type: DataType.text, typeId: 25 },
+                { name: 'v', type: DataType.text, typeId: 25 },
+                { name: 'column', type: DataType.integer, typeId: 23 },
+                { name: 'column1', type: DataType.integer, typeId: 23 },
             ],
             location: {
                 start: 0,

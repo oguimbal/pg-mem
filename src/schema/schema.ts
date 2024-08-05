@@ -15,7 +15,7 @@ import { StatementExec } from '../execution/statement-exec';
 import { SelectExec } from '../execution/select';
 import { MigrationParams } from '../migrate/migrate-interfaces';
 import { InterceptedPreparedQuery } from './prepared-intercepted';
-import { PreparedQuery } from './prepared';
+import { prepareQuery } from './prepared';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -87,7 +87,8 @@ export class DbSchema implements _ISchema, ISchema {
             }
 
             const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
-            const ret = new PreparedQuery(this, parsed, 0, singleSql);
+            const ret = prepareQuery(this, parsed, singleSql);
+
             ret.executed = () => {
                 this.db.raiseGlobal('query', query);
             };
@@ -430,7 +431,7 @@ export class DbSchema implements _ISchema, ISchema {
         if (this.relsByNameCas.has(rel.name)) {
             throw new Error(`relation "${rel.name}" already exists`);
         }
-        const ret: Reg = regGen();
+        const ret: Reg = regGen(null);
         this.relsByNameCas.set(rel.name, rel);
         this.relsByCls.set(ret.classId, rel);
         this.relsByTyp.set(ret.typeId, rel);
