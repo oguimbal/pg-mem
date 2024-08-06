@@ -26,7 +26,7 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     get isConstant(): boolean {
-        return !this.usedColumns.size && !this.forceNotConstant;
+        return !this.usedColumns.size && !this.forceNotConstant || !!this.opts?.actAsConstantLiteral;
     }
 
     get isConstantReal(): boolean {
@@ -51,29 +51,24 @@ export class Evaluator<T = any> implements IValue<T> {
         }
 
         // fetch columns to depend on
-        let depArray: IValue[] | undefined = undefined;
+        let depArray: IValue[] | nil = dependencies && !Array.isArray(dependencies)
+            ? [dependencies]
+            : dependencies;
         let hasNotConstant = false;
-        if (dependencies) {
-            if (!Array.isArray(dependencies)) {
-                depArray = [dependencies];
-                this.usedColumns = dependencies.usedColumns as Set<IValue>;
-                hasNotConstant = !dependencies.isConstant;
-                this.origin = dependencies.origin;
-            } else {
-                this.usedColumns = new Set();
-                for (const d of dependencies) {
-                    if (d.origin) {
-                        if (this.origin && d.origin && this.origin !== d.origin) {
-                            throw new Error('You cannot evaluate an expression which is coming from multiple origins');
-                        }
-                        this.origin = d.origin;
+        if (depArray) {
+            this.usedColumns = new Set();
+            for (const d of depArray) {
+                if (d.origin) {
+                    if (this.origin && d.origin && this.origin !== d.origin) {
+                        throw new Error('You cannot evaluate an expression which is coming from multiple origins');
                     }
-                    if (!d.isConstant) {
-                        hasNotConstant = true;
-                    }
-                    for (const u of d.usedColumns) {
-                        this.usedColumns.add(u);
-                    }
+                    this.origin = d.origin;
+                }
+                if (!d.isConstant) {
+                    hasNotConstant = true;
+                }
+                for (const u of d.usedColumns) {
+                    this.usedColumns.add(u);
                 }
             }
         }
