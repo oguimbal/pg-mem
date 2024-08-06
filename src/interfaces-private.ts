@@ -1,7 +1,6 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult } from './interfaces';
-import { Expr, SelectedColumn, SelectStatement, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
+import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult, IBoundQuery, IPreparedQuery } from './interfaces';
+import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
-import { CustomEnumType } from "./datatypes/t-custom-enum";
 
 export * from './interfaces';
 
@@ -799,4 +798,19 @@ export interface AggregationGroupComputer<TRet = any> {
     feedItem(item: any): void;
     /** Finish computation (sets aggregation on result) */
     finish(): TRet | nil;
+}
+
+export interface _IPreparedQuery extends IPreparedQuery {
+    bind(args?: any[]): _IBoundQuery;
+    executed?: () => void;
+    failed?: (e: any) => void;
+}
+
+export interface _IBoundQuery extends IBoundQuery {
+    executeAll(tx?: _Transaction): _QueryResult;
+}
+
+
+export interface _QueryResult extends QueryResult {
+    state?: _Transaction;
 }

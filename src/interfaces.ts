@@ -244,7 +244,7 @@ export type QueryOrAst = string | Statement | Statement[];
 
 export interface IPreparedQuery {
     describe(): QueryDescription;
-    bind(...args: any[]): IBoundQuery;
+    bind(args?: any[]): IBoundQuery;
 }
 
 export interface QueryDescription {

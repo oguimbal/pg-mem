@@ -11,7 +11,7 @@ export class InterceptedPreparedQuery implements IPreparedQuery, IBoundQuery {
         };
     }
 
-    bind(...args: any[]): IBoundQuery {
+    bind(args?: any[]): IBoundQuery {
         return this;
     }
 

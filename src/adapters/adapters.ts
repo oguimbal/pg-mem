@@ -2,7 +2,7 @@ import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions
 import lru from 'lru-cache';
 import { compareVersions, delay, doRequire, timeoutOrImmediate } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
-import { _IType } from '../interfaces-private';
+import { _IDb, _IType } from '../interfaces-private';
 import { TYPE_SYMBOL } from '../execution/select';
 import { ArrayType } from '../datatypes';
 import { CustomEnumType } from '../datatypes/t-custom-enum';
@@ -24,7 +24,7 @@ export function replaceQueryArgs$(this: void, sql: string, values: any[]) {
 export class Adapters implements LibAdapters {
     private _mikroPatched?: boolean;
 
-    constructor(private db: IMemoryDb) {
+    constructor(private db: _IDb) {
     }
 
     createPg(queryLatency?: number): { Pool: any; Client: any } {

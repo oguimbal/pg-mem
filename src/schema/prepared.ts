@@ -1,5 +1,5 @@
 import { astVisitor, Statement } from 'pgsql-ast-parser';
-import { _IDb, _ISchema, _IStatementExecutor, _Transaction, FieldInfo, IBoundQuery, IPreparedQuery, nil, NotSupported, Parameter, ParameterInfo, QueryDescription, QueryError, QueryResult, StatementResult } from '../interfaces-private';
+import { _IDb, _IPreparedQuery, _ISchema, _IStatementExecutor, _Transaction, FieldInfo, _IBoundQuery, IPreparedQuery, nil, NotSupported, Parameter, ParameterInfo, QueryDescription, QueryError, QueryResult, StatementResult, _QueryResult } from '../interfaces-private';
 import { StatementExec } from '../execution/statement-exec';
 import { SelectExec } from '../execution/select';
 import { Types } from '../datatypes';
@@ -36,11 +36,6 @@ function isSchemaChange(s: Statement): boolean {
         default:
             return false;
     }
-}
-
-export type _IPreparedQuery = IPreparedQuery & {
-    executed?: () => void;
-    failed?: (e: any) => void;
 }
 
 let _paramList: Parameter[] | null = null;
@@ -101,7 +96,7 @@ export function prepareQuery(schema: _ISchema, query: Statement[], singleSql: st
     return ret;
 }
 
-class PreparedQueryNoDescribe implements IPreparedQuery {
+class PreparedQueryNoDescribe implements _IPreparedQuery {
 
     executed?: () => void;
     failed?: (e: any) => void;
@@ -121,7 +116,7 @@ class PreparedQueryNoDescribe implements IPreparedQuery {
         };
     }
 
-    bind(...args: any[]): IBoundQuery {
+    bind(args: any[]): _IBoundQuery {
         // Start an implicit transaction
         let t = this.schema.db.data.fork();
         const results: StatementResult[] = [];
@@ -144,7 +139,7 @@ class PreparedQueryNoDescribe implements IPreparedQuery {
     }
 }
 
-class NoDescribeBound implements IBoundQuery {
+class NoDescribeBound implements _IBoundQuery {
     constructor(private parent: PreparedQueryNoDescribe, private results: StatementResult[]) {
     }
     executeAll(): QueryResult {
@@ -162,9 +157,9 @@ class NoDescribeBound implements IBoundQuery {
     }
 }
 
-class PreparedQuery implements IPreparedQuery {
+class PreparedQuery implements _IPreparedQuery {
 
-    private lastSelect: SelectExec | null = null;
+    lastSelect: SelectExec | null = null;
     private lastStmt: _IStatementExecutor | null = null;
     private stmts: StatementExec[];
     executed?: () => void;
@@ -214,72 +209,58 @@ class PreparedQuery implements IPreparedQuery {
         return { result: [], parameters };
     }
 
-    bind(...args: any[]): Bound {
-        // Start an implicit transaction
-        //  (to avoid messing global data if an operation fails mid-write)
-        let t = this.schema.db.data.fork();
-
-        // // bind parameters
-        // let query = this.query;
-        // if (args.length) {
-        //     const mapper = astMapper(map => ({
-        //         parameter: p => {
-        //             const [, istr] = /^\$(\d+)$/.exec(p.name) ?? [];
-        //             if (!istr) {
-        //                 throw new QueryError('Invalid parameter name');
-        //             }
-        //             const i = parseInt(istr, 10) - 1;
-        //             if (i >= args.length) {
-        //                 throw new QueryError('Parameter out of range');
-        //             }
-        //             const value = dataToLiteral(args[i]);
-        //             return value;
-        //         }
-        //     }));
-        //     query = this.query.map(stmt => mapper.statement(stmt)!);
-        // }
-
-
-
-        let results: StatementResult[] = [];
-        for (const s of this.stmts) {
-            // Execute statement
-            const r = s.executeStatement(t, args);
-            results.push(r);
-            t = r.state;
-        }
-
-        return new Bound(this, results, this.lastSelect);
+    bind(args: any[]): Bound {
+        return new Bound(this, this.stmts, args, this.lastSelect);
     }
 }
 
 
-class Bound implements IBoundQuery {
-    constructor(private parent: PreparedQuery, private results: StatementResult[], private lastSelect: SelectExec | null) {
+class Bound implements _IBoundQuery {
+    constructor(private parent: PreparedQuery, private stmts: StatementExec[], private args: any[], private lastSelect: SelectExec | null) {
     }
 
+    executeAll(outerTx?: _Transaction): _QueryResult {
+        const all = [...this.doExecute(outerTx)];
+        const f = all[all.length - 1];
+        if (!outerTx) {
+            return f.result;
+        } else {
+            return {
+                ...f.result,
+                state: f.state,
+            }
+        }
 
-    executeAll(): QueryResult {
-        const f = this.results[this.results.length - 1];
-        this.commit();
-        return f.result
+    }
+
+    private *doExecute(outerTx?: _Transaction): IterableIterator<StatementResult> {
+        // Start an implicit transaction
+        //  (to avoid messing global data if an operation fails mid-write)
+        let t = outerTx ?? this.parent.schema.db.data.fork();
+
+
+        let lastResult: StatementResult;
+        for (const s of this.stmts) {
+            // Execute statement
+            const r = s.executeStatement(t, this.args);
+            yield r;
+            lastResult = r;
+            t = r.state;
+        }
+
+        if (this.parent.lastSelect) {
+            this.parent.schema.lastSelect = this.parent.lastSelect.selection;
+        }
+        this.parent.executed?.();
+
+        if (!outerTx) {
+            lastResult!.state.fullCommit();
+        }
     }
 
     *iterate(): IterableIterator<QueryResult> {
-        for (const res of this.results) {
+        for (const res of this.doExecute()) {
             yield res.result;
         }
-        this.commit();
     }
-
-    private commit() {
-        // commit transaction
-        this.results[this.results.length - 1].state.fullCommit();
-        if (this.lastSelect) {
-            this.parent.schema.lastSelect = this.lastSelect.selection;
-        }
-        this.parent.executed?.();
-    }
-
-
 }
