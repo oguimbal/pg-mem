@@ -1,7 +1,7 @@
 import { _ISelection, _IIndex, IValue, setId, getId, _IType, _Transaction, _Column, _ITable, _Explainer, _SelectExplanation, IndexKey, _IndexExplanation, IndexExpression, IndexOp, Stats, _IAlias, _IAggregation, Row } from '../interfaces-private';
 import { QueryError, ColumnNotFound, AmbiguousColumn, nil } from '../interfaces';
 import { buildValue } from '../parser/expression-builder';
-import { Evaluator } from '../evaluator';
+import { Evaluator, EvaluatorOptions } from '../evaluator';
 import { TransformBase } from './transform-base';
 import { SelectedColumn, Expr, astVisitor, ExprRef } from 'pgsql-ast-parser';
 import { aggregationFunctions, buildGroupBy } from './aggregation';
@@ -52,7 +52,7 @@ function hasAggreg(e: Expr) {
 
 
 
-export function columnEvaluator(this: void, on: _ISelection, id: string, type: _IType) {
+export function columnEvaluator(this: void, on: _ISelection, id: string, type: _IType, opts?: EvaluatorOptions) {
     if (!id) {
         throw new Error('Invalid column id');
     }
@@ -63,6 +63,7 @@ export function columnEvaluator(this: void, on: _ISelection, id: string, type: _
         , null
         , raw => raw[id]
         , {
+            ...opts,
             isColumnOf: on,
         });
     return ret;

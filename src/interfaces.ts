@@ -243,10 +243,19 @@ export interface SlonikAdapterOptions {
 export type QueryOrAst = string | Statement | Statement[];
 
 export interface IPreparedQuery {
-    describe(): FieldInfo[];
+    describe(): QueryDescription;
     bind(...args: any[]): IBoundQuery;
 }
 
+export interface QueryDescription {
+    parameters: ParameterInfo[];
+    result: FieldInfo[];
+}
+
+export interface ParameterInfo {
+    type: DataType;
+    typeId: number
+}
 
 export interface IBoundQuery {
     /** Executes all statements */

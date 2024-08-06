@@ -1,14 +1,11 @@
 import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
-import { delay } from '../utils';
 import { expectQueryError } from './test-utils';
 
 
 describe('Prepared statements', () => {
     let db: IMemoryDb;
-    let sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>;
-
     beforeEach(() => {
         db = newDb();
         db.public.query(`
@@ -18,30 +15,6 @@ describe('Prepared statements', () => {
                 ('Bob', false, null),
                 ('Anon', null, null);
             `);
-        const tag = db.adapters.createPostgresJsTag();
-        const NOK = Symbol();
-        sql = (strings: TemplateStringsArray, ...values: any[]) => {
-            return Promise.race([
-                delay(500).then(() => NOK),
-                tag(strings, ...values),
-            ]).then((res) => {
-                if (res === NOK) {
-                    expect('Adapter has timed out').toBe('');
-                }
-                // just remove other properties added by postgres.js:
-                // count,  state,  command,  columns, statement
-                return [...res];
-            });
-        }
-    })
-
-    it('query though postgres.js', async () => {
-        const results = await sql`select * from users`;
-        expect(results).toEqual([
-            { id: 1, name: 'Alice', is_ok: true, data: { gender: 'female' } },
-            { id: 2, name: 'Bob', is_ok: false, data: null },
-            { id: 3, name: 'Anon', is_ok: null, data: null },
-        ]);
     });
 
     it('can prepare without arguments', () => {

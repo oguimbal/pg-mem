@@ -1,5 +1,5 @@
 import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private';
-import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr } from '../utils';
+import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx } from '../utils';
 import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
@@ -62,7 +62,7 @@ function _buildValue(val: Expr): IValue {
 }
 
 function _buildValueReal(val: Expr): IValue {
-    const { schema, getParameter, selection } = buildCtx();
+    const { schema, getParameter, setParameterType, selection } = buildCtx();
     switch (val.type) {
         case 'binary':
             if (val.op === 'IN' || val.op === 'NOT IN') {
@@ -136,9 +136,29 @@ function _buildValueReal(val: Expr): IValue {
             if (!n) {
                 throw new Error('Unexpected parameter ref shape: ' + val.name);
             }
-            const p = getParameter(parseInt(n) - 1);
+            const idx = parseInt(n) - 1;
+            const p = getParameter(idx);
             if (!p) {
-                throw new QueryError(`Parameter $${n} not found`, '42P02');
+                return new Evaluator(
+                    Types.text()
+                    , null
+                    , Math.random().toString() // must not be indexable => always different hash
+                    , [] // no dependency
+                    , () => {
+                        const value = executionCtx().parametersValues?.[idx];
+                        if (value === undefined) {
+                            throw new QueryError(`Parameter $${n} not found`, '42P02');
+                        }
+                        return value;
+                    }
+                    , {
+                        forceNotConstant: true,
+                        actAsConstantLiteral: true,
+                        onCast: toType => {
+                            // register the type of the parameter
+                            setParameterType(idx, toType);
+                        }
+                    });
             }
             return p;
         case 'extract':

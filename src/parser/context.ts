@@ -1,4 +1,4 @@
-import { _ISchema, _ISelection, _IDb, OnStatementExecuted, nil, QueryError, _IStatement, IValue, Parameter } from '../interfaces-private';
+import { _ISchema, _ISelection, _IDb, OnStatementExecuted, nil, QueryError, _IStatement, IValue, Parameter, _IType } from '../interfaces-private';
 
 
 class StackOf<T> {
@@ -48,6 +48,7 @@ interface IBuildContext {
     readonly getTempBinding: (name: string) => _ISelection | nil;
     readonly setTempBinding: (name: string, boundTo: _ISelection) => void;
     readonly getParameter: (nameOrPosition: string | number) => IValue | nil;
+    readonly setParameterType: (nameOrPosition: number, type: _IType) => void;
 }
 
 class Context implements IBuildContext {
@@ -84,15 +85,23 @@ class Context implements IBuildContext {
             return null;
         }
         if (typeof nameOrPosition === 'number') {
-            const ret = params[nameOrPosition]?.value;
+            const ret = params[nameOrPosition];
             if (!ret) {
                 // not ideal... (duplicated error message)
                 throw new QueryError(`bind message supplies ${params.length} parameters, but prepared statement "" requires ${nameOrPosition}`, '08P01');
             }
-            return ret;
+            return ret.value;
         }
-        return params.find(p => p.value.id === nameOrPosition)?.value;
+        return params.find(p => p.value?.id === nameOrPosition)?.value;
     }
+
+    setParameterType = (position: number, type: _IType) => {
+        const params = _parametersStack.currentOrNil;
+        if (!params || !params[position]) {
+            throw new Error(`Parameter ${position} not found`);
+        }
+        params[position].inferedType = type;
+    };
 }
 
 

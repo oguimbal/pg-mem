@@ -1,8 +1,10 @@
 import { IBoundQuery, IPreparedQuery, ISchema } from '../interfaces';
-import { delay, doRequire, lazySync, nullIsh } from '../utils';
+import { AsyncQueue, delay, doRequire, lazySync, nullIsh } from '../utils';
 
-const log = console.log.bind(console);
-// const log = (...args: any[]) => { };
+// const log = console.log.bind(console);
+const log = (...args: any[]) => { };
+
+// https://www.postgresql.org/docs/current/protocol-flow.html
 
 export const socketAdapter = lazySync(() => {
     const { CommandCode, bindSocket } = doRequire('pg-server') as typeof import('pg-server');
@@ -14,14 +16,19 @@ export const socketAdapter = lazySync(() => {
 
     class InMemorySocket extends EventEmitter {
         readonly peer: InMemorySocket;
+        isTop: boolean;
         constructor(peer?: InMemorySocket) {
             super();
+            this.isTop = !peer;
             this.peer = peer ?? new InMemorySocket(this);
         }
 
         setNoDelay() { }
 
         write(data: any, mcb1?: any, mcb2?: any) {
+            if (this.isTop) {
+                console.log("🛜 ", data);
+            }
             process.nextTick(() => {
                 this.peer.emit("data", data);
                 mcb1 === "function" && mcb1();
@@ -55,7 +62,8 @@ export const socketAdapter = lazySync(() => {
             let prepared: IPreparedQuery | undefined;
             let preparedQuery: string | undefined;
             let bound: IBoundQuery | undefined;
-            bindSocket(this.socket.peer as any, async ({ command: cmd }, writer) => {
+            const queue = new AsyncQueue();
+            bindSocket(this.socket.peer as any, ({ command: cmd }, writer) => queue.enqueue(async () => {
                 await delay(this.queryLatency ?? 0);
                 const t = cmd.type;
                 delete (cmd as any).type;
@@ -69,6 +77,9 @@ export const socketAdapter = lazySync(() => {
                     case CommandCode.parse:
                         try {
                             prepared = mem.prepare(cmd.query);
+                            if (!prepared) {
+                                return writer.emptyQuery();
+                            }
                             preparedQuery = cmd.query;
                         } catch (e: any) {
                             return writer.error(e);
@@ -78,9 +89,15 @@ export const socketAdapter = lazySync(() => {
                         if (!prepared) {
                             return writer.error("no prepared query");
                         }
+
                         const p = prepared.describe();
-                        // see RowDescription() in connection.js
-                        writer.rowDescription(p.map<import('pg-server').FieldDesc>(x => ({
+
+                        console.log('DESC => ', p.parameters.map(x => x.typeId));
+                        writer.parameterDescription(p.parameters.map(x => x.typeId));
+
+                        // see RowDescription() in connection.js of postgres.js
+                        //  => we just need typeId
+                        const descs = p.result.map<import('pg-server').FieldDesc>(x => ({
                             name: x.name,
                             tableID: 0,
                             columnID: 0,
@@ -90,7 +107,10 @@ export const socketAdapter = lazySync(() => {
                             format: 0,
                             mode: 'text',
                             // mode: textMode ? 'text' : 'binary',
-                        })));
+                        }))
+                        await delay(100);
+                        console.log('DESC => ', descs.map(x => x.name));
+                        writer.rowDescription(descs);
                         return;
                     }
                     case CommandCode.bind: {
@@ -98,7 +118,7 @@ export const socketAdapter = lazySync(() => {
                             return writer.error("no prepared query");
                         }
                         try {
-                            bound = prepared.bind(cmd.values);
+                            bound = prepared.bind(...cmd.values);
                         } catch (e: any) {
                             return writer.error(e);
                         }
@@ -115,14 +135,16 @@ export const socketAdapter = lazySync(() => {
                         return writer.commandComplete(preparedQuery);
                     }
                     case CommandCode.sync:
+                        prepared = undefined;
+                        preparedQuery = undefined;
+                        bound = undefined;
                         return writer.readyForQuery();
                     case CommandCode.flush:
-                        return writer.readyForQuery();
-                    // return writer.commandComplete("ok");
+                        return;
                     default:
                         return writer.error(`pg-mem does not implement PG command ${cmdName}`);
                 }
-            });
+            }));
         }
     }
 

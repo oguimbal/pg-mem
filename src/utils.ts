@@ -774,3 +774,38 @@ export function timeoutOrImmediate(fn: () => void, time: number) {
 }
 
 export const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
+
+
+export class AsyncQueue {
+    private queue: (() => Promise<any>)[] = [];
+    private processing: boolean = false;
+
+    // Enqueue a task
+    public enqueue(task: () => Promise<any>): void {
+        this.queue.push(task);
+        if (!this.processing) {
+            this.processQueue();
+        }
+    }
+
+    // Process the queue
+    private async processQueue(): Promise<void> {
+        if (this.processing) {
+            return;
+        }
+        this.processing = true;
+
+        while (this.queue.length > 0) {
+            const task = this.queue.shift();
+            if (task) {
+                try {
+                    await task();
+                } catch (error) {
+                    console.error('Error processing task:', error);
+                }
+            }
+        }
+
+        this.processing = false;
+    }
+}
