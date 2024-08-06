@@ -5,6 +5,7 @@ import { ReadOnlyTable } from './readonly-table';
 import { buildValue } from '../parser/expression-builder';
 import { Types } from '../datatypes';
 import { withSelection, buildCtx } from '../parser/context';
+import { columnEvaluator } from '../transforms/selection';
 
 let cnt = 0;
 export class ValuesTable extends ReadOnlyTable {
@@ -33,6 +34,22 @@ export class ValuesTable extends ReadOnlyTable {
 
     hasItem(value: any, t: _Transaction): boolean {
         return !!value[this.symbol];
+    }
+
+    /** @override */
+    protected buildColumnEvaluator(_col: SchemaField, i: number): IValue {
+        return columnEvaluator(this, _col.name, _col.type as _IType, {
+            onCast: to => {
+                // forward onCast to values
+                // which is important for query parameters type inference
+                // see PreparedQuery.describe()
+                for (const row of this.assignments) {
+                    if (row[i] !== 'default') {
+                        row[i]?.cast(to);
+                    }
+                }
+            },
+        });
     }
 
     constructor(alias: string, items: Expr[][], columnNames: string[] | nil, acceptDefault?: boolean) {

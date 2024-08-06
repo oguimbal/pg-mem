@@ -4,7 +4,7 @@
         {
             "label": "launch-only-ut",
             "command": "bun", // Could be any other shell command
-            "args": ["test", "--only", "--inspect-wait=ws://0.0.0.0:6499/mapi-ut"],
+            "args": ["test", "--only", "--timeout", "0", "--inspect-wait=ws://0.0.0.0:6499/mapi-ut"],
             "type": "shell",
             "isBackground": true,
             "runOptions": {

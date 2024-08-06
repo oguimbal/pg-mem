@@ -62,11 +62,16 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
             return;
         }
         this._columns = [];
+        let i = 0;
         for (const _col of this._schema.fields) {
-            const newCol = columnEvaluator(this, _col.name, _col.type as _IType);
+            const newCol = this.buildColumnEvaluator(_col, i++);
             this._columns.push(newCol);
             this.columnsById.set(_col.name, newCol);
         }
+    }
+
+    protected buildColumnEvaluator(_col: SchemaField, idx: number): IValue {
+        return columnEvaluator(this, _col.name, _col.type as _IType);
     }
 
     get columns(): ReadonlyArray<IValue> {

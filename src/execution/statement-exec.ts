@@ -112,7 +112,7 @@ export class StatementExec implements _IStatement {
             case 'create enum':
                 return new CreateEnum(this, p);
             case 'alter enum':
-                return new AlterEnum(this,p)
+                return new AlterEnum(this, p)
             case 'create view':
                 return new CreateView(this, p);
             case 'create materialized view':
@@ -174,7 +174,7 @@ export class StatementExec implements _IStatement {
             }
 
             // build parameters context
-            const namedParams = fromEntries(this.parameters?.filter(p => !!p.value.id).map(x => [x.value.id!, x]) ?? []);
+            const namedParams = fromEntries(this.parameters?.filter(p => !!p.value?.id).map(x => [x.value!.id!, x]) ?? []);
             const nameResolver = new MapNameResolver(namedParams, true);
 
 
@@ -192,10 +192,11 @@ export class StatementExec implements _IStatement {
     }
 
 
-    executeStatement(t: _Transaction): StatementResult {
+    executeStatement(t: _Transaction, parametersValues: any[]): StatementResult {
         return this.niceErrors(() => pushExecutionCtx({
             transaction: t,
             schema: this.schema,
+            parametersValues,
         }, () => {
 
             t.clearTransientData();

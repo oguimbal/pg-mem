@@ -1,11 +1,14 @@
-import { IBoundQuery, IPreparedQuery, QueryResult } from '../interfaces';
+import { IBoundQuery, IPreparedQuery, QueryDescription, QueryResult } from '../interfaces';
 
 export class InterceptedPreparedQuery implements IPreparedQuery, IBoundQuery {
     constructor(private command: string, private result: any[]) {
     }
 
-    describe() {
-        return [];
+    describe(): QueryDescription {
+        return {
+            parameters: [],
+            result: [],
+        };
     }
 
     bind(...args: any[]): IBoundQuery {

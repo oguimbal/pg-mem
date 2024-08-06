@@ -531,7 +531,8 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
 
 export interface Parameter {
     readonly index: number;
-    readonly value: IValue;
+    readonly value: IValue | nil;
+    inferedType?: _IType | nil;
 }
 
 export interface IValue<TRaw = any> {

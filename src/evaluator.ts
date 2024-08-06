@@ -6,7 +6,15 @@ import { buildCall } from './parser/function-call';
 import { nullIsh, executionCtx } from './utils';
 import { QName } from 'pgsql-ast-parser';
 
-
+export interface EvaluatorOptions {
+    isAny?: boolean;
+    isColumnOf?: _ISelection;
+    /** its type will act as if it is a constant literal (for parameters type resolution) */
+    actAsConstantLiteral?: boolean;
+    forceNotConstant?: boolean;
+    onCast?: (to: _IType) => void;
+    unpure?: boolean;
+}
 export class Evaluator<T = any> implements IValue<T> {
 
     readonly isConstantLiteral: boolean;
@@ -36,13 +44,8 @@ export class Evaluator<T = any> implements IValue<T> {
         , readonly hash: string
         , dependencies: IValue | IValue[] | nil
         , public val: nil | Object | number | string | Date | ((raw: any, transaction: _Transaction | nil) => any)
-        , private opts?: {
-            isAny?: boolean;
-            isColumnOf?: _ISelection;
-            forceNotConstant?: boolean;
-            unpure?: boolean;
-        }) {
-        this.isConstantLiteral = typeof val !== 'function';
+        , private opts?: EvaluatorOptions) {
+        this.isConstantLiteral = typeof val !== 'function' || !!opts?.actAsConstantLiteral;
         if (opts?.forceNotConstant) {
             this.forceNotConstant = true;
         }
@@ -227,10 +230,12 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     cast<T = any>(to: _IType<T>): IValue {
+        this.opts?.onCast?.(to);
         return this.type.cast(this, to);
     }
 
     convertImplicit<T = any>(to: _IType<T>): IValue {
+        this.opts?.onCast?.(to);
         return this.type.convertImplicit(this, to);
     }
 

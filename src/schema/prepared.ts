@@ -1,9 +1,9 @@
-import { astVisitor, DataTypeDef, Expr, Statement } from 'pgsql-ast-parser';
-import { _IDb, _ISchema, _IStatementExecutor, _Transaction, FieldInfo, IBoundQuery, IPreparedQuery, nil, NotSupported, QueryError, QueryResult, StatementResult } from '../interfaces-private';
+import { astVisitor, Statement } from 'pgsql-ast-parser';
+import { _IDb, _ISchema, _IStatementExecutor, _Transaction, FieldInfo, IBoundQuery, IPreparedQuery, nil, NotSupported, Parameter, ParameterInfo, QueryDescription, QueryError, QueryResult, StatementResult } from '../interfaces-private';
 import { StatementExec } from '../execution/statement-exec';
 import { SelectExec } from '../execution/select';
-import { nullIsh } from '../utils';
-import moment from 'moment';
+import { Types } from '../datatypes';
+import { withParameters } from '../parser/context';
 
 function isSchemaChange(s: Statement): boolean {
     switch (s.type) {
@@ -43,21 +43,47 @@ export type _IPreparedQuery = IPreparedQuery & {
     failed?: (e: any) => void;
 }
 
-let _hasParam = false;
-const hasParamVisitor = astVisitor(() => ({
-    parameter: () => { _hasParam = true }
+let _paramList: Parameter[] | null = null;
+const paramsVisitor = astVisitor(() => ({
+    parameter: p => {
+        const [, istr] = /^\$(\d+)$/.exec(p.name) ?? [];
+        if (!istr) {
+            throw new QueryError('Invalid parameter name');
+        }
+        _paramList ??= [];
+        const idx = parseInt(istr, 10) - 1;
+        if (_paramList!.find(p => p.index === idx)) {
+            return;
+        }
+        _paramList!.push({
+            index: idx,
+            value: null,
+            inferedType: Types.text(),
+        });
+    }
 }))
 
-function hasParameter(stmt: Statement): boolean {
-    _hasParam = false;
-    hasParamVisitor.statement(stmt);
-    return _hasParam;
+function collectParams(stmt: Statement[]): Parameter[] | null {
+    for (const s of stmt) {
+        paramsVisitor.statement(s);
+    }
+    const ret = _paramList;
+    _paramList = null;
+    return ret;
 }
 
 export function prepareQuery(schema: _ISchema, query: Statement[], singleSql: string | nil): _IPreparedQuery {
 
-    const hasParam = query.some(hasParameter);
 
+    const params = collectParams(query) ?? [];
+    const hasSchemaChange = query.some(isSchemaChange);
+
+    // if there are parameters in the query, then PG protocol will expect
+    //  describes to also yield parameter descriptors, which will be innaccessible for the same reason
+    //   as described below
+    if (hasSchemaChange && params.length) {
+        throw new NotSupported('schema change with parameters');
+    }
     // pg-mem does not support preparing statements that will trigger schema changes
     //  suppose we have:
     //   - a create table
@@ -68,9 +94,9 @@ export function prepareQuery(schema: _ISchema, query: Statement[], singleSql: st
     // => when there is a schema change, we fallback to a PreparedQueryNoDescribe
     //   which compiles AND executes statements one by-one, commiting things each time it executes a schema change
     //   and thus does not allow describing the operation before executing it
-    const ret = query.some(isSchemaChange)
+    const ret = hasSchemaChange
         ? new PreparedQueryNoDescribe(schema, query, singleSql)
-        : new PreparedQuery(schema, query, singleSql);
+        : new PreparedQuery(schema, query, params, singleSql);
 
     return ret;
 }
@@ -83,13 +109,16 @@ class PreparedQueryNoDescribe implements IPreparedQuery {
     constructor(readonly schema: _ISchema, private query: Statement[], private singleSql: string | nil) {
     }
 
-    describe(): FieldInfo[] {
+    describe(): QueryDescription {
         const l = this.query[this.query.length - 1];
         if (!isSchemaChange(l)) {
             // see comment in prepareQuery
             throw new NotSupported('describe a schema-change query');
         }
-        return [];
+        return {
+            result: [],
+            parameters: [],
+        };
     }
 
     bind(...args: any[]): IBoundQuery {
@@ -107,7 +136,7 @@ class PreparedQueryNoDescribe implements IPreparedQuery {
             }
 
             // execute statement
-            const r = s.executeStatement(t);
+            const r = s.executeStatement(t, args);
             results.push(r);
             t = r.state;
         }
@@ -141,12 +170,12 @@ class PreparedQuery implements IPreparedQuery {
     executed?: () => void;
     failed?: (e: any) => void;
 
-    constructor(readonly schema: _ISchema, query: Statement[], singleSql: string | nil) {
+    constructor(readonly schema: _ISchema, query: Statement[], private params: Parameter[], singleSql: string | nil) {
         // there is no schema change, meaning that we can compile statements
         // without fearing that a statement
         const stmts = query.map(s => new StatementExec(schema, s, singleSql));
         for (const stmt of stmts) {
-            const compiled = stmt.compile();
+            const compiled = withParameters(params, () => stmt.compile());
 
             // store last select for debug purposes
             if (compiled instanceof SelectExec) {
@@ -158,15 +187,31 @@ class PreparedQuery implements IPreparedQuery {
         this.stmts = stmts;
     }
 
-    describe(): FieldInfo[] {
-        if (this.lastStmt instanceof SelectExec) {
-            return this.lastStmt.selection.columns.map<FieldInfo>(c => ({
-                name: c.id!,
-                type: c.type.primary,
-                typeId: c.type.reg.typeId,
-            }));
+    describe(): QueryDescription {
+        this.params.sort((a, b) => a.index - b.index);
+        // is there an ununsed parameter?
+        for (let i = 0; i < this.params.length; i++) {
+            if (this.params[i].index !== i || !this.params[i].inferedType) {
+                throw new QueryError(`Parameter $${i + 1} is not used`);
+            }
         }
-        return [];
+
+        const parameters = this.params.map<ParameterInfo>(p => ({
+            type: p.inferedType!.primary,
+            typeId: p.inferedType!.reg.typeId,
+        }));
+
+        if (this.lastStmt instanceof SelectExec) {
+            return {
+                result: this.lastStmt.selection.columns.map<FieldInfo>(c => ({
+                    name: c.id!,
+                    type: c.type.primary,
+                    typeId: c.type.reg.typeId,
+                })),
+                parameters,
+            };
+        }
+        return { result: [], parameters };
     }
 
     bind(...args: any[]): Bound {
@@ -199,41 +244,12 @@ class PreparedQuery implements IPreparedQuery {
         let results: StatementResult[] = [];
         for (const s of this.stmts) {
             // Execute statement
-            const r = s.executeStatement(t);
+            const r = s.executeStatement(t, args);
             results.push(r);
             t = r.state;
         }
 
         return new Bound(this, results, this.lastSelect);
-    }
-}
-
-function dataToLiteral(value: unknown): Expr {
-    if (Array.isArray(value)) {
-        return {
-            type: 'array',
-            expressions: value.map(dataToLiteral),
-        };
-    }
-    if (nullIsh(value)) {
-        return { type: 'null' }
-    }
-    switch (typeof value) {
-        case 'number':
-            if (Number.isInteger(value)) {
-                return { type: 'integer', value };
-            }
-            return { type: 'numeric', value };
-        case 'string': return { type: 'string', value };
-        case 'boolean': return { type: 'boolean', value };
-        case 'bigint': return { type: 'integer', value: Number(value) };
-        case 'object': {
-            if (value instanceof Date) {
-                return { type: 'string', value: moment(value).toISOString() };
-            }
-            return { type: 'string', value: JSON.stringify(value) };
-        }
-        default: throw new Error('Unsupported parameter type');
     }
 }
 
