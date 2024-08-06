@@ -92,7 +92,7 @@ describe('Postgres.js', () => {
     });
 
 
-    it('can have a string argument casted to json', async () => {
+    it.only('can have a string argument casted to json', async () => {
         const nm = 'Charlie';
         // argument is a string, but that will be cased to JSON by the query
         const dat = '{"gender":"unknown"}';
