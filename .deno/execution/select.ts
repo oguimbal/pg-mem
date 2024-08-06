@@ -293,6 +293,7 @@ export class SelectExec implements _IStatementExecutor {
                     c => ({
                         name: c.id ?? nextDefaultFieldName(),
                         type: c.type.primary,
+                        typeId: c.type.reg.typeId,
                         [TYPE_SYMBOL]: c.type,
                     })
                 ),

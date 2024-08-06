@@ -3,7 +3,7 @@ import { DeleteStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod
 import { MutationDataSourceBase } from './mutation-base.ts';
 import { buildCtx } from '../../parser/context.ts';
 
-export class Deletion extends MutationDataSourceBase<any> {
+export class Deletion extends MutationDataSourceBase {
 
 
     constructor(ast: DeleteStatement) {

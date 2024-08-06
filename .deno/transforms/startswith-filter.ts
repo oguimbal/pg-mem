@@ -1,8 +1,8 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import { nullIsh } from '../utils.ts';
 
-export class StartsWithFilter<T = any> extends FilterBase<T> {
+export class StartsWithFilter extends FilterBase {
 
     get index() {
         return null;
@@ -16,13 +16,13 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
         });
     }
 
-    hasItem(item: T, t: _Transaction) {
+    hasItem(item: Row, t: _Transaction) {
         const get = this.onValue.get(item, t);
         return typeof get === 'string'
             && get.startsWith(this.startWith);
     }
 
-    constructor(private onValue: IValue<T>
+    constructor(private onValue: IValue
         , private startWith: string) {
         super(onValue.origin!);
         if (onValue.index!.expressions[0].hash !== this.onValue.hash) {
@@ -35,7 +35,7 @@ export class StartsWithFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         const index = this.onValue.index!;
         for (const item of index.enumerate({
             type: 'ge',

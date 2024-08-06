@@ -9,7 +9,7 @@ export class EquivalentType extends TypeBase<string> {
     private equiv: IType;
 
     constructor(private def: IEquivalentType) {
-        super();
+        super(null);
         if (typeof def.equivalentTo === 'string') {
             let eq = (Types as any)[def.equivalentTo];
             if (typeof eq === 'function') {

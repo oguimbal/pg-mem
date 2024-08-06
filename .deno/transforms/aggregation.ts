@@ -1,5 +1,5 @@
 import { TransformBase } from './transform-base.ts';
-import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId, _IAggregation } from '../interfaces-private.ts';
+import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId, _IAggregation, Row } from '../interfaces-private.ts';
 import { Expr, ExprRef, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { nil, NotSupported } from '../interfaces.ts';
@@ -73,9 +73,9 @@ function isIntegralType(value: any): boolean {
     return typeof value === 'number' || typeof value === 'string' || value instanceof Date;
 }
 
-export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, _IAggregation {
+export class Aggregation extends TransformBase implements _ISelection, _IAggregation {
 
-    columns: readonly IValue<any>[];
+    columns: readonly IValue[];
     /**
      * Group-by values
      * - key: column in source hash
@@ -83,7 +83,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
      **/
     private readonly symbol = Symbol();
     private readonly aggId = idCnt++;
-    private readonly groupIndex?: _IIndex<any> | nil;
+    private readonly groupIndex?: _IIndex | nil;
     private aggregations = new Map<string, AggregationInstance>();
 
     /** How to get grouping values on the base table raw items (not on "this.enumerate()" raw items)  */
@@ -92,7 +92,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
     /** How to get the grouped values on "this.enumerate()" raw items output */
     private groupByMapping = new Map<string, IValue>();
 
-    isAggregation() {
+    isAggregation(): this is _IAggregation {
         return true;
     }
 
@@ -122,11 +122,11 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
 
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
         return this.base.getColumn(column, nullIfNotFound);
     }
 
-    checkIfIsKey(got: IValue<any>): IValue<any> {
+    checkIfIsKey(got: IValue): IValue {
         return this.groupByMapping.get(got.hash!) ?? got;
     }
 
@@ -140,7 +140,7 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         for (const item of this._enumerateAggregationKeys(t)) {
             const sym = item[this.symbol];
             setId(item, `agg_${this.aggId}_${hash(sym)}`)
@@ -380,11 +380,11 @@ export class Aggregation<T> extends TransformBase<T> implements _ISelection<T>, 
     }
 
 
-    hasItem(value: T, t: _Transaction): boolean {
+    hasItem(value: Row, t: _Transaction): boolean {
         return !!(value as any)[this.symbol];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
+    getIndex(forValue: IValue): _IIndex | nil {
         // there is no index on aggregations
         return null;
     }

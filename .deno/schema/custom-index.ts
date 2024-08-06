@@ -1,21 +1,21 @@
-import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats } from '../interfaces-private.ts';
+import { _IIndex, IValue, _ITable, _IDb, _Transaction, _Explainer, _IndexExplanation, IndexOp, IndexKey, Stats, Row } from '../interfaces-private.ts';
 import { PermissionDeniedError, NotSupported } from '../interfaces.ts';
 
-interface IndexSubject<T> {
+interface IndexSubject {
     readonly size: number;
     readonly column: IValue;
-    byColumnValue(columnValue: string, t: _Transaction): T[];
+    byColumnValue(columnValue: string, t: _Transaction): Row[];
 }
 
-export class CustomIndex<T> implements _IIndex<T> {
-    readonly expressions: IValue<any>[];
+export class CustomIndex implements _IIndex {
+    readonly expressions: IValue[];
 
 
     explain(e: _Explainer): _IndexExplanation {
         throw new Error('not implemented');
     }
 
-    constructor(readonly onTable: _ITable<T>, private subject: IndexSubject<T>) {
+    constructor(readonly onTable: _ITable, private subject: IndexSubject) {
         this.expressions = [this.subject.column];
     }
 
@@ -47,7 +47,7 @@ export class CustomIndex<T> implements _IIndex<T> {
     }
 
 
-    enumerate(op: IndexOp): Iterable<T> {
+    enumerate(op: IndexOp): Iterable<Row> {
         switch (op.type) {
             case 'eq':
                 return this.eq(op.key, op.t);
@@ -130,12 +130,12 @@ export class CustomIndex<T> implements _IIndex<T> {
         }
     }
 
-    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<Row> {
         yield* this.lt(lo, t);
         yield* this.gt(hi, t);
     }
 
-    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<Row> {
         throw new Error('Not implemented');
     }
 }

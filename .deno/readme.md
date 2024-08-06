@@ -281,16 +281,17 @@ Detailed answers [in the wiki](https://github.com/oguimbal/pg-mem/wiki/FAQ)
 
 Pull requests are welcome :)
 
-To start hacking this lib, you'll have to:
+Unit tests are ran using [Bun](https://bun.sh/), which you will have to install to run tests.
 
-- Use VS Code
-- Install [mocha test explorer with HMR support](https://marketplace.visualstudio.com/items?itemName=oguimbal.vscode-mocha-test-adapter) extension
-- `npm start`
-- Reload unit tests in VS Code
+## Run all tests
 
-... once done, tests should appear. HMR is on, which means that changes in your code are instantly propagated to unit tests.
-This allows for ultra fast development cycles (running tests takes less than 1 sec).
+```bash
+bun test
+```
 
-To debug tests: Just hit "run" (F5, or whatever)... VS Code should attach the mocha worker. Then run the test you want to debug.
+## Debug a test
 
-Alternatively, you could just run `npm run test` without installing anything, but this is a bit long.
+Using vscode:
+
+1. Add a `.only` on the test you'd like to debug
+2. Just hit F5 (or execute via the debugger tab), which should launch your test with debugger attached

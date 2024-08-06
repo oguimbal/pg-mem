@@ -1,11 +1,19 @@
-import { nullIsh } from '../utils.ts';
+import { hasExecutionCtx, isTopLevelExecutionContext } from '../utils.ts';
 
 export const JSON_NIL = Symbol('null');
 export const IS_PARTIAL_INDEXING = Symbol('partial_indexing');
 export const SELECT_ALL = Symbol('select *');
 
 
-export function cleanResults(results: any[]): any {
+export function cleanResults<T>(results: T): T {
+
+    // when evaluating an SQL function (i.e. a function created using CREATE FUNCTION)
+    // then an execution is pushed, which is not the top one
+    // ... in that case, we dont want to clean the results
+    if (!isTopLevelExecutionContext()) {
+        return results;
+    }
+
     // ugly hack to turn jsonb nulls & partial indexed results into actual nulls
     // This will bite me someday ... but please dont judge me, I too try to have a life outside here 🤔
     // The sane thing to do would be to refactor things & introduce a DBNULL value in pgmem
@@ -17,6 +25,9 @@ export function cleanResults(results: any[]): any {
     function cleanObj(obj: any) {
         if (!obj || typeof obj !== 'object') {
             return;
+        }
+        for (const sym of Object.getOwnPropertySymbols(obj)) {
+            delete obj[sym];
         }
         for (const [k, v] of Object.entries(obj)) {
             if (v === JSON_NIL) {
@@ -37,6 +48,11 @@ export function cleanResults(results: any[]): any {
                 cleanObj(v);
             }
         }
+    }
+
+    if (!Array.isArray(results)) {
+        cleanObj(results);
+        return results;
     }
 
     for (let i = 0; i < results.length; i++) {

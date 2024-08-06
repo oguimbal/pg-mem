@@ -76,7 +76,7 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
         }
     }
 
-    make(table: _ITable, i: number, t: IValue<any>): any {
+    make(table: _ITable, i: number, t: IValue): any {
         if (!t) {
             return null;
         }
@@ -122,7 +122,7 @@ export class ColumnsListSchema extends ReadOnlyTable implements _ITable {
         return !!value?.[IS_SCHEMA];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
+    getIndex(forValue: IValue): _IIndex | nil {
         if (forValue.id === 'table_name') {
             return new TableIndex(this, forValue);
         }

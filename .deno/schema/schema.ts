@@ -1,6 +1,6 @@
-import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition, QueryOrAst } from '../interfaces.ts';
+import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition, QueryOrAst, IPreparedQuery } from '../interfaces.ts';
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private.ts';
-import { asSingleQName, ignore, isType, parseRegClass, randomString, schemaOf } from '../utils.ts';
+import { asSingleQName, ignore, isType, notNil, parseRegClass, randomString, schemaOf } from '../utils.ts';
 import { typeSynonyms } from '../datatypes/index.ts';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { MemoryTable } from '../table.ts';
@@ -14,6 +14,8 @@ import { ExecuteCreateSequence } from '../execution/schema-amends/create-sequenc
 import { StatementExec } from '../execution/statement-exec.ts';
 import { SelectExec } from '../execution/select.ts';
 import { MigrationParams } from '../migrate/migrate-interfaces.ts';
+import { InterceptedPreparedQuery } from './prepared-intercepted.ts';
+import { prepareQuery } from './prepared.ts';
 
 export class DbSchema implements _ISchema, ISchema {
 
@@ -28,7 +30,7 @@ export class DbSchema implements _ISchema, ISchema {
     private installedExtensions = new Set<string>();
     private readonly: any;
     private interceptors = new Set<{ readonly intercept: QueryInterceptor }>();
-    private lastSelect?: _ISelection;
+    lastSelect?: _ISelection;
 
     constructor(readonly name: string, readonly db: _IDb) {
         this.dualTable = new MemoryTable(this, this.db.data, { fields: [], name: 'dual' }).register();
@@ -58,87 +60,60 @@ export class DbSchema implements _ISchema, ISchema {
 
 
     query(text: QueryOrAst): QueryResult {
+        return this.prepare(text)
+            .bind()
+            .executeAll();
+    }
+
+
+    prepare(query: QueryOrAst): IPreparedQuery {
         // intercept ?
-        if (typeof text === 'string') {
+        if (typeof query === 'string') {
             for (const { intercept } of this.interceptors) {
-                const ret = intercept(text);
+                const ret = intercept(query);
                 if (ret) {
-                    return {
-                        command: text,
-                        fields: [],
-                        location: { start: 0, end: text.length },
-                        rowCount: 0,
-                        rows: ret,
-                    };
+                    return new InterceptedPreparedQuery(query, ret);
                 }
             }
         }
 
-        // execute.
-        let last: QueryResult | undefined;
-        for (const r of this.queries(text)) {
-            last = r;
+        try {
+            // Parse statements
+            query = typeof query === 'string' ? query + ';' : query;
+            const parsed = this.parse(query);
+
+            if (!parsed.length) {
+                return new InterceptedPreparedQuery(typeof query === 'string' ? query : '<custom ast>', []);
+            }
+
+            const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
+            const ret = prepareQuery(this, parsed, singleSql);
+
+            ret.executed = () => {
+                this.db.raiseGlobal('query', query);
+            };
+            ret.failed = (e) => {
+                this.db.raiseGlobal('query-failed', query);
+            };
+            return ret;
+        } catch (e) {
+            this.db.raiseGlobal('query-failed', query);
+            throw e;
         }
-        return last ?? {
-            command: typeof text === 'string' ? text : '<custom ast>',
-            fields: [],
-            location: { start: 0, end: typeof text === 'string' ? text.length : 0 },
-            rowCount: 0,
-            rows: [],
-        };
     }
+
 
     private parse(query: QueryOrAst): Statement[] {
         if (typeof query === 'string') {
             return parseSql(query);
         }
-        return Array.isArray(query) ? query : [query];
+        return notNil(Array.isArray(query) ? query : [query]);
     }
 
     *queries(query: QueryOrAst): Iterable<QueryResult> {
-        query = typeof query === 'string' ? query + ';' : query;
-        try {
-
-            // Parse statements
-            let parsed = this.parse(query);
-            if (!Array.isArray(parsed)) {
-                parsed = [parsed];
-            }
-            const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
-
-            // Prepare statements
-            const prepared = parsed
-                .filter(s => !!s)
-                .map(x => new StatementExec(this, x, singleSql));
-
-            // Start an implicit transaction
-            //  (to avoid messing global data if an operation fails mid-write)
-            let t = this.db.data.fork();
-
-            // Execute statements
-            for (const p of prepared) {
-
-                // Prepare statement
-                const executor = p.compile();
-
-                // store last select for debug purposes
-                if (executor instanceof SelectExec) {
-                    this.lastSelect = executor.selection;
-                }
-
-                // Execute statement
-                const { state, result } = p.executeStatement(t);
-                yield result;
-                t = state;
-            }
-
-            // implicit final commit
-            t.fullCommit();
-            this.db.raiseGlobal('query', query);
-        } catch (e) {
-            this.db.raiseGlobal('query-failed', query);
-            throw e;
-        }
+        return this.prepare(query)
+            .bind()
+            .iterate();
     }
 
 
@@ -456,7 +431,7 @@ export class DbSchema implements _ISchema, ISchema {
         if (this.relsByNameCas.has(rel.name)) {
             throw new Error(`relation "${rel.name}" already exists`);
         }
-        const ret: Reg = regGen();
+        const ret: Reg = regGen(null);
         this.relsByNameCas.set(rel.name, rel);
         this.relsByCls.set(ret.classId, rel);
         this.relsByTyp.set(ret.typeId, rel);

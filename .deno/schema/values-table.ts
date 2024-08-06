@@ -5,12 +5,13 @@ import { ReadOnlyTable } from './readonly-table.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { Types } from '../datatypes/index.ts';
 import { withSelection, buildCtx } from '../parser/context.ts';
+import { columnEvaluator } from '../transforms/selection.ts';
 
 let cnt = 0;
 export class ValuesTable extends ReadOnlyTable {
     private symbol = Symbol();
     _schema!: Schema;
-    private assignments!: (IValue<any> | "default")[][];
+    private assignments!: (IValue | "default")[][];
 
     entropy(t: _Transaction): number {
         return 0;
@@ -33,6 +34,22 @@ export class ValuesTable extends ReadOnlyTable {
 
     hasItem(value: any, t: _Transaction): boolean {
         return !!value[this.symbol];
+    }
+
+    /** @override */
+    protected buildColumnEvaluator(_col: SchemaField, i: number): IValue {
+        return columnEvaluator(this, _col.name, _col.type as _IType, {
+            onCast: to => {
+                // forward onCast to values
+                // which is important for query parameters type inference
+                // see PreparedQuery.describe()
+                for (const row of this.assignments) {
+                    if (row[i] !== 'default') {
+                        row[i]?.cast(to);
+                    }
+                }
+            },
+        });
     }
 
     constructor(alias: string, items: Expr[][], columnNames: string[] | nil, acceptDefault?: boolean) {

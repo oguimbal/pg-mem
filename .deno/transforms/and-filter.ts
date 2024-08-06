@@ -1,12 +1,12 @@
-import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, Stats, nil } from '../interfaces-private.ts';
+import { _ISelection, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, Stats, nil, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import { SeqScanFilter } from './seq-scan.ts';
 
 
 
-export class AndFilter<T = any> extends FilterBase<T> {
+export class AndFilter extends FilterBase {
 
-    get index(): _IIndex<T> | nil {
+    get index(): _IIndex | nil {
         return null;
     }
 
@@ -26,11 +26,11 @@ export class AndFilter<T = any> extends FilterBase<T> {
         return ret;
     }
 
-    hasItem(value: T, t: _Transaction): boolean {
+    hasItem(value: Row, t: _Transaction): boolean {
         return this.filters.every(x => x.hasItem(value, t));
     }
 
-    constructor(private filters: _ISelection<T>[]) {
+    constructor(private filters: _ISelection[]) {
         super(filters.find(x => !(x instanceof SeqScanFilter)) ?? filters[0]);
         if (filters.some(f => f.columns !== this.base.columns)) {
             throw new Error('Column set mismatch');
@@ -49,7 +49,7 @@ export class AndFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         // sort them so the most restrictive filter is first
         const { best, sorted } = this.plan(t)
         for (const item of best.enumerate(t)) {

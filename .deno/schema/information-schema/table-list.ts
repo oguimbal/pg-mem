@@ -46,7 +46,7 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         }
     }
 
-    make(t: _ITable<any>): any {
+    make(t: _ITable): any {
         if (!t) {
             return null;
         }
@@ -73,7 +73,7 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         return !!value?.[IS_SCHEMA];
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
+    getIndex(forValue: IValue): _IIndex | nil {
         if (forValue?.id === 'table_name') {
             return new TableIndex(this, forValue);
         }

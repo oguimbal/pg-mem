@@ -1,4 +1,4 @@
-import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias, TR, _IStatement } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _IDb, setId, getId, _Transaction, _ISchema, _SelectExplanation, _Explainer, IndexExpression, IndexOp, IndexKey, _IndexExplanation, Stats, _IAlias, TR, _IStatement, Row } from '../interfaces-private.ts';
 import { buildBinaryValue, buildValue, uncache } from '../parser/expression-builder.ts';
 import { QueryError, ColumnNotFound, NotSupported, nil, DataType } from '../interfaces.ts';
 import { DataSourceBase, TransformBase } from './transform-base.ts';
@@ -11,16 +11,16 @@ import { withSelection, buildCtx } from '../parser/context.ts';
 
 let jCnt = 0;
 
-interface JoinRaw<TLeft, TRight> {
-    '>restrictive': TLeft;
-    '>joined': TRight;
+interface JoinRaw {
+    '>restrictive': Row;
+    '>joined': Row;
 }
 interface JoinStrategy {
     iterate: _ISelection;
     iterateSide: 'joined' | 'restrictive';
-    joinIndex: _IIndex<any>;
+    joinIndex: _IIndex;
     onValue: IValue;
-    othersPredicate?: IValue<any>;
+    othersPredicate?: IValue;
 }
 
 interface Equality {
@@ -43,14 +43,14 @@ function chooseStrategy(this: void, t: _Transaction, strategies: JoinStrategy[])
     return strategies[0];
 }
 
-export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<JoinRaw<TLeft, TRight>> {
+export class JoinSelection extends DataSourceBase {
 
     get isExecutionWithNoResult(): boolean {
         return false;
     }
 
-    private _columns: IValue<any>[] = [];
-    private seqScanExpression!: IValue<any>;
+    private _columns: IValue[] = [];
+    private seqScanExpression!: IValue;
     private joinId: number;
     private columnsMappingParentToThis = new Map<IValue, IValue>();
     // mapping of the left table columns mapped to the actual their inner value
@@ -62,11 +62,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
     private mergeSelect?: Selection;
 
 
-    isOriginOf(a: IValue<any>): boolean {
+    isOriginOf(a: IValue): boolean {
         return this.joined.isOriginOf(a) || this.restrictive.isOriginOf(a);
     }
 
-    get columns(): IValue<any>[] {
+    get columns(): IValue[] {
         return this._columns;
     }
 
@@ -82,8 +82,8 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return ret;
     }
 
-    constructor(readonly restrictive: _ISelection<TLeft>
-        , readonly joined: _ISelection<TRight>
+    constructor(readonly restrictive: _ISelection
+        , readonly joined: _ISelection
         , on: JoinClause
         , readonly innerJoin: boolean) {
         super(buildCtx().schema);
@@ -253,7 +253,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
 
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
         let onLeft = this.restrictive.getColumn(column, true);
         let onRight = this.joined.getColumn(column, true);
         if (!onLeft && !onRight) {
@@ -379,7 +379,7 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         }
     }
 
-    buildItem(l: TLeft, r: TRight) {
+    buildItem(l: Row, r: Row) {
         const ret = {
             '>joined': r,
             '>restrictive': l,
@@ -403,11 +403,11 @@ export class JoinSelection<TLeft = any, TRight = any> extends DataSourceBase<Joi
         return ret;
     }
 
-    hasItem(value: JoinRaw<TLeft, TRight>): boolean {
+    hasItem(value: JoinRaw): boolean {
         throw new NotSupported('lookups on joins');
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
+    getIndex(forValue: IValue): _IIndex | nil {
         if (this.indexCache.has(forValue)) {
             return this.indexCache.get(forValue);
         }
@@ -451,15 +451,15 @@ class JoinMapAlias implements _IAlias {
     constructor(private owner: JoinSelection, private target: _IAlias, private map: string) {
     }
 
-    *listColumns(): Iterable<IValue<any>> {
+    *listColumns(): Iterable<IValue> {
         for (const c of this.target.listColumns()) {
             yield c.setWrapper(this.owner, x => (x as any)[this.map]);
         }
     }
 }
 
-export class JoinIndex<T> implements _IIndex<T> {
-    constructor(readonly owner: JoinSelection<T>, private base: _IIndex) {
+export class JoinIndex implements _IIndex {
+    constructor(readonly owner: JoinSelection, private base: _IIndex) {
     }
 
     get expressions(): IndexExpression[] {
@@ -484,7 +484,7 @@ export class JoinIndex<T> implements _IIndex<T> {
         return this.base.entropy(op);
     }
 
-    eqFirst(rawKey: IndexKey, t: _Transaction): T | null {
+    eqFirst(rawKey: IndexKey, t: _Transaction): Row | null {
         for (const i of this.enumerate({
             type: 'eq',
             key: rawKey,
@@ -503,7 +503,7 @@ export class JoinIndex<T> implements _IIndex<T> {
         return chooseStrategy(t, strats);
     }
 
-    *enumerate(op: IndexOp): Iterable<T> {
+    *enumerate(op: IndexOp): Iterable<Row> {
         const strategy = this.chooseStrategy(op.t);
         if (strategy) {
             for (const i of this.base.enumerate(op)) {

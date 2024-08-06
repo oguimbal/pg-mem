@@ -1,4 +1,4 @@
-import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema } from '../interfaces-private.ts';
+import { IValue, _IIndex, _ITable, getId, IndexKey, CreateIndexColDef, _Transaction, _Explainer, _IndexExplanation, IndexExpression, IndexOp, Stats, _INamedIndex, Reg, _ISchema, Row } from '../interfaces-private.ts';
 // @ts-ignore
 import createTree from 'https://deno.land/x/functional_red_black_tree@1.0.1-deno/mod.ts';
 import { QueryError, NotSupported, nil } from '../interfaces.ts';
@@ -48,9 +48,9 @@ interface BIterator<T> {
     readonly hasPrev: boolean;
 }
 
-type RawTree<T> = BTree<ImMap<string, T>>;
+type RawTree = BTree<ImMap<string, Row>>;
 
-export class BIndex<T = any> implements _INamedIndex<T> {
+export class BIndex implements _INamedIndex {
 
     get type(): 'index' {
         return 'index';
@@ -71,7 +71,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     constructor(t: _Transaction
         , readonly name: string
         , readonly cols: readonly CreateIndexColDef[]
-        , readonly onTable: _ITable<T>
+        , readonly onTable: _ITable
         , readonly hash: string
         , readonly unique: boolean
         , readonly notNull: boolean
@@ -126,9 +126,9 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     }
 
     private bin(t: _Transaction) {
-        return t.get<RawTree<T>>(this.treeBinId);
+        return t.get<RawTree>(this.treeBinId);
     }
-    private setBin(t: _Transaction, val: RawTree<T>) {
+    private setBin(t: _Transaction, val: RawTree) {
         return t.set(this.treeBinId, val);
     }
 
@@ -144,7 +144,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         return it.valid;
     }
 
-    add(raw: T, t: _Transaction) {
+    add(raw: Row, t: _Transaction) {
         // check that predicate is OK
         if (this.predicate) {
             const val = this.predicate.get(raw, t);
@@ -180,7 +180,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
             }
             tree = keyValues.update(keyValues.value.set(id, raw));
         } else {
-            tree = tree.insert(key, ImMap<string, T>().set(id, raw));
+            tree = tree.insert(key, ImMap<string, Row>().set(id, raw));
         }
         this.setBin(t, tree);
         this.setCount(t, this.getCount(t) + 1);
@@ -208,7 +208,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         this.setCount(t, this.getCount(t) - 1);
     }
 
-    eqFirst(rawKey: IndexKey, t: _Transaction): T | null {
+    eqFirst(rawKey: IndexKey, t: _Transaction): Row | null {
         for (const r of this.eq(rawKey, t, false)) {
             return deepCloneSimple(r);
         }
@@ -216,7 +216,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
     }
 
 
-    *nin(rawKey: IndexKey[], t: _Transaction): Iterable<T> {
+    *nin(rawKey: IndexKey[], t: _Transaction): Iterable<Row> {
         rawKey.sort((a, b) => this.compare(a, b));
         const kit = rawKey[Symbol.iterator]();
         let cur = kit.next();
@@ -364,12 +364,12 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
     }
 
-    *enumerate(op: IndexOp): Iterable<T> {
+    *enumerate(op: IndexOp): Iterable<Row> {
         for (const x of this._enumerate(op)) {
             yield deepCloneSimple(x);
         }
     }
-    private _enumerate(op: IndexOp): Iterable<T> {
+    private _enumerate(op: IndexOp): Iterable<Row> {
         switch (op.type) {
             case 'eq':
                 return this.eq(op.key, op.t, op.matchNull!);
@@ -394,7 +394,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
     }
 
-    *eq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<T> {
+    *eq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<Row> {
         if (!matchNull && key.some(nullIsh)) {
             return;
         }
@@ -407,7 +407,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
 
 
 
-    *neq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<T> {
+    *neq(key: IndexKey, t: _Transaction, matchNull: boolean): Iterable<Row> {
         if (!matchNull && key.some(nullIsh)) {
             return;
         }
@@ -426,7 +426,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
     }
 
-    *gt(key: IndexKey, t: _Transaction): Iterable<T> {
+    *gt(key: IndexKey, t: _Transaction): Iterable<Row> {
         const it = this.bin(t).gt(key);
         while (it.valid) {
             yield* it.value.values();
@@ -434,7 +434,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
     }
 
-    *ge(key: IndexKey, t: _Transaction): Iterable<T> {
+    *ge(key: IndexKey, t: _Transaction): Iterable<Row> {
         const it = this.bin(t).ge(key);
         while (it.valid) {
             yield* it.value.values();
@@ -442,7 +442,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         }
     }
 
-    *lt(key: IndexKey, t: _Transaction): Iterable<T> {
+    *lt(key: IndexKey, t: _Transaction): Iterable<Row> {
         const bin = this.bin(t);
         const limit = bin.lt(key);
         const it = bin.begin;
@@ -465,7 +465,7 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         // }
     }
 
-    *le(key: IndexKey, t: _Transaction): Iterable<T> {
+    *le(key: IndexKey, t: _Transaction): Iterable<Row> {
         const bin = this.bin(t);
         const limit = bin.le(key);
         const it = bin.begin;
@@ -488,12 +488,12 @@ export class BIndex<T = any> implements _INamedIndex<T> {
         // }
     }
 
-    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+    *outside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<Row> {
         yield* this.lt(lo, t);
         yield* this.gt(hi, t);
     }
 
-    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<T> {
+    *inside(lo: IndexKey, hi: IndexKey, t: _Transaction): Iterable<Row> {
         const it = this.bin(t).ge(lo);
         while (it.valid && this.compare(it.key, hi) <= 0) {
             yield* it.value.values();

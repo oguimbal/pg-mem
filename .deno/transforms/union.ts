@@ -1,4 +1,4 @@
-import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IIndex, _IType, setId, getId } from '../interfaces-private.ts';
+import { IValue, _ISelection, _Transaction, _Explainer, _SelectExplanation, Stats, _IIndex, _IType, setId, getId, _IAggregation, Row } from '../interfaces-private.ts';
 import { DataSourceBase } from './transform-base.ts';
 import { ColumnNotFound, nil, NotSupported, QueryError } from '../interfaces.ts';
 import { columnEvaluator } from './selection.ts';
@@ -18,7 +18,7 @@ export function buildUnion(left: _ISelection, right: _ISelection) {
 
         const type = reconciliateTypes([l, r], true);
         if (!type) {
-            throw new QueryError(`UNION types ${l.type.name} and ${r.type.name} cannot be matched`);
+            throw new QueryError(`UNION types ${l.type.name} (${l.id ?? '<unknown col>'}) and ${r.type.name} (${r.id ?? '<unknown col>'}) cannot be matched`);
         }
         cols[i] = {
             name: l.id ?? ('column' + i),
@@ -37,24 +37,24 @@ interface UCol {
     rval: IValue;
 }
 
-class Union<T = any> extends DataSourceBase<T> {
+class Union extends DataSourceBase {
 
     get isExecutionWithNoResult(): boolean {
         return false;
     }
 
-    isAggregation() {
+    isAggregation(): this is _IAggregation {
         return false;
     }
 
-    readonly columns: ReadonlyArray<IValue<any>>;
+    readonly columns: ReadonlyArray<IValue>;
     private readonly colsByName = new Map<string, IValue>();
 
     entropy(t: _Transaction) {
         return this.left.entropy(t) + this.right.entropy(t);
     }
 
-    hasItem(raw: T, t: _Transaction): boolean {
+    hasItem(raw: Row, t: _Transaction): boolean {
         return this.left.hasItem(raw, t) || this.right.hasItem(raw, t);
     }
 
@@ -72,7 +72,7 @@ class Union<T = any> extends DataSourceBase<T> {
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         for (const raw of this.left.enumerate(t)) {
             const ret = {} as any;
             setId(ret, getId(raw));
@@ -102,16 +102,16 @@ class Union<T = any> extends DataSourceBase<T> {
 
     getColumn(column: string | ExprRef): IValue;
     getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil;
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue<any> | nil {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean): IValue | nil {
         return colByName(this.colsByName, column, nullIfNotFound);
     }
 
-    getIndex(...forValue: IValue<any>[]): _IIndex<any> | null | undefined {
+    getIndex(...forValue: IValue[]): _IIndex | null | undefined {
         // todo use indices on unions
         return null;
     }
 
-    isOriginOf(a: IValue<any>): boolean {
+    isOriginOf(a: IValue): boolean {
         return a.origin === this || this.left.isOriginOf(a);
     }
 }

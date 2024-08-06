@@ -1,18 +1,18 @@
-import { _ISelection, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats } from '../interfaces-private.ts';
+import { _ISelection, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 
 
-export class OrFilter<T = any> extends FilterBase<T> {
+export class OrFilter extends FilterBase {
 
     entropy(t: _Transaction) {
         return this.left.entropy(t) + this.right.entropy(t);
     }
 
-    hasItem(value: T, t: _Transaction): boolean {
+    hasItem(value: Row, t: _Transaction): boolean {
         return this.left.hasItem(value, t) || this.right.hasItem(value, t);
     }
 
-    constructor(private left: _ISelection<T>, private right: _ISelection<T>) {
+    constructor(private left: _ISelection, private right: _ISelection) {
         super(left);
         if (left.columns !== right.columns) { //  istanbul ignore next
             throw new Error('Column set mismatch');
@@ -23,7 +23,7 @@ export class OrFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         const yielded = new Set<string>();
         for (const item of this.left.enumerate(t)) {
             yield item;

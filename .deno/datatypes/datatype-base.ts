@@ -5,12 +5,18 @@ import { isType, nullIsh } from '../utils.ts';
 import objectHash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { QueryError } from '../interfaces.ts';
 
-let regCnt = 0;
+let regCnt = 398420;
+function genId(num?: number | null): number {
+    if (num) {
+        return num;
+    }
+    return ++regCnt;
+}
 
-export function regGen(): Reg {
+export function regGen(typeId: number | null): Reg {
     return {
-        classId: ++regCnt,
-        typeId: ++regCnt,
+        classId: genId(),
+        typeId: genId(typeId),
     };
 }
 
@@ -25,8 +31,12 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         return 'type';
     }
 
-    constructor() {
-        this.reg = regGen();
+    /**
+     * select a.oid, a.typname, b.typcategory  from  pg_catalog.pg_type a
+        left join pg_catalog.pg_type b on b.oid = a.typelem
+     */
+    constructor(typeId: number | null) {
+        this.reg = regGen(typeId);
     }
 
     private _asArray?: _IType<TRaw[]>;
@@ -154,7 +164,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     /** Perform cast */
-    cast(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+    cast(_a: IValue<TRaw>, _to: _IType<any>): IValue {
         return this._convert(_a, _to, (a, to) => {
             if (!this.doCanCast?.(to) || !this.doCast) {
                 throw new CastError(this, to);
@@ -164,7 +174,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     }
 
     /** Perform implicit conversion */
-    convertImplicit(_a: IValue<TRaw>, _to: _IType<any>): IValue<any> {
+    convertImplicit(_a: IValue<TRaw>, _to: _IType<any>): IValue {
         return this._convert(_a, _to, (a, to) => {
             if (!this.doCanConvertImplicit?.(to) || !this.doCast) {
                 throw new CastError(this, to);
@@ -173,7 +183,7 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
         })
     }
 
-    private _convert(a: IValue<TRaw>, _to: _IType<any>, perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil): IValue<any> {
+    private _convert(a: IValue<TRaw>, _to: _IType<any>, perform: (a: Evaluator, to: _IType) => Evaluator<any> | nil): IValue {
         const to = _to as TypeBase;
         if (to === this) {
             return a;

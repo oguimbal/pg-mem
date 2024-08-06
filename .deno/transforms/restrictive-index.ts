@@ -1,10 +1,10 @@
-import { _IIndex, IValue, IndexExpression, _Transaction, IndexKey, _Explainer, _IndexExplanation, IndexOp, _ISelection, Stats } from '../interfaces-private.ts';
+import { _IIndex, IValue, IndexExpression, _Transaction, IndexKey, _Explainer, _IndexExplanation, IndexOp, _ISelection, Stats, Row } from '../interfaces-private.ts';
 
-export class RestrictiveIndex<T> implements _IIndex<T> {
-    constructor(private base: _IIndex<T>, readonly filter: _ISelection<T>) {
+export class RestrictiveIndex implements _IIndex {
+    constructor(private base: _IIndex, readonly filter: _ISelection) {
     }
 
-    private match(raw: T, t: _Transaction) {
+    private match(raw: Row, t: _Transaction) {
         return this.filter.hasItem(raw, t);
     }
 
@@ -41,7 +41,7 @@ export class RestrictiveIndex<T> implements _IIndex<T> {
         return this.base.entropy(t);
     }
 
-    *enumerate(op: IndexOp): Iterable<T> {
+    *enumerate(op: IndexOp): Iterable<Row> {
         for (const i of this.base.enumerate(op)) {
             if (this.match(i, op.t)) {
                 yield i;

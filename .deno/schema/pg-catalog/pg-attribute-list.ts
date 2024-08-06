@@ -47,7 +47,7 @@ export class PgAttributeTable extends ReadOnlyTable implements _ITable {
         return false;
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | nil {
+    getIndex(forValue: IValue): _IIndex | nil {
         return null;
     }
 

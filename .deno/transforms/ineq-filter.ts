@@ -1,8 +1,8 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import { nullIsh } from '../utils.ts';
 
-export class IneqFilter<T = any> extends FilterBase<T> {
+export class IneqFilter extends FilterBase {
 
     private index: _IIndex;
     private opDef: IndexOp;
@@ -11,7 +11,7 @@ export class IneqFilter<T = any> extends FilterBase<T> {
         return this.onValue.index!.entropy({ ...this.opDef, t });
     }
 
-    hasItem(item: T, t: _Transaction) {
+    hasItem(item: Row, t: _Transaction) {
         const val = this.onValue.get(item, t);
         if (nullIsh(val)) {
             return false;
@@ -19,7 +19,7 @@ export class IneqFilter<T = any> extends FilterBase<T> {
         return !!this.onValue.type[this.op](val, this.than);
     }
 
-    constructor(private onValue: IValue<T>
+    constructor(private onValue: IValue
         , private op: 'gt' | 'ge' | 'lt' | 'le'
         , private than: any) {
         super(onValue.origin!);
@@ -37,7 +37,7 @@ export class IneqFilter<T = any> extends FilterBase<T> {
         return null;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         for (const item of this.index.enumerate({ ...this.opDef, t })) {
             if (!this.hasItem(item, t)) {
                 break;

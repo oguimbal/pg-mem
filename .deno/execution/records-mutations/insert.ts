@@ -9,11 +9,11 @@ import { withSelection, buildCtx } from '../../parser/context.ts';
 import { buildValues, buildSelect } from '../../execution/select.ts';
 import { IndexConstraint } from '../../constraints/index-cst.ts';
 
-export class Insert extends MutationDataSourceBase<any> {
+export class Insert extends MutationDataSourceBase {
 
     private valueRawSource: _ISelection;
     private insertColumns!: string[];
-    private valueConvertedSource!: IValue<any>[];
+    private valueConvertedSource!: IValue[];
     private opts!: ChangeOpts;
 
 

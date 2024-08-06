@@ -38,6 +38,17 @@ export class Transaction implements _Transaction {
         return this.parent;
     }
 
+    fullCommit() {
+        const ret = this.commit();
+        return ret.isChild
+            ? ret.fullCommit()
+            : ret;
+    }
+
+    rollback() {
+        return this.parent ?? this;
+    }
+
     delete(identity: symbol): void {
         this.data = this.data.delete(identity);
     }
@@ -65,17 +76,6 @@ export class Transaction implements _Transaction {
             this.data = this.data.set(identity, got = ImSet());
         }
         return got as any;
-    }
-
-    fullCommit() {
-        const ret = this.commit();
-        return ret.isChild
-            ? ret.fullCommit()
-            : ret;
-    }
-
-    rollback() {
-        return this.parent ?? this;
     }
 
     setTransient<T>(identity: symbol, data: T): T {

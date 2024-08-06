@@ -1,8 +1,8 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexOp, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import { nullIsh } from '../utils.ts';
 
-export class BetweenFilter<T = any> extends FilterBase<T> {
+export class BetweenFilter extends FilterBase {
 
     private opDef: IndexOp;
 
@@ -11,7 +11,7 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
         return this.onValue.index!.entropy({ ...this.opDef, t });
     }
 
-    constructor(private onValue: IValue<T>
+    constructor(private onValue: IValue
         , private lo: any
         , private hi: any
         , private op: 'inside' | 'outside') {
@@ -27,7 +27,7 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    hasItem(value: T, t: _Transaction): boolean {
+    hasItem(value: Row, t: _Transaction): boolean {
         const v = this.onValue.get(value, t);
         if (nullIsh(v)) {
             return false;
@@ -40,7 +40,7 @@ export class BetweenFilter<T = any> extends FilterBase<T> {
             || !!this.onValue.type.gt(v, this.lo);
     }
 
-    enumerate(t: _Transaction): Iterable<T> {
+    enumerate(t: _Transaction): Iterable<Row> {
         return this.onValue.index!.enumerate({ ...this.opDef, t });
     }
 

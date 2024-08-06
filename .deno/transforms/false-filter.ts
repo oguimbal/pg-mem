@@ -1,7 +1,7 @@
-import { _ISelection, IValue, _Explainer, _SelectExplanation, _Transaction, Stats } from '../interfaces-private.ts';
+import { _ISelection, IValue, _Explainer, _SelectExplanation, _Transaction, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 
-export class FalseFilter<T = any> extends FilterBase<T> {
+export class FalseFilter extends FilterBase {
 
     get index() {
         return null;
@@ -15,7 +15,7 @@ export class FalseFilter<T = any> extends FilterBase<T> {
         return false;
     }
 
-    enumerate(): Iterable<T> {
+    enumerate(): Iterable<Row> {
         return [];
     }
 

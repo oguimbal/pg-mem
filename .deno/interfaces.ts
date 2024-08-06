@@ -4,6 +4,7 @@ import { MigrationParams } from './migrate/migrate-interfaces.ts';
 
 export type nil = undefined | null;
 
+
 export type Schema = {
     name: string;
     fields: SchemaField[];
@@ -224,6 +225,28 @@ export interface LibAdapters {
 
     /** Create a mikro-orm instance bound to this db */
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
+
+    /** Creates a Postres.js `sql` tag bound to this db */
+    createPostgresJsTag(queryLatency?: number): any;
+
+    /** Binds a server to this instance */
+    bindServer(opts?: BindServerOptions): Promise<BindServerResult>;
+}
+
+export interface BindServerResult {
+    postgresConnectionString: string;
+    connectionSettings: {
+        host: string;
+        port: number;
+    };
+    close(): void;
+}
+
+export interface BindServerOptions {
+    /** defaults to a random port */
+    port?: number;
+    /** defaults to 'localhost' */
+    host?: string;
 }
 
 export interface SlonikAdapterOptions {
@@ -238,10 +261,39 @@ export interface SlonikAdapterOptions {
 
 export type QueryOrAst = string | Statement | Statement[];
 
+export interface IPreparedQuery {
+    describe(): QueryDescription;
+    bind(args?: any[]): IBoundQuery;
+}
+
+export interface QueryDescription {
+    parameters: ParameterInfo[];
+    result: FieldInfo[];
+}
+
+export interface ParameterInfo {
+    type: DataType;
+    typeId: number
+}
+
+export interface IBoundQuery {
+    /** Executes all statements */
+    executeAll(): QueryResult;
+    /**
+     * Progressively executes a query that contains multiple statements, yielding results until the end of enumeration (or an exception)
+     */
+    iterate(): IterableIterator<QueryResult>;
+}
+
 export interface ISchema {
     /**
-     * Execute a query and return many results
+     * Another way to create tables (equivalent to "create table" queries")
      */
+    declareTable(table: Schema): IMemoryTable<any>;
+
+    /**
+         * Execute a query and return many results
+         */
     many(query: QueryOrAst): any[];
     /**
      * Execute a query without results
@@ -251,31 +303,34 @@ export interface ISchema {
      * Execute a query with a single result
      */
     one(query: QueryOrAst): any;
+
     /**
-     * Another way to create tables (equivalent to "create table" queries")
-     */
-    declareTable(table: Schema): IMemoryTable;
-    /**
-     * Execute a query
+     * Execute a query that has no argument, and returns the latest query result
+     *   (shortcut for .prepare(cmd).bind().executeAll())
      */
     query(text: QueryOrAst): QueryResult;
 
-
     /**
-     * Progressively executes a query, yielding results until the end of enumeration (or an exception)
+     * Progressively executes a query that has no argument, yielding results until the end of enumeration (or an exception)
+     *  (shortcut for .prepare(cmd).bind().iterate())
      */
     queries(text: QueryOrAst): Iterable<QueryResult>;
 
     /**
+     * Prepare a query
+     */
+    prepare(text: QueryOrAst): IPreparedQuery;
+
+    /**
      * Get a table in this db to inspect it
      */
-    getTable(table: string): IMemoryTable;
-    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable | null;
+    getTable(table: string): IMemoryTable<unknown>;
+    getTable(table: string, nullIfNotFound?: boolean): IMemoryTable<unknown> | null;
 
     /**
      * List all tables in this schema
      */
-    listTables(): Iterable<IMemoryTable>
+    listTables(): Iterable<IMemoryTable<unknown>>
 
     /** Register a function */
     registerFunction(fn: FunctionDefinition, orReplace?: boolean): this;
@@ -380,6 +435,7 @@ export interface QueryResult {
 export interface FieldInfo {
     name: string;
     type: DataType;
+    typeId: number;
 }
 
 
@@ -387,7 +443,7 @@ export interface FieldInfo {
 export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
-export interface IMemoryTable<T = unknown> {
+export interface IMemoryTable<T> {
     readonly name: string;
     readonly primaryIndex: IndexDef | nil;
 
@@ -408,9 +464,11 @@ export interface IMemoryTable<T = unknown> {
     insert(item: Partial<T>): T | null;
 
     /** Find all items matching a specific template */
-    find(template?: Partial<T> | nil, columns?: (keyof T)[]): Iterable<T>;
+    find<keys extends (keyof T)[]>(template?: Partial<T> | nil, columns?: keys): Pick<T, ArrayToUnionOr<keys, keyof T>>[];
 }
 
+
+type ArrayToUnionOr<T, Or> = T extends (infer U)[] ? U : Or;
 
 export interface ColumnDef {
     readonly name: string;

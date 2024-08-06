@@ -3,14 +3,14 @@ import { _ISchema } from '../interfaces-private.ts';
 
 
 import { literal } from '../misc/pg-escape.ts';
+import { doRequire } from '../utils.ts';
 import { MigrationData, MigrationFile, MigrationParams } from './migrate-interfaces.ts';
 
-declare var __non_webpack_require__: any;
 declare var process: any;
 
 export async function readMigrations(migrationPath?: string) {
-  const path = __non_webpack_require__('path');
-  const fs = __non_webpack_require__('fs');
+  const path = doRequire('path');
+  const fs = doRequire('fs');
   const migrationsPath = migrationPath || path.join(process.cwd(), 'migrations')
   const location = path.resolve(migrationsPath)
 

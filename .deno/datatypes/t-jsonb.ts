@@ -10,8 +10,8 @@ import { jsonStringify as  stringify} from 'https://deno.land/x/stable_stringify
 export class JSONBType extends TypeBase<any> {
 
 
-    constructor(readonly primary: DataType) {
-        super();
+    constructor(readonly primary: DataType, dataType: number) {
+        super(dataType);
     }
 
     doCanCast(_to: _IType): boolean | nil {

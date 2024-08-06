@@ -5,6 +5,13 @@ import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval,
 import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from './interfaces.ts';
 import { bufClone, bufCompare, isBuf } from './misc/buffer-deno.ts';
 
+declare var __non_webpack_require__: any;
+declare var require: any;
+export const doRequire = typeof __non_webpack_require__ !== 'undefined'
+    ? __non_webpack_require__
+    : typeof require === 'undefined' ? (v: string) => { throw new Error(`Cannot require ${v} in this environment`) } : require;
+
+
 export interface Ctor<T> extends Function {
     new(...params: any[]): T; prototype: T;
 }
@@ -147,8 +154,8 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
 
     // handle dates
     if (a instanceof Date || b instanceof Date || moment.isMoment(a) || moment.isMoment(b)) {
-        const am = moment(a);
-        const bm = moment(b);
+        const am = moment(a as any);
+        const bm = moment(b as any);
         if (am.isValid() !== bm.isValid()) {
             return am.isValid()
                 ? -1
@@ -163,8 +170,8 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
 
     // handle durations
     if (moment.isDuration(a) || moment.isDuration(b)) {
-        const da = moment.duration(a);
-        const db = moment.duration(b);
+        const da = moment.duration(a as any);
+        const db = moment.duration(b as any);
         if (da.isValid() !== db.isValid()) {
             return da.isValid()
                 ? -1
@@ -313,7 +320,7 @@ export function sum(v: number[]): number {
     return v.reduce((sum, el) => sum + el, 0);
 }
 
-export function deepCloneSimple<T>(v: T): T {
+export function deepCloneSimple<T>(v: T, noSymbols?: boolean): T {
     if (!v || typeof v !== 'object' || v instanceof Date) {
         return v;
     }
@@ -328,8 +335,10 @@ export function deepCloneSimple<T>(v: T): T {
     for (const k of Object.keys(v)) {
         ret[k] = deepCloneSimple((v as any)[k]);
     }
-    for (const k of Object.getOwnPropertySymbols(v)) {
-        ret[k] = (v as any)[k]; // no need to deep clone that
+    if (!noSymbols) {
+        for (const k of Object.getOwnPropertySymbols(v)) {
+            ret[k] = (v as any)[k]; // no need to deep clone that
+        }
     }
     return ret;
 }
@@ -383,6 +392,10 @@ export function executionCtx(): ExecCtx {
 }
 export function hasExecutionCtx(): boolean {
     return curCtx.length > 0;
+}
+
+export function isTopLevelExecutionContext(): boolean {
+    return curCtx.length <= 1;
 }
 
 export function pushExecutionCtx<T>(ctx: ExecCtx, act: () => T): T {
@@ -511,7 +524,7 @@ export function findTemplate<T>(this: void, selection: _ISelection, t: _Transact
             expr: { type: 'ref', name: x as string },
         })));
     }
-    return ret.enumerate(t);
+    return ret.enumerate(t) as any;
 }
 
 
@@ -723,4 +736,77 @@ export function modifyIfNecessary<T>(values: T[], mapper: (input: T) => T | nil)
         ret[i] = mapped;
     }
     return ret ?? values;
+}
+
+
+
+export type LazySync<T> = (() => T) & { invalidate: () => void };
+export function lazySync<T>(ctor: () => T): LazySync<T> {
+    let cached: T;
+    let retreived = false;
+    const ret = () => {
+        if (retreived) {
+            return cached;
+        }
+        cached = ctor();
+        retreived = true;
+        return cached;
+    };
+    ret.invalidate = () => {
+        retreived = false;
+        cached = undefined as T;
+    };
+    return ret as LazySync<T>;
+}
+
+
+
+// setImmediate does not exist in Deno
+declare var setImmediate: any;
+
+// see https://github.com/oguimbal/pg-mem/issues/170
+export function timeoutOrImmediate(fn: () => void, time: number) {
+    if (time || typeof setImmediate === 'undefined') {
+        return setTimeout(fn, time);
+    }
+    // nothing to wait for, but still executing "later"
+    //  in case calling code relies on some actual async behavior
+    return setImmediate(fn);
+}
+
+export const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
+
+
+export class AsyncQueue {
+    private queue: (() => Promise<any>)[] = [];
+    private processing: boolean = false;
+
+    // Enqueue a task
+    public enqueue(task: () => Promise<any>): void {
+        this.queue.push(task);
+        if (!this.processing) {
+            this.processQueue();
+        }
+    }
+
+    // Process the queue
+    private async processQueue(): Promise<void> {
+        if (this.processing) {
+            return;
+        }
+        this.processing = true;
+
+        while (this.queue.length > 0) {
+            const task = this.queue.shift();
+            if (task) {
+                try {
+                    await task();
+                } catch (error) {
+                    console.error('Error processing task:', error);
+                }
+            }
+        }
+
+        this.processing = false;
+    }
 }

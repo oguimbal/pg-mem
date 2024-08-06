@@ -1,5 +1,5 @@
 import { TransformBase, FilterBase } from './transform-base.ts';
-import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias } from '../interfaces-private.ts';
+import { _Transaction, IValue, _Explainer, _ISelection, _SelectExplanation, QueryError, Stats, nil, _IAlias, Row } from '../interfaces-private.ts';
 import { Evaluator } from '../evaluator.ts';
 import { Types, RecordCol } from '../datatypes/index.ts';
 import { ExprRef } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
@@ -17,11 +17,11 @@ export function buildAlias(on: _ISelection, alias?: string): _ISelection {
     return new Alias(on, alias);
 }
 
-export class Alias<T> extends TransformBase<T> implements _IAlias {
+export class Alias extends TransformBase implements _IAlias {
 
     private oldToThis = new Map<IValue, IValue>();
     private thisToOld = new Map<IValue, IValue>();
-    private _columns: IValue<any>[] | null = null;
+    private _columns: IValue[] | null = null;
     private asRecord!: IValue;
 
     get isExecutionWithNoResult(): boolean {
@@ -61,7 +61,7 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
         return this.base.debugId;
     }
 
-    get columns(): ReadonlyArray<IValue<any>> {
+    get columns(): ReadonlyArray<IValue> {
         this.init();
         return this._columns!;
     }
@@ -90,11 +90,11 @@ export class Alias<T> extends TransformBase<T> implements _IAlias {
         return this.base.stats(t);
     }
 
-    enumerate(t: _Transaction): Iterable<T> {
+    enumerate(t: _Transaction): Iterable<Row> {
         return this.base.enumerate(t);
     }
 
-    hasItem(value: T, t: _Transaction): boolean {
+    hasItem(value: Row, t: _Transaction): boolean {
         return this.base.hasItem(value, t);
     }
 

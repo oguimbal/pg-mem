@@ -1,9 +1,9 @@
-import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, IndexKey, Stats } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _ITable, getId, _Transaction, _Explainer, _SelectExplanation, IndexKey, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import { DataType, CastError, QueryError } from '../interfaces.ts';
 import { nullIsh } from '../utils.ts';
 
-export class NotInFilter<T = any> extends FilterBase<T> {
+export class NotInFilter extends FilterBase {
 
     private index: _IIndex;
     private keys: IndexKey[];
@@ -16,13 +16,13 @@ export class NotInFilter<T = any> extends FilterBase<T> {
         });
     }
 
-    hasItem(item: T, t: _Transaction): boolean {
+    hasItem(item: Row, t: _Transaction): boolean {
         const val = this.onValue.get(item, t);
         return !nullIsh(val)
             && !this.elts.some(x => this.onValue.type.equals(x, val));
     }
 
-    constructor(private onValue: IValue<T>
+    constructor(private onValue: IValue
         , private elts: any[]) {
         super(onValue.origin!);
         this.index = onValue.index!;
@@ -52,7 +52,7 @@ export class NotInFilter<T = any> extends FilterBase<T> {
         return all;
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         yield* this.index.enumerate({
             type: 'nin',
             keys: this.keys,

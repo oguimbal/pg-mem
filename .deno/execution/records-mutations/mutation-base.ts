@@ -1,22 +1,21 @@
 import { DataSourceBase } from '../../transforms/transform-base.ts';
 import { ArrayFilter } from '../../transforms/array-filter.ts';
-import { cleanResults } from '../clean-results.ts';
-import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement, QueryError, _Column } from '../../interfaces-private.ts';
+import { _ISelection, _ISchema, _ITable, _Transaction, IValue, _IIndex, _Explainer, _IStatement, QueryError, _Column, _IAggregation, Row } from '../../interfaces-private.ts';
 import { InsertStatement, UpdateStatement, DeleteStatement, SetStatement, ExprRef } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
 import { buildSelection } from '../../transforms/selection.ts';
 import { MemoryTable } from '../../table.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { withSelection, buildCtx } from '../../parser/context.ts';
-import { colToStr } from '../../utils.ts';
+import { colToStr, deepCloneSimple } from '../../utils.ts';
 
 type MutationStatement = InsertStatement | UpdateStatement | DeleteStatement;
 
 
-export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
+export abstract class MutationDataSourceBase extends DataSourceBase {
     public static readonly affectedRows = Symbol('affectedRows');
 
     /** Perform the mutation, and returns the affected elements */
-    protected abstract performMutation(t: _Transaction): T[];
+    protected abstract performMutation(t: _Transaction): Row[];
 
     private returningRows?: ArrayFilter;
     private returning?: _ISelection;
@@ -26,7 +25,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return !this.returning;
     }
 
-    isAggregation() {
+    isAggregation(): this is _IAggregation {
         return false;
     }
 
@@ -55,7 +54,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         // check if this mutation has already been executed in the statement being executed
         // and get the result from cache to avoid re-excuting it
         // see unit test "can use delete result multiple times in select"
-        let affected = t.getTransient<T[]>(this.mutationResult);
+        let affected = t.getTransient<any[]>(this.mutationResult);
         if (!affected) {
             // execute mutation if nescessary
             affected = this.performMutation(t);
@@ -70,7 +69,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
 
     *enumerate(t: _Transaction): Iterable<any> {
 
-        const affected = this._doExecuteOnce(t);
+        let affected = this._doExecuteOnce(t);
 
         if (!this.returning) {
             return;
@@ -78,7 +77,6 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
 
         // handle "returning" statement
         try {
-            cleanResults(affected);
             this.returningRows!.rows = affected;
             yield* this.returning.enumerate(t);
         } finally {
@@ -92,7 +90,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         return 0;
     }
 
-    getColumn(column: string | ExprRef, nullIfNotFound?: boolean | undefined): IValue<any> {
+    getColumn(column: string | ExprRef, nullIfNotFound?: boolean | undefined): IValue {
         if (!this.returning) {
             throw new Error(`Cannot get column "${colToStr(column)}" from a mutation that has no returning statement`);
         }
@@ -103,7 +101,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         throw new Error('To fix: Joins cannot call hasItem on a mutation');
     }
 
-    getIndex(forValue: IValue<any>): _IIndex<any> | null | undefined {
+    getIndex(forValue: IValue): _IIndex | null | undefined {
         return null;
     }
 
@@ -111,7 +109,7 @@ export abstract class MutationDataSourceBase<T> extends DataSourceBase<T> {
         throw new Error('not implemented');
     }
 
-    isOriginOf(a: IValue<any>): boolean {
+    isOriginOf(a: IValue): boolean {
         return !!this.returning && a.origin === this.returning;
     }
 

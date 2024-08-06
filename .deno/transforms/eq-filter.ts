@@ -1,8 +1,8 @@
-import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexKey, IndexOp, Stats } from '../interfaces-private.ts';
+import { _ISelection, IValue, _IIndex, _ITable, _Transaction, _Explainer, _SelectExplanation, IndexKey, IndexOp, Stats, Row } from '../interfaces-private.ts';
 import { FilterBase } from './transform-base.ts';
 import { nullIsh } from '../utils.ts';
 
-export class EqFilter<T = any> extends FilterBase<T> {
+export class EqFilter extends FilterBase {
 
     private index: _IIndex;
     private opDef: IndexOp;
@@ -27,7 +27,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
         };
     }
 
-    hasItem(item: T, t: _Transaction) {
+    hasItem(item: Row, t: _Transaction) {
         const val = this.onValue.get(item, t);
         if (nullIsh(val)) {
             return false;
@@ -39,7 +39,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
         return this.op === 'eq' ? !!eq : !eq;
     }
 
-    constructor(private onValue: IValue<T>
+    constructor(private onValue: IValue
         , private equalsCst: any
         , private op: 'eq' | 'neq'
         , private matchNull: boolean) {
@@ -57,7 +57,7 @@ export class EqFilter<T = any> extends FilterBase<T> {
         }
     }
 
-    *enumerate(t: _Transaction): Iterable<T> {
+    *enumerate(t: _Transaction): Iterable<Row> {
         for (const item of this.index.enumerate({ ...this.opDef, t })) {
             yield item;
         }

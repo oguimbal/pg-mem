@@ -8,7 +8,7 @@ export class TimeType extends TypeBase<string> {
 
 
     constructor(readonly primary: DataType.time | DataType.timetz) {
-        super();
+        super(1083);
     }
 
 

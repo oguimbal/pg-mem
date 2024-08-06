@@ -16,6 +16,7 @@ export class PgTypeTable extends ReadOnlyTable implements _ITable {
             , { name: 'typlen', type: Types.integer }
             , { name: 'typbyval', type: Types.bool }
             , { name: 'typtype', type: Types.text(1) } // char(1)
+            , { name: 'typcategory', type: Types.text(1) } // char(1)
             , { name: 'typispreferred', type: Types.bool }
             , { name: 'typisdefined', type: Types.bool }
             , { name: 'typdlim', type: Types.text(1) } // char(1)

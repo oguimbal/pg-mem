@@ -1,28 +1,13 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions } from '../interfaces.ts';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions, BindServerOptions, BindServerResult } from '../interfaces.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
-import { compareVersions } from '../utils.ts';
+import { compareVersions, delay, doRequire, timeoutOrImmediate } from '../utils.ts';
 import { toLiteral } from '../misc/pg-utils.ts';
-import { _IType } from '../interfaces-private.ts';
+import { _IDb, _IType } from '../interfaces-private.ts';
 import { TYPE_SYMBOL } from '../execution/select.ts';
 import { ArrayType } from '../datatypes/index.ts';
 import { CustomEnumType } from '../datatypes/t-custom-enum.ts';
-declare var __non_webpack_require__: any;
+import { bindPgServer, socketAdapter } from './pg-socket-adapter.ts';
 
-
-// setImmediate does not exist in Deno
-declare var setImmediate: any;
-
-// see https://github.com/oguimbal/pg-mem/issues/170
-function timeoutOrImmediate(fn: () => void, time: number) {
-    if (time || typeof setImmediate === 'undefined') {
-        return setTimeout(fn, time);
-    }
-    // nothing to wait for, but still executing "later"
-    //  in case calling code relies on some actual async behavior
-    return setImmediate(fn);
-}
-
-const delay = (time: number | undefined) => new Promise<void>(done => timeoutOrImmediate(done, time ?? 0));
 
 export function replaceQueryArgs$(this: void, sql: string, values: any[]) {
     return sql.replace(/\$(\d+)/g, (str: any, istr: any) => {
@@ -39,7 +24,7 @@ export function replaceQueryArgs$(this: void, sql: string, values: any[]) {
 export class Adapters implements LibAdapters {
     private _mikroPatched?: boolean;
 
-    constructor(private db: IMemoryDb) {
+    constructor(private db: _IDb) {
     }
 
     createPg(queryLatency?: number): { Pool: any; Client: any } {
@@ -190,7 +175,7 @@ export class Adapters implements LibAdapters {
             throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
         }
 
-        const { getConnectionManager } = __non_webpack_require__('typeorm')
+        const { getConnectionManager } = doRequire('typeorm')
         const created = getConnectionManager().create(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
         return created.connect();
@@ -203,7 +188,7 @@ export class Adapters implements LibAdapters {
             throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
         }
 
-        const nr = __non_webpack_require__('typeorm');
+        const nr = doRequire('typeorm');
         const { DataSource } = nr;
         const created = new DataSource(postgresOptions);
         created.driver.postgres = that.createPg(queryLatency);
@@ -211,11 +196,11 @@ export class Adapters implements LibAdapters {
     }
 
     createSlonik(opts?: SlonikAdapterOptions) {
-        const slonik = __non_webpack_require__('slonik');
+        const slonik = doRequire('slonik');
         if (typeof slonik.createMockPool !== 'function') {
             // see https://github.com/gajus/slonik/blob/main/packages/slonik/src/factories/createPool.ts
             // and @slonik/pg-driver https://github.com/gajus/slonik/blob/main/packages/pg-driver/src/factories/createPgDriverFactory.ts
-            const { createDriverFactory } = __non_webpack_require__('@slonik/driver');
+            const { createDriverFactory } = doRequire('@slonik/driver');
             const createResultParserInterceptor = () => {
                 return {
                     transformRow: async (executionContext: any, actualQuery: any, row: any) => {
@@ -292,7 +277,7 @@ export class Adapters implements LibAdapters {
     createPgPromise(queryLatency?: number) {
         // https://vitaly-t.github.io/pg-promise/module-pg-promise.html
         // https://github.com/vitaly-t/pg-promise/issues/743#issuecomment-756110347
-        const pgp = __non_webpack_require__('pg-promise')();
+        const pgp = doRequire('pg-promise')();
         pgp.pg = this.createPg(queryLatency);
         const db = pgp('pg-mem');
         if (compareVersions('10.8.7', db.$config.version) < 0) {
@@ -380,7 +365,7 @@ export class Adapters implements LibAdapters {
     }
 
     createKnex(queryLatency?: number, knexConfig?: object): any {
-        const knex = __non_webpack_require__('knex')({
+        const knex = doRequire('knex')({
             connection: {},
             ...knexConfig,
             client: 'pg',
@@ -391,7 +376,7 @@ export class Adapters implements LibAdapters {
     }
 
     createKysely(queryLatency?: number, kyselyConfig?: object): any {
-        const { Kysely, PostgresDialect } = __non_webpack_require__('kysely');
+        const { Kysely, PostgresDialect } = doRequire('kysely');
         const pg = this.createPg(queryLatency);
         return new Kysely({
             ...kyselyConfig,
@@ -403,8 +388,8 @@ export class Adapters implements LibAdapters {
 
     async createMikroOrm(mikroOrmOptions: any, queryLatency?: number) {
 
-        const { MikroORM } = __non_webpack_require__('@mikro-orm/core');
-        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = __non_webpack_require__('@mikro-orm/postgresql');
+        const { MikroORM } = doRequire('@mikro-orm/core');
+        const { AbstractSqlDriver, PostgreSqlConnection, PostgreSqlPlatform } = doRequire('@mikro-orm/postgresql');
         const that = this;
 
         // see https://github.com/mikro-orm/mikro-orm/blob/aa71065d0727920db7da9bfdecdb33e6b8165cb5/packages/postgresql/src/PostgreSqlConnection.ts#L5
@@ -435,4 +420,47 @@ export class Adapters implements LibAdapters {
         return orm;
     }
 
+    createPostgresJsTag(queryLatency?: number): any {
+        const pg = doRequire('postgres').default;
+        const sql = pg({
+            socket: () => {
+                return socketAdapter()(this.db.public, queryLatency);
+            },
+        });
+        return sql;
+    }
+
+
+    async bindServer(opts?: BindServerOptions): Promise<BindServerResult> {
+        const { createServer } = doRequire('net') as typeof import('net');
+        const srv = createServer();
+        return new Promise<BindServerResult>((res, rej) => {
+            srv.listen(opts?.port ?? 0, opts?.host ?? '127.0.0.1', () => {
+                const a = srv.address();
+                if (!a) {
+                    srv.close();
+                    return rej('cannot find a port');
+                }
+                if (typeof a === 'string') {
+                    srv.close();
+                    return rej('cannot find a port');
+                }
+
+                srv.on('connection', (socket) => {
+                    bindPgServer(socket, this.db.public);
+                });
+
+                res({
+                    postgresConnectionString: `postgresql://${a.address}:${a.port}/postgres?sslmode=disable`,
+                    connectionSettings: {
+                        port: a.port,
+                        host: a.address,
+                    },
+                    close: () => {
+                        srv.close();
+                    },
+                })
+            });
+        });
+    }
 }

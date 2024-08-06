@@ -4,7 +4,7 @@ import { ExecHelper } from '../exec-utils.ts';
 import { ignore, notNil } from '../../utils.ts';
 
 export class DropIndex extends ExecHelper implements _IStatementExecutor {
-    private idx: _INamedIndex<any>[];
+    private idx: _INamedIndex[];
 
 
     constructor({ schema }: _IStatement, statement: DropStatement) {
