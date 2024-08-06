@@ -1,10 +1,11 @@
-import { IBoundQuery, IPreparedQuery, ISchema } from '../interfaces';
+import { ISchema } from '../interfaces';
+import { _IBoundQuery, _IPreparedQuery, _ISchema, _Transaction } from '../interfaces-private';
 import { AsyncQueue, delay, doRequire, lazySync, nullIsh } from '../utils';
 
-// const log = console.log.bind(console);
-const log = (...args: any[]) => { };
+
 
 // https://www.postgresql.org/docs/current/protocol-flow.html
+// https://www.postgresql.org/docs/current/protocol-message-formats.html
 
 export const socketAdapter = lazySync(() => {
     const { CommandCode, bindSocket } = doRequire('pg-server') as typeof import('pg-server');
@@ -26,9 +27,9 @@ export const socketAdapter = lazySync(() => {
         setNoDelay() { }
 
         write(data: any, mcb1?: any, mcb2?: any) {
-            if (this.isTop) {
-                console.log("🛜 ", data);
-            }
+            // if (this.isTop) {
+            //     console.log("🛜 ", data);
+            // }
             process.nextTick(() => {
                 this.peer.emit("data", data);
                 mcb1 === "function" && mcb1();
@@ -58,95 +59,148 @@ export const socketAdapter = lazySync(() => {
 
     class Connection {
         socket = new InMemorySocket();
-        constructor(private mem: ISchema, private queryLatency?: number) {
-            let prepared: IPreparedQuery | undefined;
+        constructor(private mem: _ISchema, private queryLatency?: number) {
+            const log = typeof process !== 'undefined' && process.env.DEBUG_PG_SERVER === 'true'
+                ? console.log.bind(console)
+                : (...args: any[]) => { };
+            let prepared: _IPreparedQuery | undefined;
             let preparedQuery: string | undefined;
-            let bound: IBoundQuery | undefined;
+            let bound: _IBoundQuery | undefined;
+            let runningTx: _Transaction | undefined;
             const queue = new AsyncQueue();
             bindSocket(this.socket.peer as any, ({ command: cmd }, writer) => queue.enqueue(async () => {
-                await delay(this.queryLatency ?? 0);
-                const t = cmd.type;
-                delete (cmd as any).type;
-                const cmdName = byCode[t];
-                log("👉 ", cmdName, JSON.stringify(cmd));
+                function sendDescribe(prepared: _IPreparedQuery) {
+                    const p = prepared.describe();
+                    writer.parameterDescription(p.parameters.map(x => x.typeId));
 
-                switch (t) {
-                    case CommandCode.init:
-                        return writer.readyForQuery();
+                    // see RowDescription() in connection.js of postgres.js
+                    //  => we just need typeId
+                    const descs = p.result.map<import('pg-server').FieldDesc>(x => ({
+                        name: x.name,
+                        tableID: 0,
+                        columnID: 0,
+                        dataTypeID: x.typeId,
+                        dataTypeSize: 0,
+                        dataTypeModifier: -1,
+                        format: 0,
+                        mode: 'text',
+                        // mode: textMode ? 'text' : 'binary',
+                    }))
+                    writer.rowDescription(descs);
+                }
 
-                    case CommandCode.parse:
-                        try {
-                            prepared = mem.prepare(cmd.query);
+                function sendResults(bound: _IBoundQuery, qname: string) {
+                    const results = bound.executeAll(runningTx);
+                    if (runningTx && results.state) {
+                        runningTx = results.state;
+                    }
+                    for (const row of results.rows) {
+                        writer.dataRow(results.fields.map((x) => row[x.name]));
+                    }
+                    log('...complete', qname);
+                    writer.commandComplete(qname);
+                    writer.readyForQuery();
+                }
+                try {
+                    await delay(this.queryLatency ?? 0);
+                    const t = cmd.type;
+                    const cmdName = byCode[t];
+
+                    switch (t) {
+                        case CommandCode.init:
+                            return writer.readyForQuery();
+
+                        case CommandCode.parse:
+                            try {
+                                prepared = mem.prepare(cmd.query);
+                                if (!prepared) {
+                                    return writer.emptyQuery();
+                                }
+                                preparedQuery = cmd.queryName;
+                            } catch (e: any) {
+                                return writer.error(e);
+                            }
+                            return writer.parseComplete();
+                        case CommandCode.describe: {
                             if (!prepared) {
+                                return writer.error("no prepared query");
+                            }
+
+                            sendDescribe(prepared);
+                            return;
+                        }
+                        case CommandCode.bind: {
+                            if (!prepared) {
+                                return writer.error("no prepared query");
+                            }
+                            try {
+                                bound = prepared.bind(cmd.values);
+                            } catch (e: any) {
+                                return writer.error(e);
+                            }
+                            return writer.bindComplete();
+                        }
+                        case CommandCode.execute: {
+                            if (!bound || !preparedQuery) {
+                                return writer.error("no bound query");
+                            }
+                            sendResults(bound, preparedQuery);
+                            return;
+                        }
+                        case CommandCode.sync:
+                            prepared = undefined;
+                            preparedQuery = undefined;
+                            bound = undefined;
+                            // writer.readyForQuery();
+                            return;
+                        case CommandCode.flush:
+                            return;
+                        case CommandCode.query: {
+                            if (!cmd.query) {
                                 return writer.emptyQuery();
                             }
-                            preparedQuery = cmd.query;
-                        } catch (e: any) {
-                            return writer.error(e);
-                        }
-                        return writer.parseComplete();
-                    case CommandCode.describe: {
-                        if (!prepared) {
-                            return writer.error("no prepared query");
-                        }
 
-                        const p = prepared.describe();
+                            // handle transactions
+                            const qlow = cmd.query.trim().toLowerCase();
+                            switch (qlow) {
+                                case 'begin':
+                                    runningTx = mem.db.data.fork();
+                                    writer.commandComplete(qlow.toUpperCase());
+                                    writer.readyForQuery();
+                                    return;
+                                case 'commit':
+                                    if (!runningTx) {
+                                        return writer.error("no transaction to commit");
+                                    }
+                                    runningTx.fullCommit();
+                                    runningTx = undefined;
+                                    writer.commandComplete(qlow.toUpperCase());
+                                    writer.readyForQuery();
+                                    return;
+                                case 'rollback':
+                                    runningTx = undefined;
+                                    writer.commandComplete(qlow.toUpperCase());
+                                    writer.readyForQuery();
+                                    return;
+                            }
 
-                        console.log('DESC => ', p.parameters.map(x => x.typeId));
-                        writer.parameterDescription(p.parameters.map(x => x.typeId));
-
-                        // see RowDescription() in connection.js of postgres.js
-                        //  => we just need typeId
-                        const descs = p.result.map<import('pg-server').FieldDesc>(x => ({
-                            name: x.name,
-                            tableID: 0,
-                            columnID: 0,
-                            dataTypeID: x.typeId,
-                            dataTypeSize: 0,
-                            dataTypeModifier: -1,
-                            format: 0,
-                            mode: 'text',
-                            // mode: textMode ? 'text' : 'binary',
-                        }))
-                        await delay(100);
-                        console.log('DESC => ', descs.map(x => x.name));
-                        writer.rowDescription(descs);
-                        return;
+                            // simple query flow
+                            const prep = mem.prepare(cmd.query);
+                            sendDescribe(prep);
+                            const bound = prep.bind();
+                            sendResults(bound, cmd.query);
+                            return;
+                        }
+                        default:
+                            return writer.error(`pg-mem does not implement PG command ${cmdName}`);
                     }
-                    case CommandCode.bind: {
-                        if (!prepared) {
-                            return writer.error("no prepared query");
-                        }
-                        try {
-                            bound = prepared.bind(...cmd.values);
-                        } catch (e: any) {
-                            return writer.error(e);
-                        }
-                        return writer.bindComplete();
-                    }
-                    case CommandCode.execute: {
-                        if (!bound || !preparedQuery) {
-                            return writer.error("no bound query");
-                        }
-                        const results = bound.executeAll();
-                        for (const row of results.rows) {
-                            writer.dataRow(results.fields.map((x) => row[x.name]));
-                        }
-                        return writer.commandComplete(preparedQuery);
-                    }
-                    case CommandCode.sync:
-                        prepared = undefined;
-                        preparedQuery = undefined;
-                        bound = undefined;
-                        return writer.readyForQuery();
-                    case CommandCode.flush:
-                        return;
-                    default:
-                        return writer.error(`pg-mem does not implement PG command ${cmdName}`);
+                } catch (e: any) {
+                    log("🔥 ", e);
+                    writer.error(e);
                 }
             }));
         }
     }
 
-    return (mem: ISchema, queryLatency?: number) => new Connection(mem, queryLatency).socket;
+    return (mem: _ISchema, queryLatency?: number) => new Connection(mem, queryLatency).socket;
 });

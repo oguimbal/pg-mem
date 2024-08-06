@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../db';
-import { IMemoryDb } from '../interfaces';
+import { DataType, IMemoryDb } from '../interfaces';
 import { expectQueryError } from './test-utils';
 
 
@@ -25,11 +25,43 @@ describe('Prepared statements', () => {
         db.public.prepare(`select * from users where name = $1`);
     });
 
+    it.only('describes a number parameter', () => {
+        const prepared = db.public.prepare(`select 42+$1`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.float]);
+    });
+
+
+    it('describes a jsonb parameter', () => {
+        db.public.registerFunction({
+            name: 'jsonb_array_length',
+            args: [DataType.jsonb],
+            returns: DataType.integer,
+            implementation: a => a.length,
+        });
+        const prepared = db.public.prepare(`select jsonb_array_length($1)`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.jsonb]);
+    });
+
+
+
+    it.only('describes a string parameter that will be casted to jsonb', () => {
+        db.public.registerFunction({
+            name: 'jsonb_array_length',
+            args: [DataType.jsonb],
+            returns: DataType.integer,
+            implementation: a => a.length,
+        });
+        const prepared = db.public.prepare(`select jsonb_array_length($1::jsonb)`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.text]);
+    });
 
     it('can execute with arguments', () => {
         const { rows } = db.public
             .prepare(`select id,name from users where name = $1`)
-            .bind('Alice')
+            .bind(['Alice'])
             .executeAll();
         expect(rows).toEqual([{ id: 1, name: 'Alice' }]);
     });
