@@ -1,4 +1,4 @@
-import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions } from '../interfaces';
+import { LibAdapters, IMemoryDb, NotSupported, QueryResult, SlonikAdapterOptions, BindServerOptions, BindServerResult } from '../interfaces';
 import lru from 'lru-cache';
 import { compareVersions, delay, doRequire, timeoutOrImmediate } from '../utils';
 import { toLiteral } from '../misc/pg-utils';
@@ -6,7 +6,7 @@ import { _IDb, _IType } from '../interfaces-private';
 import { TYPE_SYMBOL } from '../execution/select';
 import { ArrayType } from '../datatypes';
 import { CustomEnumType } from '../datatypes/t-custom-enum';
-import { socketAdapter } from './pg-socket-adapter';
+import { bindPgServer, socketAdapter } from './pg-socket-adapter';
 
 
 export function replaceQueryArgs$(this: void, sql: string, values: any[]) {
@@ -428,5 +428,39 @@ export class Adapters implements LibAdapters {
             },
         });
         return sql;
+    }
+
+
+    async bindServer(opts?: BindServerOptions): Promise<BindServerResult> {
+        const { createServer } = doRequire('net') as typeof import('net');
+        const srv = createServer();
+        return new Promise<BindServerResult>((res, rej) => {
+            srv.listen(opts?.port ?? 0, opts?.host ?? '127.0.0.1', () => {
+                const a = srv.address();
+                if (!a) {
+                    srv.close();
+                    return rej('cannot find a port');
+                }
+                if (typeof a === 'string') {
+                    srv.close();
+                    return rej('cannot find a port');
+                }
+
+                srv.on('connection', (socket) => {
+                    bindPgServer(socket, this.db.public);
+                });
+
+                res({
+                    postgresConnectionString: `postgresql://${a.address}:${a.port}/postgres?sslmode=disable`,
+                    connectionSettings: {
+                        port: a.port,
+                        host: a.address,
+                    },
+                    close: () => {
+                        srv.close();
+                    },
+                })
+            });
+        });
     }
 }
