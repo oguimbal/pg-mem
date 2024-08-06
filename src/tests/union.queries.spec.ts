@@ -42,7 +42,7 @@ describe('Union', () => {
 
     it('cannot cast', () => {
         expectQueryError(() => many(`select * from (values ('1')) as ta union select * from (values (2)) as tb`)
-            , /UNION types text and integer cannot be matched/);
+            , /UNION types text.* and integer.* cannot be matched/);
     });
 
     it('respects simple union', () => {

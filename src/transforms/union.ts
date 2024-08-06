@@ -18,7 +18,7 @@ export function buildUnion(left: _ISelection, right: _ISelection) {
 
         const type = reconciliateTypes([l, r], true);
         if (!type) {
-            throw new QueryError(`UNION types ${l.type.name} and ${r.type.name} cannot be matched`);
+            throw new QueryError(`UNION types ${l.type.name} (${l.id ?? '<unknown col>'}) and ${r.type.name} (${r.id ?? '<unknown col>'}) cannot be matched`);
         }
         cols[i] = {
             name: l.id ?? ('column' + i),

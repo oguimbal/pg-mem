@@ -58,7 +58,7 @@ const paramsVisitor = astVisitor(() => ({
     }
 }))
 
-function collectParams(stmt: Statement[]): Parameter[] | null {
+export function collectParams(stmt: Statement[]): Parameter[] | null {
     for (const s of stmt) {
         paramsVisitor.statement(s);
     }

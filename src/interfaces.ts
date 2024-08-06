@@ -228,6 +228,25 @@ export interface LibAdapters {
 
     /** Creates a Postres.js `sql` tag bound to this db */
     createPostgresJsTag(queryLatency?: number): any;
+
+    /** Binds a server to this instance */
+    bindServer(opts?: BindServerOptions): Promise<BindServerResult>;
+}
+
+export interface BindServerResult {
+    postgresConnectionString: string;
+    connectionSettings: {
+        host: string;
+        port: number;
+    };
+    close(): void;
+}
+
+export interface BindServerOptions {
+    /** defaults to a random port */
+    port?: number;
+    /** defaults to 'localhost' */
+    host?: string;
 }
 
 export interface SlonikAdapterOptions {
