@@ -6,9 +6,10 @@ import { ColumnNotFound, ISubscription, IType, QueryError, typeDefToStr } from '
 import { bufClone, bufCompare, isBuf } from './misc/buffer-node';
 
 declare var __non_webpack_require__: any;
+declare var require: any;
 export const doRequire = typeof __non_webpack_require__ !== 'undefined'
     ? __non_webpack_require__
-    : require;
+    : typeof require === 'undefined' ? (v: string) => { throw new Error(`Cannot require ${v} in this environment`) } : require;
 
 
 export interface Ctor<T> extends Function {
