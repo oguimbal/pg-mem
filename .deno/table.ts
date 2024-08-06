@@ -271,7 +271,7 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
     *enumerate(t: _Transaction): Iterable<Row> {
         this.raise('seq-scan');
         for (const v of this.bin(t).values()) {
-            yield deepCloneSimple(v); // copy the original data to prevent it from being mutated.
+            yield v;
         }
     }
 

@@ -72,7 +72,6 @@ export function bindPgServer(this: void, peer: any, mem: _ISchema, queryLatency?
         ? console.log.bind(console)
         : (...args: any[]) => { };
     let prepared: _IPreparedQuery | undefined;
-    let preparedQuery: string | undefined;
     let bound: _IBoundQuery | undefined;
     let runningTx: _Transaction | undefined;
     const queue = new AsyncQueue();
@@ -97,7 +96,7 @@ export function bindPgServer(this: void, peer: any, mem: _ISchema, queryLatency?
             writer.rowDescription(descs);
         }
 
-        function sendResults(bound: _IBoundQuery, qname: string) {
+        function sendResults(bound: _IBoundQuery) {
             const results = bound.executeAll(runningTx);
             if (runningTx && results.state) {
                 runningTx = results.state;
@@ -105,7 +104,24 @@ export function bindPgServer(this: void, peer: any, mem: _ISchema, queryLatency?
             for (const row of results.rows) {
                 writer.dataRow(results.fields.map((x) => row[x.name]));
             }
-            log('...complete', qname);
+            // see spec: https://www.postgresql.org/docs/current/protocol-message-formats.html#PROTOCOL-MESSAGE-FORMATS-COMMANDCOMPLETE
+            let qname: string;
+            switch (results.command) {
+                case 'SELECT':
+                case 'UPDATE':
+                case 'DELETE':
+                case 'MERGE':
+                case 'MOVE':
+                case 'FETCH':
+                case 'COPY':
+                    qname = `${results.command} ${results.rowCount}`;
+                    break;
+                case 'INSERT':
+                    qname = 'INSERT 0 ' + results.rowCount;
+                    break;
+                default:
+                    qname = results.command;
+            }
             writer.commandComplete(qname);
             writer.readyForQuery();
         }
@@ -132,7 +148,6 @@ export function bindPgServer(this: void, peer: any, mem: _ISchema, queryLatency?
                         if (!prepared) {
                             return writer.emptyQuery();
                         }
-                        preparedQuery = cmd.queryName || cmd.query;
                     } catch (e: any) {
                         return writer.error(e);
                     }
@@ -157,15 +172,14 @@ export function bindPgServer(this: void, peer: any, mem: _ISchema, queryLatency?
                     return writer.bindComplete();
                 }
                 case CommandCode.execute: {
-                    if (!bound || !preparedQuery) {
+                    if (!bound) {
                         return writer.error("no bound query");
                     }
-                    sendResults(bound, preparedQuery);
+                    sendResults(bound);
                     return;
                 }
                 case CommandCode.sync:
                     prepared = undefined;
-                    preparedQuery = undefined;
                     bound = undefined;
                     // writer.readyForQuery();
                     return;
@@ -204,7 +218,7 @@ export function bindPgServer(this: void, peer: any, mem: _ISchema, queryLatency?
                     const prep = mem.prepare(cmd.query);
                     sendDescribe(prep);
                     const bound = prep.bind();
-                    sendResults(bound, cmd.query);
+                    sendResults(bound);
                     return;
                 }
                 default:

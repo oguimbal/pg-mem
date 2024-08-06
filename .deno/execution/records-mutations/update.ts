@@ -5,6 +5,7 @@ import { buildCtx } from '../../parser/context.ts';
 import { buildSelect } from '../select.ts';
 import { Selection } from '../../transforms/selection.ts';
 import { JoinSelection } from '../../transforms/join.ts';
+import { deepCloneSimple } from '../../utils.ts';
 
 export class Update extends MutationDataSourceBase {
 
@@ -76,9 +77,9 @@ export class Update extends MutationDataSourceBase {
         // perform update
         const rows: any[] = [];
         for (const i of this.mutatedSel.enumerate(t)) {
-            const data = this.fetchObjectToUpdate
+            const data = deepCloneSimple(this.fetchObjectToUpdate
                 ? this.fetchObjectToUpdate(i)
-                : i;
+                : i);
             this.setter(t, data, i);
             rows.push(this.table.update(t, data));
         }
