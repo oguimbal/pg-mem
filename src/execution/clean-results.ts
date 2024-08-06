@@ -1,4 +1,5 @@
-import { hasExecutionCtx, isTopLevelExecutionContext } from '../utils';
+import { isBuf } from '../misc/buffer-node';
+import { deepCloneSimple, hasExecutionCtx, isTopLevelExecutionContext } from '../utils';
 
 export const JSON_NIL = Symbol('null');
 export const IS_PARTIAL_INDEXING = Symbol('partial_indexing');
@@ -6,14 +7,6 @@ export const SELECT_ALL = Symbol('select *');
 
 
 export function cleanResults<T>(results: T): T {
-
-    // when evaluating an SQL function (i.e. a function created using CREATE FUNCTION)
-    // then an execution is pushed, which is not the top one
-    // ... in that case, we dont want to clean the results
-    // if (!isTopLevelExecutionContext()) {
-    //     return results;
-    // }
-    debugger;
 
     // ugly hack to turn jsonb nulls & partial indexed results into actual nulls
     // This will bite me someday ... but please dont judge me, I too try to have a life outside here 🤔
@@ -24,44 +17,47 @@ export function cleanResults<T>(results: T): T {
     //   - `executes array multiple index incomplete indexing` test in operators.queries.spec.ts
 
     function cleanObj(obj: any) {
-        if (!obj || typeof obj !== 'object') {
-            return;
+        if (!obj || typeof obj !== 'object' || obj instanceof Date || isBuf(obj)) {
+            return obj;
         }
-        for (const sym of Object.getOwnPropertySymbols(obj)) {
-            delete obj[sym];
-        }
-        for (const [k, v] of Object.entries(obj)) {
-            if (v === JSON_NIL) {
-                obj[k] = null;
-            } else if (Array.isArray(v)) {
-                if ((v as any)[IS_PARTIAL_INDEXING]) {
-                    obj[k] = null;
-                } else {
-                    for (let i = 0; i < v.length; i++) {
-                        if (obj[i] === JSON_NIL) {
-                            obj[i] = null;
-                        } else {
-                            cleanObj(v);
-                        }
+        if (Array.isArray(obj)) {
+            if ((obj as any)[IS_PARTIAL_INDEXING]) {
+                return null;
+            } else {
+                const newArr = Array(obj.length);
+                for (let i = 0; i < obj.length; i++) {
+                    if (obj[i] === JSON_NIL) {
+                        newArr[i] = null;
+                    } else {
+                        newArr[i] = cleanObj(obj[i]);
                     }
                 }
-            } else {
-                cleanObj(v);
+                return newArr;
             }
         }
+        const ret: any = {};
+        for (const [k, v] of Object.entries(obj)) {
+            if (v === JSON_NIL) {
+                ret[k] = null;
+            } else {
+                ret[k] = cleanObj(v);
+            }
+        }
+        return ret;
     }
 
     if (!Array.isArray(results)) {
-        cleanObj(results);
-        return results;
+        return cleanObj(results);
     }
 
+    const ret = Array(results.length);
     for (let i = 0; i < results.length; i++) {
         const sel = results[i][SELECT_ALL];
         if (sel) {
-            results[i] = sel();
+            ret[i] = cleanObj(sel());
+        } else {
+            ret[i] = cleanObj(results[i]);
         }
-        cleanObj(results[i]);
     }
-    return results;
+    return ret as any;
 }

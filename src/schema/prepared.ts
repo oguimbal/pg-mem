@@ -133,7 +133,7 @@ class PreparedQueryNoDescribe implements _IPreparedQuery {
 
             // execute statement
             const r = s.executeStatement(t, args);
-            cleanResults(r.result.rows);
+            r.result.rows = cleanResults(r.result.rows);
             results.push(r);
             t = r.state;
         }
@@ -153,6 +153,7 @@ class NoDescribeBound implements _IBoundQuery {
 
     *iterate(): IterableIterator<QueryResult> {
         for (const res of this.results) {
+            res.result.rows = cleanResults(res.result.rows);
             yield res.result;
         }
         this.executeAll();
@@ -245,7 +246,7 @@ class Bound implements _IBoundQuery {
         for (const s of this.stmts) {
             // Execute statement
             const r = s.executeStatement(t, this.args);
-            cleanResults(r.result.rows);
+            r.result.rows = cleanResults(r.result.rows);
             yield r;
             lastResult = r;
             t = r.state;

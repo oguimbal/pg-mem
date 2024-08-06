@@ -47,7 +47,7 @@ describe('Updates', () => {
             .toEqual([{ key: 'a', val: 1 }, { key: 'x', val: 2 }, { key: 'a', val: 3 }])
     });
 
-    it.only('bugfix: insert/onconflict/update', () => {
+    it('bugfix: insert/onconflict/update', () => {
         none(`CREATE TABLE users (
             id TEXT PRIMARY KEY,
             name text
