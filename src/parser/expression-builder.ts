@@ -154,6 +154,7 @@ function _buildValueReal(val: Expr): IValue {
                     , {
                         forceNotConstant: true,
                         actAsConstantLiteral: true,
+                        unpure: true,
                         onCast: toType => {
                             // register the type of the parameter
                             setParameterType(idx, toType);

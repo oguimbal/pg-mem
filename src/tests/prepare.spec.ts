@@ -32,6 +32,13 @@ describe('Prepared statements', () => {
     });
 
 
+    it('can bind a parameter in offset', () => {
+        const prepared = db.public.prepare(`select * from users offset $1`);
+        const bound = prepared.bind([1]);
+        const { rows } = bound.executeAll();
+        expect(rows.length).toEqual(2);
+    })
+
 
     it('describes a bool parameter in in insert', () => {
         db.public.query(`create table test (a bool)`);
