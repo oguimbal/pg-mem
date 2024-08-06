@@ -73,7 +73,7 @@ describe('Public api', () => {
         table.insert({ id: 'b' });
         table.insert({ id: 'c' });
 
-        const got = [...table.find(null, ['id'])];
+        const got = cleanResults([...table.find(null, ['id'])]);
 
         expect(got).toEqual([
             { id: 'a' },
@@ -91,7 +91,7 @@ describe('Public api', () => {
         table.insert({ id: 'd', n: 42, i: 51 });
         table.insert({ id: 'e', n: 42, i: 51 });
 
-        const got = [...table.find({ n: 42, i: 51 }, ['id'])];
+        const got = cleanResults([...table.find({ n: 42, i: 51 }, ['id'])]);
 
         expect(got).toEqual([
             { id: 'd' },
@@ -107,7 +107,7 @@ describe('Public api', () => {
         table.insert({ id: 'c', n: 42 });
         table.insert({ id: 'd', n: null })
 
-        const got = [...table.find({ n: null }, ['id'])];
+        const got = cleanResults([...table.find({ n: null }, ['id'])]);
 
         expect(got).toEqual([
             { id: 'd' },

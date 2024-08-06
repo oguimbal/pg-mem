@@ -4,6 +4,7 @@ import { StatementExec } from '../execution/statement-exec';
 import { SelectExec } from '../execution/select';
 import { Types } from '../datatypes';
 import { withParameters } from '../parser/context';
+import { cleanResults } from '../execution/clean-results';
 
 function isSchemaChange(s: Statement): boolean {
     switch (s.type) {
@@ -132,6 +133,7 @@ class PreparedQueryNoDescribe implements _IPreparedQuery {
 
             // execute statement
             const r = s.executeStatement(t, args);
+            cleanResults(r.result.rows);
             results.push(r);
             t = r.state;
         }
@@ -243,6 +245,7 @@ class Bound implements _IBoundQuery {
         for (const s of this.stmts) {
             // Execute statement
             const r = s.executeStatement(t, this.args);
+            cleanResults(r.result.rows);
             yield r;
             lastResult = r;
             t = r.state;

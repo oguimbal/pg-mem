@@ -15,7 +15,6 @@ import { withSelection } from './parser/context';
 import { SubscriptionConstraint } from './constraints/subscription';
 import { ConstraintWrapper } from './constraints/wrapped';
 import { IndexConstraint } from './constraints/index-cst';
-import { cleanResults } from './execution/clean-results';
 
 
 type Raw = ImMap<string, Row>;
@@ -276,7 +275,7 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
     }
 
     find(template?: Row, columns?: (keyof Row)[]): Row[] {
-        return cleanResults([...findTemplate(this.selection, this.db.data, template, columns)]);
+        return [...findTemplate(this.selection, this.db.data, template, columns)];
     }
 
     remapData(t: _Transaction, modify: (newCopy: Row) => any) {

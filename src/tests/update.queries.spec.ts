@@ -47,6 +47,22 @@ describe('Updates', () => {
             .toEqual([{ key: 'a', val: 1 }, { key: 'x', val: 2 }, { key: 'a', val: 3 }])
     });
 
+    it.only('bugfix: insert/onconflict/update', () => {
+        none(`CREATE TABLE users (
+            id TEXT PRIMARY KEY,
+            name text
+        );`);
+        // this used to throw an error
+        none(`INSERT INTO "users" ("id", "name")
+            VALUES ('id', 'name')
+            ON CONFLICT ("id")
+            DO UPDATE SET "name" = EXCLUDED."name"
+            RETURNING *
+        ;`);
+
+        none(`UPDATE "users" SET "name" = 'new name' WHERE id = 'id';`);
+    })
+
     it('rollbacks all in case of update failure', () => {
         expectQueryError(() => none(`create table test(key text, val integer unique);
                     insert into test values ('a', 1), ('x', 2), ('a', 3);

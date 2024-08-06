@@ -10,9 +10,10 @@ export function cleanResults<T>(results: T): T {
     // when evaluating an SQL function (i.e. a function created using CREATE FUNCTION)
     // then an execution is pushed, which is not the top one
     // ... in that case, we dont want to clean the results
-    if (!isTopLevelExecutionContext()) {
-        return results;
-    }
+    // if (!isTopLevelExecutionContext()) {
+    //     return results;
+    // }
+    debugger;
 
     // ugly hack to turn jsonb nulls & partial indexed results into actual nulls
     // This will bite me someday ... but please dont judge me, I too try to have a life outside here 🤔

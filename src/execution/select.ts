@@ -6,7 +6,6 @@ import { Insert } from './records-mutations/insert';
 import { ValuesTable } from '../schema/values-table';
 import { ignore, suggestColumnName, notNil, modifyIfNecessary } from '../utils';
 import { JoinSelection } from '../transforms/join';
-import { cleanResults } from './clean-results';
 import { MutationDataSourceBase } from './records-mutations/mutation-base';
 import { locOf } from './exec-utils';
 import { buildCtx, withBindingScope } from '../parser/context';
@@ -277,7 +276,7 @@ export class SelectExec implements _IStatementExecutor {
 
 
     execute(t: _Transaction): StatementResult {
-        const rows = cleanResults([...this.selection.enumerate(t)]);
+        const rows = [...this.selection.enumerate(t)];
         let unnamedFields = 0;
         const nextDefaultFieldName = () => {
             const unnamedField = `column${unnamedFields || ''}`;
