@@ -25,14 +25,36 @@ describe('Prepared statements', () => {
         db.public.prepare(`select * from users where name = $1`);
     });
 
-    it.only('describes a number parameter', () => {
+    it('describes a bool parameter in in query', () => {
+        const prepared = db.public.prepare(`select $1 = true`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.bool]);
+    });
+
+
+
+    it('describes a bool parameter in in insert', () => {
+        db.public.query(`create table test (a bool)`);
+        const prepared = db.public.prepare(`insert into test values ($1)`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.bool]);
+    });
+
+
+    it('describes a number parameter in query', () => {
         const prepared = db.public.prepare(`select 42+$1`);
         const { parameters } = prepared.describe();
         expect(parameters.map(x => x.type)).toEqual([DataType.float]);
     });
 
+    it('describes a number parameter in insert', () => {
+        db.public.query(`create table test (a float)`);
+        const prepared = db.public.prepare(`insert into test values ($1)`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.float]);
+    });
 
-    it('describes a jsonb parameter', () => {
+    it('describes a jsonb parameter in query', () => {
         db.public.registerFunction({
             name: 'jsonb_array_length',
             args: [DataType.jsonb],
@@ -44,18 +66,40 @@ describe('Prepared statements', () => {
         expect(parameters.map(x => x.type)).toEqual([DataType.jsonb]);
     });
 
+    it('describes a jsonb parameter in insert', () => {
+        db.public.query(`create table test (a jsonb)`);
+        const prepared = db.public.prepare(`insert into test values ($1)`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.jsonb]);
+    });
 
 
-    it.only('describes a string parameter that will be casted to jsonb', () => {
+
+    it('describes a string parameter that will be casted to jsonb in query', () => {
         db.public.registerFunction({
             name: 'jsonb_array_length',
             args: [DataType.jsonb],
             returns: DataType.integer,
             implementation: a => a.length,
         });
-        const prepared = db.public.prepare(`select jsonb_array_length($1::jsonb)`);
+        const prepared = db.public.prepare(`select jsonb_array_length($1::jsonb) len`);
         const { parameters } = prepared.describe();
-        expect(parameters.map(x => x.type)).toEqual([DataType.text]);
+        expect(parameters.map(x => x.type)).toEqual([DataType.jsonb]);
+
+        // execute & check result
+        const { rows } = prepared.bind(['[{"a":1}]']).executeAll();
+        expect(rows).toEqual([{ len: 1 }]);
+    });
+
+    it('describes a string parameter that will be casted to jsonb in insert', () => {
+        db.public.query(`create table test (a jsonb)`);
+        const prepared = db.public.prepare(`insert into test values ($1::jsonb)`);
+        const { parameters } = prepared.describe();
+        expect(parameters.map(x => x.type)).toEqual([DataType.jsonb]);
+
+        // execute & check result
+        prepared.bind(['{"a":1}']).executeAll();
+        expect(db.public.many(`select * from test`)).toEqual([{ a: { a: 1 } }]);
     });
 
     it('can execute with arguments', () => {
