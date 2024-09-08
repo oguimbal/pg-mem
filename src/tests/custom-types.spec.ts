@@ -96,5 +96,17 @@ describe('Custom types', () => {
         expectQueryError(() => none(`SELECT 'throw'::custom`), /Nope/);
         expectQueryError(() => none(`SELECT 'whatever'::custom`), /invalid input syntax for type custom/);
         expectQueryError(() => none(`SELECT 42::custom`), /cannot cast type integer to custom/);
+    });
+
+    it('can register custom type with length', () => {
+        db.public.registerEquivalentSizableType({
+            name: 'vector',
+            equivalentTo: DataType.text,
+            isValid(val: string) {
+                return true;
+            }
+        });
+
+        none(`CREATE TABLE "test" ("embedding" vector(1536) NOT NULL)`);
     })
 });
