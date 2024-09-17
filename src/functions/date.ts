@@ -1,5 +1,5 @@
 import { FunctionDefinition } from '../interfaces';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import { DataType, QueryError } from '../interfaces-private';
 import { nullIsh } from '../utils';
 
@@ -25,5 +25,12 @@ export const dateFunctions: FunctionDefinition[] = [
         returns: DataType.timestamptz,
         impure: true,
         implementation: () => new Date(),
+    },
+    {
+        name: 'timezone',
+        args: [DataType.text, DataType.timestamptz],
+        returns: DataType.timestamptz,
+        implementation: (timezone: string, timestamptz: Date): Date =>
+            moment(timestamptz).tz(timezone).toDate(),
     },
 ];
