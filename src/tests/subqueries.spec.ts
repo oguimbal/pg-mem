@@ -10,11 +10,13 @@ describe('Subqueries', () => {
         let db: _IDb;
         let many: (str: string) => any[];
         let none: (str: string) => void;
+        let one: (str: string) => any;
 
         beforeEach(() => {
                 db = newDb() as _IDb;
                 many = db.public.many.bind(db.public);
                 none = db.public.none.bind(db.public);
+                one = db.public.one.bind(db.public);
         });
 
         function setupBooks() {
@@ -90,4 +92,21 @@ describe('Subqueries', () => {
 
         //     expect(cnt).toBe(1, 'Was expecting subquery to be simplified');
         // })
+
+        it('can check if a subquery exists', () => {
+                setupBooks();
+
+                // returns single row, regardless of matches
+                expect(many(`SELECT EXISTS(SELECT 1 FROM books WHERE created_at < 5) AS x;`))
+                    .toHaveLength(1);
+
+                expect(one(`SELECT EXISTS(SELECT 1 FROM books WHERE created_at > 5) AS x;`))
+                    .toEqual({ x: false });
+
+                expect(one(`SELECT EXISTS(SELECT 1 FROM books WHERE name = 'one') AS x;`))
+                    .toEqual({ x: true });
+
+                expect(one(`SELECT EXISTS(SELECT 1 FROM books WHERE name = 'one') AS x;`))
+                    .toEqual({ x: true });
+        });
 });
