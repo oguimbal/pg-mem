@@ -246,6 +246,19 @@ describe('Simple queries', () => {
     });
 
 
+    it('can select obj_description', () => {
+        simpleDb();
+        const query = `
+        SELECT obj_description(
+            ('"' || "table_schema" || '"."' || "table_name" || '"')::regclass,
+            'pg_class'
+        ) AS table_comment
+        FROM "information_schema"."tables"
+        WHERE ("table_schema" = 'public' AND "table_name" = 'data')`;
+        expect(many(query)).toEqual([{ table_comment: null }]);
+    });
+
+
     it('can select info tables', () => {
         simpleDb();
         expect(many('select table_name from information_schema.tables')).toEqual([{ table_name: 'data' }]);

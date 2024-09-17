@@ -8,4 +8,10 @@ export const systemFunctions: FunctionDefinition[] = [
         returns: Types.text(),
         implementation: () => 'public',
     },
+    {
+        name: 'obj_description',
+        args: [Types.regclass, Types.text()],
+        returns: Types.null,
+        implementation: () => null
+    },
 ]
