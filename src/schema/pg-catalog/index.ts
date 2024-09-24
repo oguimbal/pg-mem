@@ -3,9 +3,12 @@ import { DataType, FunctionDefinition, _IDb, _ISchema } from '../../interfaces-p
 import { PgAttributeTable } from './pg-attribute-list';
 import { PgClassListTable } from './pg-class';
 import { PgConstraintTable } from './pg-constraints-list';
+import { PgEnumTable } from './pg-enum-list';
 import { PgIndexTable } from './pg-index-list';
 import { PgNamespaceTable } from './pg-namespace-list';
+import { PgSequencesTable } from './pg-sequences-list';
 import { PgTypeTable } from './pg-type-list';
+import { PgUserTable } from './pg-user-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../parser/expression-builder';
@@ -58,6 +61,9 @@ export function setupPgCatalog(db: _IDb) {
     new PgProc(catalog).register();
     new PgDatabaseTable(catalog).register();
     new PgStatioUserTables(catalog).register();
+    new PgEnumTable(catalog).register();
+    new PgSequencesTable(catalog).register();
+    new PgUserTable(catalog).register();
 
 
     // this is an ugly hack...
