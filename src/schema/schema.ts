@@ -417,10 +417,10 @@ export class DbSchema implements _ISchema, ISchema {
     }
 
     _registerType(type: _IType): this {
-        if (this.simpleTypes[type.primary] || this.sizeableTypes[type.primary] || this.getOwnObject(type.primary)) {
-            throw new QueryError(`type "${type.primary}" already exists`);
+        if (this.simpleTypes[type.primaryName] || this.sizeableTypes[type.primaryName] || this.getOwnObject(type.primaryName)) {
+            throw new QueryError(`type "${type.primaryName}" already exists`);
         }
-        this.simpleTypes[type.primary] = type;
+        this.simpleTypes[type.primaryName] = type;
         this._reg_register(type);
         return this;
     }

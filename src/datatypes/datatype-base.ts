@@ -46,6 +46,9 @@ export abstract class TypeBase<TRaw = any> implements _IType<TRaw>, _RelationBas
     get name(): string {
         return this.primary;
     }
+    get primaryName(): string {
+        return this.primary;
+    }
 
 
     /** Compute a custom unicty hash for a non null value */

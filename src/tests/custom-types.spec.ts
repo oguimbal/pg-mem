@@ -92,10 +92,9 @@ describe('Custom types', () => {
         });
 
         none(`SELECT 'something'::custom`);
-
         expectQueryError(() => none(`SELECT 'throw'::custom`), /Nope/);
         expectQueryError(() => none(`SELECT 'whatever'::custom`), /invalid input syntax for type custom/);
-        expectQueryError(() => none(`SELECT 42::custom`), /cannot cast type integer to custom/);
+        expectQueryError(() => none(`SELECT 42::custom`), /invalid input syntax for type custom/);
     });
 
     it('can register custom type with length', () => {

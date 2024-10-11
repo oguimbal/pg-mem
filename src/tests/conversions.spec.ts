@@ -2,7 +2,7 @@ import { describe, it, beforeEach, expect } from 'bun:test';
 
 import { newDb } from '../db';
 
-import { IMemoryDb } from '../interfaces-private';
+import { DataType, IMemoryDb } from '../interfaces-private';
 import { expectQueryError, expectSingle } from './test-utils';
 
 describe('Conversions', () => {
@@ -245,5 +245,24 @@ describe('Conversions', () => {
             select * from users;
             `), /subquery must return only one column/)
 
+    })
+
+    it('insert float4', () => {
+        // see issue https://github.com/oguimbal/pg-mem/issues/420
+        db.public.registerEquivalentType({
+            name: 'float4',
+            // which type is it equivalent to (will be able to cast it from it)
+            equivalentTo: DataType.float,
+            isValid(val: any) {
+                // Validate that the value is a valid number
+                return typeof val === 'number' && !isNaN(val);
+            },
+        });
+        none(`CREATE TABLE task_assignments (
+            id serial PRIMARY KEY,
+            progress float4
+            );
+
+            INSERT INTO task_assignments (progress) VALUES (39), (79);`);
     })
 });

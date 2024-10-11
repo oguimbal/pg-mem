@@ -502,6 +502,7 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     readonly type: 'type';
     /** Data type */
     readonly primary: DataType;
+    readonly primaryName: string;
     /** Reg type name */
     readonly name: string; // | null;
     readonly reg: Reg;
