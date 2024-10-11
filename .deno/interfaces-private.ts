@@ -502,6 +502,7 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     readonly type: 'type';
     /** Data type */
     readonly primary: DataType;
+    readonly primaryName: string;
     /** Reg type name */
     readonly name: string; // | null;
     readonly reg: Reg;
@@ -516,7 +517,7 @@ export interface _IType<TRaw = any> extends IType, _RelationBase {
     canCast(to: _IType<TRaw>): boolean | nil;
     cast<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue;
     convertImplicit<T = any>(value: IValue<TRaw>, to: _IType<T>): IValue;
-    prefer(type: _IType<any>): _IType | nil;
+    prefer(type: _IType<any>, stricterType?: boolean): _IType | nil;
 
     /** Build an array type for this type */
     asArray(): _IType<TRaw[]>;

@@ -342,6 +342,9 @@ export interface ISchema {
     /** Register a simple type, which is equivalent to another */
     registerEquivalentType(type: IEquivalentType): IType;
 
+    /** Register a simple type, which is equivalent to another */
+    registerEquivalentSizableType(type: IEquivalentType): IType;
+
     /** Get an existing type */
     getType(name: DataType): IType;
 

@@ -6,7 +6,7 @@ import { Types } from './datatypes.ts';
 
 export class EquivalentType extends TypeBase<string> {
 
-    private equiv: IType;
+    private equiv: _IType;
 
     constructor(private def: IEquivalentType) {
         super(null);
@@ -17,7 +17,7 @@ export class EquivalentType extends TypeBase<string> {
             }
             this.equiv = eq;
         } else {
-            this.equiv = def.equivalentTo;
+            this.equiv = def.equivalentTo as _IType;
         }
 
         if (!this.equiv) {
@@ -26,7 +26,15 @@ export class EquivalentType extends TypeBase<string> {
     }
 
     get primary(): DataType {
-        return this.def.name as any;
+        return this.equiv.primary;
+    }
+
+    get primaryName(): string {
+        return this.def.name;
+    }
+
+    get name(): string {
+        return this.def.name;
     }
 
     doCanCast(to: _IType) {
@@ -42,7 +50,8 @@ export class EquivalentType extends TypeBase<string> {
     }
 
     doCanBuildFrom(from: _IType): boolean | nil {
-        return from.primary === this.equiv.primary;
+        // return from.canCast(this.equiv);
+        return this.equiv.canCast(from);
     }
 
     doBuildFrom(value: Evaluator<string>, from: _IType<string>): Evaluator<string> | nil {

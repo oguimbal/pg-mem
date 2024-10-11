@@ -128,48 +128,50 @@ export class ColRef implements _Column {
     }
 
     alter(alter: AlterColumn, t: _Transaction): this {
-        switch (alter.type) {
-            case 'drop default':
-                this.default = null;
-                break;
-            case 'set default':
-                if (alter.default.type === 'null') {
+        withSelection(this.table.selection, () => {
+            switch (alter.type) {
+                case 'drop default':
                     this.default = null;
                     break;
-                }
-                const df = withSelection(this.table.selection, () => buildValue(alter.default));
-                if (!df.isConstant) {
-                    throw new QueryError('cannot use column references in default expression');
-                }
-                if (alter.updateExisting) {
-                    const defVal = df.get();
-                    this.table.remapData(t, x => x[this.expression.id!] = defVal);
-                }
-                this.default = df;
-                break;
-            case 'set not null':
-                this.addNotNullConstraint(t);
-                break;
-            case 'drop not null':
-                this.notNull = false;
-                break;
-            case 'set type':
-                const newType = this.table.ownerSchema.getType(alter.dataType);
-                const conv = this.expression.cast(newType);
-                const eid = this.expression.id;
+                case 'set default':
+                    if (alter.default.type === 'null') {
+                        this.default = null;
+                        break;
+                    }
+                    const df = buildValue(alter.default);
+                    if (!df.isConstant) {
+                        throw new QueryError('cannot use column references in default expression');
+                    }
+                    if (alter.updateExisting) {
+                        const defVal = df.get();
+                        this.table.remapData(t, x => x[this.expression.id!] = defVal);
+                    }
+                    this.default = df;
+                    break;
+                case 'set not null':
+                    this.addNotNullConstraint(t);
+                    break;
+                case 'drop not null':
+                    this.notNull = false;
+                    break;
+                case 'set type':
+                    const newType = this.table.ownerSchema.getType(alter.dataType);
+                    const conv = this.expression.cast(newType);
+                    const eid = this.expression.id;
 
-                this.table.remapData(t, x => x[this.expression.id!] = conv.get(x, t));
+                    this.table.remapData(t, x => x[this.expression.id!] = conv.get(x, t));
 
-                // once converted, do nasty things to change expression
-                this.replaceExpression(eid!, newType);
-                break;
-            case 'add generated':
-                new GeneratedIdentityConstraint(alter.constraintName?.name, this)
-                    .install(t, alter);
-                break;
-            default:
-                throw NotSupported.never(alter, 'alter column type');
-        }
+                    // once converted, do nasty things to change expression
+                    this.replaceExpression(eid!, newType);
+                    break;
+                case 'add generated':
+                    new GeneratedIdentityConstraint(alter.constraintName?.name, this)
+                        .install(t, alter);
+                    break;
+                default:
+                    throw NotSupported.never(alter, 'alter column type');
+            }
+        });
         this.table.db.onSchemaChange();
         this.table.selection.rebuild();
         return this;

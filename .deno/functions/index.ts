@@ -3,6 +3,7 @@ import { dateFunctions } from './date.ts';
 import { systemFunctions } from './system.ts';
 import { sequenceFunctions } from './sequence-fns.ts';
 import { numberFunctions } from './numbers.ts';
+import { subqueryFunctions } from './subquery.ts';
 
 
 export const allFunctions = [
@@ -11,4 +12,5 @@ export const allFunctions = [
     , ... systemFunctions
     , ... sequenceFunctions
     , ... numberFunctions
+    , ... subqueryFunctions
 ]
