@@ -400,7 +400,7 @@ export class DbSchema implements _ISchema, ISchema {
 
     registerEquivalentSizableType(type: IEquivalentType): IType {
         const ret = new EquivalentType(type);
-        this._registerTypeSizeable(ret.primary, (_) => ret);
+        this._registerTypeSizeable(ret.primaryName, (_) => ret);
 
         return ret;
     }
