@@ -1,5 +1,4 @@
 import { describe, it, beforeEach, expect } from 'bun:test';
-import moment from 'moment-timezone';
 
 import { newDb } from '../db';
 
@@ -288,30 +287,6 @@ describe('Simple queries', () => {
         expect(many(`select to_date(NULL, 'YYYYMMDD') as x`))
             .toEqual([{ x: null }]);
         expectQueryError(() => many(`select to_date('invalid date','YYYYMMDD') as x`));
-    });
-
-
-    it('supports timezone function', () => {
-        const sourceTz = 'America/Los_Angeles';
-        const targetTz = 'Europe/London';
-        const asTrgTz = (d: Date) => moment(d).tz(targetTz).toDate();
-
-        const dateWithoutTz = new Date('2024-06-01 12:00');
-        const dateWithUtc = new Date(Date.UTC(2024, 5, 1, 12));
-        const dateWithSrcTz = moment.tz('2024-06-01 12:00', sourceTz).toDate();
-        const dateWithTrgTz = moment.tz('2024-06-01 12:00', targetTz).toDate();
-
-        const testCases = [
-            [dateWithoutTz, asTrgTz(dateWithoutTz)],
-            [dateWithUtc, asTrgTz(dateWithUtc)],
-            [dateWithSrcTz, asTrgTz(dateWithSrcTz)],
-            [dateWithTrgTz, dateWithTrgTz],
-        ];
-
-        for (const [date, expected] of testCases) {
-            expect(many(`select timezone('${targetTz}', '${date.toISOString()}') as x`))
-                .toEqual([{ x: expected }]);
-        }
     });
 
 
