@@ -162,6 +162,12 @@ describe('Alter table', () => {
             , { message: /column "city_id" of relation "city" must be declared NOT NULL before identity can be added/ });
     })
 
+
+    it('can perform multiple column alter', () => {
+        none(`create table city(a int, b int);
+            ALTER TABLE public.city ALTER COLUMN a TYPE text, ALTER COLUMN b TYPE text;`);
+    });
+
     it('can add generated column', () => {
         // https://github.com/oguimbal/pg-mem/issues/9
         const data = many(`create table city(name text, city_id int not null);
