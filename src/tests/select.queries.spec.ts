@@ -201,6 +201,18 @@ describe('Selections', () => {
             .toEqual([{ a: 'a', b: 'a' }])
     })
 
+    it('can have a string in condition that is too long for datatype on =', () => {
+        // this was throwing, see https://github.com/oguimbal/pg-mem/issues/412
+        none(`create table repro (id varchar(1));
+            select * from repro where id = 'longerstring';`);
+    })
+
+    it('can have a string in condition that is too long for datatype on IN', () => {
+        // this was throwing, see https://github.com/oguimbal/pg-mem/issues/412
+        none(`create table repro (id varchar(1));
+                select * from repro where id in ('longerstring');`);
+    })
+
     it('can select from function with alias', () => {
         expect(many(`select * from concat('a') as a join concat('a') as b on a.a=b.b`))
             .toEqual([{ a: 'a', b: 'a' }])

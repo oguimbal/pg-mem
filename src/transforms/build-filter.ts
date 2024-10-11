@@ -1,6 +1,6 @@
 import { _ISelection, CastError, DataType, NotSupported, IValue } from '../interfaces-private';
 import { buildValue } from '../parser/expression-builder';
-import { Types, ArrayType } from '../datatypes';
+import { Types, ArrayType, reconciliateTypes } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../evaluator';
 import { FalseFilter } from './false-filter';
@@ -174,9 +174,11 @@ function buildComparison(this: void, on: _ISelection, filter: ExprBinary): _ISel
     }
 
     if (rightValue.isConstant) {
-        rightValue = rightValue.cast(leftValue.type);
+        const reconcilied = reconciliateTypes([leftValue, rightValue]);
+        rightValue = rightValue.cast(reconcilied);
     } else if (leftValue.isConstant) {
-        leftValue = leftValue.cast(rightValue.type);
+        const reconcilied = reconciliateTypes([leftValue, rightValue]);
+        leftValue = leftValue.cast(reconcilied);
     }
 
     switch (op) {

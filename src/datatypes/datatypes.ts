@@ -254,16 +254,27 @@ class TextType extends TypeBase<string> {
         super(25);
     }
 
-    doPrefer(to: _IType) {
+    doPrefer(to: _IType, stricterType?: boolean) {
         if (to instanceof TextType) {
-            // returns the broader type
-            if (!to.len) {
-                return to;
+            if (stricterType) {
+                // returns the stricter type
+                if (!to.len) {
+                    return to;
+                }
+                if (!this.len) {
+                    return this;
+                }
+                return to.len > this.len ? to : this;
+            } else {
+                // returns the broader type
+                if (!to.len) {
+                    return to;
+                }
+                if (!this.len) {
+                    return this;
+                }
+                return to.len < this.len ? to : this;
             }
-            if (!this.len) {
-                return this;
-            }
-            return to.len > this.len ? to : this;
         }
         if (this.canCast(to)) {
             return to;
@@ -744,10 +755,10 @@ export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreC
 
 
 /** Finds a common type by implicit conversion */
-export function reconciliateTypes(values: IValue[], nullIfNoMatch?: false): _IType;
-export function reconciliateTypes(values: IValue[], nullIfNoMatch: true): _IType | nil;
-export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil
-export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _IType | nil {
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: false, stricterType?: boolean): _IType;
+export function reconciliateTypes(values: IValue[], nullIfNoMatch: true, stricterType?: boolean): _IType | nil;
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean, stricterType?: boolean): _IType | nil
+export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean, stricterType?: boolean): _IType | nil {
     // FROM  https://www.postgresql.org/docs/current/typeconv-union-case.html
 
     const nonNull = values
@@ -761,27 +772,27 @@ export function reconciliateTypes(values: IValue[], nullIfNoMatch?: boolean): _I
     // If all inputs are of the same type, and it is not unknown, resolve as that type.
     const single = new Set(nonNull
         .map(v => v.type.reg.typeId));
-    if (single.size === 1) {
-        return nonNull[0].type;
-    }
+    // if (single.size === 1) {
+    //     return nonNull[0].type;
+    // }
 
-    return reconciliateTypesRaw(nonNull, nullIfNoMatch);
+    return reconciliateTypesRaw(nonNull, nullIfNoMatch, stricterType);
 }
 
 
 
 /** Finds a common type by implicit conversion */
-function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: false): _IType;
-function reconciliateTypesRaw(values: IValue[], nullIfNoMatch: true): _IType | nil;
-function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil
-function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean): _IType | nil {
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: false, stricterType?: boolean): _IType;
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch: true, stricterType?: boolean): _IType | nil;
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean, stricterType?: boolean): _IType | nil
+function reconciliateTypesRaw(values: IValue[], nullIfNoMatch?: boolean, stricterType?: boolean): _IType | nil {
     // find the matching type among non constants
     const foundType = values
         .reduce((final, c) => {
             if (c.type === Types.null) {
                 return final;
             }
-            const pref = final.prefer(c.type);
+            const pref = final.prefer(c.type, stricterType);
             if (!pref) {
                 throw new CastError(c.type.primary, final.primary, c.id ?? undefined);
             }
