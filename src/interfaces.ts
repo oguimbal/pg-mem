@@ -1,4 +1,4 @@
-import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator, Statement } from 'pgsql-ast-parser';
+import { BinaryOperator, CreateColumnDef, DataTypeDef, FunctionArgumentMode, NodeLocation, Statement, TableConstraint } from 'pgsql-ast-parser';
 import { MigrationParams } from './migrate/migrate-interfaces';
 
 
@@ -194,6 +194,12 @@ export interface IBackup {
      * 👉 Schema must not have been changed since then !
      **/
     restore(): void;
+}
+
+export interface ISerializedDb {
+    data: string;
+    schemas: string[];
+    options: MemoryDbOptions;
 }
 
 export interface LibAdapters {

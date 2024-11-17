@@ -1,20 +1,20 @@
-import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue } from './interfaces-private';
-import { DbSchema } from './schema/schema';
-import { initialize } from './transforms/transform-base';
-import { buildSelection } from './transforms/selection';
-import { buildAlias } from './transforms/alias';
-import { buildFilter } from './transforms/build-filter';
+import { BinaryOperator, QName } from 'pgsql-ast-parser';
 import { Adapters } from './adapters';
+import { GlobalEvent, IBackup, IMemoryDb, ISchema, ISerializedDb, ISubscription, LanguageCompiler, MemoryDbOptions, nil, QueryError, TableEvent } from './interfaces';
+import { _FunctionDefinition, _IDb, _ISchema, _ITable, _OperatorDefinition, GLOBAL_VARS, IValue } from './interfaces-private';
+import { setupInformationSchema } from './schema/information-schema';
+import { setupPgCatalog } from './schema/pg-catalog';
+import { DbSchema } from './schema/schema';
 import { Transaction } from './transaction';
 import { buildGroupBy } from './transforms/aggregation';
-import { buildLimit } from './transforms/limit';
-import { buildUnion } from './transforms/union';
+import { buildAlias } from './transforms/alias';
+import { buildFilter } from './transforms/build-filter';
 import { buildDistinct } from './transforms/distinct';
+import { buildLimit } from './transforms/limit';
 import { buildOrderBy } from './transforms/order-by';
-import { setupPgCatalog } from './schema/pg-catalog';
-import { setupInformationSchema } from './schema/information-schema';
-import { QName, BinaryOperator } from 'pgsql-ast-parser';
+import { buildSelection } from './transforms/selection';
+import { initialize } from './transforms/transform-base';
+import { buildUnion } from './transforms/union';
 import { asSingleQName } from './utils';
 
 export function newDb(opts?: MemoryDbOptions): IMemoryDb {
@@ -186,6 +186,33 @@ class MemoryDb implements _IDb {
 
     listSchemas() {
         return [...this.schemas.values()];
+    }
+
+    /**
+     * Serializes the database state to a JSON string.
+     */
+    serialize(): ISerializedDb {
+        return {
+            data: JSON.stringify(this.data),
+            schemas: [...this.schemas.keys()],
+            options: this.options,
+        };
+    }
+
+    /**
+     * Deserializes a JSON string to reconstruct the database state.
+     * @param serialized The serialized database state.
+     */
+    static deserialize(serialized: ISerializedDb): MemoryDb {
+        const data = Transaction.deserialize(serialized.data);
+        const schemas = new Map<string, _ISchema>();
+        const db = new MemoryDb(data, schemas, serialized.options);
+
+        for (const schemaName of serialized.schemas) {
+            db.createSchema(schemaName);
+        }
+
+        return db;
     }
 
 }

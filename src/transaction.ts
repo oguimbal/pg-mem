@@ -1,6 +1,6 @@
-import { _Transaction } from './interfaces-private';
 import { Map as ImMap, Set as ImSet } from 'immutable';
-import { NotSupported, QueryError } from './interfaces';
+import { NotSupported } from './interfaces';
+import { _Transaction } from './interfaces-private';
 
 export class Transaction implements _Transaction {
     private origData: ImMap<symbol, any>;
@@ -90,5 +90,15 @@ export class Transaction implements _Transaction {
 
     clearTransientData(): void {
         this.transientData = {};
+    }
+
+    serialize(): string {
+        return JSON.stringify({ data: this.data.toJS() });
+    }
+
+    static deserialize(serialized: string): Transaction {
+        const parsed = JSON.parse(serialized);
+        const data = ImMap<symbol, any>(parsed.data);
+        return new Transaction(null, data);
     }
 }

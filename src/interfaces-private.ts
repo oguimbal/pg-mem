@@ -1,6 +1,6 @@
-import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult, IBoundQuery, IPreparedQuery } from './interfaces';
-import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
-import { Map as ImMap, Record, Set as ImSet } from 'immutable';
+import { Map as ImMap, Set as ImSet, Record } from 'immutable';
+import { AlterColumn, AlterSequenceChange, BinaryOperator, CreateColumnDef, CreateExtensionStatement, CreateSequenceOptions, DataTypeDef, DropFunctionStatement, Expr, ExprCall, ExprRef, LimitStatement, Name, OrderByStatement, QName, SelectedColumn, TableConstraint } from 'pgsql-ast-parser';
+import { ArgDefDetails, DataType, GlobalEvent, IBoundQuery, IMemoryDb, IMemoryTable, IPreparedQuery, ISchema, ISubscription, IType, LanguageCompiler, MemoryDbOptions, nil, QueryError, QueryResult, Schema, SchemaField, TableEvent } from './interfaces';
 
 export * from './interfaces';
 
