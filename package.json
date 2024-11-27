@@ -95,7 +95,7 @@
     "style-loader": "^1.2.1",
     "ts-loader": "^8.0.0",
     "ts-node": "^10.8.0",
-    "typeorm": "0.2.29",
+    "typeorm": "0.3.0",
     "typescript": "^5.5.4",
     "uuid": "^8.3.2",
     "webpack": "4.43.0",
