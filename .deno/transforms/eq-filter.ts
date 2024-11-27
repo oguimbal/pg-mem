@@ -28,7 +28,12 @@ export class EqFilter extends FilterBase {
     }
 
     hasItem(item: Row, t: _Transaction) {
+        const isEq = this.op === 'eq';
         const val = this.onValue.get(item, t);
+
+        if (this.matchNull && nullIsh(val)) {
+            return isEq;
+        }
         if (nullIsh(val)) {
             return false;
         }
@@ -36,7 +41,7 @@ export class EqFilter extends FilterBase {
         if (nullIsh(eq)) {
             return false;
         }
-        return this.op === 'eq' ? !!eq : !eq;
+        return isEq ? !!eq : !eq;
     }
 
     constructor(private onValue: IValue
