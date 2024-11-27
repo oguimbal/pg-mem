@@ -502,5 +502,16 @@ describe('Simple queries', () => {
             members               VARCHAR[]
         );`);
         expectQueryError(() => none(`INSERT INTO example (members) VALUES (ARRAY[])`), /cannot determine type of empty array/);
-    })
+    });
+
+    it('should select row with null value condition for indexed column', async () => {
+        none(`
+            CREATE TABLE "tableA" ("id" SERIAL NOT NULL, "reference" INTEGER);
+            CREATE INDEX "IDX_1" ON "tableA" ("reference");
+            INSERT INTO "tableA"(id, reference) values (1, null);
+            `);
+        // it is important that EqFilter hasItem gets called, so two same conditions are applied to fall both into best and sorted conditions
+        const got = many(`SELECT "tableA"."id" FROM "tableA" WHERE ("tableA"."id" IN (1, 2) AND "tableA"."reference" IS NULL) AND ("tableA"."id" IN (1, 2) AND "tableA"."reference" IS NULL)`);
+        expect(got).toHaveLength(1);
+    });
 });
