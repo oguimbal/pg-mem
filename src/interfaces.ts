@@ -226,7 +226,7 @@ export interface LibAdapters {
     /** Create a mikro-orm instance bound to this db */
     createMikroOrm(mikroOrmOptions: any, queryLatency?: number): Promise<any>
 
-    /** Creates a Postres.js `sql` tag bound to this db */
+    /** Creates a Postgres.js `sql` tag bound to this db */
     createPostgresJsTag(queryLatency?: number): any;
 
     /** Binds a server to this instance */
