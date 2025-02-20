@@ -228,9 +228,9 @@ export class Adapters implements LibAdapters {
                 ...opts?.zodValidation ? { interceptors: [createResultParserInterceptor(), ...opts?.createPoolOptions?.interceptors ?? []] } : {},
                 // driverFactory:  factory,
                 driverFactory: createDriverFactory(() => {
-                    let connected = false;
                     return {
                         createPoolClient: async () => {
+                            let connected = false;
                             return {
                                 connect: async () => {
                                     await delay(opts?.queryLatency ?? 0);
