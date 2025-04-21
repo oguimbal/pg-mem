@@ -48,6 +48,7 @@ export class TimestampType extends TypeBase<Date> {
         switch (to.primary) {
             case DataType.timestamp:
                 return this.primary === DataType.timestamp
+                    || this.primary === DataType.timestamptz
                     || this.primary === DataType.date;
             case DataType.timestamptz:
                 return this.primary !== DataType.time;
@@ -134,5 +135,22 @@ export class TimestampType extends TypeBase<Date> {
     }
     doLt(a: any, b: any): boolean {
         return moment(a).diff(moment(b)) < 0;
+    }
+    doPrefer(type: any) {
+        const preciseTypes = [
+            DataType.timestamp,
+            DataType.timestamptz,
+            DataType.date
+        ]
+        if (preciseTypes.includes(type.primary)) {
+            return type;
+        }
+        if (preciseTypes.includes(this.primary)) {
+            return this;
+        }
+        if (type.primary === DataType.time) {
+            return type;
+        }
+        return this;
     }
 }
