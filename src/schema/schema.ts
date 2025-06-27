@@ -60,9 +60,14 @@ export class DbSchema implements _ISchema, ISchema {
 
 
     query(text: QueryOrAst): QueryResult {
-        return this.prepare(text)
-            .bind()
-            .executeAll();
+        try {
+            return this.prepare(text)
+                .bind()
+                .executeAll();
+        } catch (e) {
+            this.db.raiseGlobal('query-failed', text);
+            throw e;
+        }
     }
 
 
@@ -77,29 +82,26 @@ export class DbSchema implements _ISchema, ISchema {
             }
         }
 
-        try {
-            // Parse statements
-            query = typeof query === 'string' ? query + ';' : query;
-            const parsed = this.parse(query);
+        // Parse statements
+        query = typeof query === 'string' && !query.endsWith(';') ? query + ';' : query;
+        const parsed = this.parse(query);
 
-            if (!parsed.length) {
-                return new InterceptedPreparedQuery(typeof query === 'string' ? query : '<custom ast>', []);
-            }
-
-            const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
-            const ret = prepareQuery(this, parsed, singleSql);
-
-            ret.executed = () => {
-                this.db.raiseGlobal('query', query);
-            };
-            ret.failed = (e) => {
-                this.db.raiseGlobal('query-failed', query);
-            };
-            return ret;
-        } catch (e) {
-            this.db.raiseGlobal('query-failed', query);
-            throw e;
+        if (!parsed.length) {
+            return new InterceptedPreparedQuery(typeof query === 'string' ? query : '<custom ast>', []);
         }
+
+        const singleSql = typeof query === 'string' && parsed.length === 1 ? query : undefined;
+        const ret = prepareQuery(this, parsed, singleSql);
+
+
+        ret.executed = () => {
+            this.db.raiseGlobal('query', query);
+        };
+        ret.failed = (e) => {
+            this.db.raiseGlobal('query-failed', query);
+        };
+
+        return ret;
     }
 
 
