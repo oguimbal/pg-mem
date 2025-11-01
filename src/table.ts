@@ -732,7 +732,7 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
 
     addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
         const ihash = indexHash(cst.localColumns.map(x => x.name));
-        const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
+        const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fkey');
         if (!constraintName) {
             return null;
         }
