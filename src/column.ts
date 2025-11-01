@@ -1,4 +1,4 @@
-import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private';
+import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler, _IConstraint } from './interfaces-private';
 import type { MemoryTable } from './table';
 import { Evaluator } from './evaluator';
 import { ColumnConstraint, AlterColumn } from 'pgsql-ast-parser';
@@ -16,6 +16,7 @@ export class ColRef implements _Column {
     default: IValue | nil;
     notNull = false;
     usedInIndexes = new Set<BIndex>();
+    constraints = new Set<_IConstraint>();
     private drophandlers = new Set<DropHandler>();
 
     constructor(readonly table: MemoryTable
@@ -69,11 +70,14 @@ export class ColRef implements _Column {
                         .install(t, c);
                     break;
                 case 'reference':
-                    this.table.addForeignKey({
+                    const ret = this.table.addForeignKey({
                         ...c,
                         type: 'foreign key',
                         localColumns: [{ name: this.name }],
                     }, t);
+                    if (ret) {
+                        this.constraints.add(ret);
+                    }
                     break;
                 default:
                     throw NotSupported.never(c, 'add constraint type');
@@ -196,6 +200,11 @@ export class ColRef implements _Column {
         // remove indices
         for (const u of this.usedInIndexes) {
             this.table.dropIndex(t, u.name);
+        }
+
+        // remove foreign keys
+        for (const c of this.constraints) {
+            c.uninstall(t);
         }
 
         // remove associated data
