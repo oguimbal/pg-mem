@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, expect } from 'bun:test';
+import { describe, it, xit, beforeEach, expect } from 'bun:test';
 
 import { newDb } from '../db';
 
@@ -213,4 +213,15 @@ describe('Alter table', () => {
                   insert into test(id, newcol) values (default, '1') RETURNING "id";
         `);
     });
+
+	xit('(bugfix) drops the constraint after dropping a column', async () => {
+		none(`
+			 CREATE TABLE "parent" ("id" INTEGER PRIMARY KEY, "value" INTEGER);
+			 CREATE TABLE "child" ("id" INTEGER PRIMARY KEY, "parent_id" INTEGER NOT NULL REFERENCES "parent"("id"));
+			 INSERT INTO "parent"("id", "value") VALUES (1, 42);
+			 INSERT INTO "child"("id", "parent_id") VALUES (1, 1);
+			 ALTER TABLE "child" DROP COLUMN "parent_id";
+			 DELETE FROM "parent" WHERE "id" = 1
+		`);
+	});
 });
