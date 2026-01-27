@@ -213,4 +213,12 @@ describe('Alter table', () => {
                   insert into test(id, newcol) values (default, '1') RETURNING "id";
         `);
     });
+
+    it('can add generate column', () => {
+        const value = many(`create table test(a text);
+            alter table test add column b text generated always as (concat(a, 'x')) stored;
+            insert into test(a) values ('a');
+            select * from test;`);
+        expect(value).toEqual([{ a: 'a', b: 'ax' }]);
+    });
 });

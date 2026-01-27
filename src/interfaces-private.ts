@@ -440,7 +440,7 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
-    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler): ISubscription;
+    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;
     /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
     onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;
     onDrop(sub: DropHandler): ISubscription;

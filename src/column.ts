@@ -2,12 +2,13 @@ import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _ITyp
 import type { MemoryTable } from './table';
 import { Evaluator } from './evaluator';
 import { ColumnConstraint, AlterColumn } from 'pgsql-ast-parser';
-import { nullIsh } from './utils';
+import { ignore, nullIsh } from './utils';
 import { columnEvaluator } from './transforms/selection';
 import { BIndex } from './schema/btree-index';
-import { GeneratedIdentityConstraint } from './constraints/generated';
+import { GeneratedIdentityConstraint } from './constraints/generated-identity';
 import { buildValue } from './parser/expression-builder';
 import { withSelection } from './parser/context';
+import { GeneratedComputedConstraint } from './constraints/generated-from-expr';
 
 
 
@@ -65,8 +66,14 @@ export class ColRef implements _Column {
                     this.table.addCheck(t, c.expr, cname?.name);
                     break;
                 case 'add generated':
-                    new GeneratedIdentityConstraint(c.constraintName?.name, this)
-                        .install(t, c);
+                    if (c.expression) {
+                        ignore(c.always, c.stored);
+                        new GeneratedComputedConstraint(c.constraintName?.name, this, c.expression)
+                            .install(t, c);
+                    } else {
+                        new GeneratedIdentityConstraint(c.constraintName?.name, this)
+                            .install(t, c);
+                    }
                     break;
                 case 'reference':
                     this.table.addForeignKey({

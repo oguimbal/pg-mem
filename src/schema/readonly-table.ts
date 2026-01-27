@@ -161,7 +161,7 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
     on(): any {
         throw new NotSupported('subscribing information schema');
     }
-    onBeforeChange(columns: string[], check: ChangeHandler) {
+    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler) {
         // nop
         return { unsubscribe() { } }
     }
