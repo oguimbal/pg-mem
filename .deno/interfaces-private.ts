@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult, IBoundQuery, IPreparedQuery } from './interfaces.ts';
-import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
+import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { Map as ImMap, Record, Set as ImSet } from 'https://deno.land/x/immutable@4.0.0-rc.12-deno.1/mod.ts';
 
 export * from './interfaces.ts';
@@ -440,7 +440,7 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     dropIndex(t: _Transaction, name: string): void;
     drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
-    onBeforeChange(columns: (string | _Column)[], check: ChangeHandler): ISubscription;
+    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;
     /** Will be executed once all 'onBeforeChange' handlers have ran (coherency checks) */
     onCheckChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;
     onDrop(sub: DropHandler): ISubscription;

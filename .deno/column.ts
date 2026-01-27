@@ -1,13 +1,14 @@
 import { _Column, IValue, _IIndex, NotSupported, _Transaction, QueryError, _IType, SchemaField, ChangeHandler, nil, ISubscription, DropHandler } from './interfaces-private.ts';
 import type { MemoryTable } from './table.ts';
 import { Evaluator } from './evaluator.ts';
-import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
-import { nullIsh } from './utils.ts';
+import { ColumnConstraint, AlterColumn } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
+import { ignore, nullIsh } from './utils.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { BIndex } from './schema/btree-index.ts';
-import { GeneratedIdentityConstraint } from './constraints/generated.ts';
+import { GeneratedIdentityConstraint } from './constraints/generated-identity.ts';
 import { buildValue } from './parser/expression-builder.ts';
 import { withSelection } from './parser/context.ts';
+import { GeneratedComputedConstraint } from './constraints/generated-from-expr.ts';
 
 
 
@@ -65,8 +66,14 @@ export class ColRef implements _Column {
                     this.table.addCheck(t, c.expr, cname?.name);
                     break;
                 case 'add generated':
-                    new GeneratedIdentityConstraint(c.constraintName?.name, this)
-                        .install(t, c);
+                    if (c.expression) {
+                        ignore(c.always, c.stored);
+                        new GeneratedComputedConstraint(c.constraintName?.name, this, c.expression)
+                            .install(t, c);
+                    } else {
+                        new GeneratedIdentityConstraint(c.constraintName?.name, this)
+                            .install(t, c);
+                    }
                     break;
                 case 'reference':
                     this.table.addForeignKey({

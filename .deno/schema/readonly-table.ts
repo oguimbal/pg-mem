@@ -1,5 +1,5 @@
 import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler, Row } from '../interfaces-private.ts';
-import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
+import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription, ColumnDef } from '../interfaces.ts';
 import { buildAlias } from '../transforms/alias.ts';
@@ -161,7 +161,7 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
     on(): any {
         throw new NotSupported('subscribing information schema');
     }
-    onBeforeChange(columns: string[], check: ChangeHandler) {
+    onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler) {
         // nop
         return { unsubscribe() { } }
     }

@@ -1,6 +1,6 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils.ts';
 import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private.ts';
-import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
+import { toSql, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { ExecuteCreateTable } from './schema-amends/create-table.ts';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence.ts';
 import { locOf, ExecHelper } from './exec-utils.ts';

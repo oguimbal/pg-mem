@@ -1,4 +1,4 @@
-import { astVisitor, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.1/mod.ts';
+import { astVisitor, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { _IDb, _IPreparedQuery, _ISchema, _IStatementExecutor, _Transaction, FieldInfo, _IBoundQuery, IPreparedQuery, nil, NotSupported, Parameter, ParameterInfo, QueryDescription, QueryError, QueryResult, StatementResult, _QueryResult } from '../interfaces-private.ts';
 import { StatementExec } from '../execution/statement-exec.ts';
 import { SelectExec } from '../execution/select.ts';
