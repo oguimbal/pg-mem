@@ -775,10 +775,12 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
 
     *getColumns(): Iterable<ColumnDef> {
         for (const c of this.columns) {
+            const col = this.columnMgr.get(c.id!)!;
             yield {
                 name: c.id!,
                 type: c.type,
-                nullable: !this.columnMgr.get(c.id!)!.notNull,
+                nullable: !col.notNull,
+                generated: col.generated,
             };
         }
     }

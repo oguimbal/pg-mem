@@ -221,4 +221,20 @@ describe('Alter table', () => {
             select * from test;`);
         expect(value).toEqual([{ a: 'a', b: 'ax' }]);
     });
+
+    it('can add a generate column when the table has rows', () => {
+        const value = many(`create table test(a text);
+            insert into test(a) values ('a');
+            alter table test add column b text generated always as (concat(a, 'x')) stored;
+            select * from test;`);
+        expect(value).toEqual([{ a: 'a', b: 'ax' }]);
+    });
+
+    it('can add a generate not null column when the table has rows', () => {
+        const value = many(`create table test(a text);
+            insert into test(a) values ('a');
+            alter table test add column b text not null generated always as (concat(a, 'x')) stored;
+            select * from test;`);
+        expect(value).toEqual([{ a: 'a', b: 'ax' }]);
+    });
 });

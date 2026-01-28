@@ -477,6 +477,7 @@ export interface ColumnDef {
     readonly name: string;
     readonly type: IType;
     readonly nullable: boolean;
+    readonly generated: boolean;
 }
 
 

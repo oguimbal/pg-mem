@@ -16,6 +16,7 @@ export class ColRef implements _Column {
 
     default: IValue | nil;
     notNull = false;
+    generated = false;
     usedInIndexes = new Set<BIndex>();
     private drophandlers = new Set<DropHandler>();
 
@@ -66,6 +67,7 @@ export class ColRef implements _Column {
                     this.table.addCheck(t, c.expr, cname?.name);
                     break;
                 case 'add generated':
+                    this.generated = true;
                     if (c.expression) {
                         ignore(c.always, c.stored);
                         new GeneratedComputedConstraint(c.constraintName?.name, this, c.expression)
