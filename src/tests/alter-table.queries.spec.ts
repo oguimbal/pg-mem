@@ -237,4 +237,13 @@ describe('Alter table', () => {
             select * from test;`);
         expect(value).toEqual([{ a: 'a', b: 'ax' }]);
     });
+
+    it('can update another column when adding a generate column', () => {
+        const value = many(`create table test(a text);
+            insert into test(a) values ('a');
+            alter table test add column b text generated always as (concat(a, 'x')) stored;
+            update test set a = 'b';
+            select * from test;`);
+        expect(value).toEqual([{ a: 'b', b: 'bx' }]);
+    });
 });

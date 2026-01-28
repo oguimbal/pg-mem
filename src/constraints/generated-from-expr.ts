@@ -29,7 +29,7 @@ export class GeneratedComputedConstraint implements _IConstraint {
     install(ct: _Transaction, _c: AlterColumnAddGenerated) {
         const evaluator = withSelection(this.table.selection, () => buildValue(this.expression));
         this.subs.push(this.table.onBeforeChange('all', (old, neu, dt, opts) => {
-            if (!deepEqual(old, neu)) {
+            if (!deepEqual(old?.[this.column.name] ?? null, neu?.[this.column.name] ?? null)) {
                 throw new QueryError(`Column "${this.column.name}" is a generated column.`, '42601');
             }
             const newValue = evaluator.get(neu, dt);

@@ -4,12 +4,13 @@ import { _Column, _IConstraint, _ITable, _Transaction } from '../interfaces-priv
 import { deepEqual, nullIsh } from '../utils.ts';
 import { buildValue } from '../parser/expression-builder.ts';
 import { withSelection } from '../parser/context.ts';
+import { MemoryTable } from '../table.ts';
 
 export class GeneratedComputedConstraint implements _IConstraint {
     private subs: ISubscription[] = [];
 
     private get table() {
-        return this.column.table;
+        return this.column.table as MemoryTable;
     }
     private get schema() {
         return this.table.ownerSchema;
@@ -34,6 +35,12 @@ export class GeneratedComputedConstraint implements _IConstraint {
             const newValue = evaluator.get(neu, dt);
             neu[this.column.name] = newValue;
         }));
+
+        // compute the values for the existing rows
+        this.table.remapData(ct, row => {
+            const newValue = evaluator.get(row, ct);
+            row[this.column.name] = newValue;
+        });
     }
 
 }
