@@ -447,6 +447,7 @@ export type TableEvent = 'seq-scan';
 export type GlobalEvent = 'query' | 'query-failed' | 'catastrophic-join-optimization' | 'schema-change' | 'create-extension';
 
 export interface IMemoryTable<T> {
+    readonly comment?: string | nil;
     readonly name: string;
     readonly primaryIndex: IndexDef | nil;
 

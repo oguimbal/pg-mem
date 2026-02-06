@@ -470,6 +470,7 @@ export interface _IConstraint {
 export type ChangeHandler = (old: Row | null, neu: Row | null, t: _Transaction, opts: ChangeOpts) => void;
 
 export interface _Column {
+    readonly comment?: string | nil;
     readonly notNull: boolean;
     readonly default: IValue | nil;
     readonly expression: IValue;

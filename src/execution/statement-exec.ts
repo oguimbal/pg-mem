@@ -24,6 +24,7 @@ import { SelectExec } from './select';
 import { withSelection, withStatement, withNameResolver, INameResolver } from '../parser/context';
 import { DropType } from './schema-amends/drop-type';
 import { AlterEnum } from "./schema-amends/alter-enum";
+import { Comment } from './schema-amends/comment';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -126,6 +127,7 @@ export class StatementExec implements _IStatement {
             case 'do':
                 return new DoStatementExec(this, p);
             case 'comment':
+                return new Comment(this, p);
             case 'raise':
             case 'deallocate':
                 ignore(p);
