@@ -477,6 +477,7 @@ type ArrayToUnionOr<T, Or> = T extends (infer U)[] ? U : Or;
 export interface ColumnDef {
     readonly name: string;
     readonly type: IType;
+    readonly comment?: string | nil;
     readonly nullable: boolean;
     readonly generated: boolean;
 }
