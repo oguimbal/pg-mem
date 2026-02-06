@@ -62,6 +62,7 @@ class ColumnManager {
 }
 
 export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _ITable {
+    comment: string | nil;
     get isExecutionWithNoResult(): boolean {
         return false;
     }

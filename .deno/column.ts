@@ -13,7 +13,7 @@ import { GeneratedComputedConstraint } from './constraints/generated-from-expr.t
 
 
 export class ColRef implements _Column {
-
+    comment: string | nil;
     default: IValue | nil;
     notNull = false;
     generated = false;
