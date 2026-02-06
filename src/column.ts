@@ -152,8 +152,9 @@ export class ColRef implements _Column {
                         throw new QueryError('cannot use column references in default expression');
                     }
                     if (alter.updateExisting) {
-                        const defVal = df.get();
-                        this.table.remapData(t, x => x[this.expression.id!] = defVal);
+                        this.table.remapData(t, x => {
+                            x[this.expression.id!] = df.get();
+                        });
                     }
                     this.default = df;
                     break;

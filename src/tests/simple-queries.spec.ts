@@ -322,6 +322,33 @@ describe('Simple queries', () => {
             .toEqual([{ val: null }]);
     })
 
+    it('handles isnull on null jsonb', () => {
+        // check on actual non-null values
+        expect(many(`select (('{"a":42}'::jsonb -> 'a') is null) as val`))
+            .toEqual([{ val: false }]);
+        expect(many(`select (('{"a":42}'::jsonb -> 'a') notnull) as val`))
+            .toEqual([{ val: true }]);
+
+        // check on undefined values
+        expect(many(`select (('{"a":42}'::jsonb -> 'b') is null) as val`))
+            .toEqual([{ val: true }]);
+        expect(many(`select (('{"a":42}'::jsonb -> 'b') notnull) as val`))
+            .toEqual([{ val: false }]);
+
+        // check on json null
+        expect(many(`select (('null'::jsonb) is null) as val`))
+            .toEqual([{ val: false }]); // json null is NOT db-null
+        expect(many(`select (('null'::jsonb) notnull) as val`))
+            .toEqual([{ val: true }]); // json null is NOT db-null
+
+        // check on jsonb null stringified
+        expect(many(`select (('{"a":null}'::jsonb ->> 'a') is null) as val`))
+            .toEqual([{ val: true }]);
+        expect(many(`select (('{"a":null}'::jsonb ->> 'a') notnull) as val`))
+            .toEqual([{ val: false }]);
+
+    })
+
 
     it('auto increments values', () => {
         expect(many(`create table test(id serial, txt text);
