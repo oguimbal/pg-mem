@@ -783,6 +783,7 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
                 nullable: !col.notNull,
                 generated: col.generated,
                 comment: col.comment,
+                hasDefault: !!col.default,
             };
         }
     }
