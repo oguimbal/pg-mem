@@ -480,6 +480,7 @@ export interface ColumnDef {
     readonly comment?: string | nil;
     readonly nullable: boolean;
     readonly generated: boolean;
+    readonly hasDefault: boolean;
 }
 
 
