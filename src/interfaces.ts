@@ -491,6 +491,7 @@ export interface ISubscription {
 export interface IndexDef {
     readonly name: string;
     readonly expressions: string[];
+    readonly unique: boolean;
 }
 
 export class NotSupported extends Error {

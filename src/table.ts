@@ -718,7 +718,8 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
                 .map(indexMap => [...indexMap.values()]
                     .map<IndexDef>(x => ({
                         name: x.index.name!,
-                        expressions: x.expressions.map(x => x.id!)
+                        expressions: x.expressions.map(x => x.id!),
+                        unique: x.index.unique,
                     }))
                 )
         );
@@ -727,7 +728,8 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
     get primaryIndex(): IndexDef | null {
         return this.hasPrimary && {
             name: this.hasPrimary.name!,
-            expressions: this.hasPrimary.expressions.map(x => x.id!)
+            expressions: this.hasPrimary.expressions.map(x => x.id!),
+            unique: this.hasPrimary.unique,
         };
     }
 
