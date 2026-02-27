@@ -1,5 +1,6 @@
 import { TableConstraint, CreateColumnDef, NodeLocation, DataTypeDef, FunctionArgumentMode, BinaryOperator, Statement } from 'pgsql-ast-parser';
 import { MigrationParams } from './migrate/migrate-interfaces';
+import { _ISchema } from './interfaces-private';
 
 
 export type nil = undefined | null;
@@ -117,11 +118,11 @@ export interface IMemoryDb {
     getTable<T = any>(table: string, nullIfNotFound?: boolean): IMemoryTable<T> | null;
 
     /** Subscribe to a global event */
-    on(event: 'query', handler: (query: string) => any): ISubscription;
-    on(event: GlobalEvent, handler: () => any): ISubscription;
-    on(event: GlobalEvent, handler: () => any): ISubscription;
+    on(event: 'query' | 'query-failed' | 'catastrophic-join-optimization', handler: (query: string) => void): ISubscription;
+    on(event: 'schema-change', handler: (db: IMemoryDb) => void): ISubscription;
+    on(event: 'create-extension', handler: (extension: { name: string }) => void): ISubscription;
     /** Subscribe to an event on all tables */
-    on(event: TableEvent, handler: (table: string) => any): ISubscription;
+    on(event: TableEvent, handler: (table: string) => void): ISubscription;
 
     /**
      * Creates a restore point.
