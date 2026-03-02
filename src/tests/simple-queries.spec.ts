@@ -269,6 +269,12 @@ describe('Simple queries', () => {
             .toEqual([{ hasuserstable: 0 }]);
     })
 
+    it('can select info tables with table schema', () => {
+        none(`create schema custom_schema;
+            create table custom_schema.test(id text);`)
+        expect(many(`select table_name from information_schema.tables where table_name = 'test' and table_schema = 'custom_schema';`))
+            .toEqual([{ table_name: 'test' }]);
+    });
 
     it('can select info columns', () => {
         simpleDb();

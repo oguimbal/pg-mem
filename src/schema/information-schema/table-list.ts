@@ -52,7 +52,7 @@ export class TablesSchema extends ReadOnlyTable implements _ITable {
         }
         const ret = {
             table_catalog: 'pgmem',
-            table_schema: 'public',
+            table_schema: t.ownerSchema.name || 'public',
             table_name: t.name,
             table_type: 'BASE TABLE',
             self_referencing_column_name: null,
