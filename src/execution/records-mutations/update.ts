@@ -1,4 +1,5 @@
 import { _ITable, _Transaction, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private';
+import { applyReadRls, checkWriteRls } from '../rls-enforce';
 import { UpdateStatement } from 'pgsql-ast-parser';
 import { MutationDataSourceBase, Setter, createSetter } from './mutation-base';
 import { buildCtx } from '../../parser/context';
@@ -60,8 +61,8 @@ export class Update extends MutationDataSourceBase {
         } else {
 
             //  => REGULAR UPDATE
-            mutatedSel = into
-                .selection
+            // row-level security: UPDATE can only affect rows visible via UPDATE policies
+            mutatedSel = applyReadRls(into, into.selection, 'update')
                 .filter(ast.where);
         }
 
@@ -81,6 +82,8 @@ export class Update extends MutationDataSourceBase {
                 ? this.fetchObjectToUpdate(i)
                 : i);
             this.setter(t, data, i);
+            // row-level security: the updated row must satisfy WITH CHECK
+            checkWriteRls(this.table, 'update', data, t);
             rows.push(this.table.update(t, data));
         }
         return rows;

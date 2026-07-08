@@ -1,10 +1,11 @@
-import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, IValue, NotSupported, QueryError, asSelectable, nil, OnStatementExecuted, _ISchema, setId } from '../interfaces-private';
+import { _IStatementExecutor, _Transaction, StatementResult, _IStatement, _ISelection, IValue, NotSupported, QueryError, asSelectable, asTable, nil, OnStatementExecuted, _ISchema, setId } from '../interfaces-private';
 import { WithStatementBinding, SelectStatement, SelectFromUnion, WithStatement, WithRecursiveStatement, ValuesStatement, SelectFromStatement, QNameMapped, Name, SelectedColumn, Expr, OrderByStatement } from 'pgsql-ast-parser';
 import { Deletion } from './records-mutations/deletion';
 import { Update } from './records-mutations/update';
 import { Insert } from './records-mutations/insert';
 import { ValuesTable } from '../schema/values-table';
 import { ignore, suggestColumnName, notNil, modifyIfNecessary, asSingleQName } from '../utils';
+import { applyReadRls } from './rls-enforce';
 import { JoinSelection } from '../transforms/join';
 import { buildWindow, exprsHaveWindow } from '../transforms/window';
 import { RecursiveCte, RecursiveCteBuffer } from './recursive-cte';
@@ -285,7 +286,19 @@ function getSelectable(name: QNameMapped): _ISelection {
     const temp = !name.schema
         && getTempBinding(name.name);
 
-    let ret = temp || asSelectable(schema.getObject(name)).selection;
+    let ret: _ISelection;
+    if (temp) {
+        ret = temp;
+    } else {
+        const obj = schema.getObject(name);
+        ret = asSelectable(obj).selection;
+        // row-level security: a table read in a FROM clause is filtered by its
+        // SELECT policies (no-op when RLS is off or the role bypasses it)
+        const table = asTable(obj, true);
+        if (table) {
+            ret = applyReadRls(table, ret, 'select');
+        }
+    }
     ret = mapColumns(name.name, ret, name.columnNames, false);
 
     if (name.alias) {
