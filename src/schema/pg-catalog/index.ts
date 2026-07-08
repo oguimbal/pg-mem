@@ -39,6 +39,7 @@ export function setupPgCatalog(db: _IDb) {
         ._registerType(Types.float)
         ._registerType(Types.integer)
         ._registerType(Types.bigint)
+        ._registerTypeSizeable(DataType.decimal, Types.decimal)
         ._registerType(Types.bytea)
         ._registerType(Types.point)
         ._registerType(Types.line)

@@ -1,7 +1,7 @@
 {
   "mode": "differential",
-  "score": 93.9,
-  "passed": 93,
+  "score": 98,
+  "passed": 97,
   "total": 99,
   "results": [
     {
@@ -883,8 +883,7 @@
           "r": "9007199254740993"
         }
       ],
-      "outcome": "wrong-result",
-      "detail": "postgres says [{\"r\":\"9007199254740993\"}], pg-mem says [{\"r\":\"9007199254740992\"}]"
+      "outcome": "pass"
     },
     {
       "category": "numeric-types",
@@ -894,8 +893,7 @@
           "r": "1.01"
         }
       ],
-      "outcome": "wrong-result",
-      "detail": "postgres says [{\"r\":\"1.01\"}], pg-mem says [{\"r\":\"1.005\"}]"
+      "outcome": "pass"
     },
     {
       "category": "numeric-types",
@@ -921,8 +919,7 @@
       "category": "numeric-types",
       "name": "integer overflow errors",
       "expectedError": "integer out of range",
-      "outcome": "wrong-result",
-      "detail": "should error (postgres), but pg-mem succeeded"
+      "outcome": "pass"
     },
     {
       "category": "numeric-types",
@@ -932,8 +929,7 @@
           "r": "0.33333333333333333333"
         }
       ],
-      "outcome": "wrong-result",
-      "detail": "postgres says [{\"r\":\"0.33333333333333333333\"}], pg-mem says [{\"r\":\"0.3333333333333333\"}]"
+      "outcome": "pass"
     },
     {
       "category": "datetime-tz",

@@ -87,7 +87,8 @@ describe('Schema manipulation', () => {
         const many = db.public.many(`create table test(value decimal);;
                                     insert into test(value) values (42.5);
                                     select value from test where value is not null`);
-        expect(many).toEqual([{ value: 42.5 }]);
+        // numeric/decimal is returned as a string, like node-postgres
+        expect(many).toEqual([{ value: '42.5' }]);
     });
 
 
