@@ -52,3 +52,24 @@ It does not (yet) support (this is kind-of a todo list):
 - [ ] Introspection schema (it is faked - i.e. some table exist, but are empty - so Typeorm can inspect an introspect an empty db & create tables)
 - [ ] Concurrent transaction commit
 - [ ] Collation (see #collation tag in code if you want to implement it)
+
+# Developing against a local pgsql-ast-parser
+
+Syntax-level gaps (window frames, `#>`, CTEs without column lists, SAVEPOINT,
+CREATE TRIGGER...) live in [pgsql-ast-parser](https://github.com/oguimbal/pgsql-ast-parser),
+not in this repo. To work on both at once, clone it as a sibling folder and link it:
+
+```bash
+cd ..
+git clone git@github.com:sanketsahu/pgsql-ast-parser.git
+cd pgsql-ast-parser
+bun install
+NODE_OPTIONS=--openssl-legacy-provider bun run build   # outputs the publishable package to lib/
+cd lib && bun link                                     # register the link
+cd ../../pg-mem
+bun link pgsql-ast-parser                              # node_modules/pgsql-ast-parser -> ../pgsql-ast-parser/lib
+```
+
+After changing the parser, re-run its build and pg-mem picks it up on the next test
+run. Note that a plain `bun install` in pg-mem re-installs the registry version -
+re-run `bun link pgsql-ast-parser` afterwards.
