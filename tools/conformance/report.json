@@ -1,0 +1,977 @@
+{
+  "mode": "differential",
+  "score": 86.2,
+  "passed": 81,
+  "total": 94,
+  "results": [
+    {
+      "category": "basics",
+      "name": "create insert select",
+      "expected": [
+        {
+          "id": 1,
+          "name": "a"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "group by with count",
+      "expected": [
+        {
+          "k": "a",
+          "count": 2
+        },
+        {
+          "k": "b",
+          "count": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "on conflict do update",
+      "expected": [
+        {
+          "id": 1,
+          "v": "new"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "returning clause",
+      "expected": [
+        {
+          "id": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "simple cte",
+      "expected": [
+        {
+          "x": 42
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "union all",
+      "expected": [
+        {
+          "x": 1
+        },
+        {
+          "x": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "left join",
+      "expected": [
+        {
+          "id": 1,
+          "v": "x"
+        },
+        {
+          "id": 2,
+          "v": null
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "case expression",
+      "expected": [
+        {
+          "r": "small"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "coalesce and nullif",
+      "expected": [
+        {
+          "a": 1,
+          "b": null
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "limit offset",
+      "expected": [
+        {
+          "x": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "length",
+      "expected": [
+        {
+          "r": 5
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "char_length",
+      "expected": [
+        {
+          "r": 4
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "substr",
+      "expected": [
+        {
+          "r": "ph"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "replace",
+      "expected": [
+        {
+          "r": "abXXefabXXef"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "trim",
+      "expected": [
+        {
+          "r": "hi"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "ltrim rtrim",
+      "expected": [
+        {
+          "a": "test",
+          "b": "test"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "btrim",
+      "expected": [
+        {
+          "r": "trim"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "lpad rpad",
+      "expected": [
+        {
+          "a": "xyxhi",
+          "b": "hixyx"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "split_part",
+      "expected": [
+        {
+          "r": "def"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "strpos",
+      "expected": [
+        {
+          "r": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "position in",
+      "expected": [
+        {
+          "r": 3
+        }
+      ],
+      "outcome": "missing-function",
+      "detail": "ERROR: function position(bool) does not exist"
+    },
+    {
+      "category": "functions-string",
+      "name": "initcap",
+      "expected": [
+        {
+          "r": "Hi Thomas"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "reverse",
+      "expected": [
+        {
+          "r": "edcba"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "left right",
+      "expected": [
+        {
+          "a": "ab",
+          "b": "de"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "repeat",
+      "expected": [
+        {
+          "r": "PgPgPg"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "md5",
+      "expected": [
+        {
+          "r": "900150983cd24fb0d6963f7d28e17f72"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "ascii chr",
+      "expected": [
+        {
+          "a": 120,
+          "b": "A"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "translate",
+      "expected": [
+        {
+          "r": "a2x5"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "starts_with",
+      "expected": [
+        {
+          "r": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "regexp_replace",
+      "expected": [
+        {
+          "r": "ThM"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "to_char number",
+      "expected": [
+        {
+          "r": " 125"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-string",
+      "name": "format",
+      "expected": [
+        {
+          "r": "Hello, world"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "abs",
+      "expected": [
+        {
+          "r": 17.4
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "ceil floor",
+      "expected": [
+        {
+          "a": -42,
+          "b": -43
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "round",
+      "expected": [
+        {
+          "r": 42
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "round with scale",
+      "expected": [
+        {
+          "r": 42.44
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "power sqrt",
+      "expected": [
+        {
+          "a": 1024,
+          "b": 1.4142135623730951
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "mod",
+      "expected": [
+        {
+          "r": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "sign",
+      "expected": [
+        {
+          "r": -1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "trunc",
+      "expected": [
+        {
+          "r": 42
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "exp ln",
+      "expected": [
+        {
+          "a": 2.718281828459045,
+          "b": "0.9999999999999999"
+        }
+      ],
+      "outcome": "wrong-result",
+      "detail": "postgres says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}]"
+    },
+    {
+      "category": "functions-math",
+      "name": "pi",
+      "expected": [
+        {
+          "r": 3.141592653589793
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-math",
+      "name": "greatest least",
+      "expected": [
+        {
+          "a": 3,
+          "b": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "extract year",
+      "expected": [
+        {
+          "r": 2020
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "date_part",
+      "expected": [
+        {
+          "r": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "date_trunc month",
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "age between dates",
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "make_date",
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "to_char timestamp",
+      "expected": [
+        {
+          "r": "2020-02-15"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "to_date",
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "interval arithmetic",
+      "expected": [
+        {
+          "r": "2020-02-01T00:00:00.000Z"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-datetime",
+      "name": "justify_interval",
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "jsonb arrow operators",
+      "expected": [
+        {
+          "a": {
+            "b": 1
+          },
+          "b": "1"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "json_build_object",
+      "expected": [
+        {
+          "r": {
+            "a": 1,
+            "b": "x"
+          }
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "jsonb_array_length",
+      "expected": [
+        {
+          "r": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "jsonb_set",
+      "expected": [
+        {
+          "r": {
+            "a": 2
+          }
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "to_jsonb",
+      "expected": [
+        {
+          "r": "txt"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "jsonb_object_keys",
+      "expected": [
+        {
+          "k": "a"
+        },
+        {
+          "k": "b"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "jsonb_each rows",
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-json",
+      "name": "json_agg",
+      "expected": [
+        {
+          "r": [
+            1,
+            2
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "generate_series",
+      "expected": [
+        {
+          "generate_series": 1
+        },
+        {
+          "generate_series": 2
+        },
+        {
+          "generate_series": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "unnest",
+      "expected": [
+        {
+          "unnest": 1
+        },
+        {
+          "unnest": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "array_length",
+      "expected": [
+        {
+          "r": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "cardinality",
+      "expected": [
+        {
+          "r": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "array_append array_cat",
+      "expected": [
+        {
+          "a": [
+            1,
+            2,
+            3
+          ],
+          "b": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "string_to_array",
+      "expected": [
+        {
+          "r": [
+            "a",
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "array_to_string",
+      "expected": [
+        {
+          "r": "1,2,3"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "array_position",
+      "expected": [
+        {
+          "r": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "any of array",
+      "expected": [
+        {
+          "r": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "window-functions",
+      "name": "row_number over",
+      "expected": [
+        {
+          "x": 10,
+          "n": 1
+        },
+        {
+          "x": 20,
+          "n": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "window-functions",
+      "name": "rank with partition",
+      "outcome": "pass"
+    },
+    {
+      "category": "window-functions",
+      "name": "lag lead",
+      "outcome": "pass"
+    },
+    {
+      "category": "window-functions",
+      "name": "sum over partition",
+      "outcome": "pass"
+    },
+    {
+      "category": "window-functions",
+      "name": "ntile",
+      "outcome": "pass"
+    },
+    {
+      "category": "window-functions",
+      "name": "window frame rows between",
+      "outcome": "parse-error",
+      "detail": "💔 Your query failed to parse."
+    },
+    {
+      "category": "recursive-cte",
+      "name": "recursive counter",
+      "expected": [
+        {
+          "n": 1
+        },
+        {
+          "n": 2
+        },
+        {
+          "n": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "recursive-cte",
+      "name": "recursive hierarchy",
+      "expected": [
+        {
+          "id": 1,
+          "depth": 0
+        },
+        {
+          "id": 2,
+          "depth": 1
+        },
+        {
+          "id": 3,
+          "depth": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "recursive-cte",
+      "name": "recursive cte without column list",
+      "outcome": "parse-error",
+      "detail": "💔 Your query failed to parse."
+    },
+    {
+      "category": "joins",
+      "name": "full outer join",
+      "expected": [
+        {
+          "a": 1,
+          "b": null
+        },
+        {
+          "a": 2,
+          "b": 2
+        },
+        {
+          "a": null,
+          "b": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "lateral join",
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "cross join",
+      "expected": [
+        {
+          "a": 1,
+          "b": 3
+        },
+        {
+          "a": 1,
+          "b": 4
+        },
+        {
+          "a": 2,
+          "b": 3
+        },
+        {
+          "a": 2,
+          "b": 4
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "using clause",
+      "expected": [
+        {
+          "id": 1,
+          "x": "a",
+          "y": "b"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-types",
+      "name": "bigint 64-bit precision",
+      "expected": [
+        {
+          "r": "9007199254740993"
+        }
+      ],
+      "outcome": "wrong-result",
+      "detail": "postgres says [{\"r\":\"9007199254740993\"}], pg-mem says [{\"r\":\"9007199254740992\"}]"
+    },
+    {
+      "category": "numeric-types",
+      "name": "numeric scale rounding",
+      "expected": [
+        {
+          "r": "1.01"
+        }
+      ],
+      "outcome": "wrong-result",
+      "detail": "postgres says [{\"r\":\"1.01\"}], pg-mem says [{\"r\":\"1.005\"}]"
+    },
+    {
+      "category": "numeric-types",
+      "name": "numeric round half away from zero",
+      "expected": [
+        {
+          "r": -3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-types",
+      "name": "integer division truncates",
+      "expected": [
+        {
+          "r": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-types",
+      "name": "integer overflow errors",
+      "expectedError": "integer out of range",
+      "outcome": "wrong-result",
+      "detail": "should error (postgres), but pg-mem succeeded"
+    },
+    {
+      "category": "numeric-types",
+      "name": "numeric division keeps precision",
+      "expected": [
+        {
+          "r": "0.33333333333333333333"
+        }
+      ],
+      "outcome": "wrong-result",
+      "detail": "postgres says [{\"r\":\"0.33333333333333333333\"}], pg-mem says [{\"r\":\"0.3333333333333333\"}]"
+    },
+    {
+      "category": "datetime-tz",
+      "name": "set timezone then read",
+      "expected": [
+        {
+          "TimeZone": "UTC"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "datetime-tz",
+      "name": "at time zone",
+      "outcome": "error",
+      "detail": "operator does not exist: timestamp without time zone AT TIME ZONE text"
+    },
+    {
+      "category": "datetime-tz",
+      "name": "timestamptz cast conversion",
+      "outcome": "error",
+      "detail": "cannot cast type timestamp with time zone to text"
+    },
+    {
+      "category": "triggers",
+      "name": "create trigger",
+      "outcome": "parse-error",
+      "detail": "💔 Your query failed to parse."
+    },
+    {
+      "category": "transactions",
+      "name": "savepoint rollback",
+      "expected": [
+        {
+          "id": 1
+        }
+      ],
+      "outcome": "parse-error",
+      "detail": "💔 Your query failed to parse."
+    },
+    {
+      "category": "transactions",
+      "name": "deferrable constraint",
+      "outcome": "parse-error",
+      "detail": "💔 Your query failed to parse."
+    }
+  ]
+}
