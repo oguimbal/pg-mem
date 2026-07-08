@@ -1,6 +1,6 @@
 import { _ISelection, IValue, _IType, _ISchema, _IAlias, _Transaction } from '../interfaces-private';
 import { currentRoleName, sessionRoleName } from '../execution/roles';
-import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx } from '../utils';
+import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx, ignore } from '../utils';
 import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
@@ -102,8 +102,12 @@ function _buildValueReal(val: Expr): IValue {
                 ? Value.list(vals)
                 : Value.array(vals);
         case 'numeric':
+            // valueText carries exact precision for future arbitrary-precision numeric
+            // support; not consumed yet (behaviour unchanged)
+            ignore(val.valueText);
             return Value.number(val.value);
         case 'integer':
+            ignore(val.valueText);
             return Value.number(val.value, Types.integer);
         case 'call':
             return _buildCall(val);
