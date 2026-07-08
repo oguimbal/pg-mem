@@ -6,6 +6,7 @@ import hash from 'object-hash';
 import { parseArrayLiteral, QName } from 'pgsql-ast-parser';
 import { asSingleQName, nullIsh, qnameToStr } from '../utils';
 import { buildCtx } from './context';
+import { markSetReturning } from '../transforms/expand-srf';
 
 
 export function buildCall(name: string | QName, args: IValue[]): IValue {
@@ -14,6 +15,7 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
 
     let impure = false;
     let acceptNulls = false;
+    let setReturning = false;
     const { schema } = buildCtx();
 
     // put your ugly hack here 😶 🏴‍☠️ ...
@@ -33,7 +35,7 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
                 throw new NotSupported(qnameToStr(name) + ' is not supported');
             };
             break;
-        case 'unnest':
+        case 'unnest': {
             if (args.length !== 1) {
                 throw new QueryError('unnest expects 1 arguments, given ' + args.length);
             }
@@ -41,11 +43,130 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             if (!(utype instanceof ArrayType)) {
                 throw new QueryError('unnest expects enumerable argument ' + utype.primary);
             }
-            type = utype.of;
-            get = () => {
-                throw new NotSupported(qnameToStr(name) + ' is not supported');
+            // yields the array as-is: set-expansion is handled by the FROM clause
+            // or the select-list SRF expansion
+            type = utype;
+            setReturning = true;
+            get = (arr: any[]) => arr;
+            break;
+        }
+        // polymorphic json builders
+        case 'to_jsonb':
+        case 'to_json': {
+            expectArgs(name, args, 1);
+            type = Types.jsonb;
+            acceptNulls = true;
+            get = (v: any) => v instanceof Date ? v.toISOString() : v ?? null;
+            break;
+        }
+        case 'json_build_object':
+        case 'jsonb_build_object': {
+            if (args.length % 2) {
+                throw new QueryError('argument list must have even number of elements', '42601');
+            }
+            type = Types.jsonb;
+            acceptNulls = true;
+            get = (...kv: any[]) => {
+                const ret: any = {};
+                for (let i = 0; i < kv.length; i += 2) {
+                    if (nullIsh(kv[i])) {
+                        throw new QueryError(`argument ${i + 1}: key must not be null`, '22004');
+                    }
+                    ret[String(kv[i])] = kv[i + 1] ?? null;
+                }
+                return ret;
             };
             break;
+        }
+        case 'json_build_array':
+        case 'jsonb_build_array': {
+            type = Types.jsonb;
+            acceptNulls = true;
+            get = (...vals: any[]) => vals.map(v => v ?? null);
+            break;
+        }
+        // polymorphic array functions: need the actual element type of their argument,
+        // which FunctionDefinition cannot express (no "anyarray" pseudo-type yet)
+        case 'array_length':
+        case 'array_upper': {
+            expectArgs(name, args, 2);
+            requireArrayArg(name, args[0]);
+            type = Types.integer;
+            get = (arr: any[], dim: number) => dim === 1 && arr.length ? arr.length : null;
+            break;
+        }
+        case 'array_lower': {
+            expectArgs(name, args, 2);
+            requireArrayArg(name, args[0]);
+            type = Types.integer;
+            get = (arr: any[], dim: number) => dim === 1 && arr.length ? 1 : null;
+            break;
+        }
+        case 'cardinality': {
+            expectArgs(name, args, 1);
+            requireArrayArg(name, args[0]);
+            type = Types.integer;
+            get = (arr: any[]) => arr.length;
+            break;
+        }
+        case 'array_append': {
+            expectArgs(name, args, 2);
+            const appendTo = requireArrayArg(name, args[0]);
+            args = [args[0], args[1].cast(appendTo.of)];
+            type = appendTo;
+            acceptNulls = true; // appending a null element is legit
+            get = (arr: any[] | null, el: any) => nullIsh(arr) ? [el] : [...arr!, el];
+            break;
+        }
+        case 'array_cat': {
+            expectArgs(name, args, 2);
+            const catTo = requireArrayArg(name, args[0]);
+            args = [args[0], args[1].cast(catTo)];
+            type = catTo;
+            get = (a: any[], b: any[]) => [...a, ...b];
+            break;
+        }
+        case 'array_position': {
+            expectArgs(name, args, 2);
+            const searched = requireArrayArg(name, args[0]);
+            args = [args[0], args[1].cast(searched.of)];
+            type = Types.integer;
+            acceptNulls = true; // pg finds null elements
+            get = (arr: any[] | null, el: any) => {
+                if (nullIsh(arr)) {
+                    return null;
+                }
+                const idx = arr!.findIndex(v => nullIsh(v) || nullIsh(el)
+                    ? nullIsh(v) === nullIsh(el)
+                    : searched.of.equals(v, el));
+                return idx < 0 ? null : idx + 1;
+            };
+            break;
+        }
+        case 'array_to_string': {
+            expectArgs(name, args, [2, 3]);
+            requireArrayArg(name, args[0]);
+            type = Types.text();
+            get = (arr: any[], sep: string, nullStr?: string) => arr
+                .filter(v => !nullIsh(v) || nullStr !== undefined)
+                .map(v => nullIsh(v) ? nullStr : String(v))
+                .join(sep);
+            break;
+        }
+        case 'nullif': {
+            expectArgs(name, args, 2);
+            const nullifType = args[0].type;
+            args = [args[0], args[1].cast(nullifType)];
+            type = nullifType;
+            acceptNulls = true; // nullif(1, null) returns 1, not null
+            get = (a: any, b: any) => {
+                if (nullIsh(a)) {
+                    return null;
+                }
+                return !nullIsh(b) && nullifType.equals(a, b) ? null : a;
+            };
+            break;
+        }
         case 'coalesce':
             acceptNulls = true;
             if (!args.length) {
@@ -76,6 +197,7 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
                 get = resolved.implementation;
                 impure = !!resolved.impure;
                 acceptNulls = !!resolved.allowNullArguments;
+                setReturning = !!resolved.setReturning;
             }
             break;
 
@@ -88,7 +210,7 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             👉 You can specify the functions you would like to use via "db.public.registerFunction(...)"`
         })
     }
-    return new Evaluator(
+    const ret = new Evaluator(
         type ?? Types.null
         , null
         , hash({ call: name, args: args.map(x => x.hash) })
@@ -100,8 +222,23 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             }
             return get(...argRaw);
         }, impure ? { unpure: impure } : undefined);
+    return setReturning ? markSetReturning(ret) : ret;
 }
 
+
+function expectArgs(name: string | QName, args: IValue[], count: number | [number, number]) {
+    const [min, max] = typeof count === 'number' ? [count, count] : count;
+    if (args.length < min || args.length > max) {
+        throw new QueryError(`function ${qnameToStr(name)} expects ${min === max ? min : `${min} to ${max}`} argument(s), given ${args.length}`);
+    }
+}
+
+function requireArrayArg(name: string | QName, arg: IValue): ArrayType {
+    if (!(arg.type instanceof ArrayType)) {
+        throw new QueryError(`function ${qnameToStr(name)} expects an array argument, given ${arg.type.name}`);
+    }
+    return arg.type;
+}
 
 function buildAnyCall(args: IValue[]) {
     if (args.length !== 1) {
