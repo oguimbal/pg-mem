@@ -148,6 +148,9 @@ export class StatementExec implements _IStatement {
                 return new Comment(this, p);
             case 'raise':
             case 'deallocate':
+            case 'grant':
+            case 'revoke':
+                // pg-mem has no privilege system: parse & ignore (dumps, RLS setup)
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
 

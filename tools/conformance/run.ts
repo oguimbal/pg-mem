@@ -38,6 +38,9 @@ interface Case {
     sql: string;
     expected?: any[];
     expectedError?: string;
+    /** verify against @expect even in differential mode (real PG needs setup the
+     * harness can't provide - e.g. RLS needs a full privilege/grant model) */
+    offline?: boolean;
 }
 
 type Outcome = 'pass' | 'wrong-result' | 'missing-function' | 'not-supported' | 'parse-error' | 'error';
@@ -58,6 +61,7 @@ function parseCorpus(file: string): Case[] {
         const caseMatch = line.match(/^--\s*@case:\s*(.+)$/);
         const expectMatch = line.match(/^--\s*@expect:\s*(.+)$/);
         const errorMatch = line.match(/^--\s*@error:\s*(.+)$/);
+        const offlineMatch = line.match(/^--\s*@offline\s*$/);
         if (caseMatch) {
             if (current) cases.push(current);
             current = { category, name: caseMatch[1].trim(), sql: '' };
@@ -67,6 +71,9 @@ function parseCorpus(file: string): Case[] {
         } else if (errorMatch) {
             if (!current) throw new Error(`${file}: @error before any @case`);
             current.expectedError = errorMatch[1].trim();
+        } else if (offlineMatch) {
+            if (!current) throw new Error(`${file}: @offline before any @case`);
+            current.offline = true;
         } else if (current) {
             current.sql += line + '\n';
         }
@@ -181,7 +188,9 @@ async function connectRealPg(url: string) {
 
 async function runOnRealPg(client: any, c: Case, schemaId: number): Promise<ExecResult> {
     const schema = `conformance_${schemaId}`;
+    // reset any leftover session state (a prior case may have left SET ROLE active)
     await client.query('rollback').catch(() => { });
+    await client.query('reset role').catch(() => { });
     await client.query(`drop schema if exists ${schema} cascade`);
     await client.query(`create schema ${schema}`);
     await client.query(`set search_path to ${schema}; set timezone to 'UTC'`);
@@ -193,6 +202,7 @@ async function runOnRealPg(client: any, c: Case, schemaId: number): Promise<Exec
         return { error: e?.message ?? String(e) };
     } finally {
         await client.query('rollback').catch(() => { });
+        await client.query('reset role').catch(() => { });
         await client.query(`drop schema if exists ${schema} cascade`).catch(() => { });
     }
 }
@@ -208,7 +218,7 @@ const results: CaseResult[] = [];
 for (let i = 0; i < cases.length; i++) {
     const c = cases[i];
     const mem = runOnPgMem(c);
-    if (client) {
+    if (client && !c.offline) {
         const real = await runOnRealPg(client, c, i);
         results.push(verdict(c, mem, { rows: real.rows, error: !!real.error, label: 'postgres' }));
     } else if (c.expectedError) {

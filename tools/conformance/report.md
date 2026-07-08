@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 85/94 (90.4%)** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 90/99 (90.9%)** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|
@@ -17,6 +17,7 @@
 | datetime-tz | 1/3 | 0 | 0 | 0 | 0 | 2 |
 | triggers | 0/1 | 0 | 0 | 0 | 1 | 0 |
 | transactions | 1/2 | 0 | 0 | 0 | 1 | 0 |
+| rls | 5/5 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures
 

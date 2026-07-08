@@ -1,8 +1,8 @@
 {
   "mode": "differential",
-  "score": 90.4,
-  "passed": 85,
-  "total": 94,
+  "score": 90.9,
+  "passed": 90,
+  "total": 99,
   "results": [
     {
       "category": "basics",
@@ -978,6 +978,64 @@
       "name": "deferrable constraint",
       "outcome": "parse-error",
       "detail": "💔 Your query failed to parse."
+    },
+    {
+      "category": "rls",
+      "name": "select filtered by current_user",
+      "offline": true,
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "rls",
+      "name": "default deny when no policy applies",
+      "offline": true,
+      "expected": [],
+      "outcome": "pass"
+    },
+    {
+      "category": "rls",
+      "name": "insert violating with check errors",
+      "offline": true,
+      "expectedError": "violates row-level security policy",
+      "outcome": "pass"
+    },
+    {
+      "category": "rls",
+      "name": "permissive policies are OR-combined",
+      "offline": true,
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "rls",
+      "name": "pg_policies introspection",
+      "offline": true,
+      "expected": [
+        {
+          "policyname": "p",
+          "cmd": "SELECT",
+          "permissive": "PERMISSIVE"
+        }
+      ],
+      "outcome": "pass"
     }
   ]
 }
