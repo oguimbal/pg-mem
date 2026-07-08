@@ -7,6 +7,7 @@ import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../da
 import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, getAggregator } from '../transforms/aggregation';
+import { getWindower } from '../transforms/window';
 import moment from 'moment';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results';
 import { buildCtx } from './context';
@@ -194,7 +195,11 @@ function _buildCall(val: ExprCall): IValue {
     //     return buildKeyword( val.function, val.args);
     // }
     if (val.over) {
-        throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
+        const windower = getWindower();
+        if (!windower) {
+            throw new QueryError('window functions are not allowed here');
+        }
+        return windower.getWindowValue(val);
     }
     const nm = asSingleQName(val.function, 'pg_catalog');
     if (nm && aggregationFunctions.has(nm)) {
