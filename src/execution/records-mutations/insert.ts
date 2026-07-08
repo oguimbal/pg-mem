@@ -1,5 +1,6 @@
 import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement, NotSupported } from '../../interfaces-private';
 import { checkWriteRls } from '../rls-enforce';
+import { fireRowTriggers, SKIP_ROW } from '../triggers';
 import { InsertStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
@@ -180,10 +181,21 @@ export class Insert extends MutationDataSourceBase {
                 //     toInsert[columns[i]] = converted.get();
                 // }
             }
+            // BEFORE INSERT row triggers may modify the row or (returning null) skip it
+            let row = toInsert;
+            if (this.table.triggers.triggers.length) {
+                row = fireRowTriggers(this.table, 'before', 'insert', toInsert, null, t);
+                if (row === SKIP_ROW) {
+                    continue;
+                }
+            }
             // row-level security: the inserted row must satisfy WITH CHECK
-            checkWriteRls(this.table, 'insert', toInsert, t);
-            const insertedRow = this.table.doInsert(t, toInsert, this.opts)
+            checkWriteRls(this.table, 'insert', row, t);
+            const insertedRow = this.table.doInsert(t, row, this.opts)
             if (insertedRow) {
+                if (this.table.triggers.triggers.length) {
+                    fireRowTriggers(this.table, 'after', 'insert', insertedRow, null, t);
+                }
                 ret.push(insertedRow);
             }
         }

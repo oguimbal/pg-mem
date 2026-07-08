@@ -23,6 +23,17 @@ describe('Binary operators', () => {
 
 
 
+    it('computes modulo on integers, bigints and numerics', () => {
+        expect(one(`select 5 % 2 as m`).m).toEqual(1);
+        expect(one(`select -5 % 2 as m`).m).toEqual(-1);
+        expect(one(`select 10::bigint % 3 as m`).m).toEqual('1');
+        expect(one(`select 5.5 % 2 as m`).m).toEqual('1.5');
+    });
+
+    it('modulo by zero raises division by zero', () => {
+        expectQueryError(() => one(`select 5 % 0`), /division by zero/);
+    });
+
     it('[bugfix] can substract date & ints', () => {
         // was throwing (cannot cast type integer to date)
         //  => https://github.com/oguimbal/pg-mem/issues/172

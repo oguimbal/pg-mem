@@ -84,6 +84,15 @@ export class Decimal {
         return new Decimal(roundedDiv(num, den), resultScale).normalize();
     }
 
+    /** Remainder, truncated toward zero (postgres `numeric % numeric`). */
+    mod(o: Decimal): Decimal {
+        const [x, y, scale] = Decimal.align(this, o);
+        if (y === ZERO) {
+            throw new Error('division by zero');
+        }
+        return new Decimal(x % y, scale).normalize();
+    }
+
     compare(o: Decimal): -1 | 0 | 1 {
         const [x, y] = Decimal.align(this, o);
         return x < y ? -1 : x > y ? 1 : 0;

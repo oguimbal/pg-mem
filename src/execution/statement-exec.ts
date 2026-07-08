@@ -16,6 +16,7 @@ import { ShowExecutor } from './show';
 import { SetExecutor } from './set';
 import { CreateRoleExecutor, DropRoleExecutor, SetRoleExecutor, ResetExecutor } from './roles';
 import { CreatePolicy, DropPolicy } from './schema-amends/create-policy';
+import { CreateTrigger } from './schema-amends/create-trigger';
 import { CreateEnum } from './schema-amends/create-enum';
 import { CreateView } from './schema-amends/create-view';
 import { CreateMaterializedView } from './schema-amends/create-materialized-view';
@@ -128,6 +129,8 @@ export class StatementExec implements _IStatement {
                 return new CreatePolicy(this, p);
             case 'drop policy':
                 return new DropPolicy(this, p);
+            case 'create trigger':
+                return new CreateTrigger(this, p);
             case 'create enum':
                 return new CreateEnum(this, p);
             case 'alter enum':
@@ -166,7 +169,16 @@ export class StatementExec implements _IStatement {
             case 'create composite type':
                 throw new NotSupported('create composite type');
             case 'drop trigger':
-                throw new NotSupported('"drop trigger" statement');
+                // DROP TRIGGER <name> ON <table> [IF EXISTS]
+                return new SimpleExecutor(p, () => {
+                    const dp = p as any;
+                    const table = this.schema.getThisOrSiblingFor(dp.onTable)
+                        .getTable(dp.onTable.name, !!dp.ifExists);
+                    if (!table) {
+                        return; // IF EXISTS: unknown table is a no-op
+                    }
+                    table.dropTrigger(dp.name.name, !!dp.ifExists);
+                }, 'DROP TRIGGER');
             case 'alter index':
                 throw new NotSupported('"alter index" statement');
             default:

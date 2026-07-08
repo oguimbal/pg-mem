@@ -36,21 +36,29 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
         if (typeof fn.code !== 'string') {
             throw new QueryError('no function body specified');
         }
-        switch (fn.returns.kind) {
-            case 'table':
-                const columns = fn.returns.columns.map(c => ({
-                    name: c.name.name,
-                    type: schema.getType(c.type),
-                }));
-                returns = Types.record(columns).asArray();
-                break;
-            case 'array':
-            case null:
-            case undefined:
-                returns = schema.getType(fn.returns);
-                break;
-            default:
-                throw NotSupported.never(fn.returns);
+        // "returns trigger" is a pseudo return type; the function is only ever invoked by
+        // the trigger machinery, so any placeholder type works for registration.
+        const isTrigger = (fn.returns.kind === null || fn.returns.kind === undefined)
+            && /^trigger$/i.test((fn.returns as any).name ?? '');
+        if (isTrigger) {
+            returns = Types.record([]);
+        } else {
+            switch (fn.returns.kind) {
+                case 'table':
+                    const columns = fn.returns.columns.map(c => ({
+                        name: c.name.name,
+                        type: schema.getType(c.type),
+                    }));
+                    returns = Types.record(columns).asArray();
+                    break;
+                case 'array':
+                case null:
+                case undefined:
+                    returns = schema.getType(fn.returns);
+                    break;
+                default:
+                    throw NotSupported.never(fn.returns);
+            }
         }
 
         let argsVariadic: _IType | nil;

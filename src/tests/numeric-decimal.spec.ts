@@ -41,4 +41,11 @@ describe('Decimal (BigInt-backed)', () => {
     it('rejects division by zero', () => {
         expect(() => D('1').div(D('0'))).toThrow(/division by zero/);
     });
+
+    it('computes remainder truncated toward zero', () => {
+        expect(D('5.5').mod(D('2')).toString()).toBe('1.5');
+        expect(D('10').mod(D('3')).toString()).toBe('1');
+        expect(D('-5.5').mod(D('2')).toString()).toBe('-1.5');
+        expect(() => D('1').mod(D('0'))).toThrow(/division by zero/);
+    });
 });

@@ -3,6 +3,8 @@ import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, Ord
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
 import type { TableRls, Policy } from './execution/rls';
 export type { TableRls, Policy } from './execution/rls';
+import type { TableTriggers, Trigger } from './execution/triggers';
+export type { TableTriggers, Trigger } from './execution/triggers';
 
 export * from './interfaces';
 
@@ -435,6 +437,10 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     createPolicy(policy: Policy): void;
     dropPolicy(name: string, ifExists: boolean): void;
     setRowLevelSecurity(action: 'enable' | 'disable' | 'force' | 'no force'): void;
+    /** Triggers attached to this table */
+    readonly triggers: TableTriggers;
+    createTrigger(trigger: Trigger): void;
+    dropTrigger(name: string, ifExists: boolean): void;
     doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | nil | void;
     setHidden(): this;
     setReadonly(): this;

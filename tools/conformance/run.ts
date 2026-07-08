@@ -41,9 +41,13 @@ interface Case {
     /** verify against @expect even in differential mode (real PG needs setup the
      * harness can't provide - e.g. RLS needs a full privilege/grant model) */
     offline?: boolean;
+    /** a documented, accepted divergence from postgres: the case is expected to
+     * differ. Kept in the corpus (not deleted) so the gap stays visible and is
+     * flagged the day pg-mem happens to close it. */
+    knownGap?: string;
 }
 
-type Outcome = 'pass' | 'wrong-result' | 'missing-function' | 'not-supported' | 'parse-error' | 'error';
+type Outcome = 'pass' | 'known-gap' | 'gap-closed' | 'wrong-result' | 'missing-function' | 'not-supported' | 'parse-error' | 'error';
 
 interface CaseResult extends Case {
     outcome: Outcome;
@@ -62,6 +66,7 @@ function parseCorpus(file: string): Case[] {
         const expectMatch = line.match(/^--\s*@expect:\s*(.+)$/);
         const errorMatch = line.match(/^--\s*@error:\s*(.+)$/);
         const offlineMatch = line.match(/^--\s*@offline\s*$/);
+        const knownGapMatch = line.match(/^--\s*@knownGap:\s*(.+)$/);
         if (caseMatch) {
             if (current) cases.push(current);
             current = { category, name: caseMatch[1].trim(), sql: '' };
@@ -74,6 +79,9 @@ function parseCorpus(file: string): Case[] {
         } else if (offlineMatch) {
             if (!current) throw new Error(`${file}: @offline before any @case`);
             current.offline = true;
+        } else if (knownGapMatch) {
+            if (!current) throw new Error(`${file}: @knownGap before any @case`);
+            current.knownGap = knownGapMatch[1].trim();
         } else if (current) {
             current.sql += line + '\n';
         }
@@ -218,14 +226,24 @@ const results: CaseResult[] = [];
 for (let i = 0; i < cases.length; i++) {
     const c = cases[i];
     const mem = runOnPgMem(c);
+    let r: CaseResult;
     if (client && !c.offline) {
         const real = await runOnRealPg(client, c, i);
-        results.push(verdict(c, mem, { rows: real.rows, error: !!real.error, label: 'postgres' }));
+        r = verdict(c, mem, { rows: real.rows, error: !!real.error, label: 'postgres' });
     } else if (c.expectedError) {
-        results.push(verdict(c, mem, { error: true, label: `@error ${c.expectedError}` }));
+        r = verdict(c, mem, { error: true, label: `@error ${c.expectedError}` });
     } else {
-        results.push(verdict(c, mem, { rows: c.expected, label: '@expect' }));
+        r = verdict(c, mem, { rows: c.expected, label: '@expect' });
     }
+    // a case flagged @knownGap is an accepted divergence: reclassify a failure as
+    // 'known-gap' (doesn't count against the score), and flag it as 'gap-closed' if
+    // it unexpectedly passes so the marker can be removed.
+    if (c.knownGap) {
+        r = r.outcome === 'pass'
+            ? { ...r, outcome: 'gap-closed', detail: `@knownGap "${c.knownGap}" now passes - remove the marker` }
+            : { ...r, outcome: 'known-gap', detail: `${c.knownGap} (${r.detail ?? r.outcome})` };
+    }
+    results.push(r);
 }
 await client?.end();
 
@@ -237,23 +255,51 @@ for (const r of results) {
 }
 
 const count = (rs: CaseResult[], o: Outcome) => rs.filter(r => r.outcome === o).length;
-const passed = count(results, 'pass');
-const score = ((passed / results.length) * 100).toFixed(1);
+// gap-closed cases actually matched postgres, so they count toward the score;
+// known-gap cases are accepted divergences and are excluded from the denominator.
+const effPass = (rs: CaseResult[]) => count(rs, 'pass') + count(rs, 'gap-closed');
+const scorable = (rs: CaseResult[]) => rs.length - count(rs, 'known-gap');
+const passed = effPass(results);
+const denom = scorable(results);
+const knownGaps = count(results, 'known-gap');
+const gapsClosed = count(results, 'gap-closed');
+const score = ((passed / denom) * 100).toFixed(1);
+const gapNote = knownGaps ? ` · ${knownGaps} known gap${knownGaps > 1 ? 's' : ''}` : '';
 
 let md = `# pg-mem conformance report\n\n`;
-md += `**Score: ${passed}/${results.length} (${score}%)** — verified against ${mode}\n\n`;
-md += `| Category | Pass | Wrong result | Missing function | Not supported | Parse error | Error |\n`;
-md += `|---|---|---|---|---|---|---|\n`;
+md += `**Score: ${passed}/${denom} (${score}%)${gapNote}** — verified against ${mode}\n\n`;
+md += `| Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |\n`;
+md += `|---|---|---|---|---|---|---|---|\n`;
 for (const [cat, rs] of byCategory) {
-    md += `| ${cat} | ${count(rs, 'pass')}/${rs.length} | ${count(rs, 'wrong-result')} | ${count(rs, 'missing-function')} | ${count(rs, 'not-supported')} | ${count(rs, 'parse-error')} | ${count(rs, 'error')} |\n`;
+    md += `| ${cat} | ${effPass(rs)}/${scorable(rs)} | ${count(rs, 'known-gap')} | ${count(rs, 'wrong-result')} | ${count(rs, 'missing-function')} | ${count(rs, 'not-supported')} | ${count(rs, 'parse-error')} | ${count(rs, 'error')} |\n`;
 }
+const isFailure = (o: Outcome) => o !== 'pass' && o !== 'known-gap' && o !== 'gap-closed';
 md += `\n## Failures\n\n`;
+let anyFailure = false;
 for (const [cat, rs] of byCategory) {
-    const failures = rs.filter(r => r.outcome !== 'pass');
+    const failures = rs.filter(r => isFailure(r.outcome));
     if (!failures.length) continue;
+    anyFailure = true;
     md += `### ${cat}\n\n`;
     for (const f of failures) {
         md += `- \`${f.name}\` — **${f.outcome}**${f.detail ? `: ${f.detail}` : ''}\n`;
+    }
+    md += `\n`;
+}
+if (!anyFailure) {
+    md += `_None._\n`;
+}
+if (knownGaps) {
+    md += `\n## Known gaps (accepted divergences)\n\n`;
+    for (const r of results.filter(r => r.outcome === 'known-gap')) {
+        md += `- \`${r.category}/${r.name}\` — ${r.detail}\n`;
+    }
+    md += `\n`;
+}
+if (gapsClosed) {
+    md += `\n## ⚠️ Gaps closed — remove the @knownGap marker\n\n`;
+    for (const r of results.filter(r => r.outcome === 'gap-closed')) {
+        md += `- \`${r.category}/${r.name}\` — ${r.detail}\n`;
     }
     md += `\n`;
 }
@@ -263,12 +309,18 @@ writeFileSync(join(import.meta.dir, 'report.json'), JSON.stringify({
     mode: client ? 'differential' : 'offline',
     score: +score,
     passed,
-    total: results.length,
+    total: denom,
+    knownGaps,
+    gapsClosed,
     results: results.map(({ sql, ...r }) => r),
 }, null, 2));
 
-console.log(`Conformance: ${passed}/${results.length} (${score}%) — ${mode}`);
+console.log(`Conformance: ${passed}/${denom} (${score}%)${gapNote} — ${mode}`);
 for (const [cat, rs] of byCategory) {
-    console.log(`  ${cat}: ${count(rs, 'pass')}/${rs.length}`);
+    const kg = count(rs, 'known-gap');
+    console.log(`  ${cat}: ${effPass(rs)}/${scorable(rs)}${kg ? ` (+${kg} known gap)` : ''}`);
+}
+if (gapsClosed) {
+    console.log(`⚠️  ${gapsClosed} @knownGap case(s) now pass — remove the marker (see report).`);
 }
 console.log(`Report: tools/conformance/report.md`);

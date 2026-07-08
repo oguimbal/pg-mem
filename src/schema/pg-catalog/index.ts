@@ -16,6 +16,7 @@ import { sqlSubstring } from '../../parser/expression-builder';
 import { PgDatabaseTable } from './pg-database';
 import { registerCommonOperators } from './binary-operators';
 import { registerSqlFunctionLanguage } from './sql-function-language';
+import { registerPlpgsqlLanguage } from '../../execution/plpgsql';
 import { PgProc } from './pg-proc';
 import { PgStatioUserTables } from './pg_statio_user_tables';
 
@@ -131,6 +132,7 @@ export function setupPgCatalog(db: _IDb) {
 
 
     registerSqlFunctionLanguage(db);
+    registerPlpgsqlLanguage(db);
 
     catalog.setReadonly()
 }

@@ -1,31 +1,29 @@
 # pg-mem conformance report
 
-**Score: 97/99 (98.0%)** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 101/101 (100.0%) · 1 known gap** — verified against offline (@expect annotations)
 
-| Category | Pass | Wrong result | Missing function | Not supported | Parse error | Error |
-|---|---|---|---|---|---|---|
-| basics | 10/10 | 0 | 0 | 0 | 0 | 0 |
-| functions-string | 22/22 | 0 | 0 | 0 | 0 | 0 |
-| functions-math | 10/11 | 1 | 0 | 0 | 0 | 0 |
-| functions-datetime | 9/9 | 0 | 0 | 0 | 0 | 0 |
-| functions-json | 8/8 | 0 | 0 | 0 | 0 | 0 |
-| functions-array | 9/9 | 0 | 0 | 0 | 0 | 0 |
-| window-functions | 6/6 | 0 | 0 | 0 | 0 | 0 |
-| recursive-cte | 3/3 | 0 | 0 | 0 | 0 | 0 |
-| joins | 4/4 | 0 | 0 | 0 | 0 | 0 |
-| numeric-types | 6/6 | 0 | 0 | 0 | 0 | 0 |
-| datetime-tz | 3/3 | 0 | 0 | 0 | 0 | 0 |
-| triggers | 0/1 | 0 | 0 | 0 | 1 | 0 |
-| transactions | 2/2 | 0 | 0 | 0 | 0 | 0 |
-| rls | 5/5 | 0 | 0 | 0 | 0 | 0 |
+| Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
+|---|---|---|---|---|---|---|---|
+| basics | 10/10 | 0 | 0 | 0 | 0 | 0 | 0 |
+| functions-string | 22/22 | 0 | 0 | 0 | 0 | 0 | 0 |
+| functions-math | 10/10 | 1 | 0 | 0 | 0 | 0 | 0 |
+| functions-datetime | 9/9 | 0 | 0 | 0 | 0 | 0 | 0 |
+| functions-json | 8/8 | 0 | 0 | 0 | 0 | 0 | 0 |
+| functions-array | 9/9 | 0 | 0 | 0 | 0 | 0 | 0 |
+| window-functions | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
+| recursive-cte | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| joins | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| numeric-types | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
+| datetime-tz | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| triggers | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| transactions | 2/2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| rls | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures
 
-### functions-math
+_None._
 
-- `exp ln` — **wrong-result**: postgres says [{"a":2.718281828459045,"b":"0.9999999999999999"}], pg-mem says [{"a":2.718281828459045,"b":1}]
+## Known gaps (accepted divergences)
 
-### triggers
-
-- `create trigger` — **parse-error**: 💔 Your query failed to parse.
+- `functions-math/exp ln` — numeric ln/exp computed in float64, not arbitrary precision (@expect says [{"a":2.718281828459045,"b":"0.9999999999999999"}], pg-mem says [{"a":2.718281828459045,"b":1}])
 

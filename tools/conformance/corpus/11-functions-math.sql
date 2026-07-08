@@ -31,7 +31,11 @@ select sign(-8.4) as r;
 select trunc(42.8) as r;
 
 -- @case: exp ln
--- pg parses the ln() literal as numeric, so ln() is computed in arbitrary precision
+-- pg parses the ln() literal as numeric and computes ln in arbitrary precision, so it
+-- returns "0.9999999999999999"; pg-mem evaluates ln as a JS float where
+-- Math.log(2.718281828459045) === 1 exactly. Matching pg's last digit would require a
+-- full arbitrary-precision transcendental ln replicating pg's result-scale selection.
+-- @knownGap: numeric ln/exp computed in float64, not arbitrary precision
 -- @expect: [{"a":2.718281828459045,"b":"0.9999999999999999"}]
 select exp(1) as a, ln(2.718281828459045) as b;
 

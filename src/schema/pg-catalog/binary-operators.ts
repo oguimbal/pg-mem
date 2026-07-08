@@ -35,7 +35,7 @@ function toDec(v: any): Decimal {
     return typeof v === 'string' ? Decimal.fromText(v) : Decimal.fromNumber(v);
 }
 
-type ArithSym = '+' | '-' | '*' | '/';
+type ArithSym = '+' | '-' | '*' | '/' | '%';
 
 // Type-aware arithmetic: the result type decides the representation. bigint/decimal
 // operate in exact BigInt/Decimal and yield strings; integer/float stay JS numbers.
@@ -48,6 +48,7 @@ function arith(sym: ArithSym, returns: DataType): (a: any, b: any) => any {
                 case '-': return x.sub(y).toString();
                 case '*': return x.mul(y).toString();
                 case '/': return x.div(y).toString();
+                case '%': return x.mod(y).toString();
             }
         };
     }
@@ -61,6 +62,9 @@ function arith(sym: ArithSym, returns: DataType): (a: any, b: any) => any {
                 case '/':
                     if (y === BigInt(0)) { throw new QueryError('division by zero', '22012'); }
                     return (x / y).toString();
+                case '%':
+                    if (y === BigInt(0)) { throw new QueryError('division by zero', '22012'); }
+                    return (x % y).toString();
             }
         };
     }
@@ -75,6 +79,10 @@ function arith(sym: ArithSym, returns: DataType): (a: any, b: any) => any {
             case '/':
                 if (y === 0) { throw new QueryError('division by zero', '22012'); }
                 r = isInt ? Math.trunc(x / y) : x / y;
+                break;
+            case '%':
+                if (y === 0) { throw new QueryError('division by zero', '22012'); }
+                r = x % y;
                 break;
         }
         if (isInt && (r < INT4_MIN || r > INT4_MAX)) {
@@ -98,6 +106,21 @@ function registerNumericOperators(schema: _ISchema) {
                 implementation: arith(sym, returns),
             });
         }
+    }
+
+    // ======= "%" (modulo) — postgres defines it for integer/bigint/numeric, not float =======
+    for (const [left, right, returns] of numberPairs()) {
+        if (returns === DataType.float) {
+            continue;
+        }
+        schema.registerOperator({
+            operator: '%',
+            commutative: false,
+            left,
+            right,
+            returns,
+            implementation: arith('%', returns),
+        });
     }
 }
 

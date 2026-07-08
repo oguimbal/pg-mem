@@ -7,6 +7,7 @@ import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
 import { cleanResults } from '../execution/clean-results';
 import { TableRls, emptyRls } from '../execution/rls';
+import { TableTriggers, emptyTriggers } from '../execution/triggers';
 
 export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _ISelection {
 
@@ -153,6 +154,13 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
         throw new PermissionDeniedError(this.name);
     }
     setRowLevelSecurity(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    readonly triggers: TableTriggers = emptyTriggers();
+    createTrigger(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    dropTrigger(): void {
         throw new PermissionDeniedError(this.name);
     }
     setHidden(): this {

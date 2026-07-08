@@ -2,6 +2,7 @@ import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, No
 import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts, Row } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
 import { TableRls, Policy, emptyRls } from './execution/rls';
+import { TableTriggers, Trigger, emptyTriggers } from './execution/triggers';
 import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils';
@@ -91,6 +92,24 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
             case 'force': this.rls.forced = true; break;
             case 'no force': this.rls.forced = false; break;
         }
+    }
+
+    readonly triggers: TableTriggers = emptyTriggers();
+
+    createTrigger(trigger: Trigger): void {
+        if (this.triggers.triggers.some(t => t.name === trigger.name)) {
+            throw new QueryError(`trigger "${trigger.name}" for relation "${this.name}" already exists`, '42710');
+        }
+        this.triggers.triggers.push(trigger);
+    }
+
+    dropTrigger(name: string, ifExists: boolean): void {
+        const idx = this.triggers.triggers.findIndex(t => t.name === name);
+        if (idx < 0) {
+            if (ifExists) { return; }
+            throw new QueryError(`trigger "${name}" for table "${this.name}" does not exist`, '42704');
+        }
+        this.triggers.triggers.splice(idx, 1);
     }
     get isExecutionWithNoResult(): boolean {
         return false;

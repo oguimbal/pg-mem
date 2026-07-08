@@ -1,8 +1,10 @@
 {
-  "mode": "differential",
-  "score": 98,
-  "passed": 97,
-  "total": 99,
+  "mode": "offline",
+  "score": 100,
+  "passed": 101,
+  "total": 101,
+  "knownGaps": 1,
+  "gapsClosed": 0,
   "results": [
     {
       "category": "basics",
@@ -429,14 +431,15 @@
     {
       "category": "functions-math",
       "name": "exp ln",
+      "knownGap": "numeric ln/exp computed in float64, not arbitrary precision",
       "expected": [
         {
           "a": 2.718281828459045,
           "b": "0.9999999999999999"
         }
       ],
-      "outcome": "wrong-result",
-      "detail": "postgres says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}]"
+      "outcome": "known-gap",
+      "detail": "numeric ln/exp computed in float64, not arbitrary precision (@expect says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}])"
     },
     {
       "category": "functions-math",
@@ -963,9 +966,54 @@
     },
     {
       "category": "triggers",
-      "name": "create trigger",
-      "outcome": "parse-error",
-      "detail": "💔 Your query failed to parse."
+      "name": "before update mutates NEW",
+      "expected": [
+        {
+          "rev": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "before insert mutates NEW with if/else",
+      "expected": [
+        {
+          "id": 2,
+          "tag": "small"
+        },
+        {
+          "id": 10,
+          "tag": "big"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "before insert returning null skips the row",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 5
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "before delete returning null blocks the delete",
+      "expected": [
+        {
+          "id": 1
+        }
+      ],
+      "outcome": "pass"
     },
     {
       "category": "transactions",
