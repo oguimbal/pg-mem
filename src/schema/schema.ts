@@ -506,6 +506,7 @@ export class DbSchema implements _ISchema, ISchema {
             impure: !!fn.impure,
             implementation: fn.implementation,
             allowNullArguments: fn.allowNullArguments,
+            setReturning: fn.setReturning,
         };
 
         this.fns.add(def, replace ?? true);

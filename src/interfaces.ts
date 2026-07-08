@@ -391,6 +391,10 @@ export interface FunctionDefinition {
     /** If true, the function will also be called when passing null arguments */
     allowNullArguments?: boolean;
 
+    /** If true, the function returns a set: it must return an array, which yields
+     * one output row per element when used in a select list or a FROM clause */
+    setReturning?: boolean;
+
     /** Actual implementation of the function */
     implementation: CompiledFunction;
 }

@@ -1,6 +1,7 @@
 import { _ISchema, QueryError } from '../../interfaces-private';
 import { numbers, isInteger, dateTypes, Types, numberPriorities } from '../../datatypes';
-import { intervalToSec, queryJson } from '../../utils';
+import { dateAddInterval, queryJson } from '../../utils';
+import { jsonPathGet, jsonAsText } from '../../functions/json';
 import moment from 'moment';
 
 export function registerCommonOperators(schema: _ISchema) {
@@ -87,7 +88,7 @@ function registerDatetimeOperators(schema: _ISchema) {
                 left: dt,
                 right: Types.interval,
                 returns: dt,
-                implementation: (a, b) => moment(a).add(f * intervalToSec(b), 'seconds').toDate(),
+                implementation: (a, b) => dateAddInterval(a, b, f),
             });
         }
     }
@@ -115,6 +116,16 @@ function registerJsonOperators(schema: _ISchema) {
         right: Types.jsonb,
         returns: Types.bool,
         implementation: (a, b) => queryJson(b, a),
+    });
+
+    // ======= "json #>> path" (extract text at path)
+    // nb: "#>" is not in pgsql-ast-parser's operator grammar yet; jsonb_extract_path covers it
+    schema.registerOperator({
+        operator: '#>>',
+        left: Types.jsonb,
+        right: Types.text().asArray(),
+        returns: Types.text(),
+        implementation: (a, b: string[]) => jsonAsText(jsonPathGet(a, b)),
     });
 
     // ======= "json - text" (remove key)

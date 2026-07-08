@@ -129,6 +129,8 @@ export interface _FunctionDefinition {
     returns?: _IType | nil;
     impure?: boolean;
     allowNullArguments?: boolean;
+    /** Returns a set (one output row per element of the returned array) */
+    setReturning?: boolean;
     implementation: (...args: any[]) => any;
 }
 
