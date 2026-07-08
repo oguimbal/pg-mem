@@ -25,7 +25,7 @@ class CountStar implements AggregationComputer<number> {
     }
 
     get type(): _IType<any> {
-        return Types.bigint;
+        return Types.integer;
     }
 
     computeFromIndex(key: IndexKey, index: _IIndex, t: _Transaction) {
@@ -53,7 +53,7 @@ class CountExpr implements AggregationComputer<number> {
     }
 
     get type(): _IType<any> {
-        return Types.bigint;
+        return Types.integer;
     }
 
     createGroup(t: _Transaction): AggregationGroupComputer<number> {

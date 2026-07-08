@@ -1,5 +1,7 @@
 import { _ISchema, QueryError } from '../../interfaces-private';
-import { numbers, isInteger, dateTypes, Types, numberPriorities } from '../../datatypes';
+import { numbers, dateTypes, Types, numberPriorities } from '../../datatypes';
+import { Decimal } from '../../datatypes/numeric';
+import { DataType } from '../../interfaces';
 import { dateAddInterval, queryJson } from '../../utils';
 import { jsonPathGet, jsonAsText } from '../../functions/json';
 import { timestampAtZone, instantToZoneWall } from '../../datatypes/timezone';
@@ -20,51 +22,82 @@ function* numberPairs() {
     }
 }
 
+const INT4_MIN = -2147483648;
+const INT4_MAX = 2147483647;
+
+function toNum(v: any): number {
+    return typeof v === 'string' ? Number(v) : v;
+}
+function toBig(v: any): bigint {
+    return typeof v === 'string' ? BigInt(v.includes('.') ? v.split('.')[0] : v) : BigInt(Math.trunc(v));
+}
+function toDec(v: any): Decimal {
+    return typeof v === 'string' ? Decimal.fromText(v) : Decimal.fromNumber(v);
+}
+
+type ArithSym = '+' | '-' | '*' | '/';
+
+// Type-aware arithmetic: the result type decides the representation. bigint/decimal
+// operate in exact BigInt/Decimal and yield strings; integer/float stay JS numbers.
+function arith(sym: ArithSym, returns: DataType): (a: any, b: any) => any {
+    if (returns === DataType.decimal) {
+        return (a, b) => {
+            const x = toDec(a), y = toDec(b);
+            switch (sym) {
+                case '+': return x.add(y).toString();
+                case '-': return x.sub(y).toString();
+                case '*': return x.mul(y).toString();
+                case '/': return x.div(y).toString();
+            }
+        };
+    }
+    if (returns === DataType.bigint) {
+        return (a, b) => {
+            const x = toBig(a), y = toBig(b);
+            switch (sym) {
+                case '+': return (x + y).toString();
+                case '-': return (x - y).toString();
+                case '*': return (x * y).toString();
+                case '/':
+                    if (y === BigInt(0)) { throw new QueryError('division by zero', '22012'); }
+                    return (x / y).toString();
+            }
+        };
+    }
+    const isInt = returns === DataType.integer;
+    return (a, b) => {
+        const x = toNum(a), y = toNum(b);
+        let r: number;
+        switch (sym) {
+            case '+': r = x + y; break;
+            case '-': r = x - y; break;
+            case '*': r = x * y; break;
+            case '/':
+                if (y === 0) { throw new QueryError('division by zero', '22012'); }
+                r = isInt ? Math.trunc(x / y) : x / y;
+                break;
+        }
+        if (isInt && (r < INT4_MIN || r > INT4_MAX)) {
+            throw new QueryError('integer out of range', '22003');
+        }
+        return r;
+    };
+}
+
 function registerNumericOperators(schema: _ISchema) {
-    // ======= "+ - * /" on numeric types =======
-    for (const [left, right, returns] of numberPairs()) {
-        schema.registerOperator({
-            operator: '+',
-            commutative: true,
-            left,
-            right,
-            returns,
-            implementation: (a, b) => a + b,
-        });
-    }
-    for (const [left, right, returns] of numberPairs()) {
-        schema.registerOperator({
-            operator: '-',
-            commutative: true,
-            left,
-            right,
-            returns,
-            implementation: (a, b) => a - b,
-        });
-    }
-
-    for (const [left, right, returns] of numberPairs()) {
-        schema.registerOperator({
-            operator: '*',
-            commutative: true,
-            left,
-            right,
-            returns,
-            implementation: (a, b) => a * b,
-        });
-    }
-
-    for (const [left, right, returns] of numberPairs()) {
-        schema.registerOperator({
-            operator: '/',
-            commutative: false,
-            left,
-            right,
-            returns,
-            implementation: isInteger(returns)
-                ? ((a, b) => Math.trunc(a / b))
-                : ((a, b) => a / b),
-        });
+    // ======= "+ - * /" on numeric types (integer/bigint/decimal/float) =======
+    for (const sym of ['+', '-', '*', '/'] as const) {
+        for (const [left, right, returns] of numberPairs()) {
+            schema.registerOperator({
+                // + and * are commutative (lets indexes match a+b with b+a)
+                operator: sym,
+                commutative: sym === '+' || sym === '*',
+                left,
+                right,
+                returns,
+                implementation: arith(sym, returns),
+            });
+        }
     }
 }
 

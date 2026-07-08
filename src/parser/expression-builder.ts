@@ -102,12 +102,16 @@ function _buildValueReal(val: Expr): IValue {
                 ? Value.list(vals)
                 : Value.array(vals);
         case 'numeric':
-            // valueText carries exact precision for future arbitrary-precision numeric
-            // support; not consumed yet (behaviour unchanged)
+            // a decimal literal stays float unless used in a numeric context; the exact
+            // value is recovered from value.toString() when cast to numeric
             ignore(val.valueText);
             return Value.number(val.value);
         case 'integer':
-            ignore(val.valueText);
+            // an integer literal that overflows a safe JS number is a bigint (as in pg),
+            // carried through valueText with full precision
+            if (val.valueText) {
+                return new Evaluator(Types.bigint, null, val.valueText, null, val.valueText);
+            }
             return Value.number(val.value, Types.integer);
         case 'call':
             return _buildCall(val);
