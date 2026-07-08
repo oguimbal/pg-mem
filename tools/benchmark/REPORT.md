@@ -38,7 +38,7 @@ The small costs on writes (updates +4.8%, inserts +3%) come from the per-commit 
 constraint check and type-aware arithmetic dispatch; seq-scan +5.6% is the widest but
 still noise-level. Nothing is a structural regression.
 
-## Bundle — +17 KB gzipped (still tiny)
+## Bundle — +19 KB gzipped (still tiny)
 
 Both built with the repo's `webpack --prod`, then `terser -c -m` + gzip (what actually
 ships after a consumer minifies).
@@ -46,12 +46,13 @@ ships after a consumer minifies).
 | bundle             | minified | min+gzip |
 |--------------------|---------:|---------:|
 | upstream 3.0.14    |   254 KB |  64.5 KB |
-| this fork          |   313 KB |  81.4 KB |
-| **delta**          | **+59 KB** | **+16.9 KB (+26%)** |
+| this fork          |   322 KB |  83.9 KB |
+| **delta**          | **+68 KB** | **+19.4 KB (+30%)** |
 
-Of the +17 KB gzipped, roughly ~5 KB is the parser grammar (the new `pgsql-ast-parser`
-rules: roles, policies, GRANT, window frames, `position`, deferrable — nearley compiles
-grammar to sizeable tables) and the rest is engine feature code.
+Of the +19 KB gzipped, roughly ~6 KB is the parser grammar (the new `pgsql-ast-parser`
+rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers — nearley
+compiles grammar to sizeable tables), ~2.5 KB is the trigger + PL/pgSQL engine, and the
+rest is other engine feature code.
 
 **Crucially, the growth is feature code, not dead weight, and no runtime dependency was
 added** — the `Decimal` type is hand-rolled on BigInt and timezones use the runtime's
@@ -62,8 +63,9 @@ real Postgres; RLS + roles is ~7 KB of it.
 
 ## Verdict
 
-The fork stays true to pg-mem's positioning: **+1.7% runtime and 81 KB gzipped** — still
-~40× smaller than PGlite's ~3 MB WASM, with no new dependencies and no hot-path
-regression. The size cost buys a large jump in SQL conformance (54% → 98% of the
-conformance corpus). If the RLS/roles footprint ever matters for a size-critical embed,
-it's self-contained enough to gate behind a build flag later.
+The fork stays true to pg-mem's positioning: **+1.7% runtime and 84 KB gzipped** — still
+~35× smaller than PGlite's ~3 MB WASM, with no new dependencies and no hot-path
+regression. The size cost buys a large jump in SQL conformance (54% → 100% of the
+conformance corpus, with one documented known gap). If the RLS/roles footprint ever
+matters for a size-critical embed, it's self-contained enough to gate behind a build flag
+later.
