@@ -118,8 +118,16 @@ function registerJsonOperators(schema: _ISchema) {
         implementation: (a, b) => queryJson(b, a),
     });
 
+    // ======= "json #> path" (extract json at path)
+    schema.registerOperator({
+        operator: '#>',
+        left: Types.jsonb,
+        right: Types.text().asArray(),
+        returns: Types.jsonb,
+        implementation: (a, b: string[]) => jsonPathGet(a, b),
+    });
+
     // ======= "json #>> path" (extract text at path)
-    // nb: "#>" is not in pgsql-ast-parser's operator grammar yet; jsonb_extract_path covers it
     schema.registerOperator({
         operator: '#>>',
         left: Types.jsonb,

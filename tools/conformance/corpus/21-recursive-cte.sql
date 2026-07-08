@@ -19,7 +19,7 @@ with recursive tree(id, parent, depth) as (
 select id, depth from tree order by id;
 
 -- @case: recursive cte without column list
--- pgsql-ast-parser requires the cte column list; postgres does not
+-- @expect: [{"id":1,"depth":0},{"id":2,"depth":1}]
 create table org (id int, parent int);
 insert into org values (1, null), (2, 1);
 with recursive tree as (

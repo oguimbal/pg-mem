@@ -10,7 +10,7 @@ import { AlterSequence } from './schema-amends/alter-sequence';
 import { DropIndex } from './schema-amends/drop-index';
 import { DropTable } from './schema-amends/drop-table';
 import { DropSequence } from './schema-amends/drop-sequence';
-import { CommitExecutor, RollbackExecutor, BeginStatementExec } from './transaction-statements';
+import { CommitExecutor, RollbackExecutor, BeginStatementExec, SavepointExecutor, ReleaseSavepointExecutor } from './transaction-statements';
 import { TruncateTable } from './records-mutations/truncate-table';
 import { ShowExecutor } from './show';
 import { SetExecutor } from './set';
@@ -72,6 +72,10 @@ export class StatementExec implements _IStatement {
                 return new CommitExecutor(p);
             case 'rollback':
                 return new RollbackExecutor(p);
+            case 'savepoint':
+                return new SavepointExecutor(p);
+            case 'release savepoint':
+                return new ReleaseSavepointExecutor(p);
             case 'select':
             case 'delete':
             case 'update':

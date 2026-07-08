@@ -15,8 +15,13 @@ describe('JSON functions', () => {
         one = db.public.one.bind(db.public);
     });
 
+    it('#> extracts json at path', () => {
+        expect(one(`select '{"a":{"b":1}}'::jsonb #> '{a}' as v`).v).toEqual({ b: 1 });
+        expect(one(`select '{"a":[10,20]}'::jsonb #> '{a,1}' as v`).v).toBe(20);
+        expect(one(`select '{"a":1}'::jsonb #> '{nope,x}' as v`).v).toBeNull();
+    });
+
     it('#>> extracts text at path', () => {
-        // nb: "#>" is not in the parser grammar yet; jsonb_extract_path covers it
         expect(one(`select '{"a":{"b":1}}'::jsonb #>> '{a,b}' as v`).v).toBe('1');
         expect(one(`select '{"a":[10,20]}'::jsonb #>> '{a,1}' as v`).v).toBe('20');
         expect(one(`select '{"a":1}'::jsonb #>> '{nope,x}' as v`).v).toBeNull();

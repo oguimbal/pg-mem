@@ -81,8 +81,11 @@ function buildWithRecursive(p: WithRecursiveStatement): _ISelection {
     return withBindingScope(() => {
         const { setTempBinding } = buildCtx();
         const seed = buildSelect(p.bind.left);
-        const names = p.columnNames.map(x => x.name);
-        if (names.length !== seed.columns.length) {
+        // the column list is optional: when omitted, take the names the seed produces
+        const names = p.columnNames
+            ? p.columnNames.map(x => x.name)
+            : seed.columns.map((c, i) => c.id ?? `column${i + 1}`);
+        if (p.columnNames && names.length !== seed.columns.length) {
             throw new QueryError(`table "${p.alias.name}" has ${seed.columns.length} columns available but ${names.length} columns specified`, '42P10');
         }
         const cols = names.map((name, i) => ({ name, type: seed.columns[i].type }));

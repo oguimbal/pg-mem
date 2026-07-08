@@ -155,6 +155,12 @@ export interface _Transaction {
     /** Commits this transaction and all underlying transactions */
     fullCommit(): _Transaction;
     rollback(): _Transaction;
+    /** Capture the current state under a named savepoint */
+    savepoint(name: string): void;
+    /** Restore the state captured by a named savepoint (keeping the savepoint) */
+    rollbackTo(name: string): void;
+    /** Discard a named savepoint (and any established after it) */
+    release(name: string): void;
     delete(identity: symbol): void;
     /** Set data persisted in this transaction */
     set<T>(identity: symbol, data: T): T;

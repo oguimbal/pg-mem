@@ -79,6 +79,21 @@ describe('WITH RECURSIVE', () => {
                         ) select a from c`), /1 columns available but 2 columns specified/);
     });
 
+    it('infers column names from the seed when the column list is omitted', () => {
+        none(`create table org (id int, parent int);
+              insert into org values (1, null), (2, 1), (3, 2)`);
+        expect(many(`with recursive tree as (
+                        select id, parent, 0 as depth from org where parent is null
+                        union all
+                        select o.id, o.parent, t.depth + 1 from org o join tree t on o.parent = t.id
+                    ) select id, depth from tree order by id`))
+            .toEqual([
+                { id: 1, depth: 0 },
+                { id: 2, depth: 1 },
+                { id: 3, depth: 2 },
+            ]);
+    });
+
     it('can aggregate over the recursion result', () => {
         expect(many(`with recursive c(n) as (
                         select 1 union all select n + 1 from c where n < 100

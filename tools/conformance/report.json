@@ -1,7 +1,7 @@
 {
-  "mode": "differential",
-  "score": 86.2,
-  "passed": 81,
+  "mode": "offline",
+  "score": 89.4,
+  "passed": 84,
   "total": 94,
   "results": [
     {
@@ -437,7 +437,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "postgres says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}]"
+      "detail": "@expect says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}]"
     },
     {
       "category": "functions-math",
@@ -765,8 +765,7 @@
     {
       "category": "window-functions",
       "name": "window frame rows between",
-      "outcome": "parse-error",
-      "detail": "💔 Your query failed to parse."
+      "outcome": "pass"
     },
     {
       "category": "recursive-cte",
@@ -806,8 +805,17 @@
     {
       "category": "recursive-cte",
       "name": "recursive cte without column list",
-      "outcome": "parse-error",
-      "detail": "💔 Your query failed to parse."
+      "expected": [
+        {
+          "id": 1,
+          "depth": 0
+        },
+        {
+          "id": 2,
+          "depth": 1
+        }
+      ],
+      "outcome": "pass"
     },
     {
       "category": "joins",
@@ -877,7 +885,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "postgres says [{\"r\":\"9007199254740993\"}], pg-mem says [{\"r\":\"9007199254740992\"}]"
+      "detail": "@expect says [{\"r\":\"9007199254740993\"}], pg-mem says [{\"r\":\"9007199254740992\"}]"
     },
     {
       "category": "numeric-types",
@@ -888,7 +896,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "postgres says [{\"r\":\"1.01\"}], pg-mem says [{\"r\":\"1.005\"}]"
+      "detail": "@expect says [{\"r\":\"1.01\"}], pg-mem says [{\"r\":\"1.005\"}]"
     },
     {
       "category": "numeric-types",
@@ -915,7 +923,7 @@
       "name": "integer overflow errors",
       "expectedError": "integer out of range",
       "outcome": "wrong-result",
-      "detail": "should error (postgres), but pg-mem succeeded"
+      "detail": "should error (@error integer out of range), but pg-mem succeeded"
     },
     {
       "category": "numeric-types",
@@ -926,7 +934,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "postgres says [{\"r\":\"0.33333333333333333333\"}], pg-mem says [{\"r\":\"0.3333333333333333\"}]"
+      "detail": "@expect says [{\"r\":\"0.33333333333333333333\"}], pg-mem says [{\"r\":\"0.3333333333333333\"}]"
     },
     {
       "category": "datetime-tz",
@@ -964,8 +972,7 @@
           "id": 1
         }
       ],
-      "outcome": "parse-error",
-      "detail": "💔 Your query failed to parse."
+      "outcome": "pass"
     },
     {
       "category": "transactions",
