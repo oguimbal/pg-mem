@@ -4,7 +4,7 @@ import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } fr
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
 import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'pgsql-ast-parser';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprPosition, ExprCall } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, getAggregator } from '../transforms/aggregation';
 import { getWindower } from '../transforms/window';
@@ -169,6 +169,8 @@ function _buildValueReal(val: Expr): IValue {
             return buildOverlay(val);
         case 'substring':
             return buildSubstring(val);
+        case 'position':
+            return buildPosition(val);
         case 'default':
             throw new QueryError(`DEFAULT is not allowed in this context`, '42601');
         default:
@@ -852,6 +854,25 @@ function buildOverlay(op: ExprOverlay): IValue {
                 return null;
             }
             return before + _placing + after;
+        });
+}
+
+function buildPosition(op: ExprPosition): IValue {
+    // position(substring in string) -> 1-based index, 0 if absent
+    const substring = _buildValue(op.substring).cast(Types.text());
+    const string = _buildValue(op.string).cast(Types.text());
+    return new Evaluator(
+        Types.integer
+        , null
+        , hash({ position: substring.hash, in: string.hash })
+        , [substring, string]
+        , (raw, t) => {
+            const sub = substring.get(raw, t) as string;
+            const str = string.get(raw, t) as string;
+            if (nullIsh(sub) || nullIsh(str)) {
+                return null;
+            }
+            return str.indexOf(sub) + 1;
         });
 }
 

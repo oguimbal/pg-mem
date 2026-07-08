@@ -61,6 +61,13 @@ describe('Builtin functions', () => {
             expectQueryError(() => one(`select split_part('a,b', ',', 0)`), /field position must not be zero/);
         });
 
+        it('position(x in y)', () => {
+            expect(one(`select position('om' in 'Thomas') as v`).v).toBe(3);
+            expect(one(`select position('xx' in 'Thomas') as v`).v).toBe(0);
+            expect(one(`select position('' in 'abc') as v`).v).toBe(1);
+            expect(one(`select position(null in 'abc') as v`).v).toBeNull();
+        });
+
         it('strpos', () => {
             expect(one(`select strpos('Thomas', 'om') as v`).v).toBe(3);
             expect(one(`select strpos('Thomas', 'xx') as v`).v).toBe(0);
