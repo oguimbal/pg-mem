@@ -696,9 +696,76 @@ describe('Joins', () => {
                     rate: 10,
                 }]);
         });
+
+        it('can reference the USING column unqualified', () => {
+            expect(many(`select id, rate, name from rates join names using (id)`))
+                .toEqual([{ id: 1, rate: 10, name: 'Me' }]);
+        });
+
+        it('can reference the USING column qualified', () => {
+            expect(many(`select rates.id, names.id as nid from rates join names using (id)`))
+                .toEqual([{ id: 1, nid: 1 }]);
+        });
+
+        it('keeps the preserved side value on left join without match', () => {
+            none(`insert into rates values (2, 20)`);
+            expect(many(`select * from rates left join names using (id) order by id`))
+                .toEqual([
+                    { id: 1, name: 'Me', rate: 10 },
+                    { id: 2, name: null, rate: 20 },
+                ]);
+            expect(many(`select id, rate from rates left join names using (id) order by id`))
+                .toEqual([
+                    { id: 1, rate: 10 },
+                    { id: 2, rate: 20 },
+                ]);
+        });
+
+        it('still rejects ambiguous columns on ON joins', () => {
+            expect(() => many(`select id from rates join names on rates.id = names.id`))
+                .toThrow(/column reference "id" is ambiguous/);
+        });
     })
 
 
+
+    describe('full outer join', () => {
+        beforeEach(() => none(`create table ta (a int);
+                               create table tb (b int);
+                               insert into ta values (1), (2);
+                               insert into tb values (2), (3);`));
+
+        it('preserves both sides', () => {
+            expect(many(`select a, b from ta full outer join tb on a = b order by coalesce(a, b)`))
+                .toEqual([
+                    { a: 1, b: null },
+                    { a: 2, b: 2 },
+                    { a: null, b: 3 },
+                ]);
+        });
+
+        it('handles empty sides', () => {
+            none(`delete from ta`);
+            expect(many(`select a, b from ta full join tb on a = b order by b`))
+                .toEqual([{ a: null, b: 2 }, { a: null, b: 3 }]);
+        });
+
+        it('joins values sources without duplicating matches', () => {
+            expect(many(`select a, b from (values (1)) va(a) full join (values (1), (2)) vb(b) on a = b order by coalesce(a, b)`))
+                .toEqual([{ a: 1, b: 1 }, { a: null, b: 2 }]);
+        });
+
+        it('emits one row per unmatched pair on n-m matches', () => {
+            none(`insert into ta values (2)`);
+            expect(many(`select a, b from ta full join tb on a = b order by coalesce(a, b)`))
+                .toEqual([
+                    { a: 1, b: null },
+                    { a: 2, b: 2 },
+                    { a: 2, b: 2 },
+                    { a: null, b: 3 },
+                ]);
+        });
+    });
 
     it('can right join', () => {
         photos();
