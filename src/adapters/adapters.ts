@@ -172,7 +172,7 @@ export class Adapters implements LibAdapters {
         const that = this;
         (postgresOptions as any).postgres = that.createPg(queryLatency);
         if (postgresOptions?.type !== 'postgres') {
-            throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
+            throw new NotSupported('Only postgres supported, found ' + (postgresOptions?.type ?? '<null>'))
         }
 
         const { getConnectionManager } = doRequire('typeorm')
@@ -185,7 +185,7 @@ export class Adapters implements LibAdapters {
         const that = this;
         (postgresOptions as any).postgres = that.createPg(queryLatency);
         if (postgresOptions?.type !== 'postgres') {
-            throw new NotSupported('Only postgres supported, found ' + postgresOptions?.type ?? '<null>')
+            throw new NotSupported('Only postgres supported, found ' + (postgresOptions?.type ?? '<null>'))
         }
 
         const nr = doRequire('typeorm');

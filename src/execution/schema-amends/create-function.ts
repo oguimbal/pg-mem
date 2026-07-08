@@ -96,7 +96,7 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             // ... argument names must be the same
             for (let i = 0; i < args.length; i++) {
                 const exName = existing.args[i].name
-                if (exName ?? null !== args[i].name ?? null) {
+                if ((exName ?? null) !== (args[i].name ?? null)) {
                     throw new QueryError(`cannot change name of input parameter "${exName}"`, '42P13');
                 }
             }
