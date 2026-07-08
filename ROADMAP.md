@@ -63,24 +63,23 @@ Breaking-change note: numeric results changing JS type ships behind a compat fla
 - [x] `SAVEPOINT` / `ROLLBACK TO` (cheap on the copy-on-write store)
 - [ ] Deferrable constraints, isolation-level basics
 
-## Phase 3b — Roles & Row-Level Security
+## Phase 3b — Roles & Row-Level Security ✅
 
-Table stakes for multi-tenant apps (the core browser-DB use case). RLS enforcement
-injects policy predicates at the same query-transform layer as window functions and
-lateral joins. Built in vertical slices:
+Table stakes for multi-tenant apps (the core browser-DB use case). Enforcement defers
+role/bypass/policy-applicability to `enumerate(t)` (an `RlsSelection` transform), so a
+cached plan stays correct across `SET ROLE`. Verified against live Postgres 16.
 
-- [ ] Roles & session identity: `CREATE`/`DROP ROLE`, `SET`/`RESET ROLE`, role
+- [x] Roles & session identity: `CREATE`/`DROP ROLE`, `SET`/`RESET ROLE`, role
   attributes (`SUPERUSER`, `BYPASSRLS`, `LOGIN`); `current_user`/`current_role`/
-  `session_user` become dynamic (read session state, not a hardcoded constant)
-- [ ] Policy DDL: `CREATE POLICY`, `ALTER`/`DROP POLICY`, `ALTER TABLE … ENABLE/
-  DISABLE/FORCE ROW LEVEL SECURITY` (parser work in the sibling fork)
-- [ ] Enforcement: applicable policies become implicit `USING` (read) / `WITH CHECK`
-  (write) predicates per command, `PERMISSIVE` OR-combined and `RESTRICTIVE`
-  AND-combined; default-deny when RLS is on with no matching policy; owner bypass
-  unless `FORCE`; `BYPASSRLS`/superuser exemption
-- [ ] `pg_policies` / `pg_policy` introspection
-- v1 scope note: GRANT/table privileges and role-membership hierarchy are out of scope
-  (policy `TO` matches role name + `PUBLIC` directly); revisit as a follow-up
+  `session_user` are dynamic
+- [x] Policy DDL: `CREATE`/`DROP POLICY`, `ALTER TABLE … ENABLE/DISABLE/FORCE ROW
+  LEVEL SECURITY`
+- [x] Enforcement: `USING` (read) / `WITH CHECK` (write) per command, `PERMISSIVE`
+  OR-combined and `RESTRICTIVE` AND-combined; default-deny when RLS is on with no
+  matching policy; `BYPASSRLS`/superuser exemption
+- [x] `pg_policies` introspection; `GRANT`/`REVOKE` parsed as no-ops
+- v1 scope note: GRANT/table privileges are no-ops (no privilege system), role-membership
+  hierarchy and owner-`FORCE` nuance out of scope — only superuser/`BYPASSRLS` bypass
 
 ## Phase 4 — Durable persistence (browser & beyond)
 
