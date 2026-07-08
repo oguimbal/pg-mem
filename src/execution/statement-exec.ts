@@ -15,6 +15,7 @@ import { TruncateTable } from './records-mutations/truncate-table';
 import { ShowExecutor } from './show';
 import { SetExecutor } from './set';
 import { CreateRoleExecutor, DropRoleExecutor, SetRoleExecutor, ResetExecutor } from './roles';
+import { CreatePolicy, DropPolicy } from './schema-amends/create-policy';
 import { CreateEnum } from './schema-amends/create-enum';
 import { CreateView } from './schema-amends/create-view';
 import { CreateMaterializedView } from './schema-amends/create-materialized-view';
@@ -123,6 +124,10 @@ export class StatementExec implements _IStatement {
                 return new SetRoleExecutor(p);
             case 'reset':
                 return new ResetExecutor(p);
+            case 'create policy':
+                return new CreatePolicy(this, p);
+            case 'drop policy':
+                return new DropPolicy(this, p);
             case 'create enum':
                 return new CreateEnum(this, p);
             case 'alter enum':

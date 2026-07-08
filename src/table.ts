@@ -1,6 +1,7 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ISubscription, nil, ColumnDef } from './interfaces';
 import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts, Row } from './interfaces-private';
 import { buildValue } from './parser/expression-builder';
+import { TableRls, Policy, emptyRls } from './execution/rls';
 import { BIndex } from './schema/btree-index';
 import { columnEvaluator } from './transforms/selection';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils';
@@ -63,6 +64,34 @@ class ColumnManager {
 
 export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _ITable {
     comment: string | nil;
+    readonly rls: TableRls = emptyRls();
+
+    createPolicy(policy: Policy): void {
+        if (this.rls.policies.some(p => p.name === policy.name)) {
+            throw new QueryError(`policy "${policy.name}" for table "${this.name}" already exists`, '42710');
+        }
+        this.rls.policies.push(policy);
+    }
+
+    dropPolicy(name: string, ifExists: boolean): void {
+        const idx = this.rls.policies.findIndex(p => p.name === name);
+        if (idx < 0) {
+            if (ifExists) {
+                return;
+            }
+            throw new QueryError(`policy "${name}" for table "${this.name}" does not exist`, '42704');
+        }
+        this.rls.policies.splice(idx, 1);
+    }
+
+    setRowLevelSecurity(action: 'enable' | 'disable' | 'force' | 'no force'): void {
+        switch (action) {
+            case 'enable': this.rls.enabled = true; break;
+            case 'disable': this.rls.enabled = false; break;
+            case 'force': this.rls.forced = true; break;
+            case 'no force': this.rls.forced = false; break;
+        }
+    }
     get isExecutionWithNoResult(): boolean {
         return false;
     }

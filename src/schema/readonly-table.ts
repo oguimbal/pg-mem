@@ -6,6 +6,7 @@ import { buildAlias } from '../transforms/alias';
 import { columnEvaluator } from '../transforms/selection';
 import { colByName, findTemplate } from '../utils';
 import { cleanResults } from '../execution/clean-results';
+import { TableRls, emptyRls } from '../execution/rls';
 
 export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _ISelection {
 
@@ -141,6 +142,17 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
         throw new PermissionDeniedError(this.name);
     }
     dropIndex(t: _Transaction, name: string): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    // read-only catalog tables never carry row-level security
+    readonly rls: TableRls = emptyRls();
+    createPolicy(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    dropPolicy(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    setRowLevelSecurity(): void {
         throw new PermissionDeniedError(this.name);
     }
     setHidden(): this {

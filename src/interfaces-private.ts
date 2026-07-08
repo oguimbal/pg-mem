@@ -1,6 +1,8 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult, IBoundQuery, IPreparedQuery } from './interfaces';
 import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
+import type { TableRls, Policy } from './execution/rls';
+export type { TableRls, Policy } from './execution/rls';
 
 export * from './interfaces';
 
@@ -428,6 +430,11 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     readonly db: _IDb;
     readonly selection: _ISelection;
     readonly ownerSchema: _ISchema;
+    /** Row-level security state (enabled/forced flags + policies) */
+    readonly rls: TableRls;
+    createPolicy(policy: Policy): void;
+    dropPolicy(name: string, ifExists: boolean): void;
+    setRowLevelSecurity(action: 'enable' | 'disable' | 'force' | 'no force'): void;
     doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | nil | void;
     setHidden(): this;
     setReadonly(): this;
