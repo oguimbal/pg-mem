@@ -1,5 +1,5 @@
 {
-  "mode": "offline",
+  "mode": "differential",
   "score": 93.9,
   "passed": 93,
   "total": 99,
@@ -436,7 +436,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "@expect says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}]"
+      "detail": "postgres says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}]"
     },
     {
       "category": "functions-math",
@@ -884,7 +884,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "@expect says [{\"r\":\"9007199254740993\"}], pg-mem says [{\"r\":\"9007199254740992\"}]"
+      "detail": "postgres says [{\"r\":\"9007199254740993\"}], pg-mem says [{\"r\":\"9007199254740992\"}]"
     },
     {
       "category": "numeric-types",
@@ -895,7 +895,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "@expect says [{\"r\":\"1.01\"}], pg-mem says [{\"r\":\"1.005\"}]"
+      "detail": "postgres says [{\"r\":\"1.01\"}], pg-mem says [{\"r\":\"1.005\"}]"
     },
     {
       "category": "numeric-types",
@@ -922,7 +922,7 @@
       "name": "integer overflow errors",
       "expectedError": "integer out of range",
       "outcome": "wrong-result",
-      "detail": "should error (@error integer out of range), but pg-mem succeeded"
+      "detail": "should error (postgres), but pg-mem succeeded"
     },
     {
       "category": "numeric-types",
@@ -933,7 +933,7 @@
         }
       ],
       "outcome": "wrong-result",
-      "detail": "@expect says [{\"r\":\"0.33333333333333333333\"}], pg-mem says [{\"r\":\"0.3333333333333333\"}]"
+      "detail": "postgres says [{\"r\":\"0.33333333333333333333\"}], pg-mem says [{\"r\":\"0.3333333333333333\"}]"
     },
     {
       "category": "datetime-tz",

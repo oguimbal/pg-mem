@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 93/99 (93.9%)** — verified against offline (@expect annotations)
+**Score: 93/99 (93.9%)** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|
@@ -23,14 +23,14 @@
 
 ### functions-math
 
-- `exp ln` — **wrong-result**: @expect says [{"a":2.718281828459045,"b":"0.9999999999999999"}], pg-mem says [{"a":2.718281828459045,"b":1}]
+- `exp ln` — **wrong-result**: postgres says [{"a":2.718281828459045,"b":"0.9999999999999999"}], pg-mem says [{"a":2.718281828459045,"b":1}]
 
 ### numeric-types
 
-- `bigint 64-bit precision` — **wrong-result**: @expect says [{"r":"9007199254740993"}], pg-mem says [{"r":"9007199254740992"}]
-- `numeric scale rounding` — **wrong-result**: @expect says [{"r":"1.01"}], pg-mem says [{"r":"1.005"}]
-- `integer overflow errors` — **wrong-result**: should error (@error integer out of range), but pg-mem succeeded
-- `numeric division keeps precision` — **wrong-result**: @expect says [{"r":"0.33333333333333333333"}], pg-mem says [{"r":"0.3333333333333333"}]
+- `bigint 64-bit precision` — **wrong-result**: postgres says [{"r":"9007199254740993"}], pg-mem says [{"r":"9007199254740992"}]
+- `numeric scale rounding` — **wrong-result**: postgres says [{"r":"1.01"}], pg-mem says [{"r":"1.005"}]
+- `integer overflow errors` — **wrong-result**: should error (postgres), but pg-mem succeeded
+- `numeric division keeps precision` — **wrong-result**: postgres says [{"r":"0.33333333333333333333"}], pg-mem says [{"r":"0.3333333333333333"}]
 
 ### triggers
 
