@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 90/99 (90.9%)** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 92/99 (92.9%)** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|
@@ -14,7 +14,7 @@
 | recursive-cte | 3/3 | 0 | 0 | 0 | 0 | 0 |
 | joins | 4/4 | 0 | 0 | 0 | 0 | 0 |
 | numeric-types | 2/6 | 4 | 0 | 0 | 0 | 0 |
-| datetime-tz | 1/3 | 0 | 0 | 0 | 0 | 2 |
+| datetime-tz | 3/3 | 0 | 0 | 0 | 0 | 0 |
 | triggers | 0/1 | 0 | 0 | 0 | 1 | 0 |
 | transactions | 1/2 | 0 | 0 | 0 | 1 | 0 |
 | rls | 5/5 | 0 | 0 | 0 | 0 | 0 |
@@ -31,11 +31,6 @@
 - `numeric scale rounding` — **wrong-result**: postgres says [{"r":"1.01"}], pg-mem says [{"r":"1.005"}]
 - `integer overflow errors` — **wrong-result**: should error (postgres), but pg-mem succeeded
 - `numeric division keeps precision` — **wrong-result**: postgres says [{"r":"0.33333333333333333333"}], pg-mem says [{"r":"0.3333333333333333"}]
-
-### datetime-tz
-
-- `at time zone` — **error**: operator does not exist: timestamp without time zone AT TIME ZONE text
-- `timestamptz cast conversion` — **error**: cannot cast type timestamp with time zone to text
 
 ### triggers
 

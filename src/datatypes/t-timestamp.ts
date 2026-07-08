@@ -3,6 +3,8 @@ import { TypeBase } from './datatype-base';
 import { Evaluator } from '../evaluator';
 import moment from 'moment';
 import { parseTime, nullIsh } from '../utils';
+import { renderTimestamp, renderTimestamptz, sessionTimezone } from './timezone';
+import { Types } from './datatypes';
 
 export class TimestampType extends TypeBase<Date> {
 
@@ -40,6 +42,8 @@ export class TimestampType extends TypeBase<Date> {
                 return this.primary !== DataType.date;
             case DataType.timetz:
                 return this.primary !== DataType.date && this.primary !== DataType.timestamp;
+            case DataType.text:
+                return true;
         }
         return null;
     }
@@ -73,6 +77,21 @@ export class TimestampType extends TypeBase<Date> {
                 return value
                     .setConversion(raw => moment.utc(raw).format('HH:mm:ss') + '.000000'
                         , toDate => ({ toDate }));
+            case DataType.text: {
+                const primary = this.primary;
+                return value
+                    .setType(Types.text())
+                    .setConversion(raw => {
+                        if (primary === DataType.timestamptz) {
+                            return renderTimestamptz(raw, sessionTimezone());
+                        }
+                        if (primary === DataType.date) {
+                            return renderTimestamp(raw).slice(0, 10);
+                        }
+                        return renderTimestamp(raw);
+                    }
+                        , toTxt => ({ toTxt }));
+            }
         }
         throw new Error('Unexpected cast error');
     }

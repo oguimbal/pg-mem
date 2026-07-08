@@ -1,6 +1,6 @@
 import { IValue, _IType, _ISelection, _ISchema, _IDb, _Transaction } from '../interfaces-private';
 import { Types, ArrayType } from '../datatypes';
-import { QueryError, NotSupported, nil } from '../interfaces';
+import { QueryError, NotSupported, nil, DataType } from '../interfaces';
 import { Evaluator } from '../evaluator';
 import hash from 'object-hash';
 import { parseArrayLiteral, QName } from 'pgsql-ast-parser';
@@ -174,6 +174,22 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             }
             type = args.reduce<_IType>((a, b) => {
                 if (a === b.type) {
+                    return a;
+                }
+                // prefer implicit conversion (postgres common-type rules)
+                if (a.canConvertImplicit(b.type)) {
+                    return b.type;
+                }
+                if (b.type.canConvertImplicit(a)) {
+                    return a;
+                }
+                // otherwise fall back to explicit casts, but a plain-text operand yields
+                // to a concrete type (an untyped string literal coerces to it in postgres,
+                // e.g. coalesce('2020-01-01', ts) resolves to timestamp, not text)
+                if (a.primary === DataType.text && b.type.canCast(a)) {
+                    return b.type;
+                }
+                if (b.type.primary === DataType.text && a.canCast(b.type)) {
                     return a;
                 }
                 if (b.type.canCast(a)) {

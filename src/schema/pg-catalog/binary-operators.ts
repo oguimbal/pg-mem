@@ -2,6 +2,7 @@ import { _ISchema, QueryError } from '../../interfaces-private';
 import { numbers, isInteger, dateTypes, Types, numberPriorities } from '../../datatypes';
 import { dateAddInterval, queryJson } from '../../utils';
 import { jsonPathGet, jsonAsText } from '../../functions/json';
+import { timestampAtZone, instantToZoneWall } from '../../datatypes/timezone';
 import moment from 'moment';
 
 export function registerCommonOperators(schema: _ISchema) {
@@ -92,6 +93,26 @@ function registerDatetimeOperators(schema: _ISchema) {
             });
         }
     }
+
+    // ======= timestamp/timestamptz "AT TIME ZONE" zone =======
+    // timestamp AT TIME ZONE zone -> timestamptz (wall-clock interpreted as local in zone)
+    schema.registerOperator({
+        operator: 'AT TIME ZONE',
+        commutative: false,
+        left: Types.timestamp(),
+        right: Types.text(),
+        returns: Types.timestamptz(),
+        implementation: (ts, zone) => timestampAtZone(ts, zone),
+    });
+    // timestamptz AT TIME ZONE zone -> timestamp (instant rendered as wall-clock in zone)
+    schema.registerOperator({
+        operator: 'AT TIME ZONE',
+        commutative: false,
+        left: Types.timestamptz(),
+        right: Types.text(),
+        returns: Types.timestamp(),
+        implementation: (instant, zone) => instantToZoneWall(instant, zone),
+    });
 
     // ==== date "+ -" integer  (add days.. only works on dates, not timestamps)
     for (const [operator, f] of [['+', 1], ['-', -1]] as const) {

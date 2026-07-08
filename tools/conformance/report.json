@@ -1,7 +1,7 @@
 {
   "mode": "differential",
-  "score": 90.9,
-  "passed": 90,
+  "score": 92.9,
+  "passed": 92,
   "total": 99,
   "results": [
     {
@@ -948,14 +948,22 @@
     {
       "category": "datetime-tz",
       "name": "at time zone",
-      "outcome": "error",
-      "detail": "operator does not exist: timestamp without time zone AT TIME ZONE text"
+      "expected": [
+        {
+          "r": "2020-01-01T12:00:00.000Z"
+        }
+      ],
+      "outcome": "pass"
     },
     {
       "category": "datetime-tz",
       "name": "timestamptz cast conversion",
-      "outcome": "error",
-      "detail": "cannot cast type timestamp with time zone to text"
+      "expected": [
+        {
+          "r": "2020-01-01 07:00:00+00"
+        }
+      ],
+      "outcome": "pass"
     },
     {
       "category": "triggers",
