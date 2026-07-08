@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 92/99 (92.9%)** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 93/99 (93.9%)** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|
@@ -16,7 +16,7 @@
 | numeric-types | 2/6 | 4 | 0 | 0 | 0 | 0 |
 | datetime-tz | 3/3 | 0 | 0 | 0 | 0 | 0 |
 | triggers | 0/1 | 0 | 0 | 0 | 1 | 0 |
-| transactions | 1/2 | 0 | 0 | 0 | 1 | 0 |
+| transactions | 2/2 | 0 | 0 | 0 | 0 | 0 |
 | rls | 5/5 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures
@@ -35,8 +35,4 @@
 ### triggers
 
 - `create trigger` — **parse-error**: 💔 Your query failed to parse.
-
-### transactions
-
-- `deferrable constraint` — **parse-error**: 💔 Your query failed to parse.
 

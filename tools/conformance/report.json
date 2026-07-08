@@ -1,7 +1,7 @@
 {
   "mode": "differential",
-  "score": 92.9,
-  "passed": 92,
+  "score": 93.9,
+  "passed": 93,
   "total": 99,
   "results": [
     {
@@ -984,8 +984,7 @@
     {
       "category": "transactions",
       "name": "deferrable constraint",
-      "outcome": "parse-error",
-      "detail": "💔 Your query failed to parse."
+      "outcome": "pass"
     },
     {
       "category": "rls",
