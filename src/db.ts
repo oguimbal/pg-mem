@@ -31,7 +31,9 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     // root transaction
     const root = Transaction.root();
     const globals = root.getMap(GLOBAL_VARS)
-        .set('server_version', '12.2 (pg-mem)');
+        .set('server_version', '12.2 (pg-mem)')
+        // pg-mem has no timezone support: everything behaves as UTC
+        .set('timezone', 'UTC');
     root.set(GLOBAL_VARS, globals);
 
     // create db

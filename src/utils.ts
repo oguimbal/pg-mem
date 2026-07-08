@@ -558,6 +558,20 @@ export function intervalToSec(v: Interval) {
         + (v.years ?? 0) * 3600 * 24 * 30 * 12;
 }
 
+// pg datetime "+-" interval is calendar-aware, not a fixed number of seconds:
+// months are added first (clamping to the target month's last day, e.g. jan 31
+// + 1 month = feb 28), then days, then the time part
+export function dateAddInterval(d: Date, v: Interval, factor: 1 | -1): Date {
+    return moment.utc(d)
+        .add(factor * ((v.years ?? 0) * 12 + (v.months ?? 0)), 'months')
+        .add(factor * (v.days ?? 0), 'days')
+        .add(factor * ((v.hours ?? 0) * 3600000
+            + (v.minutes ?? 0) * 60000
+            + (v.seconds ?? 0) * 1000
+            + (v.milliseconds ?? 0)), 'milliseconds')
+        .toDate();
+}
+
 export function parseRegClass(_reg: RegClass): QName | number {
     let reg = _reg;
     if (typeof reg === 'string' && /^\d+$/.test(reg)) {

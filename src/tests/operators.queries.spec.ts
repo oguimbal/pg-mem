@@ -89,6 +89,27 @@ describe('Operators', () => {
         expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(1, 'day').toISOString());
     });
 
+    it('adds interval months calendar-aware', () => {
+        // a month is not 30 days
+        expect(many(`select timestamp '2020-01-01 00:00:00' + interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 1, 1)));
+        expect(many(`select timestamp '2020-02-01 00:00:00' + interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 2, 1)));
+        // clamps to the target month's last day
+        expect(many(`select timestamp '2020-01-31 00:00:00' + interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 1, 29)));
+        // subtraction
+        expect(many(`select timestamp '2020-03-01 00:00:00' - interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 1, 1)));
+        // years + mixed components: months, then days, then time
+        expect(many(`select timestamp '2020-01-01 00:00:00' + interval '1 year 1 month 1 day 1 hour' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2021, 1, 2, 1)));
+    });
+
+    it('show timezone uses canonical column casing', () => {
+        expect(many(`show timezone`)).toEqual([{ TimeZone: 'UTC' }]);
+    });
+
     it('timestamp - interval', () => {
         const result = many(`select now() - interval '1 day' as dt`);
         const dt = result[0]?.dt
