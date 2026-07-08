@@ -60,8 +60,27 @@ Breaking-change note: numeric results changing JS type ships behind a compat fla
 - [ ] Triggers (BEFORE/AFTER, row/statement) — currently absent entirely
 - [ ] plpgsql interpreter via the existing `registerLanguage` hook (target the 80% subset
   real migrations use)
-- [ ] `SAVEPOINT` / `ROLLBACK TO` (cheap on the copy-on-write store)
+- [x] `SAVEPOINT` / `ROLLBACK TO` (cheap on the copy-on-write store)
 - [ ] Deferrable constraints, isolation-level basics
+
+## Phase 3b — Roles & Row-Level Security
+
+Table stakes for multi-tenant apps (the core browser-DB use case). RLS enforcement
+injects policy predicates at the same query-transform layer as window functions and
+lateral joins. Built in vertical slices:
+
+- [ ] Roles & session identity: `CREATE`/`DROP ROLE`, `SET`/`RESET ROLE`, role
+  attributes (`SUPERUSER`, `BYPASSRLS`, `LOGIN`); `current_user`/`current_role`/
+  `session_user` become dynamic (read session state, not a hardcoded constant)
+- [ ] Policy DDL: `CREATE POLICY`, `ALTER`/`DROP POLICY`, `ALTER TABLE … ENABLE/
+  DISABLE/FORCE ROW LEVEL SECURITY` (parser work in the sibling fork)
+- [ ] Enforcement: applicable policies become implicit `USING` (read) / `WITH CHECK`
+  (write) predicates per command, `PERMISSIVE` OR-combined and `RESTRICTIVE`
+  AND-combined; default-deny when RLS is on with no matching policy; owner bypass
+  unless `FORCE`; `BYPASSRLS`/superuser exemption
+- [ ] `pg_policies` / `pg_policy` introspection
+- v1 scope note: GRANT/table privileges and role-membership hierarchy are out of scope
+  (policy `TO` matches role name + `PUBLIC` directly); revisit as a follow-up
 
 ## Phase 4 — Durable persistence (browser & beyond)
 

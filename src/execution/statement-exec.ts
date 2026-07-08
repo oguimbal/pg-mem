@@ -14,6 +14,7 @@ import { CommitExecutor, RollbackExecutor, BeginStatementExec, SavepointExecutor
 import { TruncateTable } from './records-mutations/truncate-table';
 import { ShowExecutor } from './show';
 import { SetExecutor } from './set';
+import { CreateRoleExecutor, DropRoleExecutor, SetRoleExecutor, ResetExecutor } from './roles';
 import { CreateEnum } from './schema-amends/create-enum';
 import { CreateView } from './schema-amends/create-view';
 import { CreateMaterializedView } from './schema-amends/create-materialized-view';
@@ -114,6 +115,14 @@ export class StatementExec implements _IStatement {
             case 'set names':
             case 'set timezone':
                 return new SetExecutor(p);
+            case 'create role':
+                return new CreateRoleExecutor(p);
+            case 'drop role':
+                return new DropRoleExecutor(p);
+            case 'set role':
+                return new SetRoleExecutor(p);
+            case 'reset':
+                return new ResetExecutor(p);
             case 'create enum':
                 return new CreateEnum(this, p);
             case 'alter enum':

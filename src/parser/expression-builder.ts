@@ -1,4 +1,5 @@
-import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private';
+import { _ISelection, IValue, _IType, _ISchema, _IAlias, _Transaction } from '../interfaces-private';
+import { currentRoleName, sessionRoleName } from '../execution/roles';
 import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx } from '../utils';
 import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
@@ -215,6 +216,17 @@ function _buildCall(val: ExprCall): IValue {
     return Value.function(val.function, args);
 }
 
+function roleKeyword(keyword: string, get: (t: _Transaction) => string): IValue {
+    // the session/current role can change at runtime (SET ROLE), so this is not constant
+    return new Evaluator(
+        Types.text()
+        , null
+        , `role_kw_${keyword}`
+        , []
+        , () => get(executionCtx().transaction)
+        , { forceNotConstant: true, unpure: true });
+}
+
 function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
     if (args.length) {
         throw new NotSupported(`usage of "${kw.keyword}" keyword with arguments, please file an issue in https://github.com/oguimbal/pg-mem if you need it !`);
@@ -223,11 +235,13 @@ function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
         throw new Error('Invalid AST');
     }
     switch (kw.keyword) {
-        case 'current_catalog':
         case 'current_role':
         case 'current_user':
-        case 'session_user':
         case 'user':
+            return roleKeyword(kw.keyword, t => currentRoleName(t));
+        case 'session_user':
+            return roleKeyword(kw.keyword, t => sessionRoleName(t));
+        case 'current_catalog':
             return Value.constant(Types.text(), 'pg_mem');
         case 'current_schema':
             return Value.constant(Types.text(), 'public');
