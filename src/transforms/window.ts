@@ -1,6 +1,6 @@
 import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, Stats, Row } from '../interfaces-private';
-import { Expr, ExprCall, ExprRef, nil, OrderByStatement } from 'pgsql-ast-parser';
+import { CallOverFrame, Expr, ExprCall, ExprRef, FrameBound, nil, OrderByStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { NotSupported, QueryError } from '../interfaces';
 import { Types } from '../datatypes';
@@ -61,6 +61,42 @@ interface WindowInstance {
     countStar: boolean;
     partitionBy: IValue[];
     orderBy: { by: IValue; order: 'ASC' | 'DESC'; nullsLast: boolean }[];
+    /** explicit frame clause, if any (null = pg default frame) */
+    frame: WindowFrame | null;
+}
+
+interface WindowFrame {
+    unit: 'rows' | 'range' | 'groups';
+    start: FrameBoundSpec;
+    end: FrameBoundSpec;
+}
+
+interface FrameBoundSpec {
+    type: 'unbounded preceding' | 'unbounded following' | 'current row' | 'preceding' | 'following';
+    value?: IValue;
+}
+
+function buildFrame(frame: CallOverFrame): WindowFrame {
+    const buildBound = (b: FrameBound): FrameBoundSpec => ({
+        type: b.type,
+        value: b.value ? buildValue(b.value).cast(Types.integer) : undefined,
+    });
+    const ret: WindowFrame = {
+        unit: frame.unit,
+        start: buildBound(frame.start),
+        // pg: a single bound means "BETWEEN <bound> AND CURRENT ROW"
+        end: buildBound(frame.end ?? { type: 'current row' }),
+    };
+    if (ret.start.type === 'unbounded following') {
+        throw new QueryError('frame start cannot be UNBOUNDED FOLLOWING');
+    }
+    if (ret.end.type === 'unbounded preceding') {
+        throw new QueryError('frame end cannot be UNBOUNDED PRECEDING');
+    }
+    if (ret.unit === 'range' && (ret.start.value || ret.end.value)) {
+        throw new NotSupported('RANGE frames with offset PRECEDING/FOLLOWING');
+    }
+    return ret;
 }
 
 let winCnt = 0;
@@ -121,6 +157,7 @@ export class WindowedSelection extends TransformBase implements _ISelection {
                     nullsLast: order === 'ASC' ? o.nulls !== 'FIRST' : o.nulls === 'LAST',
                 };
             }),
+            frame: over.frame ? buildFrame(over.frame) : null,
         }));
 
         const id = Symbol(fname);
@@ -215,6 +252,79 @@ export class WindowedSelection extends TransformBase implements _ISelection {
         yield group;
     }
 
+    /** Per-row inclusive [from, to] row-index bounds of an explicit frame.
+     * from > to denotes an empty frame. */
+    private frameBounds(partition: any[], w: WindowInstance, t: _Transaction): [number, number][] {
+        const frame = w.frame!;
+        const len = partition.length;
+
+        // peer-group structure, needed by range & groups units
+        let groupOf: number[] = [];
+        const groups: [number, number][] = [];
+        if (frame.unit !== 'rows') {
+            let start = 0;
+            for (let i = 0; i < len; i++) {
+                if (i > 0 && !this.arePeers(partition[i - 1], partition[i], w, t)) {
+                    groups.push([start, i - 1]);
+                    start = i;
+                }
+                groupOf.push(groups.length);
+            }
+            groups.push([start, len - 1]);
+        }
+
+        const offset = (b: FrameBoundSpec): number => {
+            const v = b.value!.get(partition[0], t);
+            if (nullIsh(v) || v < 0) {
+                throw new QueryError(`frame ${b.type} offset must not be null or negative`);
+            }
+            return v;
+        };
+
+        const rowBound = (b: FrameBoundSpec, i: number): number => {
+            switch (b.type) {
+                case 'unbounded preceding': return 0;
+                case 'unbounded following': return len - 1;
+                case 'current row': return i;
+                case 'preceding': return i - offset(b);
+                case 'following': return i + offset(b);
+            }
+        };
+
+        // groups & range bounds resolve to a peer group, then take its start or end row
+        const groupBound = (b: FrameBoundSpec, gIdx: number, isStart: boolean): number => {
+            switch (b.type) {
+                case 'unbounded preceding': return 0;
+                case 'unbounded following': return len - 1;
+                case 'current row': return groups[gIdx][isStart ? 0 : 1];
+                case 'preceding':
+                case 'following': {
+                    const g2 = gIdx + (b.type === 'following' ? 1 : -1) * offset(b);
+                    if (g2 < 0) {
+                        return isStart ? 0 : -1; // before the partition
+                    }
+                    if (g2 >= groups.length) {
+                        return isStart ? len : len - 1; // past the partition
+                    }
+                    return groups[g2][isStart ? 0 : 1];
+                }
+            }
+        };
+
+        return partition.map((_, i) => {
+            let from: number;
+            let to: number;
+            if (frame.unit === 'rows') {
+                from = rowBound(frame.start, i);
+                to = rowBound(frame.end, i);
+            } else {
+                from = groupBound(frame.start, groupOf[i], true);
+                to = groupBound(frame.end, groupOf[i], false);
+            }
+            return [Math.max(0, from), Math.min(len - 1, to)] as [number, number];
+        });
+    }
+
     private arePeers(a: any, b: any, w: WindowInstance, t: _Transaction): boolean {
         return w.orderBy.every(o => {
             const av = o.by.get(a, t);
@@ -294,11 +404,27 @@ export class WindowedSelection extends TransformBase implements _ISelection {
                 return;
             }
             case 'first_value': {
+                if (w.frame) {
+                    const frames = this.frameBounds(partition, w, t);
+                    partition.forEach((r, i) => {
+                        const [from, to] = frames[i];
+                        r[id] = from > to ? null : args[0].get(partition[from], t);
+                    });
+                    return;
+                }
                 const v = args[0].get(partition[0], t);
                 partition.forEach(r => r[id] = v);
                 return;
             }
             case 'last_value': {
+                if (w.frame) {
+                    const frames = this.frameBounds(partition, w, t);
+                    partition.forEach((r, i) => {
+                        const [from, to] = frames[i];
+                        r[id] = from > to ? null : args[0].get(partition[to], t);
+                    });
+                    return;
+                }
                 // default frame ends at the current row's last peer
                 for (const g of this.peerGroups(partition, w, t)) {
                     const v = args[0].get(g[g.length - 1], t);
@@ -313,11 +439,25 @@ export class WindowedSelection extends TransformBase implements _ISelection {
             case 'avg':
             case 'min':
             case 'max': {
-                // running aggregate: accumulate peer group by peer group
+                const feedOf = (r: any) => w.countStar || !args.length ? 1 : args[0].get(r, t);
+                if (w.frame) {
+                    // explicit frame: computed row by row
+                    const frames = this.frameBounds(partition, w, t);
+                    partition.forEach((r, i) => {
+                        const acc = windowAggregator(fname, w);
+                        const [from, to] = frames[i];
+                        for (let j = from; j <= to; j++) {
+                            acc.feed(feedOf(partition[j]));
+                        }
+                        r[id] = acc.value();
+                    });
+                    return;
+                }
+                // default frame: running aggregate, accumulated peer group by peer group
                 const acc = windowAggregator(fname, w);
                 for (const g of this.peerGroups(partition, w, t)) {
                     for (const r of g) {
-                        acc.feed(w.countStar || !args.length ? 1 : args[0].get(r, t));
+                        acc.feed(feedOf(r));
                     }
                     const v = acc.value();
                     for (const r of g) {

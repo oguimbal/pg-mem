@@ -131,6 +131,65 @@ describe('Window functions', () => {
             .toThrow(/window functions are not allowed/);
     });
 
+    describe('explicit frames', () => {
+        it('ROWS BETWEEN n PRECEDING AND CURRENT ROW', () => {
+            expect(many(`select x, sum(x) over (order by x rows between 1 preceding and current row) as s
+                        from (values (1), (2), (3)) v(x)`))
+                .toEqual([{ x: 1, s: 1 }, { x: 2, s: 3 }, { x: 3, s: 5 }]);
+        });
+
+        it('single bound means BETWEEN bound AND CURRENT ROW', () => {
+            expect(many(`select x, sum(x) over (order by x rows 2 preceding) as s
+                        from (values (1), (2), (3), (4)) v(x)`))
+                .toEqual([{ x: 1, s: 1 }, { x: 2, s: 3 }, { x: 3, s: 6 }, { x: 4, s: 9 }]);
+        });
+
+        it('forward-only frames can be empty', () => {
+            expect(many(`select x, sum(x) over (order by x rows between 1 following and 2 following) as s
+                        from (values (1), (2), (3)) v(x)`))
+                .toEqual([{ x: 1, s: 5 }, { x: 2, s: 3 }, { x: 3, s: null }]);
+            expect(many(`select x, count(*) over (order by x rows between unbounded preceding and 1 preceding) as c
+                        from (values (1), (2)) v(x)`))
+                .toEqual([{ x: 1, c: 0 }, { x: 2, c: 1 }]);
+        });
+
+        it('ROWS frames split peers, RANGE frames include them', () => {
+            // two peer rows x=2: ROWS distinguishes them, RANGE does not
+            expect(many(`select x, sum(x) over (order by x rows between unbounded preceding and current row) as s
+                        from (values (1), (2), (2)) v(x)`))
+                .toEqual([{ x: 1, s: 1 }, { x: 2, s: 3 }, { x: 2, s: 5 }]);
+            expect(many(`select x, sum(x) over (order by x range between unbounded preceding and current row) as s
+                        from (values (1), (2), (2)) v(x)`))
+                .toEqual([{ x: 1, s: 1 }, { x: 2, s: 5 }, { x: 2, s: 5 }]);
+        });
+
+        it('GROUPS frames count peer groups', () => {
+            expect(many(`select x, sum(x) over (order by x groups between 1 preceding and current row) as s
+                        from (values (1), (2), (2), (4)) v(x)`))
+                .toEqual([{ x: 1, s: 1 }, { x: 2, s: 5 }, { x: 2, s: 5 }, { x: 4, s: 8 }]);
+        });
+
+        it('first_value/last_value follow explicit frames', () => {
+            expect(many(`select x, first_value(x) over (order by x rows between 1 preceding and 1 following) as f,
+                                last_value(x) over (order by x rows between 1 preceding and 1 following) as l
+                        from (values (1), (2), (3)) v(x)`))
+                .toEqual([
+                    { x: 1, f: 1, l: 2 },
+                    { x: 2, f: 1, l: 3 },
+                    { x: 3, f: 2, l: 3 },
+                ]);
+        });
+
+        it('rejects invalid frames', () => {
+            expect(() => many(`select sum(x) over (order by x rows between unbounded following and current row) as s
+                        from (values (1)) v(x)`))
+                .toThrow(/frame start cannot be UNBOUNDED FOLLOWING/);
+            expect(() => many(`select sum(x) over (order by x range between 1 preceding and current row) as s
+                        from (values (1)) v(x)`))
+                .toThrow(/RANGE frames with offset/);
+        });
+    });
+
     it('two windows in one query', () => {
         expect(many(`select x, row_number() over (order by x) as asc_n, row_number() over (order by x desc) as desc_n
                     from (values (1), (2)) v(x)`))
