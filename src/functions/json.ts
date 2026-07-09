@@ -84,6 +84,48 @@ function jsonSet(target: any, path: string[], newVal: any, createMissing: boolea
     };
 }
 
+/** `jsonb #- path`: remove the element at the given path */
+export function jsonRemovePath(target: any, path: string[]): any {
+    if (!path.length || nullIsh(target) || typeof target !== 'object') {
+        return target;
+    }
+    const [head, ...rest] = path;
+    if (Array.isArray(target)) {
+        const at = normalizeIndex(head, target.length, false);
+        if (isNaN(at) || at < 0 || at >= target.length) {
+            return target;
+        }
+        const ret = [...target];
+        if (rest.length) {
+            ret[at] = jsonRemovePath(ret[at], rest);
+        } else {
+            ret.splice(at, 1);
+        }
+        return ret;
+    }
+    if (!(head in target)) {
+        return target;
+    }
+    const ret = { ...target };
+    if (rest.length) {
+        ret[head] = jsonRemovePath(ret[head], rest);
+    } else {
+        delete ret[head];
+    }
+    return ret;
+}
+
+function unwrapJsonNil(v: any): any {
+    if (v === JSON_NIL || v === undefined) { return null; }
+    if (Array.isArray(v)) { return v.map(unwrapJsonNil); }
+    if (v && typeof v === 'object') {
+        const ret: any = {};
+        for (const [k, val] of Object.entries(v)) { ret[k] = unwrapJsonNil(val); }
+        return ret;
+    }
+    return v;
+}
+
 function jsonTypeof(v: any): string | null {
     if (v === undefined) {
         return null;
@@ -120,6 +162,13 @@ const eachTextRecord = Types.record([
 ]);
 
 export const jsonFunctions: FunctionDefinition[] = [
+    {
+        name: 'jsonb_pretty',
+        args: [DataType.jsonb],
+        returns: DataType.text,
+        allowNullArguments: true,
+        implementation: (v: any) => nullIsh(v) ? null : JSON.stringify(unwrapJsonNil(v), null, 4),
+    },
     ...['jsonb_array_length', 'json_array_length'].map<FunctionDefinition>(name => ({
         name,
         args: [DataType.jsonb],

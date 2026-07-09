@@ -170,16 +170,25 @@ function buildRawSelectSubject(p: SelectFromStatement): _ISelection | nil {
                     newT = new FunctionCallTable(cols, fromValue);
                 } else if (ArrayType.matches(fromValue.type)) {
                     // set-returning function over scalars (generate_series, unnest, ...):
-                    // one row per element, single column named after the function or its alias
-                    const colName = fnName!;
-                    const recType = Types.record([{ name: colName, type: fromValue.type.of }]) as RecordType;
+                    // one row per element, single column named after the function or its alias.
+                    // WITH ORDINALITY appends a 1-based bigint position column.
+                    const aliasCols = from.alias?.columns;
+                    const withOrd = !!from.withOrdinality;
+                    const valName = aliasCols?.[0]?.name ?? fnName!;
+                    const ordName = aliasCols?.[1]?.name ?? 'ordinality';
+                    const colDefs = withOrd
+                        ? [{ name: valName, type: fromValue.type.of }, { name: ordName, type: Types.bigint }]
+                        : [{ name: valName, type: fromValue.type.of }];
+                    const recType = Types.record(colDefs) as RecordType;
                     const rows = new Evaluator(
                         recType.asArray()
                         , null
-                        , `${fromValue.hash}_rows`
+                        , `${fromValue.hash}_rows${withOrd ? '_ord' : ''}`
                         , [fromValue]
                         , (raw, t) => (fromValue.get(raw, t) ?? [])
-                            .map((v: any, i: number) => setId({ [colName]: v }, `srf_${fromValue.hash}_${i}`)));
+                            .map((v: any, i: number) => setId(
+                                withOrd ? { [valName]: v, [ordName]: String(i + 1) } : { [valName]: v }
+                                , `srf_${fromValue.hash}_${i}`)));
                     newT = new FunctionCallTable(recType.columns, rows);
                 } else {
                     // if the function returns a single value, then lets transform this into a table

@@ -3,7 +3,7 @@ import { numbers, dateTypes, Types, numberPriorities } from '../../datatypes';
 import { Decimal } from '../../datatypes/numeric';
 import { DataType } from '../../interfaces';
 import { dateAddInterval, queryJson } from '../../utils';
-import { jsonPathGet, jsonAsText } from '../../functions/json';
+import { jsonPathGet, jsonAsText, jsonRemovePath } from '../../functions/json';
 import { timestampAtZone, instantToZoneWall } from '../../datatypes/timezone';
 import moment from 'moment';
 
@@ -211,6 +211,15 @@ function registerJsonOperators(schema: _ISchema) {
         right: Types.text().asArray(),
         returns: Types.text(),
         implementation: (a, b: string[]) => jsonAsText(jsonPathGet(a, b)),
+    });
+
+    // ======= "json #- path" (remove element at path)
+    schema.registerOperator({
+        operator: '#-',
+        left: Types.jsonb,
+        right: Types.text().asArray(),
+        returns: Types.jsonb,
+        implementation: (a, b: string[]) => jsonRemovePath(a, b),
     });
 
     // ======= "json - text" (remove key)
