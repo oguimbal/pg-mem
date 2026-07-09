@@ -145,6 +145,48 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             };
             break;
         }
+        case 'array_remove': {
+            expectArgs(name, args, 2);
+            const remFrom = requireArrayArg(name, args[0]);
+            args = [args[0], args[1].cast(remFrom.of)];
+            type = remFrom;
+            acceptNulls = true; // array_remove(arr, null) removes null elements
+            get = (arr: any[] | null, el: any) => {
+                if (nullIsh(arr)) { return null; }
+                const en = nullIsh(el);
+                return arr!.filter(v => {
+                    const vn = nullIsh(v);
+                    if (vn || en) { return !(vn && en); }
+                    return !remFrom.of.equals(v, el);
+                });
+            };
+            break;
+        }
+        case 'array_replace': {
+            expectArgs(name, args, 3);
+            const repIn = requireArrayArg(name, args[0]);
+            args = [args[0], args[1].cast(repIn.of), args[2].cast(repIn.of)];
+            type = repIn;
+            acceptNulls = true;
+            get = (arr: any[] | null, from: any, to: any) => {
+                if (nullIsh(arr)) { return null; }
+                const fn = nullIsh(from);
+                return arr!.map(v => {
+                    const vn = nullIsh(v);
+                    const match = (vn || fn) ? (vn && fn) : repIn.of.equals(v, from);
+                    return match ? to : v;
+                });
+            };
+            break;
+        }
+        case 'row_to_json':
+        case 'array_to_json': {
+            expectArgs(name, args, [1, 2]);
+            type = Types.json;
+            acceptNulls = true;
+            get = (v: any) => v ?? null;
+            break;
+        }
         case 'array_to_string': {
             expectArgs(name, args, [2, 3]);
             requireArrayArg(name, args[0]);

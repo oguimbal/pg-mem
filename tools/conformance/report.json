@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 215,
-  "total": 215,
+  "passed": 220,
+  "total": 220,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2420,6 +2420,73 @@
       "expected": [
         {
           "d": "2020-06-15"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "array-json-extras",
+      "name": "array_remove",
+      "expected": [
+        {
+          "r": [
+            2,
+            3
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "array-json-extras",
+      "name": "array_remove with null",
+      "expected": [
+        {
+          "r": [
+            1,
+            2
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "array-json-extras",
+      "name": "array_replace",
+      "expected": [
+        {
+          "r": [
+            9,
+            2,
+            9
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "array-json-extras",
+      "name": "row_to_json",
+      "expected": [
+        {
+          "j": {
+            "a": 1,
+            "b": "x"
+          }
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "array-json-extras",
+      "name": "array_to_json",
+      "expected": [
+        {
+          "j": [
+            1,
+            2,
+            3
+          ]
         }
       ],
       "outcome": "pass"
