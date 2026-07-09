@@ -192,6 +192,9 @@ export class Insert extends MutationDataSourceBase {
                     continue;
                 }
             }
+            // apply column DEFAULTs before the RLS check so WITH CHECK sees the final row
+            // (e.g. Supabase's `user_id uuid default auth.uid()` with `check (user_id = auth.uid())`)
+            this.table.fillDefaults(row, t);
             // row-level security: the inserted row must satisfy WITH CHECK
             checkWriteRls(this.table, 'insert', row, t);
             const insertedRow = this.table.doInsert(t, row, this.opts)

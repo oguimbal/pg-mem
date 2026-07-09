@@ -348,6 +348,14 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
         return deepCloneSimple(ret);
     }
 
+    /** apply column DEFAULTs to a candidate row (idempotent; used before the RLS WITH
+     * CHECK so it sees defaulted values, as postgres does) */
+    fillDefaults(toInsert: Row, t: _Transaction): void {
+        for (const c of this.columnMgr.values()) {
+            c.setDefaults(toInsert, t);
+        }
+    }
+
     doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | null {
         if (this.readonly) {
             throw new PermissionDeniedError(this.name);

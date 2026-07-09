@@ -466,6 +466,8 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
     renameIndex(oldName: string, newName: string): void;
+    /** apply column DEFAULTs to a candidate row (idempotent) */
+    fillDefaults(row: any, t: _Transaction): void;
     /** the indexes defined on this table (btree indexes, incl. those backing constraints) */
     listIndexes(): Iterable<_INamedIndex>;
     drop(t: _Transaction, cascade: boolean): void;

@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 132,
-  "total": 132,
+  "passed": 136,
+  "total": 136,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1354,6 +1354,47 @@
         },
         {
           "nums": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "supabase",
+      "name": "gen_random_uuid produces a 36-char uuid",
+      "expected": [
+        {
+          "len": 36
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "supabase",
+      "name": "set_config / current_setting round-trip",
+      "expected": [
+        {
+          "v": "user-1"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "supabase",
+      "name": "uuid primary key with gen_random_uuid() default",
+      "expected": [
+        {
+          "c": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "supabase",
+      "name": "auth.uid()-style RLS filters rows per user",
+      "offline": true,
+      "expected": [
+        {
+          "title": "mine"
         }
       ],
       "outcome": "pass"

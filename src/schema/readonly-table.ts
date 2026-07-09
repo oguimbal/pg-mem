@@ -151,6 +151,9 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
     *listIndexes(): Iterable<_INamedIndex> {
         // read-only catalog tables expose no user indexes
     }
+    fillDefaults(): void {
+        // read-only catalog tables are never inserted into
+    }
     // read-only catalog tables never carry row-level security
     readonly rls: TableRls = emptyRls();
     createPolicy(): void {
