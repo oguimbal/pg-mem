@@ -1,4 +1,4 @@
-import { _IDb, _ISchema, _ITable, _Transaction, IValue, _ISelection, QueryError, NotSupported, getId, setId, _IType, Parameter, nil } from '../interfaces-private';
+import { _IDb, _ISchema, _ITable, _Transaction, IValue, _ISelection, QueryError, NotSupported, getId, setId, _IType, Parameter, nil, StatementResult, _IStatementExecutor } from '../interfaces-private';
 import { Expr, parse } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
 import { withSelection, withParameters } from '../parser/context';
@@ -6,6 +6,7 @@ import { JoinSelection } from '../transforms/join';
 import { Types } from '../datatypes';
 import { Evaluator } from '../evaluator';
 import { executionCtx } from '../utils';
+import { StatementExec } from './statement-exec';
 
 // A minimal PL/pgSQL interpreter, scoped to the common trigger-function subset:
 //   BEGIN <stmts> END
@@ -154,7 +155,9 @@ function joinTokens(toks: string[]): string {
     for (let i = 0; i < toks.length; i++) {
         const t = toks[i];
         const prev = toks[i - 1];
-        const noSpace = t === '.' || t === '(' || t === ')' || t === ',' || prev === '.' || prev === '(';
+        // nb: we do NOT glue a word to a following "(" - `values(a)` would parse
+        // ambiguously; `values (a)` and `f (a)` are both accepted
+        const noSpace = t === '.' || t === ')' || t === ',' || prev === '.' || prev === '(';
         out += (i > 0 && !noSpace ? ' ' : '') + t;
     }
     return out;
@@ -298,6 +301,11 @@ type GStmt =
     | { k: 'exit'; when: string | null }
     | { k: 'continue'; when: string | null }
     | { k: 'block'; body: GStmt[] }
+    // embedded SQL
+    | { k: 'selectinto'; into: string[]; sql: string }
+    | { k: 'perform'; sql: string }
+    | { k: 'sql'; sql: string }
+    | { k: 'execute'; exprSrc: string }
     | { k: 'raise' }
     | { k: 'null' };
 
@@ -403,8 +411,20 @@ class GParser {
             case 'raise':
                 this.readUntil([';'], true);
                 return { k: 'raise' };
-            case 'perform':
-                throw new NotSupported('PERFORM in plpgsql (coming in a later slice)');
+            case 'select':
+                return this.parseSelect();
+            case 'perform': {
+                this.i++;
+                return { k: 'perform', sql: 'select ' + this.readUntil([';'], true) };
+            }
+            case 'insert':
+            case 'update':
+            case 'delete':
+                return { k: 'sql', sql: joinTokens(this.captureStmt()) };
+            case 'execute': {
+                this.i++;
+                return { k: 'execute', exprSrc: this.readUntil([';'], true) };
+            }
             case 'null':
                 this.i++; if (this.peek() === ';') { this.i++; }
                 return { k: 'null' };
@@ -465,6 +485,10 @@ class GParser {
     }
 
     private readUntil(stops: string[], consumeStop = false): string {
+        return joinTokens(this.readRaw(stops, consumeStop));
+    }
+
+    private readRaw(stops: string[], consumeStop = false): string[] {
         const parts: string[] = [];
         let depth = 0;
         while (this.i < this.toks.length) {
@@ -477,7 +501,37 @@ class GParser {
             if (this.toks[this.i] === ')') { depth--; }
             parts.push(this.next());
         }
-        return joinTokens(parts);
+        return parts;
+    }
+
+    /** capture a whole statement's tokens up to (and consuming) the terminating ';' */
+    private captureStmt(): string[] {
+        return this.readRaw([';'], true);
+    }
+
+    /** SELECT ... [INTO [STRICT] v1, v2] ... : split off the INTO targets */
+    private parseSelect(): GStmt {
+        const toks = this.captureStmt();
+        let depth = 0, intoIdx = -1;
+        for (let j = 0; j < toks.length; j++) {
+            const tk = toks[j];
+            if (tk === '(') { depth++; }
+            else if (tk === ')') { depth--; }
+            else if (depth === 0 && tk.toLowerCase() === 'into') { intoIdx = j; break; }
+        }
+        if (intoIdx < 0) {
+            return { k: 'perform', sql: joinTokens(toks) };
+        }
+        let j = intoIdx + 1;
+        if (toks[j]?.toLowerCase() === 'strict') { j++; }
+        const into: string[] = [];
+        while (j < toks.length) {
+            into.push(toks[j]);
+            j++;
+            if (toks[j] === ',') { j++; } else { break; }
+        }
+        const rest = [...toks.slice(0, intoIdx), ...toks.slice(j)];
+        return { k: 'selectinto', into, sql: joinTokens(rest) };
     }
 }
 
@@ -494,8 +548,20 @@ type Signal =
     | { type: 'continue' }
     | null;
 
+interface RunCtx { t: _Transaction; }
+
 interface GCompiled {
-    run(t: _Transaction): Signal;
+    run(ctx: RunCtx): Signal;
+}
+
+/** the tools a compiled statement needs: expression + embedded-SQL compilation */
+interface Helpers {
+    returns: _IType | nil;
+    compileExpr(src: string, castTo?: _IType): (t: _Transaction) => any;
+    /** compile an embedded SQL statement (variables in scope); returns its QueryResult */
+    prepareSql(sql: string): (ctx: RunCtx) => any;
+    /** run a dynamic (runtime-built) SQL string */
+    runDynamic(ctx: RunCtx, sqlText: string): any;
 }
 
 interface GProgram {
@@ -516,7 +582,9 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
             type: schema.getType(parseTypeDef((d as any).typeSrc)) as _IType,
             default: d.default ?? null,
         }));
-        const allVars = [...args, ...locals];
+        // `found` is an implicit boolean variable set by embedded SQL
+        const foundVar: VarDef = { name: 'found', type: Types.bool };
+        const allVars = [foundVar, ...args, ...locals];
         // a placeholder IValue per variable, resolving against the current call frame
         const params: Parameter[] = allVars.map((v, index) => ({
             index,
@@ -532,24 +600,50 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
             }));
             return (t) => val.get(DUMMY_ROW, t);
         };
+        // nb: a StatementExec is compiled directly (not via schema.prepare) so that our
+        // variable parameters stay on top of the stack during compile - schema.prepare
+        // pushes the statement's own (empty) param set, which would shadow them
+        const compileStmt = (sql: string): _IStatementExecutor & { executeStatement(t: _Transaction, p: any[]): StatementResult } => {
+            const parsed = parse(sql);
+            const stmt = Array.isArray(parsed) ? parsed[0] : parsed;
+            const se = new StatementExec(schema, stmt, null) as any;
+            withParameters(params, () => se.compile());
+            return se;
+        };
+        const runStmt = (ctx: RunCtx, se: any): any => {
+            const r: StatementResult = se.executeStatement(ctx.t, []);
+            ctx.t = r.state;
+            frame().vars.set('found', (r.result.rows?.length ?? 0) > 0);
+            return r.result;
+        };
+        const helpers: Helpers = {
+            returns,
+            compileExpr,
+            prepareSql: (sql) => {
+                const se = compileStmt(sql);
+                return (ctx) => runStmt(ctx, se);
+            },
+            runDynamic: (ctx, sqlText) => runStmt(ctx, compileStmt(sqlText)),
+        };
         return {
             locals: locals.map(l => ({ ...l, defaultVal: l.default != null ? compileExpr(l.default, l.type) : null })),
-            compiled: compileBody(body, compileExpr, returns),
+            compiled: compileBody(body, helpers),
         };
     };
 
     return (...inArgs: any[]) => {
-        const t = executionCtx().transaction;
+        const ctx: RunCtx = { t: executionCtx().transaction };
         if (!program) { program = compile(); }
         const vars = new Map<string, any>();
+        vars.set('found', false);
         args.forEach((a, i) => vars.set(a.name, inArgs[i] ?? null));
         frameStack.push({ vars });
         try {
             // initialise locals (defaults evaluated in declaration order)
             for (const l of program.locals) {
-                vars.set(l.name, l.defaultVal ? l.defaultVal(t) : null);
+                vars.set(l.name, l.defaultVal ? l.defaultVal(ctx.t) : null);
             }
-            const sig = runGBody(program.compiled, t);
+            const sig = runGBody(program.compiled, ctx);
             return sig?.type === 'return' ? sig.value : null;
         } finally {
             frameStack.pop();
@@ -565,37 +659,38 @@ function parseTypeDef(typeSrc: string): any {
     return e.to;
 }
 
-function compileBody(stmts: GStmt[], compileExpr: (src: string, castTo?: _IType) => (t: _Transaction) => any, returns: _IType | nil): GCompiled[] {
+function compileBody(stmts: GStmt[], h: Helpers): GCompiled[] {
+    const compileExpr = h.compileExpr;
     return stmts.map<GCompiled>(s => {
         switch (s.k) {
             case 'assign': {
                 const val = compileExpr(s.expr);
-                return { run(t) { frame().vars.set(s.name, val(t)); return null; } };
+                return { run(ctx) { frame().vars.set(s.name, val(ctx.t)); return null; } };
             }
             case 'return': {
                 if (s.expr == null) { return { run: () => ({ type: 'return', value: null }) }; }
-                const val = compileExpr(s.expr, returns ?? undefined);
-                return { run: (t) => ({ type: 'return', value: val(t) }) };
+                const val = compileExpr(s.expr, h.returns ?? undefined);
+                return { run: (ctx) => ({ type: 'return', value: val(ctx.t) }) };
             }
             case 'if': {
-                const branches = s.branches.map(b => ({ cond: compileExpr(b.cond, Types.bool), body: compileBody(b.body, compileExpr, returns) }));
-                const elseBody = s.else ? compileBody(s.else, compileExpr, returns) : null;
+                const branches = s.branches.map(b => ({ cond: compileExpr(b.cond, Types.bool), body: compileBody(b.body, h) }));
+                const elseBody = s.else ? compileBody(s.else, h) : null;
                 return {
-                    run(t) {
+                    run(ctx) {
                         for (const b of branches) {
-                            if (b.cond(t) === true) { return runGBody(b.body, t); }
+                            if (b.cond(ctx.t) === true) { return runGBody(b.body, ctx); }
                         }
-                        return elseBody ? runGBody(elseBody, t) : null;
+                        return elseBody ? runGBody(elseBody, ctx) : null;
                     },
                 };
             }
             case 'while': {
                 const cond = compileExpr(s.cond, Types.bool);
-                const body = compileBody(s.body, compileExpr, returns);
+                const body = compileBody(s.body, h);
                 return {
-                    run(t) {
-                        while (cond(t) === true) {
-                            const sig = runGBody(body, t);
+                    run(ctx) {
+                        while (cond(ctx.t) === true) {
+                            const sig = runGBody(body, ctx);
                             if (sig?.type === 'return') { return sig; }
                             if (sig?.type === 'exit') { break; }
                         }
@@ -604,11 +699,11 @@ function compileBody(stmts: GStmt[], compileExpr: (src: string, castTo?: _IType)
                 };
             }
             case 'loop': {
-                const body = compileBody(s.body, compileExpr, returns);
+                const body = compileBody(s.body, h);
                 return {
-                    run(t) {
+                    run(ctx) {
                         while (true) {
-                            const sig = runGBody(body, t);
+                            const sig = runGBody(body, ctx);
                             if (sig?.type === 'return') { return sig; }
                             if (sig?.type === 'exit') { break; }
                         }
@@ -620,17 +715,17 @@ function compileBody(stmts: GStmt[], compileExpr: (src: string, castTo?: _IType)
                 const from = compileExpr(s.from, Types.integer);
                 const to = compileExpr(s.to, Types.integer);
                 const by = s.by ? compileExpr(s.by, Types.integer) : null;
-                const body = compileBody(s.body, compileExpr, returns);
+                const body = compileBody(s.body, h);
                 const varName = s.varName;
                 const reverse = s.reverse;
                 return {
-                    run(t) {
+                    run(ctx) {
                         // FOR i IN [REVERSE] a..b : iterate from a to b (down when REVERSE)
-                        const a = from(t), b = to(t);
-                        const step = Math.abs(by ? by(t) : 1) * (reverse ? -1 : 1);
+                        const a = from(ctx.t), b = to(ctx.t);
+                        const step = Math.abs(by ? by(ctx.t) : 1) * (reverse ? -1 : 1);
                         for (let i = a; reverse ? i >= b : i <= b; i += step) {
                             frame().vars.set(varName, i);
-                            const sig = runGBody(body, t);
+                            const sig = runGBody(body, ctx);
                             if (sig?.type === 'return') { return sig; }
                             if (sig?.type === 'exit') { break; }
                         }
@@ -640,15 +735,43 @@ function compileBody(stmts: GStmt[], compileExpr: (src: string, castTo?: _IType)
             }
             case 'exit': {
                 const when = s.when ? compileExpr(s.when, Types.bool) : null;
-                return { run: (t) => (!when || when(t) === true) ? { type: 'exit' } : null };
+                return { run: (ctx) => (!when || when(ctx.t) === true) ? { type: 'exit' } : null };
             }
             case 'continue': {
                 const when = s.when ? compileExpr(s.when, Types.bool) : null;
-                return { run: (t) => (!when || when(t) === true) ? { type: 'continue' } : null };
+                return { run: (ctx) => (!when || when(ctx.t) === true) ? { type: 'continue' } : null };
             }
             case 'block': {
-                const body = compileBody(s.body, compileExpr, returns);
-                return { run: (t) => runGBody(body, t) };
+                const body = compileBody(s.body, h);
+                return { run: (ctx) => runGBody(body, ctx) };
+            }
+            case 'selectinto': {
+                const run = h.prepareSql(s.sql);
+                const into = s.into;
+                return {
+                    run(ctx) {
+                        const res = run(ctx);
+                        const row = res.rows?.[0];
+                        const keys = row ? Object.keys(row) : [];
+                        into.forEach((v, i) => frame().vars.set(v, row ? row[keys[i]] ?? null : null));
+                        return null;
+                    },
+                };
+            }
+            case 'perform':
+            case 'sql': {
+                const run = h.prepareSql(s.sql);
+                return { run(ctx) { run(ctx); return null; } };
+            }
+            case 'execute': {
+                const exprFn = compileExpr(s.exprSrc, Types.text());
+                return {
+                    run(ctx) {
+                        const sqlText = exprFn(ctx.t);
+                        if (sqlText != null) { h.runDynamic(ctx, String(sqlText)); }
+                        return null;
+                    },
+                };
             }
             case 'raise':
             case 'null':
@@ -657,9 +780,9 @@ function compileBody(stmts: GStmt[], compileExpr: (src: string, castTo?: _IType)
     });
 }
 
-function runGBody(body: GCompiled[], t: _Transaction): Signal {
+function runGBody(body: GCompiled[], ctx: RunCtx): Signal {
     for (const st of body) {
-        const sig = st.run(t);
+        const sig = st.run(ctx);
         if (sig) { return sig; }
     }
     return null;

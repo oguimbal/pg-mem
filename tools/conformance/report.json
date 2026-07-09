@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 120,
-  "total": 120,
+  "passed": 123,
+  "total": 123,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1219,6 +1219,37 @@
       "expected": [
         {
           "r": 5
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql SELECT INTO with a parameter",
+      "expected": [
+        {
+          "r": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql embedded INSERT (void function)",
+      "expected": [
+        {
+          "c": 4
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql FOUND after SELECT INTO",
+      "expected": [
+        {
+          "a": true,
+          "b": false
         }
       ],
       "outcome": "pass"

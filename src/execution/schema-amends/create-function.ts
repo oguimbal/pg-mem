@@ -40,8 +40,13 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
         // the trigger machinery, so any placeholder type works for registration.
         const isTrigger = (fn.returns.kind === null || fn.returns.kind === undefined)
             && /^trigger$/i.test((fn.returns as any).name ?? '');
+        // "returns void" has no value; represent it as null (the function returns null)
+        const isVoid = (fn.returns.kind === null || fn.returns.kind === undefined)
+            && /^void$/i.test((fn.returns as any).name ?? '');
         if (isTrigger) {
             returns = Types.record([]);
+        } else if (isVoid) {
+            returns = Types.null;
         } else {
             switch (fn.returns.kind) {
                 case 'table':

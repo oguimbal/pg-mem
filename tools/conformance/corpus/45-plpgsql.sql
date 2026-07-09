@@ -36,3 +36,33 @@ begin
     return c;
 end; $$ language plpgsql;
 select countodd(10) as r;
+
+-- @case: plpgsql SELECT INTO with a parameter
+-- @expect: [{"r":2}]
+create table nums (v int);
+insert into nums values (10), (20), (30);
+create function cntgt(threshold int) returns int as $$
+declare c int;
+begin select count(*)::int into c from nums where v > threshold; return c; end;
+$$ language plpgsql;
+select cntgt(15) as r;
+
+-- @case: plpgsql embedded INSERT (void function)
+-- @expect: [{"c":4}]
+create table items (id int, v int);
+insert into items(id, v) values (1,10),(2,20),(3,30);
+create function addrow(pid int, pv int) returns void as $$
+begin insert into items(id, v) values (pid, pv); end;
+$$ language plpgsql;
+select addrow(4, 40);
+select count(*)::int as c from items;
+
+-- @case: plpgsql FOUND after SELECT INTO
+-- @expect: [{"a":true,"b":false}]
+create table people (id int);
+insert into people values (1), (2);
+create function has_id(pid int) returns boolean as $$
+declare x int;
+begin select id into x from people where id = pid; return found; end;
+$$ language plpgsql;
+select has_id(2) as a, has_id(99) as b;

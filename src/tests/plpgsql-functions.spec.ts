@@ -8,10 +8,12 @@ describe('PL/pgSQL functions', () => {
     let db: IMemoryDb;
     let none: (str: string) => void;
     let one: (str: string) => any;
+    let many: (str: string) => any[];
     beforeEach(() => {
         db = newDb();
         none = db.public.none.bind(db.public);
         one = db.public.one.bind(db.public);
+        many = db.public.many.bind(db.public);
     });
 
     it('runs a scalar function with a local variable and IF/ELSIF/ELSE', () => {
@@ -110,5 +112,63 @@ describe('PL/pgSQL functions', () => {
             begin return 'hi ' || nm; end;
         $$ language plpgsql`);
         expect(one(`select greet('bob') as v`).v).toEqual('hi bob');
+    });
+
+    describe('embedded SQL', () => {
+        beforeEach(() => {
+            none(`create table t (id int, v int); insert into t values (1,10),(2,20),(3,30)`);
+        });
+
+        it('SELECT ... INTO a variable, with a parameter in WHERE', () => {
+            none(`create function cntgt(threshold int) returns int as $$
+                declare c int;
+                begin select count(*)::int into c from t where v > threshold; return c; end;
+            $$ language plpgsql`);
+            expect(one(`select cntgt(15) as r`).r).toEqual(2);
+            expect(one(`select cntgt(5) as r`).r).toEqual(3);
+        });
+
+        it('sets FOUND after a SELECT INTO', () => {
+            none(`create function has_id(pid int) returns boolean as $$
+                declare x int;
+                begin select id into x from t where id = pid; return found; end;
+            $$ language plpgsql`);
+            expect(one(`select has_id(2) as r`).r).toEqual(true);
+            expect(one(`select has_id(99) as r`).r).toEqual(false);
+        });
+
+        it('runs an embedded INSERT (void function)', () => {
+            none(`create function addrow(pid int, pv int) returns void as $$
+                begin insert into t(id, v) values (pid, pv); end;
+            $$ language plpgsql`);
+            none(`select addrow(4, 40)`);
+            expect(many(`select id from t order by id`).map(r => r.id)).toEqual([1, 2, 3, 4]);
+        });
+
+        it('runs UPDATE inside a loop', () => {
+            none(`create function bumpall() returns void as $$
+                declare i int;
+                begin for i in 1..3 loop update t set v = v + 1 where id = i; end loop; end;
+            $$ language plpgsql`);
+            none(`select bumpall()`);
+            expect(many(`select v from t order by id`).map(r => r.v)).toEqual([11, 21, 31]);
+        });
+
+        it('runs dynamic EXECUTE', () => {
+            none(`create function dyn(sql text) returns void as $$
+                begin execute sql; end;
+            $$ language plpgsql`);
+            none(`select dyn('insert into t(id,v) values (9, 90)')`);
+            expect(one(`select v from t where id = 9`).v).toEqual(90);
+        });
+
+        it('PERFORM runs a query and sets FOUND', () => {
+            none(`create function any_big() returns boolean as $$
+                begin perform 1 from t where v >= 100; return found; end;
+            $$ language plpgsql`);
+            expect(one(`select any_big() as r`).r).toEqual(false);
+            none(`insert into t(id, v) values (5, 500)`);
+            expect(one(`select any_big() as r`).r).toEqual(true);
+        });
     });
 });
