@@ -100,6 +100,10 @@ export class StatementExec implements _IStatement {
             case 'select':
             case 'union':
             case 'union all':
+            case 'intersect':
+            case 'intersect all':
+            case 'except':
+            case 'except all':
             case 'values':
             case 'with recursive':
             case 'with':

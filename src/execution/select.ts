@@ -7,6 +7,7 @@ import { ValuesTable } from '../schema/values-table';
 import { ignore, suggestColumnName, notNil, modifyIfNecessary, asSingleQName } from '../utils';
 import { applyReadRls } from './rls-enforce';
 import { JoinSelection } from '../transforms/join';
+import { buildSetOp } from '../transforms/union';
 import { buildWindow, exprsHaveWindow } from '../transforms/window';
 import { RecursiveCte, RecursiveCteBuffer } from './recursive-cte';
 import { expandSrfs } from '../transforms/expand-srf';
@@ -34,6 +35,10 @@ function buildWithable(p: WithStatementBinding): _ISelection {
         case 'select':
         case 'union':
         case 'union all':
+        case 'intersect':
+        case 'intersect all':
+        case 'except':
+        case 'except all':
         case 'with':
         case 'with recursive':
         case 'values':
@@ -53,6 +58,10 @@ export function buildSelect(p: SelectStatement): _ISelection {
     switch (p.type) {
         case 'union':
         case 'union all':
+        case 'intersect':
+        case 'intersect all':
+        case 'except':
+        case 'except all':
             return buildUnion(p);
         case 'with':
             return buildWith(p, false);
@@ -71,11 +80,20 @@ export function buildSelect(p: SelectStatement): _ISelection {
 function buildUnion(p: SelectFromUnion): _ISelection {
     const left = buildSelect(p.left);
     const right = buildSelect(p.right);
-    const ret = left.union(right);
-    if (p.type === 'union all') {
-        return ret;
+    switch (p.type) {
+        case 'union':
+            return left.union(right).distinct();
+        case 'union all':
+            return left.union(right);
+        case 'intersect':
+            return buildSetOp(left, right, 'intersect', false);
+        case 'intersect all':
+            return buildSetOp(left, right, 'intersect', true);
+        case 'except':
+            return buildSetOp(left, right, 'except', false);
+        case 'except all':
+            return buildSetOp(left, right, 'except', true);
     }
-    return ret.distinct();
 }
 
 function buildWithRecursive(p: WithRecursiveStatement): _ISelection {

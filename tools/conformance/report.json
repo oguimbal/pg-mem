@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 176,
-  "total": 176,
+  "passed": 182,
+  "total": 182,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1925,6 +1925,81 @@
       "category": "partitioning",
       "name": "direct child insert violating its bound errors",
       "expectedError": "partition",
+      "outcome": "pass"
+    },
+    {
+      "category": "set-operations",
+      "name": "intersect distinct",
+      "expected": [
+        {
+          "x": 2
+        },
+        {
+          "x": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "set-operations",
+      "name": "except distinct",
+      "expected": [
+        {
+          "x": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "set-operations",
+      "name": "intersect all keeps min multiplicity",
+      "expected": [
+        {
+          "x": 2
+        },
+        {
+          "x": 2
+        },
+        {
+          "x": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "set-operations",
+      "name": "except all subtracts multiplicity",
+      "expected": [
+        {
+          "x": 1
+        },
+        {
+          "x": 2
+        },
+        {
+          "x": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "set-operations",
+      "name": "intersect treats nulls as equal",
+      "expected": [
+        {
+          "x": null
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "set-operations",
+      "name": "chained set operations with parentheses",
+      "expected": [
+        {
+          "x": 2
+        }
+      ],
       "outcome": "pass"
     }
   ]

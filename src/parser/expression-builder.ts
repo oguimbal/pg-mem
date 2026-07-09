@@ -131,6 +131,10 @@ function _buildValueReal(val: Expr): IValue {
         case 'select':
         case 'union':
         case 'union all':
+        case 'intersect':
+        case 'intersect all':
+        case 'except':
+        case 'except all':
         case 'with':
         case 'with recursive':
         case 'values':
