@@ -1,6 +1,23 @@
 import { DataType, FunctionDefinition, QueryError } from '../interfaces-private';
 import { Types } from '../datatypes';
-import { nullIsh } from '../utils';
+import { nullIsh, dateAddInterval } from '../utils';
+import { Interval } from 'pgsql-ast-parser';
+
+function dateSeries(start: Date, stop: Date, step: Interval): Date[] {
+    const stepped = dateAddInterval(start, step, 1);
+    if (stepped.getTime() === start.getTime()) {
+        throw new QueryError('step size cannot equal zero');
+    }
+    const forward = stepped.getTime() > start.getTime();
+    const stopMs = stop.getTime();
+    const ret: Date[] = [];
+    let cur = start;
+    while (forward ? cur.getTime() <= stopMs : cur.getTime() >= stopMs) {
+        ret.push(cur);
+        cur = dateAddInterval(cur, step, 1);
+    }
+    return ret;
+}
 
 function series(start: number, stop: number, step: number): number[] {
     if (!step) {
@@ -33,6 +50,20 @@ export const arrayFunctions: FunctionDefinition[] = [
         returns: Types.integer.asArray(),
         setReturning: true,
         implementation: series,
+    },
+    {
+        name: 'generate_series',
+        args: [Types.timestamp(), Types.timestamp(), Types.interval],
+        returns: Types.timestamp().asArray(),
+        setReturning: true,
+        implementation: dateSeries,
+    },
+    {
+        name: 'generate_series',
+        args: [Types.timestamptz(), Types.timestamptz(), Types.interval],
+        returns: Types.timestamptz().asArray(),
+        setReturning: true,
+        implementation: dateSeries,
     },
     {
         name: 'string_to_array',

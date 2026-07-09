@@ -504,9 +504,9 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             ? { op, vals: [leftValue.hash, rightValue.hash].sort() }
             : { left: leftValue.hash, op, right: rightValue.hash }));
 
-    // handle cases like:  blah = ANY(stuff)
-    if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(leftValue, op, rightValue, returnType, getter, hashed);
+    // handle cases like:  blah = ANY(stuff)  /  blah <> ALL(stuff)
+    if (leftValue.isQuantified || rightValue.isQuantified) {
+        return buildBinaryQuantified(leftValue, op, rightValue, returnType, getter, hashed);
     }
 
     return new Evaluator(
@@ -525,51 +525,47 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
 
 }
 
-function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
-    if (leftValue.isAny && rightValue.isAny) {
-        throw new QueryError('ANY() cannot be compared to ANY()');
+function buildBinaryQuantified(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
+    if (leftValue.isQuantified && rightValue.isQuantified) {
+        throw new QueryError('ANY()/ALL() cannot be compared to ANY()/ALL()');
     }
     if (returnType !== Types.bool) {
-        throw new QueryError('Invalid ANY() usage');
+        throw new QueryError('Invalid ANY()/ALL() usage');
     }
+    // which side holds the array, and whether it's ALL (every) or ANY (some)
+    const arrOnLeft = leftValue.isQuantified;
+    const quant = arrOnLeft ? leftValue : rightValue;
+    const scalar = arrOnLeft ? rightValue : leftValue;
+    const isAll = quant.isAll;
     return new Evaluator(
         returnType
         , null
         , hashed
         , [leftValue, rightValue]
-        , leftValue.isAny
-            ? (raw, t) => {
-                const leftRaw = leftValue.get(raw, t);
-                if (nullIsh(leftRaw)) {
-                    return null;
-                }
-                if (!Array.isArray(leftRaw)) {
-                    throw new QueryError('Invalid ANY() usage: was expacting an array');
-                }
-                for (const lr of leftRaw) {
-                    const rightRaw = rightValue.get(raw, t);
-                    if (getter(lr, rightRaw)) {
-                        return true;
-                    }
-                }
-                return false;
+        , (raw, t) => {
+            const arr = quant.get(raw, t);
+            if (nullIsh(arr)) {
+                return null;
             }
-            : (raw, t) => {
-                const rightRaw = rightValue.get(raw, t);
-                if (nullIsh(rightRaw)) {
-                    return null;
+            if (!Array.isArray(arr)) {
+                throw new QueryError('Invalid ANY()/ALL() usage: was expecting an array');
+            }
+            let sawNull = false;
+            for (const el of arr) {
+                const s = scalar.get(raw, t);
+                const res = arrOnLeft ? getter(el, s) : getter(s, el);
+                if (isAll) {
+                    if (res === false) { return false; }
+                    if (nullIsh(res)) { sawNull = true; }
+                } else {
+                    if (res === true) { return true; }
+                    if (nullIsh(res)) { sawNull = true; }
                 }
-                if (!Array.isArray(rightRaw)) {
-                    throw new QueryError('Invalid ANY() usage: was expacting an array');
-                }
-                for (const rr of rightRaw) {
-                    const leftRaw = leftValue.get(raw, t);
-                    if (getter(leftRaw, rr)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
+            }
+            // ALL: true unless a false was found (null if any comparison was null)
+            // ANY: false unless a true was found (null if any comparison was null)
+            return sawNull ? null : isAll;
+        });
 }
 
 

@@ -22,6 +22,8 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
     switch (asSingleQName(name)) {
         case 'any':
             return buildAnyCall(args);
+        case 'all':
+            return buildAllCall(args);
         case 'current_schema':
             type = Types.text();
             get = () => 'public';
@@ -257,38 +259,48 @@ function requireArrayArg(name: string | QName, arg: IValue): ArrayType {
 }
 
 function buildAnyCall(args: IValue[]) {
+    return buildQuantifiedCall(args, 'any');
+}
+
+function buildAllCall(args: IValue[]) {
+    return buildQuantifiedCall(args, 'all');
+}
+
+function buildQuantifiedCall(args: IValue[], kind: 'any' | 'all') {
+    const label = kind.toUpperCase();
     if (args.length !== 1) {
-        throw new QueryError('ANY() expects 1 argument, given ' + args.length);
+        throw new QueryError(`${label}() expects 1 argument, given ` + args.length);
     }
     const array = args[0];
+    const opts = kind === 'any' ? { isAny: true } : { isAll: true };
 
-    // == if ANY(select something) ... get the element type
+    // == if ANY/ALL(select something) ... get the element type
     if (array.type instanceof ArrayType) {
         return new Evaluator(
             array.type.of
             , null
-            , hash({ any: array.hash })
+            , hash({ [kind]: array.hash })
             , args
             , (raw, t) => {
                 return array.get(raw, t);
             }
-            , { isAny: true } // <== isAny !
+            , opts
         );
     }
 
-    // == if ANY('{elements}') ... will be an array of text => keep text
+    // == if ANY/ALL('{elements}') ... will be an array of text => keep text
 
     if (array.type !== Types.text() || !array.isConstantLiteral) {
-        throw new QueryError('ANY() expects either a selection, or an array literal');
+        throw new QueryError(`${label}() expects either a selection, or an array literal`);
     }
-    // parse ANY() array literal
+    // parse the array literal
     const arrayValue = parseArrayLiteral(array.get());
     return new Evaluator(
         Types.text()
         , null
-        , hash({ any: array.hash })
+        , hash({ [kind]: array.hash })
         , args
         , arrayValue
-        , { isAny: true } // <== isAny !
+        , opts
     );
 }

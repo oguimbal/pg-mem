@@ -46,8 +46,8 @@ ships after a consumer minifies).
 | bundle             | minified | min+gzip |
 |--------------------|---------:|---------:|
 | upstream 3.0.14    |   254 KB |  64.5 KB |
-| this fork          |   373 KB |  97.4 KB |
-| **delta**          | **+119 KB** | **+32.9 KB (+51%)** |
+| this fork          |   373 KB |  97.6 KB |
+| **delta**          | **+119 KB** | **+33.1 KB (+51%)** |
 
 Of the +26 KB gzipped, roughly ~6.5 KB is the parser grammar (the new `pgsql-ast-parser`
 rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers, prepared
@@ -57,7 +57,8 @@ set-returning functions, INSTEAD OF view triggers, TG_*), and the rest is other 
 feature code (prepared statements, ALTER INDEX, tablespaces, WHEN / UPDATE
 OF trigger gating, domains, catalog views, ROW(), composite types with `(expr).field`
 access, the string_agg aggregate, MERGE, range types, full-text search, declarative
-partitioning, INTERSECT/EXCEPT set operations, and aggregate FILTER).
+partitioning, INTERSECT/EXCEPT set operations, aggregate FILTER, the ALL(array) quantifier,
+and generate_series over timestamps).
 
 **Crucially, the growth is feature code, not dead weight, and no runtime dependency was
 added** — the `Decimal` type is hand-rolled on BigInt and timezones use the runtime's

@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 187,
-  "total": 187,
+  "passed": 193,
+  "total": 193,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2055,6 +2055,90 @@
       "expected": [
         {
           "c": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "all-and-series",
+      "name": "<> ALL and = ALL",
+      "expected": [
+        {
+          "a": true,
+          "b": true,
+          "c": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "all-and-series",
+      "name": "comparison quantifier > ALL",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "all-and-series",
+      "name": "filter a table with > ALL",
+      "expected": [
+        {
+          "x": 5
+        },
+        {
+          "x": 10
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "all-and-series",
+      "name": "generate_series over timestamps by day",
+      "expected": [
+        {
+          "d": "2020-01-01"
+        },
+        {
+          "d": "2020-01-02"
+        },
+        {
+          "d": "2020-01-03"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "all-and-series",
+      "name": "generate_series over timestamps by month",
+      "expected": [
+        {
+          "d": "2020-01-01"
+        },
+        {
+          "d": "2020-02-01"
+        },
+        {
+          "d": "2020-03-01"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "all-and-series",
+      "name": "generate_series descending",
+      "expected": [
+        {
+          "d": "2020-01-03"
+        },
+        {
+          "d": "2020-01-02"
+        },
+        {
+          "d": "2020-01-01"
         }
       ],
       "outcome": "pass"

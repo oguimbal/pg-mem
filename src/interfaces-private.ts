@@ -581,6 +581,12 @@ export interface IValue<TRaw = any> {
     /** is 'any()' call ? */
     readonly isAny: boolean;
 
+    /** is 'all()' call ? */
+    readonly isAll: boolean;
+
+    /** is 'any()' or 'all()' call ? */
+    readonly isQuantified: boolean;
+
     /** Is a constant... i.e. not dependent on columns. ex: (2+2) or NOW() */
     readonly isConstant: boolean;
 
