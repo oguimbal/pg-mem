@@ -91,6 +91,8 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             argsVariadic,
             impure: fn.purity !== 'immutable',
             allowNullArguments: fn.onNullInput === 'call',
+            // RETURNS TABLE(...) is set-returning: the implementation returns an array
+            setReturning: fn.returns.kind === 'table',
         };
         this.replace = fn.orReplace ?? false;
 

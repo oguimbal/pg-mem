@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 123,
-  "total": 123,
+  "passed": 127,
+  "total": 127,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1250,6 +1250,47 @@
         {
           "a": true,
           "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql RAISE EXCEPTION",
+      "expectedError": "negative",
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql EXCEPTION WHEN with rollback",
+      "expected": [
+        {
+          "present": 0
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql FOR-over-query with rec.col",
+      "expected": [
+        {
+          "r": 60
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql RETURN QUERY (set-returning)",
+      "expected": [
+        {
+          "oid": 2,
+          "ov": 20
+        },
+        {
+          "oid": 3,
+          "ov": 30
         }
       ],
       "outcome": "pass"

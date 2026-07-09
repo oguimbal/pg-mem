@@ -66,3 +66,44 @@ declare x int;
 begin select id into x from people where id = pid; return found; end;
 $$ language plpgsql;
 select has_id(2) as a, has_id(99) as b;
+
+-- @case: plpgsql RAISE EXCEPTION
+-- @error: negative
+create function checkpos(n int) returns int as $$
+begin if n < 0 then raise exception 'negative: %', n; end if; return n; end;
+$$ language plpgsql;
+select checkpos(-3);
+
+-- @case: plpgsql EXCEPTION WHEN with rollback
+-- @expect: [{"present":0}]
+create table uu (id int primary key);
+insert into uu values (1);
+create function safeadd(pid int) returns text as $$
+begin
+    insert into uu(id) values (pid);
+    insert into uu(id) values (pid);
+    return 'ok';
+exception when unique_violation then return 'dup';
+end; $$ language plpgsql;
+select safeadd(5);
+select count(*)::int as present from uu where id = 5;
+
+-- @case: plpgsql FOR-over-query with rec.col
+-- @expect: [{"r":60}]
+create table q (id int, v int);
+insert into q values (1,10),(2,20),(3,30);
+create function sumv() returns int as $$
+declare r record; s int := 0;
+begin for r in select * from q loop s := s + r.v; end loop; return s; end;
+$$ language plpgsql;
+select sumv() as r;
+
+-- @case: plpgsql RETURN QUERY (set-returning)
+-- @expect: [{"oid":2,"ov":20},{"oid":3,"ov":30}]
+-- (out columns are named oid/ov to avoid postgres' ambiguity with src.id / src.v)
+create table src (id int, v int);
+insert into src values (1,10),(2,20),(3,30);
+create function bigrows(threshold int) returns table(oid int, ov int) as $$
+begin return query select id, v from src where v > threshold order by id; end;
+$$ language plpgsql;
+select oid, ov from bigrows(15) order by oid;

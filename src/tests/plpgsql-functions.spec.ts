@@ -2,6 +2,7 @@ import { describe, it, beforeEach, expect } from 'bun:test';
 
 import { newDb } from '../db';
 import { IMemoryDb } from '../interfaces';
+import { expectQueryError } from './test-utils';
 
 describe('PL/pgSQL functions', () => {
 
@@ -169,6 +170,67 @@ describe('PL/pgSQL functions', () => {
             expect(one(`select any_big() as r`).r).toEqual(false);
             none(`insert into t(id, v) values (5, 500)`);
             expect(one(`select any_big() as r`).r).toEqual(true);
+        });
+
+        it('FOR rec IN SELECT ... LOOP with rec.col', () => {
+            none(`create function sumv() returns int as $$
+                declare r record; s int := 0;
+                begin for r in select * from t loop s := s + r.v; end loop; return s; end;
+            $$ language plpgsql`);
+            expect(one(`select sumv() as r`).r).toEqual(60);
+        });
+    });
+
+    describe('RAISE and EXCEPTION', () => {
+        it('RAISE EXCEPTION with a format string', () => {
+            none(`create function checkpos(n int) returns int as $$
+                begin if n < 0 then raise exception 'negative: %', n; end if; return n; end;
+            $$ language plpgsql`);
+            expect(one(`select checkpos(5) as r`).r).toEqual(5);
+            expectQueryError(() => one(`select checkpos(-3)`), /negative: -3/);
+        });
+
+        it('EXCEPTION WHEN catches an error and the block rolls back', () => {
+            none(`create table t (id int primary key); insert into t values (1)`);
+            none(`create function safeadd(pid int) returns text as $$
+                begin
+                    insert into t(id) values (pid);
+                    insert into t(id) values (pid);   -- duplicate -> error
+                    return 'ok';
+                exception when unique_violation then return 'dup';
+                end; $$ language plpgsql`);
+            expect(one(`select safeadd(5) as r`).r).toEqual('dup');
+            // the first insert was rolled back by the exception
+            expect(many(`select id from t where id = 5`).length).toEqual(0);
+        });
+    });
+
+    describe('set-returning functions', () => {
+        beforeEach(() => {
+            none(`create table t (id int, v int); insert into t values (1,10),(2,20),(3,30)`);
+        });
+
+        it('RETURN QUERY (RETURNS TABLE)', () => {
+            none(`create function bigrows(threshold int) returns table(id int, v int) as $$
+                begin return query select id, v from t where v > threshold; end;
+            $$ language plpgsql`);
+            expect(many(`select * from bigrows(15) order by id`))
+                .toEqual([{ id: 2, v: 20 }, { id: 3, v: 30 }]);
+        });
+
+        it('RETURN NEXT accumulates rows', () => {
+            none(`create function squares(n int) returns table(x int) as $$
+                declare i int;
+                begin for i in 1..n loop return next i * i; end loop; end;
+            $$ language plpgsql`);
+            expect(many(`select x from squares(4)`).map(r => r.x)).toEqual([1, 4, 9, 16]);
+        });
+
+        it('mixes RETURN NEXT and RETURN QUERY', () => {
+            none(`create function combo() returns table(n int) as $$
+                begin return next 100; return query select v from t; end;
+            $$ language plpgsql`);
+            expect(many(`select n from combo()`).map(r => r.n)).toEqual([100, 10, 20, 30]);
         });
     });
 });

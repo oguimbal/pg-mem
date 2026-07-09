@@ -1,6 +1,7 @@
 import { _IDb, _ISchema, _ITable, _Transaction, IValue, _ISelection, QueryError, NotSupported, getId, setId, _IType, Parameter, nil, StatementResult, _IStatementExecutor } from '../interfaces-private';
-import { Expr, parse } from 'pgsql-ast-parser';
+import { Expr, parse, SelectStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
+import { buildSelect } from './select';
 import { withSelection, withParameters } from '../parser/context';
 import { JoinSelection } from '../transforms/join';
 import { Types } from '../datatypes';
@@ -148,6 +149,14 @@ class PlpgsqlParser {
         }
         return joinTokens(parts);
     }
+}
+
+/** strip surrounding single quotes and unescape '' -> ' */
+function unquote(s: string): string {
+    if (s.length >= 2 && s.startsWith(`'`) && s.endsWith(`'`)) {
+        return s.slice(1, -1).replace(/''/g, `'`);
+    }
+    return s;
 }
 
 function joinTokens(toks: string[]): string {
@@ -300,14 +309,22 @@ type GStmt =
     | { k: 'forrange'; varName: string; reverse: boolean; from: string; to: string; by: string | null; body: GStmt[] }
     | { k: 'exit'; when: string | null }
     | { k: 'continue'; when: string | null }
-    | { k: 'block'; body: GStmt[] }
+    | { k: 'block'; body: GStmt[]; handlers: ExceptionHandler[] }
     // embedded SQL
     | { k: 'selectinto'; into: string[]; sql: string }
     | { k: 'perform'; sql: string }
     | { k: 'sql'; sql: string }
     | { k: 'execute'; exprSrc: string }
-    | { k: 'raise' }
+    | { k: 'forquery'; varName: string; sql: string; body: GStmt[] }
+    | { k: 'returnnext'; expr: string }
+    | { k: 'returnquery'; sql: string }
+    | { k: 'raise'; level: string; format: string | null; args: string[] }
     | { k: 'null' };
+
+interface ExceptionHandler {
+    conditions: string[]; // lowercased condition names, or 'others'
+    body: GStmt[];
+}
 
 /** parses a regular plpgsql function body: optional DECLARE section + BEGIN/END block */
 class GParser {
@@ -327,7 +344,7 @@ class GParser {
         this.i++;
     }
 
-    parse(): { decls: VarDef[]; body: GStmt[] } {
+    parse(): { decls: VarDef[]; block: GStmt } {
         const decls: VarDef[] = [];
         if (this.peek() === 'declare') {
             this.i++;
@@ -335,8 +352,7 @@ class GParser {
                 decls.push(this.parseDecl());
             }
         }
-        const body = this.parseBlockBody();
-        return { decls, body };
+        return { decls, block: this.parseBlockBody() };
     }
 
     private parseDecl(): VarDef {
@@ -356,13 +372,29 @@ class GParser {
         return { name, type: null as any, default: def, ...{ typeSrc: joinTokens(typeToks) } } as any;
     }
 
-    /** BEGIN <stmts> END */
-    private parseBlockBody(): GStmt[] {
+    /** BEGIN <stmts> [EXCEPTION WHEN ... THEN ...]* END */
+    private parseBlockBody(): GStmt {
         this.eat('begin');
-        const body = this.parseStmtsUntil(['end']);
+        const body = this.parseStmtsUntil(['end', 'exception']);
+        const handlers: ExceptionHandler[] = [];
+        if (this.peek() === 'exception') {
+            this.i++;
+            while (this.peek() === 'when') {
+                this.i++;
+                const conditions: string[] = [];
+                const readCond = () => {
+                    if (this.peek() === 'sqlstate') { this.i++; conditions.push(unquote(this.next())); }
+                    else { conditions.push(this.next().toLowerCase()); }
+                };
+                readCond();
+                while (this.peek() === 'or') { this.i++; readCond(); }
+                this.eat('then');
+                handlers.push({ conditions, body: this.parseStmtsUntil(['when', 'end']) });
+            }
+        }
         this.eat('end');
         if (this.peek() === ';') { this.i++; }
-        return body;
+        return { k: 'block', body, handlers };
     }
 
     private parseStmtsUntil(terms: string[]): GStmt[] {
@@ -379,6 +411,8 @@ class GParser {
         switch (kw) {
             case 'return': {
                 this.i++;
+                if (this.peek() === 'next') { this.i++; return { k: 'returnnext', expr: this.readUntil([';'], true) }; }
+                if (this.peek() === 'query') { this.i++; return { k: 'returnquery', sql: this.readUntil([';'], true) }; }
                 if (this.peek() === ';') { this.i++; return { k: 'return', expr: null }; }
                 return { k: 'return', expr: this.readUntil([';'], true) };
             }
@@ -409,8 +443,7 @@ class GParser {
                 return { k: kw as 'exit' | 'continue', when };
             }
             case 'raise':
-                this.readUntil([';'], true);
-                return { k: 'raise' };
+                return this.parseRaise();
             case 'select':
                 return this.parseSelect();
             case 'perform': {
@@ -428,10 +461,8 @@ class GParser {
             case 'null':
                 this.i++; if (this.peek() === ';') { this.i++; }
                 return { k: 'null' };
-            case 'begin': {
-                const body = this.parseBlockBody();
-                return { k: 'block', body };
-            }
+            case 'begin':
+                return this.parseBlockBody();
             default: {
                 // assignment:  name := expr   |   name = expr
                 const name = this.next();
@@ -471,6 +502,15 @@ class GParser {
         this.eat('for');
         const varName = this.next();
         this.eat('in');
+        // FOR rec IN SELECT ... LOOP  (query loop)
+        if (this.peek() === 'select') {
+            const sql = this.readUntil(['loop']);
+            this.eat('loop');
+            const body = this.parseStmtsUntil(['end']);
+            this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
+            return { k: 'forquery', varName, sql, body };
+        }
+        // FOR i IN [REVERSE] a..b [BY s] LOOP  (integer range)
         let reverse = false;
         if (this.peek() === 'reverse') { this.i++; reverse = true; }
         const from = this.readUntil(['..']);
@@ -482,6 +522,43 @@ class GParser {
         const body = this.parseStmtsUntil(['end']);
         this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
         return { k: 'forrange', varName, reverse, from, to, by, body };
+    }
+
+    /** RAISE [level] ['format' [, expr]*] [USING ...] */
+    private parseRaise(): GStmt {
+        this.eat('raise');
+        const raw = this.readRaw([';'], true);
+        const levels = ['debug', 'log', 'info', 'notice', 'warning', 'exception'];
+        let idx = 0;
+        let level = 'exception';
+        if (raw[0] && levels.includes(raw[0].toLowerCase())) { level = raw[0].toLowerCase(); idx = 1; }
+        let format: string | null = null;
+        const args: string[] = [];
+        if (raw[idx]?.startsWith(`'`)) {
+            format = raw[idx];
+            idx++;
+            // remaining: , expr , expr ... (stop at USING)
+            while (idx < raw.length && raw[idx] !== ',') {
+                if (raw[idx].toLowerCase() === 'using') { idx = raw.length; break; }
+                idx++;
+            }
+            while (idx < raw.length && raw[idx] === ',') {
+                idx++;
+                const parts: string[] = [];
+                let depth = 0;
+                while (idx < raw.length) {
+                    const t = raw[idx];
+                    if (depth === 0 && (t === ',' || t.toLowerCase() === 'using')) { break; }
+                    if (t === '(') { depth++; }
+                    if (t === ')') { depth--; }
+                    parts.push(raw[idx]);
+                    idx++;
+                }
+                args.push(joinTokens(parts));
+                if (raw[idx]?.toLowerCase() === 'using') { break; }
+            }
+        }
+        return { k: 'raise', level, format, args };
     }
 
     private readUntil(stops: string[], consumeStop = false): string {
@@ -548,30 +625,54 @@ type Signal =
     | { type: 'continue' }
     | null;
 
-interface RunCtx { t: _Transaction; }
+interface RunCtx { t: _Transaction; emit?: (row: any) => void; }
 
 interface GCompiled {
     run(ctx: RunCtx): Signal;
 }
 
+type ExprCompiler = (src: string, castTo?: _IType) => (t: _Transaction) => any;
+
 /** the tools a compiled statement needs: expression + embedded-SQL compilation */
 interface Helpers {
     returns: _IType | nil;
-    compileExpr(src: string, castTo?: _IType): (t: _Transaction) => any;
+    setof: boolean;
+    compileExpr: ExprCompiler;
+    /** an expression compiler with an extra selection in scope (e.g. a FOR-loop record) */
+    mkCompiler(sel: _ISelection, rowFn: () => any): ExprCompiler;
+    /** build a SELECT's selection with variables in scope (for FOR-over-query) */
+    querySelection(sql: string): _ISelection;
+    /** output columns for a set-returning (RETURNS TABLE) function, else null */
+    outColumns: { name: string }[] | null;
     /** compile an embedded SQL statement (variables in scope); returns its QueryResult */
     prepareSql(sql: string): (ctx: RunCtx) => any;
     /** run a dynamic (runtime-built) SQL string */
     runDynamic(ctx: RunCtx, sqlText: string): any;
 }
 
+/** does this block (recursively) use RETURN NEXT / RETURN QUERY? => set-returning */
+function usesSetof(stmts: GStmt[]): boolean {
+    for (const s of stmts) {
+        if (s.k === 'returnnext' || s.k === 'returnquery') { return true; }
+        const nested: GStmt[][] = [];
+        if (s.k === 'if') { s.branches.forEach(b => nested.push(b.body)); if (s.else) { nested.push(s.else); } }
+        if (s.k === 'while' || s.k === 'loop' || s.k === 'forrange' || s.k === 'forquery' || s.k === 'block') { nested.push((s as any).body); }
+        if (s.k === 'block') { s.handlers.forEach(h => nested.push(h.body)); }
+        if (nested.some(usesSetof)) { return true; }
+    }
+    return false;
+}
+
 interface GProgram {
     locals: (VarDef & { defaultVal: ((t: _Transaction) => any) | null })[];
     compiled: GCompiled[];
+    setof: boolean;
 }
 
 /** compiles a regular plpgsql function into a callable implementation */
 function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | nil, schema: _ISchema) {
-    const { decls, body } = new GParser(code).parse();
+    const { decls, block } = new GParser(code).parse();
+    const setof = usesSetof([block]);
     // compilation is deferred to first call: the function's own name (recursion) and any
     // later-defined helpers must already be registered, which they are by call time
     let program: GProgram | null = null;
@@ -591,19 +692,20 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
             value: new Evaluator(v.type, v.name, `plpgsql_var_${v.name}`, [],
                 () => frame().vars.get(v.name), { forceNotConstant: true }),
         }));
-        const compileExpr = (src: string, castTo?: _IType): (t: _Transaction) => any => {
-            const ast = parseExpr(src);
-            // build (and cast) within the parameter + selection context
-            const val = withParameters(params, () => withSelection(schema.dualTable.selection, () => {
-                const v = buildValue(ast);
-                return castTo ? v.cast(castTo) : v;
-            }));
-            return (t) => val.get(DUMMY_ROW, t);
-        };
+        const mkCompiler = (sel: _ISelection, rowFn: () => any): ExprCompiler =>
+            (src, castTo) => {
+                const ast = parseExpr(src);
+                const val = withParameters(params, () => withSelection(sel, () => {
+                    const v = buildValue(ast);
+                    return castTo ? v.cast(castTo) : v;
+                }));
+                return (t) => val.get(rowFn(), t);
+            };
+        const compileExpr = mkCompiler(schema.dualTable.selection, () => DUMMY_ROW);
         // nb: a StatementExec is compiled directly (not via schema.prepare) so that our
         // variable parameters stay on top of the stack during compile - schema.prepare
         // pushes the statement's own (empty) param set, which would shadow them
-        const compileStmt = (sql: string): _IStatementExecutor & { executeStatement(t: _Transaction, p: any[]): StatementResult } => {
+        const compileStmt = (sql: string): any => {
             const parsed = parse(sql);
             const stmt = Array.isArray(parsed) ? parsed[0] : parsed;
             const se = new StatementExec(schema, stmt, null) as any;
@@ -616,9 +718,18 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
             frame().vars.set('found', (r.result.rows?.length ?? 0) > 0);
             return r.result;
         };
+        const outColumns = ((returns as any)?.of?.columns as { name: string }[] | undefined) ?? null;
         const helpers: Helpers = {
             returns,
+            setof,
             compileExpr,
+            mkCompiler,
+            outColumns,
+            querySelection: (sql) => {
+                const parsed = parse(sql);
+                const stmt = (Array.isArray(parsed) ? parsed[0] : parsed) as SelectStatement;
+                return withParameters(params, () => withSelection(schema.dualTable.selection, () => buildSelect(stmt)));
+            },
             prepareSql: (sql) => {
                 const se = compileStmt(sql);
                 return (ctx) => runStmt(ctx, se);
@@ -627,7 +738,8 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
         };
         return {
             locals: locals.map(l => ({ ...l, defaultVal: l.default != null ? compileExpr(l.default, l.type) : null })),
-            compiled: compileBody(body, helpers),
+            compiled: compileBody([block], helpers),
+            setof,
         };
     };
 
@@ -637,6 +749,14 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
         const vars = new Map<string, any>();
         vars.set('found', false);
         args.forEach((a, i) => vars.set(a.name, inArgs[i] ?? null));
+        const out: any[] = [];
+        if (program.setof) {
+            ctx.emit = (row) => {
+                // downstream (explicit-column selection) needs an internal row id
+                if (row && typeof row === 'object') { ensureId(row, 'plpgsql_out'); }
+                out.push(row);
+            };
+        }
         frameStack.push({ vars });
         try {
             // initialise locals (defaults evaluated in declaration order)
@@ -644,6 +764,7 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
                 vars.set(l.name, l.defaultVal ? l.defaultVal(ctx.t) : null);
             }
             const sig = runGBody(program.compiled, ctx);
+            if (program.setof) { return out; }
             return sig?.type === 'return' ? sig.value : null;
         } finally {
             frameStack.pop();
@@ -743,7 +864,98 @@ function compileBody(stmts: GStmt[], h: Helpers): GCompiled[] {
             }
             case 'block': {
                 const body = compileBody(s.body, h);
-                return { run: (ctx) => runGBody(body, ctx) };
+                if (!s.handlers.length) {
+                    return { run: (ctx) => runGBody(body, ctx) };
+                }
+                const handlers = s.handlers.map(hd => ({ conditions: hd.conditions, body: compileBody(hd.body, h) }));
+                return {
+                    run(ctx) {
+                        // run the block in a sub-transaction: on a handled exception it is
+                        // rolled back (its partial changes discarded) before the handler runs
+                        const child = ctx.t.fork();
+                        ctx.t = child;
+                        try {
+                            const sig = runGBody(body, ctx);
+                            ctx.t = ctx.t.commit();
+                            return sig;
+                        } catch (e) {
+                            if (!(e instanceof QueryError)) { ctx.t = child.rollback(); throw e; }
+                            const hd = handlers.find(x => x.conditions.some(c => matchCondition(c, e)));
+                            ctx.t = child.rollback();
+                            if (!hd) { throw e; }
+                            return runGBody(hd.body, ctx);
+                        }
+                    },
+                };
+            }
+            case 'forquery': {
+                // FOR rec IN SELECT ... LOOP : `rec.col` resolves against the query's
+                // (aliased) selection; the current row is fed to the body's expressions
+                const sel = h.querySelection(s.sql).setAlias(s.varName);
+                const holder: { row: any } = { row: DUMMY_ROW };
+                const body = compileBody(s.body, { ...h, compileExpr: h.mkCompiler(sel, () => holder.row) });
+                return {
+                    run(ctx) {
+                        for (const row of sel.enumerate(ctx.t)) {
+                            holder.row = row;
+                            const sig = runGBody(body, ctx);
+                            if (sig?.type === 'return') { return sig; }
+                            if (sig?.type === 'exit') { break; }
+                        }
+                        return null;
+                    },
+                };
+            }
+            case 'returnnext': {
+                const val = compileExpr(s.expr);
+                const cols = h.outColumns;
+                return {
+                    run(ctx) {
+                        const v = val(ctx.t);
+                        // a single-column TABLE wants row objects, not bare scalars
+                        const row = (cols && cols.length === 1 && (v === null || typeof v !== 'object'))
+                            ? { [cols[0].name]: v }
+                            : v;
+                        ctx.emit?.(row);
+                        return null;
+                    },
+                };
+            }
+            case 'returnquery': {
+                const run = h.prepareSql(s.sql);
+                const cols = h.outColumns;
+                return {
+                    run(ctx) {
+                        const res = run(ctx);
+                        for (const row of res.rows ?? []) {
+                            // map the query's columns positionally onto the output columns
+                            if (cols) {
+                                const keys = Object.keys(row);
+                                const mapped: any = {};
+                                cols.forEach((c, i) => mapped[c.name] = row[keys[i]] ?? null);
+                                ctx.emit?.(mapped);
+                            } else {
+                                ctx.emit?.(row);
+                            }
+                        }
+                        return null;
+                    },
+                };
+            }
+            case 'raise': {
+                if (s.level !== 'exception') {
+                    return { run: () => null }; // notice/warning/info/log/debug: not surfaced
+                }
+                const argFns = s.args.map(a => compileExpr(a));
+                const fmt = s.format != null ? unquote(s.format) : null;
+                return {
+                    run(ctx) {
+                        const msg = fmt != null
+                            ? formatRaise(fmt, argFns.map(f => f(ctx.t)))
+                            : 'raised exception';
+                        throw new QueryError(msg, 'P0001');
+                    },
+                };
             }
             case 'selectinto': {
                 const run = h.prepareSql(s.sql);
@@ -773,11 +985,37 @@ function compileBody(stmts: GStmt[], h: Helpers): GCompiled[] {
                     },
                 };
             }
-            case 'raise':
             case 'null':
                 return { run: () => null };
         }
     });
+}
+
+/** substitute `%` placeholders in a RAISE format string (%% -> literal %) */
+function formatRaise(fmt: string, args: any[]): string {
+    let i = 0;
+    return fmt.replace(/%%|%/g, m => m === '%%' ? '%' : String(args[i++] ?? ''));
+}
+
+// common condition-name -> SQLSTATE, for EXCEPTION WHEN matching
+const CONDITION_CODES: Record<string, string> = {
+    unique_violation: '23505',
+    not_null_violation: '23502',
+    foreign_key_violation: '23503',
+    check_violation: '23514',
+    division_by_zero: '22012',
+    no_data_found: 'P0002',
+    raise_exception: 'P0001',
+    string_data_right_truncation: '22001',
+    invalid_text_representation: '22P02',
+};
+
+function matchCondition(cond: string, e: QueryError): boolean {
+    if (cond === 'others') { return true; }
+    const code = (e as any).code as string | undefined;
+    if (!code) { return false; }
+    // match by exact SQLSTATE, or by mapped condition name
+    return cond.toUpperCase() === code || CONDITION_CODES[cond] === code;
 }
 
 function runGBody(body: GCompiled[], ctx: RunCtx): Signal {
