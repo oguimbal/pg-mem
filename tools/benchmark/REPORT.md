@@ -57,7 +57,7 @@ set-returning functions, INSTEAD OF view triggers, TG_*), and the rest is other 
 feature code (prepared statements, ALTER INDEX, tablespaces, WHEN / UPDATE
 OF trigger gating, domains, catalog views, ROW(), composite types with `(expr).field`
 access, the string_agg aggregate, MERGE, range types, full-text search, declarative
-partitioning, and INTERSECT/EXCEPT set operations).
+partitioning, INTERSECT/EXCEPT set operations, and aggregate FILTER).
 
 **Crucially, the growth is feature code, not dead weight, and no runtime dependency was
 added** — the `Decimal` type is hand-rolled on BigInt and timezones use the runtime's

@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 182,
-  "total": 182,
+  "passed": 187,
+  "total": 187,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1998,6 +1998,63 @@
       "expected": [
         {
           "x": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "aggregate-filter",
+      "name": "count and sum with FILTER",
+      "expected": [
+        {
+          "c": 3,
+          "s": 7
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "aggregate-filter",
+      "name": "filtered and unfiltered aggregates in one query",
+      "expected": [
+        {
+          "c": 4,
+          "f": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "aggregate-filter",
+      "name": "FILTER with GROUP BY",
+      "expected": [
+        {
+          "g": "a",
+          "c": 1
+        },
+        {
+          "g": "b",
+          "c": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "aggregate-filter",
+      "name": "FILTER matching nothing yields 0",
+      "expected": [
+        {
+          "c": 0
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "aggregate-filter",
+      "name": "FILTER combined with DISTINCT",
+      "expected": [
+        {
+          "c": 3
         }
       ],
       "outcome": "pass"

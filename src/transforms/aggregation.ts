@@ -2,6 +2,7 @@ import { TransformBase } from './transform-base';
 import { _ISelection, _Transaction, IValue, _IIndex, _Explainer, _SelectExplanation, _IType, IndexKey, _ITable, Stats, AggregationComputer, AggregationGroupComputer, setId, _IAggregation, Row } from '../interfaces-private';
 import { Expr, ExprRef, ExprCall } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
+import { Types } from '../datatypes';
 import { nil, NotSupported } from '../interfaces';
 import hash from 'object-hash';
 import { Evaluator } from '../evaluator';
@@ -68,6 +69,8 @@ interface AggregationInstance {
     id: symbol;
     computer: AggregationComputer;
     distinct: IValue[] | nil;
+    /** optional `FILTER (WHERE ...)` predicate: rows where it is not true are skipped */
+    filter: IValue | nil;
 }
 
 function isIntegralType(value: any): boolean {
@@ -149,17 +152,28 @@ export class Aggregation extends TransformBase implements _ISelection, _IAggrega
         }
     }
 
-    private _enumerateAggregationKeys(t: _Transaction): Iterable<AggregItem> {
-        // ===== try to compute directly (will only succeed when no grouping, and simple statements like count(*))
-        const ret = this.computeDirect(t);
-        if (ret) {
-            return [ret];
+    private get hasFilters(): boolean {
+        for (const a of this.aggregations.values()) {
+            if (a.filter) { return true; }
         }
+        return false;
+    }
 
-        // ===== try to compute base on index
-        const fromIndex = this.iterateFromIndex(t);
-        if (fromIndex) {
-            return fromIndex;
+    private _enumerateAggregationKeys(t: _Transaction): Iterable<AggregItem> {
+        // FILTER (WHERE ...) must see every row, so the direct/index shortcuts (which
+        // count from index sizes without inspecting rows) cannot be used.
+        if (!this.hasFilters) {
+            // ===== try to compute directly (will only succeed when no grouping, and simple statements like count(*))
+            const ret = this.computeDirect(t);
+            if (ret) {
+                return [ret];
+            }
+
+            // ===== try to compute base on index
+            const fromIndex = this.iterateFromIndex(t);
+            if (fromIndex) {
+                return fromIndex;
+            }
         }
 
         // ==== seq-scan computation
@@ -236,6 +250,10 @@ export class Aggregation extends TransformBase implements _ISelection, _IAggrega
             // process aggregators in group
             for (const g of group.aggs) {
                 if (!g.computer) {
+                    continue;
+                }
+                // FILTER (WHERE ...): skip rows the predicate rejects for this aggregate
+                if (g.instance.filter && g.instance.filter.get(item, t) !== true) {
                     continue;
                 }
                 if (g.instance.distinct) {
@@ -347,11 +365,16 @@ export class Aggregation extends TransformBase implements _ISelection, _IAggrega
             }
         }
 
+        const filter = call.filter
+            ? buildValue(call.filter).cast(Types.bool)
+            : null;
+
         this.aggregations.set(hashed, {
             id,
             getter,
             computer: got,
             distinct,
+            filter,
         });
         return getter;
     }
