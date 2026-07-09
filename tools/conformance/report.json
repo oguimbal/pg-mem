@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 169,
-  "total": 169,
+  "passed": 176,
+  "total": 176,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1842,6 +1842,89 @@
           "id": 1
         }
       ],
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "range partition parent union",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "range partition child slice",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "parent insert with no matching partition errors",
+      "expectedError": "no partition of relation \"events\" found for row",
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "list partition routing (child)",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "list partition parent union",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "default partition catches unmatched rows",
+      "expected": [
+        {
+          "id": 2
+        },
+        {
+          "id": 4
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "partitioning",
+      "name": "direct child insert violating its bound errors",
+      "expectedError": "partition",
       "outcome": "pass"
     }
   ]
