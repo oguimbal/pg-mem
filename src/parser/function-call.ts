@@ -111,6 +111,16 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             get = (arr: any[]) => arr.length;
             break;
         }
+        case 'generate_subscripts': {
+            expectArgs(name, args, 2);
+            requireArrayArg(name, args[0]);
+            type = Types.integer.asArray();
+            setReturning = true;
+            // pg-mem arrays are one-dimensional: dim 1 yields 1..length, else nothing
+            get = (arr: any[] | null, dim: number) =>
+                dim === 1 && Array.isArray(arr) ? arr.map((_, i) => i + 1) : [];
+            break;
+        }
         case 'array_append': {
             expectArgs(name, args, 2);
             const appendTo = requireArrayArg(name, args[0]);

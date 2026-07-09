@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 238/238 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 243/243 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
@@ -40,6 +40,7 @@
 | interval-units-window | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | grouping-sets | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | numeric-funcs-operators | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| quote-subscripts-make | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures
 

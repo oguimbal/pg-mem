@@ -76,6 +76,30 @@ export const dateFunctions: FunctionDefinition[] = [
         implementation: dateToChar,
     })),
     {
+        name: 'make_timestamp',
+        args: [DataType.integer, DataType.integer, DataType.integer, DataType.integer, DataType.integer, DataType.float],
+        returns: DataType.timestamp,
+        implementation: (year: number, month: number, day: number, hour: number, min: number, sec: number) => {
+            const whole = Math.floor(sec);
+            const ms = Math.round((sec - whole) * 1000);
+            const ret = moment.utc({ year, month: month - 1, day, hour, minute: min, second: whole, millisecond: ms });
+            if (!ret.isValid()) {
+                throw new QueryError(`date/time field value out of range`);
+            }
+            return ret.toDate();
+        },
+    },
+    {
+        name: 'make_time',
+        args: [DataType.integer, DataType.integer, DataType.float],
+        returns: DataType.time,
+        implementation: (hour: number, min: number, sec: number) => {
+            const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+            const whole = Math.floor(sec);
+            return `${pad(hour)}:${pad(min)}:${pad(whole)}`;
+        },
+    },
+    {
         name: 'to_char',
         args: [DataType.float, DataType.text],
         returns: DataType.text,

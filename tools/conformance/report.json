@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 238,
-  "total": 238,
+  "passed": 243,
+  "total": 243,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2818,6 +2818,64 @@
       "expected": [
         {
           "v": 1024
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "quote-subscripts-make",
+      "name": "quote_ident",
+      "expected": [
+        {
+          "a": "\"foo bar\"",
+          "b": "foo"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "quote-subscripts-make",
+      "name": "quote_literal and quote_nullable",
+      "expected": [
+        {
+          "a": "'a''b'",
+          "b": "NULL"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "quote-subscripts-make",
+      "name": "generate_subscripts",
+      "expected": [
+        {
+          "v": 1
+        },
+        {
+          "v": 2
+        },
+        {
+          "v": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "quote-subscripts-make",
+      "name": "make_timestamp",
+      "expected": [
+        {
+          "v": "2020-06-15 10:30"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "quote-subscripts-make",
+      "name": "make_time",
+      "expected": [
+        {
+          "v": "10:30:00"
         }
       ],
       "outcome": "pass"

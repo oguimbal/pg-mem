@@ -333,6 +333,28 @@ export const stringFunctions: FunctionDefinition[] = [
         implementation: (x: string, prefix: string) => x.startsWith(prefix),
     },
     {
+        name: 'quote_ident',
+        args: [DataType.text],
+        returns: DataType.text,
+        allowNullArguments: true,
+        implementation: (x: string) => nullIsh(x) ? null : quoteIdent(x),
+    },
+    {
+        name: 'quote_literal',
+        args: [DataType.text],
+        returns: DataType.text,
+        allowNullArguments: true,
+        implementation: (x: string) => nullIsh(x) ? null : `'${x.replace(/'/g, `''`)}'`,
+    },
+    {
+        // quote_nullable: like quote_literal but null -> the string 'NULL'
+        name: 'quote_nullable',
+        args: [DataType.text],
+        returns: DataType.text,
+        allowNullArguments: true,
+        implementation: (x: string) => nullIsh(x) ? 'NULL' : `'${x.replace(/'/g, `''`)}'`,
+    },
+    {
         name: 'regexp_replace',
         args: [DataType.text, DataType.text, DataType.text],
         returns: DataType.text,
