@@ -11,6 +11,7 @@ import { buildMinMax } from './aggregations/max-min';
 import { buildSum } from './aggregations/sum';
 import { buildArrayAgg } from './aggregations/array_agg';
 import { buildStringAgg } from './aggregations/string_agg';
+import { buildOrderedSetAgg } from './aggregations/ordered-set';
 import { buildAvg } from './aggregations/avg';
 import { Selection } from './selection';
 import { buildCtx, withSelection } from '../parser/context';
@@ -33,6 +34,9 @@ export const aggregationFunctions = new Set([
     'jsonb_object_agg',
     'max',
     'min',
+    'mode',
+    'percentile_cont',
+    'percentile_disc',
     'string_agg',
     'sum',
     'xmlagg',
@@ -401,6 +405,10 @@ export class Aggregation extends TransformBase implements _ISelection, _IAggrega
                 return buildBoolAgg(this.base, call, name === 'every' ? 'bool_and' : name);
             case 'string_agg':
                 return buildStringAgg(this.base, call);
+            case 'percentile_cont':
+            case 'percentile_disc':
+            case 'mode':
+                return buildOrderedSetAgg(this.base, call, name);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }

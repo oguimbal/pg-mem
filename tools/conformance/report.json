@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 199,
-  "total": 199,
+  "passed": 204,
+  "total": 204,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2232,6 +2232,61 @@
             "A",
             "B"
           ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ordered-set-aggregates",
+      "name": "percentile_cont interpolates the median",
+      "expected": [
+        {
+          "p": 2.5
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ordered-set-aggregates",
+      "name": "percentile_cont at a quartile",
+      "expected": [
+        {
+          "p": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ordered-set-aggregates",
+      "name": "percentile_disc picks an existing value",
+      "expected": [
+        {
+          "p": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ordered-set-aggregates",
+      "name": "mode returns the most frequent value",
+      "expected": [
+        {
+          "m": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ordered-set-aggregates",
+      "name": "ordered-set aggregate with GROUP BY",
+      "expected": [
+        {
+          "g": "a",
+          "p": 2.5
+        },
+        {
+          "g": "b",
+          "p": 10
         }
       ],
       "outcome": "pass"
