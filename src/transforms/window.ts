@@ -466,6 +466,56 @@ export class WindowedSelection extends TransformBase implements _ISelection {
                 }
                 return;
             }
+            case 'nth_value': {
+                if (args.length !== 2) {
+                    throw new QueryError('nth_value expects 2 arguments');
+                }
+                if (w.frame) {
+                    const frames = this.frameBounds(partition, w, t);
+                    partition.forEach((r, i) => {
+                        const n = args[1].get(r, t);
+                        const [from, to] = frames[i];
+                        const idx = from + n - 1;
+                        r[id] = nullIsh(n) || idx < from || idx > to ? null : args[0].get(partition[idx], t);
+                    });
+                    return;
+                }
+                // default frame: partition start .. current row's last peer
+                let end = -1;
+                for (const g of this.peerGroups(partition, w, t)) {
+                    end += g.length;
+                    for (const r of g) {
+                        const n = args[1].get(r, t);
+                        const idx = n - 1;
+                        r[id] = nullIsh(n) || idx < 0 || idx > end ? null : args[0].get(partition[idx], t);
+                    }
+                }
+                return;
+            }
+            case 'cume_dist': {
+                const n = partition.length;
+                let counted = 0;
+                for (const g of this.peerGroups(partition, w, t)) {
+                    counted += g.length;
+                    const cd = counted / n;
+                    for (const r of g) {
+                        r[id] = cd;
+                    }
+                }
+                return;
+            }
+            case 'percent_rank': {
+                const n = partition.length;
+                let start = 1;
+                for (const g of this.peerGroups(partition, w, t)) {
+                    const pr = n === 1 ? 0 : (start - 1) / (n - 1);
+                    for (const r of g) {
+                        r[id] = pr;
+                    }
+                    start += g.length;
+                }
+                return;
+            }
             default:
                 throw new NotSupported(`window function ${fname}()`);
         }
@@ -491,6 +541,8 @@ function windowReturnType(fname: string, args: IValue[]): _IType {
         case 'ntile':
             return Types.integer;
         case 'avg':
+        case 'cume_dist':
+        case 'percent_rank':
             return Types.float;
         case 'sum':
             return args[0]?.type ?? Types.float;

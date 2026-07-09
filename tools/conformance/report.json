@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 224,
-  "total": 224,
+  "passed": 230,
+  "total": 230,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2531,6 +2531,97 @@
       "expected": [
         {
           "c": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "interval-units-window",
+      "name": "week interval added to a date",
+      "expected": [
+        {
+          "d": "2020-01-15"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "interval-units-window",
+      "name": "decade interval added to a date",
+      "expected": [
+        {
+          "d": "2030-01-01"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "interval-units-window",
+      "name": "extract days from a mixed week/day interval",
+      "expected": [
+        {
+          "d": 17
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "interval-units-window",
+      "name": "nth_value over the default frame",
+      "expected": [
+        {
+          "x": 10,
+          "v": null
+        },
+        {
+          "x": 20,
+          "v": 20
+        },
+        {
+          "x": 30,
+          "v": 20
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "interval-units-window",
+      "name": "cume_dist",
+      "expected": [
+        {
+          "x": 1,
+          "c": 0.25
+        },
+        {
+          "x": 2,
+          "c": 0.75
+        },
+        {
+          "x": 2,
+          "c": 0.75
+        },
+        {
+          "x": 3,
+          "c": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "interval-units-window",
+      "name": "percent_rank",
+      "expected": [
+        {
+          "x": 1,
+          "p": 0
+        },
+        {
+          "x": 3,
+          "p": 0.5
+        },
+        {
+          "x": 3,
+          "p": 0.5
         }
       ],
       "outcome": "pass"
