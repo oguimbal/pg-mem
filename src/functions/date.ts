@@ -28,10 +28,14 @@ export const dateFunctions: FunctionDefinition[] = [
         impure: true,
         implementation: () => new Date(),
     },
-    ...[DataType.timestamp, DataType.date].map<FunctionDefinition>(arg => ({
+    ...[
+        { arg: DataType.timestamp, ret: DataType.timestamp },
+        { arg: DataType.timestamptz, ret: DataType.timestamptz },
+        { arg: DataType.date, ret: DataType.timestamp },
+    ].map<FunctionDefinition>(({ arg, ret }) => ({
         name: 'date_trunc',
         args: [DataType.text, arg],
-        returns: DataType.timestamp,
+        returns: ret,
         implementation: (field: string, val: Date) => {
             const unit = dateTruncUnits[field?.toLowerCase()];
             if (!unit) {
@@ -40,12 +44,19 @@ export const dateFunctions: FunctionDefinition[] = [
             return moment.utc(val).startOf(unit).toDate();
         },
     })),
-    ...[DataType.timestamp, DataType.date].map<FunctionDefinition>(arg => ({
+    ...[DataType.timestamp, DataType.timestamptz, DataType.date].map<FunctionDefinition>(arg => ({
         name: 'date_part',
         args: [DataType.text, arg],
         returns: DataType.float,
         implementation: (field: string, val: Date) => datePart(field, val),
     })),
+    {
+        name: 'to_timestamp',
+        args: [DataType.float],
+        returns: DataType.timestamptz,
+        allowNullArguments: true,
+        implementation: (epochSeconds: number) => nullIsh(epochSeconds) ? null : new Date(epochSeconds * 1000),
+    },
     {
         name: 'make_date',
         args: [DataType.integer, DataType.integer, DataType.integer],
@@ -58,12 +69,12 @@ export const dateFunctions: FunctionDefinition[] = [
             return ret.toDate();
         },
     },
-    {
+    ...[DataType.timestamp, DataType.timestamptz, DataType.date].map<FunctionDefinition>(arg => ({
         name: 'to_char',
-        args: [DataType.timestamp, DataType.text],
+        args: [arg, DataType.text],
         returns: DataType.text,
         implementation: dateToChar,
-    },
+    })),
     {
         name: 'to_char',
         args: [DataType.float, DataType.text],
@@ -76,19 +87,18 @@ export const dateFunctions: FunctionDefinition[] = [
         returns: DataType.text,
         implementation: intervalToChar,
     },
-    {
+    ...[DataType.timestamp, DataType.timestamptz].flatMap<FunctionDefinition>(arg => [{
         name: 'age',
-        args: [DataType.timestamp, DataType.timestamp],
+        args: [arg, arg],
         returns: DataType.interval,
         implementation: (later: Date, earlier: Date) => dateAge(later, earlier),
-    },
-    {
+    }, {
         name: 'age',
-        args: [DataType.timestamp],
+        args: [arg],
         returns: DataType.interval,
         impure: true,
         implementation: (of: Date) => dateAge(moment.utc().startOf('day').toDate(), of),
-    },
+    }]),
     {
         name: 'justify_interval',
         args: [DataType.interval],

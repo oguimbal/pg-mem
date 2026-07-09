@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 210/210 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 215/215 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
@@ -34,6 +34,7 @@
 | regexp-functions | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | ordered-set-aggregates | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | ordinality-jsonb | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
+| datetime-timestamptz | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures
 

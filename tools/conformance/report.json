@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 210,
-  "total": 210,
+  "passed": 215,
+  "total": 215,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2370,6 +2370,56 @@
       "expected": [
         {
           "r": "{\n    \"a\": 1\n}"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "datetime-timestamptz",
+      "name": "date_trunc on timestamptz",
+      "expected": [
+        {
+          "d": "2020-06-01"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "datetime-timestamptz",
+      "name": "date_part on timestamptz",
+      "expected": [
+        {
+          "y": 2020
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "datetime-timestamptz",
+      "name": "to_timestamp from epoch seconds",
+      "expected": [
+        {
+          "d": "2020-01-01"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "datetime-timestamptz",
+      "name": "to_char on a date value",
+      "expected": [
+        {
+          "d": "2020-03-15"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "datetime-timestamptz",
+      "name": "date_trunc to the day on timestamptz",
+      "expected": [
+        {
+          "d": "2020-06-15"
         }
       ],
       "outcome": "pass"
