@@ -403,6 +403,19 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             };
             break;
         }
+        case 'IS DISTINCT FROM':
+        case 'IS NOT DISTINCT FROM': {
+            const type = expectSame();
+            const wantNotDistinct = op === 'IS NOT DISTINCT FROM';
+            rejectNils = false; // NULL is a normal comparable value here (never returns NULL)
+            getter = (a, b) => {
+                const an = nullIsh(a), bn = nullIsh(b);
+                // distinct: exactly one is null, or both non-null and unequal
+                const distinct = an || bn ? an !== bn : !type.equals(a, b);
+                return wantNotDistinct ? !distinct : distinct;
+            };
+            break;
+        }
         case '>': {
             const type = expectSame();
             getter = (a, b) => type.gt(a, b);

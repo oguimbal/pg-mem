@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 220,
-  "total": 220,
+  "passed": 224,
+  "total": 224,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2487,6 +2487,50 @@
             2,
             3
           ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "is-distinct-from",
+      "name": "is distinct from with nulls",
+      "expected": [
+        {
+          "a": false,
+          "b": true,
+          "c": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "is-distinct-from",
+      "name": "is not distinct from with nulls",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "is-distinct-from",
+      "name": "is distinct from with non-null operands",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "is-distinct-from",
+      "name": "filter with is distinct from over nullable columns",
+      "expected": [
+        {
+          "c": 2
         }
       ],
       "outcome": "pass"
