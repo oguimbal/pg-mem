@@ -111,6 +111,53 @@ describe('Triggers', () => {
         expect(many(`select hits from u`)[0].hits).toEqual(1);
     });
 
+    it('an audit trigger can INSERT into another table using NEW/OLD', () => {
+        none(`create table accounts (id int, balance int);
+               create table audit_log (account_id int, old_bal int, new_bal int);
+               create function log_change() returns trigger as $$
+                   begin
+                       insert into audit_log(account_id, old_bal, new_bal)
+                           values (new.id, old.balance, new.balance);
+                       return new;
+                   end;
+               $$ language plpgsql;
+               create trigger acc_audit after update on accounts
+                   for each row execute function log_change();
+               insert into accounts values (1, 100), (2, 200);
+               update accounts set balance = 150 where id = 1;
+               update accounts set balance = 250 where id = 2`);
+        expect(many(`select account_id, old_bal, new_bal from audit_log order by account_id`))
+            .toEqual([
+                { account_id: 1, old_bal: 100, new_bal: 150 },
+                { account_id: 2, old_bal: 200, new_bal: 250 },
+            ]);
+    });
+
+    it('a trigger body can use IF + RAISE to reject a row', () => {
+        none(`create table t (id int, v int);
+               create function guard() returns trigger as $$
+                   begin if new.v < 0 then raise exception 'negative v: %', new.v; end if; return new; end;
+               $$ language plpgsql;
+               create trigger tg before insert on t for each row execute function guard();
+               insert into t values (1, 5)`);
+        expect(many(`select v from t`)[0].v).toEqual(5);
+        expectQueryError(() => none(`insert into t values (2, -1)`), /negative v: -1/);
+    });
+
+    it('a statement-level trigger fires once per statement and can do DML', () => {
+        none(`create table data (id int);
+               create table log (msg text);
+               create function audit_stmt() returns trigger as $$
+                   begin insert into log(msg) values ('inserted'); return null; end;
+               $$ language plpgsql;
+               create trigger ds after insert on data for each statement
+                   execute function audit_stmt();
+               insert into data values (1), (2), (3);
+               insert into data values (4)`);
+        // two statements -> two log rows (regardless of row counts)
+        expect(many(`select count(*)::int as c from log`)[0].c).toEqual(2);
+    });
+
     it('drops a trigger by name', () => {
         none(`create table t (id int, seen int);
                create function mark() returns trigger as $$

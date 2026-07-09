@@ -78,3 +78,30 @@ create trigger u_bump before update of a on u for each row execute function bump
 update u set b = 99 where id = 1;
 update u set a = 42 where id = 1;
 select hits from u;
+
+-- @case: audit trigger inserts into a log table using NEW/OLD
+-- @expect: [{"account_id":1,"old_bal":100,"new_bal":150}]
+create table accounts (id int, balance int);
+create table audit_log (account_id int, old_bal int, new_bal int);
+create function log_change() returns trigger as $$
+begin
+    insert into audit_log(account_id, old_bal, new_bal)
+        values (new.id, old.balance, new.balance);
+    return new;
+end; $$ language plpgsql;
+create trigger acc_audit after update on accounts for each row execute function log_change();
+insert into accounts values (1, 100);
+update accounts set balance = 150 where id = 1;
+select account_id, old_bal, new_bal from audit_log;
+
+-- @case: statement-level trigger fires once per statement
+-- @expect: [{"c":2}]
+create table data (id int);
+create table logt (msg text);
+create function audit_stmt() returns trigger as $$
+begin insert into logt(msg) values ('ins'); return null; end;
+$$ language plpgsql;
+create trigger ds after insert on data for each statement execute function audit_stmt();
+insert into data values (1), (2), (3);
+insert into data values (4);
+select count(*)::int as c from logt;

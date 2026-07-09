@@ -9,13 +9,16 @@ import { Evaluator } from '../evaluator';
 import { executionCtx } from '../utils';
 import { StatementExec } from './statement-exec';
 
-// A minimal PL/pgSQL interpreter, scoped to the common trigger-function subset:
-//   BEGIN <stmts> END
-//   <NEW|OLD>.<col> := <expr>   (and `=`)
-//   RETURN NEW | OLD | NULL | <expr>
-//   IF <cond> THEN <stmts> [ELSIF <cond> THEN <stmts>]* [ELSE <stmts>] END IF
-//   RAISE ... (parsed & ignored)
-// Expressions are real SQL, evaluated with NEW/OLD in scope.
+// A PL/pgSQL interpreter for both regular functions and trigger functions.
+//   - DECLARE with typed variables + defaults
+//   - assignment, IF/ELSIF/ELSE, LOOP/WHILE/FOR (range and over-query), EXIT/CONTINUE
+//   - RETURN / RETURN NEXT / RETURN QUERY (set-returning)
+//   - embedded SQL: SELECT INTO, PERFORM, INSERT/UPDATE/DELETE, dynamic EXECUTE, FOUND
+//   - RAISE (with % formatting) and BEGIN ... EXCEPTION WHEN ... END (sub-transaction)
+// Variables resolve inside expressions AND embedded SQL as named parameters. Trigger
+// functions run through the same interpreter: NEW.col / OLD.col are rewritten to bare
+// variables (see mangleTrigger) so trigger bodies can also run embedded SQL.
+// WHEN-condition compilation still uses the small TriggerCompiler below (NEW/OLD join).
 
 export interface TriggerContext {
     table: _ITable;
@@ -23,12 +26,6 @@ export interface TriggerContext {
     old: any | null;
     op: 'INSERT' | 'UPDATE' | 'DELETE';
 }
-
-type Stmt =
-    | { kind: 'assign'; target: 'new' | 'old'; column: string; expr: string }
-    | { kind: 'return'; expr: string }
-    | { kind: 'if'; branches: { cond: string; body: Stmt[] }[]; else?: Stmt[] }
-    | { kind: 'raise' };
 
 // ---- parsing -------------------------------------------------------------------------
 
@@ -42,113 +39,6 @@ function stripComments(code: string): string {
 function tokenize(code: string): string[] {
     return stripComments(code)
         .match(/'(?:[^']|'')*'|\d+\.\d+|\d+|\.\.|:=|::|>=|<=|<>|!=|\|\||[a-zA-Z_][\w$]*|[(),.;]|[^\s]/g) ?? [];
-}
-
-/** Split a plpgsql fragment into top-level statements at ';', respecting parens and the
- * IF…END IF nesting. Returns statement source strings (without the trailing ';'). */
-class PlpgsqlParser {
-    private toks: string[];
-    private i = 0;
-
-    constructor(code: string) {
-        this.toks = tokenize(code);
-    }
-
-    private peek(n = 0) { return this.toks[this.i + n]?.toLowerCase(); }
-    private next() { return this.toks[this.i++]; }
-    private eatKw(kw: string) {
-        if (this.peek() !== kw) { throw new QueryError(`plpgsql: expected "${kw}", got "${this.toks[this.i] ?? '<eof>'}"`); }
-        this.i++;
-    }
-
-    parseBlock(): Stmt[] {
-        this.eatKw('begin');
-        const stmts = this.parseStmtsUntil(['end']);
-        this.eatKw('end');
-        return stmts;
-    }
-
-    private parseStmtsUntil(terminators: string[]): Stmt[] {
-        const out: Stmt[] = [];
-        while (this.i < this.toks.length && !terminators.includes(this.peek()!)) {
-            const s = this.parseStmt();
-            if (s) { out.push(s); }
-        }
-        return out;
-    }
-
-    private parseStmt(): Stmt | null {
-        const kw = this.peek();
-        if (kw === 'return') {
-            this.i++;
-            const expr = this.readUntilSemicolon();
-            return { kind: 'return', expr };
-        }
-        if (kw === 'if') {
-            return this.parseIf();
-        }
-        if (kw === 'raise') {
-            this.readUntilSemicolon();
-            return { kind: 'raise' };
-        }
-        // assignment:  new.col := expr   |   new.col = expr
-        const target = this.peek();
-        if ((target === 'new' || target === 'old') && this.peek(1) === '.') {
-            this.i += 2; // target .
-            const column = this.next();
-            const op = this.peek();
-            if (op !== ':=' && op !== '=') {
-                throw new QueryError(`plpgsql: expected assignment after ${target}.${column}`);
-            }
-            this.i++;
-            const expr = this.readUntilSemicolon();
-            return { kind: 'assign', target: target as 'new' | 'old', column, expr };
-        }
-        throw new NotSupported(`plpgsql statement starting with "${this.toks[this.i]}"`);
-    }
-
-    private parseIf(): Stmt {
-        this.eatKw('if');
-        const branches: { cond: string; body: Stmt[] }[] = [];
-        let cond = this.readUntil(['then']);
-        this.eatKw('then');
-        branches.push({ cond, body: this.parseStmtsUntil(['elsif', 'else', 'end']) });
-        while (this.peek() === 'elsif') {
-            this.i++;
-            cond = this.readUntil(['then']);
-            this.eatKw('then');
-            branches.push({ cond, body: this.parseStmtsUntil(['elsif', 'else', 'end']) });
-        }
-        let elseBody: Stmt[] | undefined;
-        if (this.peek() === 'else') {
-            this.i++;
-            elseBody = this.parseStmtsUntil(['end']);
-        }
-        this.eatKw('end');
-        this.eatKw('if');
-        if (this.peek() === ';') { this.i++; }
-        return { kind: 'if', branches, else: elseBody };
-    }
-
-    private readUntilSemicolon(): string {
-        return this.readUntil([';'], true);
-    }
-
-    private readUntil(stops: string[], consumeStop = false): string {
-        const parts: string[] = [];
-        let depth = 0;
-        while (this.i < this.toks.length) {
-            const t = this.peek()!;
-            if (depth === 0 && stops.includes(t)) {
-                if (consumeStop) { this.i++; }
-                break;
-            }
-            if (this.toks[this.i] === '(') { depth++; }
-            if (this.toks[this.i] === ')') { depth--; }
-            parts.push(this.next());
-        }
-        return joinTokens(parts);
-    }
 }
 
 /** strip surrounding single quotes and unescape '' -> ' */
@@ -173,10 +63,6 @@ function joinTokens(toks: string[]): string {
 }
 
 // ---- compilation & execution ---------------------------------------------------------
-
-interface CompiledStmt {
-    run(ctx: TriggerContext, t: _Transaction): { returned?: any } | void;
-}
 
 /** Builds a NEW⋈OLD context selection so `new.col` / `old.col` resolve, then compiles a
  * scalar SQL expression string against it. Cached per table. */
@@ -235,61 +121,6 @@ function parseExpr(src: string): Expr {
     return one.columns[0].expr;
 }
 
-function compile(stmts: Stmt[], c: TriggerCompiler): CompiledStmt[] {
-    return stmts.map<CompiledStmt>(s => {
-        switch (s.kind) {
-            case 'assign': {
-                const val = c.compileExpr(s.expr);
-                // row objects are keyed by column id (== name for ordinary tables)
-                const colId = c.columnId(s.column);
-                return {
-                    run(ctx, t) {
-                        const target = ctx[s.target];
-                        if (!target) {
-                            throw new QueryError(`record "${s.target}" is not assigned yet`);
-                        }
-                        target[colId] = val(ctx, t);
-                    },
-                };
-            }
-            case 'return': {
-                const src = s.expr.trim().toLowerCase();
-                if (src === 'new' || src === 'old') {
-                    return { run: (ctx) => ({ returned: ctx[src as 'new' | 'old'] }) };
-                }
-                if (src === 'null') {
-                    return { run: () => ({ returned: null }) };
-                }
-                const val = c.compileExpr(s.expr);
-                return { run: (ctx, t) => ({ returned: val(ctx, t) }) };
-            }
-            case 'if': {
-                const branches = s.branches.map(b => ({ cond: c.compileExpr(b.cond), body: compile(b.body, c) }));
-                const elseBody = s.else ? compile(s.else, c) : undefined;
-                return {
-                    run(ctx, t) {
-                        for (const b of branches) {
-                            if (b.cond(ctx, t)) {
-                                return runBody(b.body, ctx, t);
-                            }
-                        }
-                        if (elseBody) { return runBody(elseBody, ctx, t); }
-                    },
-                };
-            }
-            case 'raise':
-                return { run() { /* messages not surfaced yet */ } };
-        }
-    });
-}
-
-function runBody(body: CompiledStmt[], ctx: TriggerContext, t: _Transaction): { returned?: any } | void {
-    for (const st of body) {
-        const r = st.run(ctx, t);
-        if (r && 'returned' in r) { return r; }
-    }
-}
-
 // ============================================================================
 // General PL/pgSQL: regular (callable) functions and DO blocks
 // ============================================================================
@@ -331,8 +162,8 @@ class GParser {
     private toks: string[];
     private i = 0;
 
-    constructor(code: string) {
-        this.toks = tokenize(code);
+    constructor(codeOrToks: string | string[]) {
+        this.toks = Array.isArray(codeOrToks) ? codeOrToks : tokenize(codeOrToks);
     }
 
     private peek(n = 0) { return this.toks[this.i + n]?.toLowerCase(); }
@@ -669,6 +500,63 @@ interface GProgram {
     setof: boolean;
 }
 
+/** one placeholder IValue per variable, resolving against the current call frame */
+function buildParams(allVars: VarDef[]): Parameter[] {
+    return allVars.map((v, index) => ({
+        index,
+        value: new Evaluator(v.type, v.name, `plpgsql_var_${v.name}`, [],
+            () => frame().vars.get(v.name), { forceNotConstant: true }),
+    }));
+}
+
+/** the expression / embedded-SQL toolbox shared by functions and triggers */
+function makeHelpers(schema: _ISchema, params: Parameter[], returns: _IType | nil, setof: boolean): Helpers {
+    const mkCompiler = (sel: _ISelection, rowFn: () => any): ExprCompiler =>
+        (src, castTo) => {
+            const ast = parseExpr(src);
+            const val = withParameters(params, () => withSelection(sel, () => {
+                const v = buildValue(ast);
+                return castTo ? v.cast(castTo) : v;
+            }));
+            return (t) => val.get(rowFn(), t);
+        };
+    const compileExpr = mkCompiler(schema.dualTable.selection, () => DUMMY_ROW);
+    // nb: a StatementExec is compiled directly (not via schema.prepare) so that our
+    // variable parameters stay on top of the stack during compile - schema.prepare
+    // pushes the statement's own (empty) param set, which would shadow them
+    const compileStmt = (sql: string): any => {
+        const parsed = parse(sql);
+        const stmt = Array.isArray(parsed) ? parsed[0] : parsed;
+        const se = new StatementExec(schema, stmt, null) as any;
+        withParameters(params, () => se.compile());
+        return se;
+    };
+    const runStmt = (ctx: RunCtx, se: any): any => {
+        const r: StatementResult = se.executeStatement(ctx.t, []);
+        ctx.t = r.state;
+        frame().vars.set('found', (r.result.rows?.length ?? 0) > 0);
+        return r.result;
+    };
+    const outColumns = ((returns as any)?.of?.columns as { name: string }[] | undefined) ?? null;
+    return {
+        returns,
+        setof,
+        compileExpr,
+        mkCompiler,
+        outColumns,
+        querySelection: (sql) => {
+            const parsed = parse(sql);
+            const stmt = (Array.isArray(parsed) ? parsed[0] : parsed) as SelectStatement;
+            return withParameters(params, () => withSelection(schema.dualTable.selection, () => buildSelect(stmt)));
+        },
+        prepareSql: (sql) => {
+            const se = compileStmt(sql);
+            return (ctx) => runStmt(ctx, se);
+        },
+        runDynamic: (ctx, sqlText) => runStmt(ctx, compileStmt(sqlText)),
+    };
+}
+
 /** compiles a regular plpgsql function into a callable implementation */
 function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | nil, schema: _ISchema) {
     const { decls, block } = new GParser(code).parse();
@@ -685,59 +573,10 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
         }));
         // `found` is an implicit boolean variable set by embedded SQL
         const foundVar: VarDef = { name: 'found', type: Types.bool };
-        const allVars = [foundVar, ...args, ...locals];
-        // a placeholder IValue per variable, resolving against the current call frame
-        const params: Parameter[] = allVars.map((v, index) => ({
-            index,
-            value: new Evaluator(v.type, v.name, `plpgsql_var_${v.name}`, [],
-                () => frame().vars.get(v.name), { forceNotConstant: true }),
-        }));
-        const mkCompiler = (sel: _ISelection, rowFn: () => any): ExprCompiler =>
-            (src, castTo) => {
-                const ast = parseExpr(src);
-                const val = withParameters(params, () => withSelection(sel, () => {
-                    const v = buildValue(ast);
-                    return castTo ? v.cast(castTo) : v;
-                }));
-                return (t) => val.get(rowFn(), t);
-            };
-        const compileExpr = mkCompiler(schema.dualTable.selection, () => DUMMY_ROW);
-        // nb: a StatementExec is compiled directly (not via schema.prepare) so that our
-        // variable parameters stay on top of the stack during compile - schema.prepare
-        // pushes the statement's own (empty) param set, which would shadow them
-        const compileStmt = (sql: string): any => {
-            const parsed = parse(sql);
-            const stmt = Array.isArray(parsed) ? parsed[0] : parsed;
-            const se = new StatementExec(schema, stmt, null) as any;
-            withParameters(params, () => se.compile());
-            return se;
-        };
-        const runStmt = (ctx: RunCtx, se: any): any => {
-            const r: StatementResult = se.executeStatement(ctx.t, []);
-            ctx.t = r.state;
-            frame().vars.set('found', (r.result.rows?.length ?? 0) > 0);
-            return r.result;
-        };
-        const outColumns = ((returns as any)?.of?.columns as { name: string }[] | undefined) ?? null;
-        const helpers: Helpers = {
-            returns,
-            setof,
-            compileExpr,
-            mkCompiler,
-            outColumns,
-            querySelection: (sql) => {
-                const parsed = parse(sql);
-                const stmt = (Array.isArray(parsed) ? parsed[0] : parsed) as SelectStatement;
-                return withParameters(params, () => withSelection(schema.dualTable.selection, () => buildSelect(stmt)));
-            },
-            prepareSql: (sql) => {
-                const se = compileStmt(sql);
-                return (ctx) => runStmt(ctx, se);
-            },
-            runDynamic: (ctx, sqlText) => runStmt(ctx, compileStmt(sqlText)),
-        };
+        const params = buildParams([foundVar, ...args, ...locals]);
+        const helpers = makeHelpers(schema, params, returns, setof);
         return {
-            locals: locals.map(l => ({ ...l, defaultVal: l.default != null ? compileExpr(l.default, l.type) : null })),
+            locals: locals.map(l => ({ ...l, defaultVal: l.default != null ? helpers.compileExpr(l.default, l.type) : null })),
             compiled: compileBody([block], helpers),
             setof,
         };
@@ -766,6 +605,98 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
             const sig = runGBody(program.compiled, ctx);
             if (program.setof) { return out; }
             return sig?.type === 'return' ? sig.value : null;
+        } finally {
+            frameStack.pop();
+        }
+    };
+}
+
+/**
+ * Rewrite a trigger body's tokens so NEW/OLD flow through the general interpreter:
+ *   NEW.col / OLD.col  -> a bare variable  __n_col / __o_col  (resolves in expressions
+ *                         AND embedded SQL, unlike a qualified reference)
+ *   bare NEW / OLD      -> a sentinel string (for RETURN NEW / RETURN OLD)
+ */
+function mangleTrigger(toks: string[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < toks.length; i++) {
+        const lt = toks[i].toLowerCase();
+        if ((lt === 'new' || lt === 'old') && toks[i + 1] === '.' && /^[a-zA-Z_]/.test(toks[i + 2] ?? '')) {
+            out.push((lt === 'new' ? '__n_' : '__o_') + toks[i + 2].toLowerCase());
+            i += 2;
+        } else if (lt === 'new') {
+            out.push(`'__trg_new__'`);
+        } else if (lt === 'old') {
+            out.push(`'__trg_old__'`);
+        } else {
+            out.push(toks[i]);
+        }
+    }
+    return out;
+}
+
+/**
+ * A trigger function, run through the general interpreter. NEW/OLD columns become bare
+ * variables (see mangleTrigger), so a trigger body can now do embedded SQL (audit inserts),
+ * assignments, control flow, RAISE, EXCEPTION, etc. Compiled lazily per table.
+ */
+function buildPlpgsqlTrigger(code: string, schema: _ISchema): TriggerRunner {
+    const { decls, block } = new GParser(mangleTrigger(tokenize(code))).parse();
+    const perTable = new Map<_ITable, { compiled: GCompiled[]; locals: any[]; cols: { id: string }[] }>();
+
+    const compileForTable = (table: _ITable) => {
+        const cols = table.selection.columns
+            .filter(c => !!c.id)
+            .map(c => ({ id: c.id!, type: c.type }));
+        const locals = decls.map(d => ({
+            name: d.name,
+            type: schema.getType(parseTypeDef((d as any).typeSrc)) as _IType,
+            default: d.default ?? null,
+        }));
+        const varDefs: VarDef[] = [
+            { name: 'found', type: Types.bool },
+            { name: 'tg_op', type: Types.text() },
+            ...cols.map(c => ({ name: '__n_' + c.id, type: c.type })),
+            ...cols.map(c => ({ name: '__o_' + c.id, type: c.type })),
+            ...locals.map(l => ({ name: l.name, type: l.type })),
+        ];
+        const params = buildParams(varDefs);
+        // returns=null: a trigger RETURN yields NEW/OLD/NULL (not cast to a declared type)
+        const helpers = makeHelpers(schema, params, null, false);
+        return {
+            compiled: compileBody([block], helpers),
+            locals: locals.map(l => ({ ...l, defaultVal: l.default != null ? helpers.compileExpr(l.default, l.type) : null })),
+            cols,
+        };
+    };
+
+    return (tctx, t) => {
+        let comp = perTable.get(tctx.table);
+        if (!comp) { comp = compileForTable(tctx.table); perTable.set(tctx.table, comp); }
+        const ctx: RunCtx = { t };
+        const vars = new Map<string, any>();
+        vars.set('found', false);
+        vars.set('tg_op', tctx.op);
+        for (const c of comp.cols) {
+            vars.set('__n_' + c.id, tctx.new ? tctx.new[c.id] ?? null : null);
+            vars.set('__o_' + c.id, tctx.old ? tctx.old[c.id] ?? null : null);
+        }
+        frameStack.push({ vars });
+        try {
+            for (const l of comp.locals) {
+                vars.set(l.name, l.defaultVal ? l.defaultVal(ctx.t) : null);
+            }
+            const sig = runGBody(comp.compiled, ctx);
+            // a row trigger with no explicit RETURN defaults to NEW
+            const ret = sig?.type === 'return' ? sig.value : '__trg_new__';
+            if (ret === '__trg_new__') {
+                if (tctx.new) { for (const c of comp.cols) { tctx.new[c.id] = vars.get('__n_' + c.id); } }
+                return tctx.new;
+            }
+            if (ret === '__trg_old__') {
+                return tctx.old;
+            }
+            return null;
         } finally {
             frameStack.pop();
         }
@@ -1042,27 +973,11 @@ export function registerPlpgsqlLanguage(db: _IDb) {
                 returns as _IType,
                 schema as _ISchema);
         }
-        const body = new PlpgsqlParser(code).parseBlock();
-        // expressions are compiled lazily per table (a function may be attached to many)
-        const perTable = new Map<_ITable, CompiledStmt[]>();
-        const runner: TriggerRunner = (ctx, t) => {
-            let compiled = perTable.get(ctx.table);
-            if (!compiled) {
-                // establish a build context (compilation builds selections & expressions,
-                // which the executor phase otherwise lacks)
-                compiled = withSelection(ctx.table.selection, () => {
-                    const c = new TriggerCompiler(ctx.table);
-                    return compile(body, c);
-                });
-                perTable.set(ctx.table, compiled);
-            }
-            const r = runBody(compiled, ctx, t);
-            return r && 'returned' in r ? r.returned : ctx.new;
-        };
-        // trigger functions are never called as scalar functions; carry the runner so the
-        // trigger executor can invoke it
+        // trigger functions are never called as scalar functions; carry the runner (the
+        // general interpreter, with NEW/OLD mangled into variables) so the trigger executor
+        // can invoke it
         const impl: any = () => { throw new QueryError('trigger function cannot be called directly'); };
-        impl.__triggerRunner = runner;
+        impl.__triggerRunner = buildPlpgsqlTrigger(code, schema as _ISchema);
         return impl;
     });
 }

@@ -1,6 +1,6 @@
 import { _ITable, _Transaction, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private';
 import { applyReadRls, checkWriteRls } from '../rls-enforce';
-import { fireRowTriggers, SKIP_ROW } from '../triggers';
+import { fireRowTriggers, fireStatementTriggers, SKIP_ROW } from '../triggers';
 import { UpdateStatement } from 'pgsql-ast-parser';
 import { MutationDataSourceBase, Setter, createSetter } from './mutation-base';
 import { buildCtx } from '../../parser/context';
@@ -78,6 +78,8 @@ export class Update extends MutationDataSourceBase {
     protected performMutation(t: _Transaction): any[] {
         // perform update
         const rows: any[] = [];
+        const hasTriggers = this.table.triggers.triggers.length > 0;
+        if (hasTriggers) { fireStatementTriggers(this.table, 'before', 'update', t); }
         for (const i of this.mutatedSel.enumerate(t)) {
             const data = deepCloneSimple(this.fetchObjectToUpdate
                 ? this.fetchObjectToUpdate(i)
@@ -99,6 +101,7 @@ export class Update extends MutationDataSourceBase {
             }
             rows.push(updated);
         }
+        if (hasTriggers) { fireStatementTriggers(this.table, 'after', 'update', t); }
         return rows;
     }
 }

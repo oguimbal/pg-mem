@@ -1,6 +1,6 @@
 import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement, NotSupported } from '../../interfaces-private';
 import { checkWriteRls } from '../rls-enforce';
-import { fireRowTriggers, SKIP_ROW } from '../triggers';
+import { fireRowTriggers, fireStatementTriggers, SKIP_ROW } from '../triggers';
 import { InsertStatement } from 'pgsql-ast-parser';
 import { buildValue } from '../../parser/expression-builder';
 import { Types } from '../../datatypes';
@@ -158,6 +158,9 @@ export class Insert extends MutationDataSourceBase {
         // insert values
         const ret: any[] = [];
 
+        const hasTriggers = this.table.triggers.triggers.length > 0;
+        if (hasTriggers) { fireStatementTriggers(this.table, 'before', 'insert', t); }
+
         for (const val of values) {
             if (val.length !== this.insertColumns.length) {
                 throw new QueryError('Insert columns / values count mismatch');
@@ -199,6 +202,8 @@ export class Insert extends MutationDataSourceBase {
                 ret.push(insertedRow);
             }
         }
+
+        if (hasTriggers) { fireStatementTriggers(this.table, 'after', 'insert', t); }
 
         return ret;
     }

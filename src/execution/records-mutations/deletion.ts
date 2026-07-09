@@ -1,6 +1,6 @@
 import { _ITable, _Transaction, IValue, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private';
 import { applyReadRls } from '../rls-enforce';
-import { fireRowTriggers, SKIP_ROW } from '../triggers';
+import { fireRowTriggers, fireStatementTriggers, SKIP_ROW } from '../triggers';
 import { DeleteStatement } from 'pgsql-ast-parser';
 import { MutationDataSourceBase } from './mutation-base';
 import { buildCtx } from '../../parser/context';
@@ -21,6 +21,8 @@ export class Deletion extends MutationDataSourceBase {
     protected performMutation(t: _Transaction): any[] {
         // perform deletion
         const rows = [];
+        const hasTriggers = this.table.triggers.triggers.length > 0;
+        if (hasTriggers) { fireStatementTriggers(this.table, 'before', 'delete', t); }
         for (const item of this.mutatedSel.enumerate(t)) {
             // BEFORE DELETE row triggers may (returning null) skip the deletion
             if (this.table.triggers.triggers.length) {
@@ -34,6 +36,7 @@ export class Deletion extends MutationDataSourceBase {
             }
             rows.push(item);
         }
+        if (hasTriggers) { fireStatementTriggers(this.table, 'after', 'delete', t); }
         return rows;
     }
 }

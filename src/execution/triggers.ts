@@ -96,3 +96,27 @@ function distinct(a: any, b: any): boolean {
     }
     return true;
 }
+
+/**
+ * Fire the statement-level triggers of a table for a given timing and operation. These run
+ * once per statement (even when no rows are affected) and have no NEW/OLD row; the return
+ * value is ignored.
+ */
+export function fireStatementTriggers(
+    table: _ITable,
+    timing: 'before' | 'after',
+    op: TriggerOp,
+    t: _Transaction,
+): void {
+    for (const trig of table.triggers.triggers) {
+        if (trig.timing !== timing || trig.forEach !== 'statement' || !trig.events.includes(op)) {
+            continue;
+        }
+        const fn = trig.functionSchema.getFunction(trig.functionName, []);
+        const runner = fn && getTriggerRunner(fn.implementation);
+        if (!runner) {
+            throw new QueryError(`trigger "${trig.name}" references function "${trig.functionName}" which is not a trigger function`);
+        }
+        runner({ table, new: null, old: null, op: op.toUpperCase() as TriggerContext['op'] }, t);
+    }
+}

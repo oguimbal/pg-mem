@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 127,
-  "total": 127,
+  "passed": 129,
+  "total": 129,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1036,6 +1036,28 @@
       "expected": [
         {
           "hits": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "audit trigger inserts into a log table using NEW/OLD",
+      "expected": [
+        {
+          "account_id": 1,
+          "old_bal": 100,
+          "new_bal": 150
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "statement-level trigger fires once per statement",
+      "expected": [
+        {
+          "c": 2
         }
       ],
       "outcome": "pass"
