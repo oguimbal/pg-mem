@@ -18,6 +18,7 @@ import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../parser/expression-builder';
 import { PgDatabaseTable } from './pg-database';
 import { registerCommonOperators } from './binary-operators';
+import { registerRanges } from './ranges';
 import { registerSqlFunctionLanguage } from './sql-function-language';
 import { registerPlpgsqlLanguage } from '../../execution/plpgsql';
 import { PgProc } from './pg-proc';
@@ -176,6 +177,7 @@ export function setupPgCatalog(db: _IDb) {
     });
 
     registerCommonOperators(catalog);
+    registerRanges(catalog);
 
 
     registerSqlFunctionLanguage(db);

@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 146,
-  "total": 146,
+  "passed": 159,
+  "total": 159,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1537,6 +1537,144 @@
         {
           "id": 2,
           "v": "def"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "int4range canonical rendering",
+      "expected": [
+        {
+          "r": "[1,10)"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "int4range inclusive bounds canonicalize to [)",
+      "expected": [
+        {
+          "r": "[1,11)"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "int4range literal with exclusive lower canonicalizes",
+      "expected": [
+        {
+          "r": "[2,11)"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "empty range",
+      "expected": [
+        {
+          "e": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "range contains element",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "element contained by range",
+      "expected": [
+        {
+          "c": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "range contains range",
+      "expected": [
+        {
+          "c": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "range overlap",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "lower and upper accessors",
+      "expected": [
+        {
+          "l": 3,
+          "u": 10
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "lower_inc / upper_inc",
+      "expected": [
+        {
+          "li": true,
+          "ui": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "numeric range containment",
+      "expected": [
+        {
+          "c": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "date range containment",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "ranges",
+      "name": "range column filtered with @>",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 2
         }
       ],
       "outcome": "pass"

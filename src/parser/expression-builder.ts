@@ -364,12 +364,27 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
         rightValue = rightValue.cast(t);
     }
 
-    let getter: (a: any, b: any) => any;
+    let getter!: (a: any, b: any) => any;
     let returnType: _IType = Types.bool;
     let commutative = true;
     let forcehash: any = null;
     let rejectNils = true;
     let impure = false;
+    // resolve a custom operator registered on the schema (ranges, extensions, ...)
+    const resolveCustom = () => {
+        const { schema } = buildCtx();
+        const resolved = schema.resolveOperator(op, leftValue, rightValue);
+        if (!resolved) {
+            throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
+        }
+        leftValue = leftValue.cast(resolved.left);
+        rightValue = rightValue.cast(resolved.right);
+        commutative = resolved.commutative;
+        returnType = resolved.returns;
+        getter = resolved.implementation;
+        rejectNils = !resolved.allowNullArguments;
+        impure = !!resolved.impure;
+    };
     switch (op) {
         case '=': {
             const type = expectSame();
@@ -419,11 +434,16 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             }
             break;
         case '&&':
-            if (leftValue.type.primary !== DataType.array || !rightValue.canCast(leftValue.type)) {
-                throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
+            if (leftValue.type.primary === DataType.array) {
+                if (!rightValue.canCast(leftValue.type)) {
+                    throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
+                }
+                rightValue = rightValue.cast(leftValue.type);
+                getter = (a, b) => a.some((element: any) => b.includes(element));
+                break;
             }
-            rightValue = rightValue.cast(leftValue.type);
-            getter = (a, b) => a.some((element: any) => b.includes(element));
+            // non-array && (e.g. range overlap) resolves via a registered operator
+            resolveCustom();
             break;
         case 'LIKE':
         case 'ILIKE':
@@ -470,18 +490,7 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             }
             break;
         default: {
-            const { schema } = buildCtx();
-            const resolved = schema.resolveOperator(op, leftValue, rightValue);
-            if (!resolved) {
-                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
-            }
-            leftValue = leftValue.cast(resolved.left);
-            rightValue = rightValue.cast(resolved.right);
-            commutative = resolved.commutative;
-            returnType = resolved.returns;
-            getter = resolved.implementation;
-            rejectNils = !resolved.allowNullArguments;
-            impure = !!resolved.impure;
+            resolveCustom();
             break;
         }
     }

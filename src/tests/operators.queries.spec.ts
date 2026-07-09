@@ -357,7 +357,7 @@ describe('Operators', () => {
             fill();
             expectQueryError(() => {
                 none(`select id from test where id && '{"b", "e"}'::text array;`)
-            }, /Operator does not exist: text && text\[\]/);
+            }, /operator does not exist: text && text\[\]/i);
         })
 
     });
