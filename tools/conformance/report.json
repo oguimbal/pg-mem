@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 129,
-  "total": 129,
+  "passed": 132,
+  "total": 132,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1063,6 +1063,31 @@
       "outcome": "pass"
     },
     {
+      "category": "triggers",
+      "name": "INSTEAD OF trigger makes a view insertable",
+      "expected": [
+        {
+          "id": 1,
+          "first": "Ada",
+          "last": "Lovelace"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "trigger sees TG_OP, TG_TABLE_NAME and TG_ARGV",
+      "expected": [
+        {
+          "tbl": "t",
+          "op": "INSERT",
+          "a0": "x",
+          "nargs": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
       "category": "transactions",
       "name": "savepoint rollback",
       "expected": [
@@ -1313,6 +1338,22 @@
         {
           "oid": 3,
           "ov": 30
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "RETURNS SETOF scalar",
+      "expected": [
+        {
+          "nums": 1
+        },
+        {
+          "nums": 2
+        },
+        {
+          "nums": 3
         }
       ],
       "outcome": "pass"

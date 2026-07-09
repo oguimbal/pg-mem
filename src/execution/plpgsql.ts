@@ -25,6 +25,11 @@ export interface TriggerContext {
     new: any | null;
     old: any | null;
     op: 'INSERT' | 'UPDATE' | 'DELETE';
+    /** trigger metadata, exposed as the TG_* special variables */
+    name?: string;
+    when?: string;   // 'BEFORE' | 'AFTER' | 'INSTEAD OF'
+    level?: string;  // 'ROW' | 'STATEMENT'
+    args?: string[]; // CREATE TRIGGER ... EXECUTE FUNCTION f(args) -> TG_ARGV
 }
 
 // ---- parsing -------------------------------------------------------------------------
@@ -621,6 +626,13 @@ function mangleTrigger(toks: string[]): string[] {
     const out: string[] = [];
     for (let i = 0; i < toks.length; i++) {
         const lt = toks[i].toLowerCase();
+        // TG_ARGV is 0-indexed in postgres, but pg-mem arrays are 1-indexed: bump a
+        // literal index by one (TG_ARGV[0] -> the stored array's element 1)
+        if (lt === 'tg_argv' && toks[i + 1] === '[' && /^\d+$/.test(toks[i + 2] ?? '') && toks[i + 3] === ']') {
+            out.push(toks[i], '[', String(Number(toks[i + 2]) + 1), ']');
+            i += 3;
+            continue;
+        }
         if ((lt === 'new' || lt === 'old') && toks[i + 1] === '.' && /^[a-zA-Z_]/.test(toks[i + 2] ?? '')) {
             out.push((lt === 'new' ? '__n_' : '__o_') + toks[i + 2].toLowerCase());
             i += 2;
@@ -655,7 +667,14 @@ function buildPlpgsqlTrigger(code: string, schema: _ISchema): TriggerRunner {
         }));
         const varDefs: VarDef[] = [
             { name: 'found', type: Types.bool },
+            // TG_* special variables
             { name: 'tg_op', type: Types.text() },
+            { name: 'tg_name', type: Types.text() },
+            { name: 'tg_when', type: Types.text() },
+            { name: 'tg_level', type: Types.text() },
+            { name: 'tg_table_name', type: Types.text() },
+            { name: 'tg_nargs', type: Types.integer },
+            { name: 'tg_argv', type: Types.text().asArray() },
             ...cols.map(c => ({ name: '__n_' + c.id, type: c.type })),
             ...cols.map(c => ({ name: '__o_' + c.id, type: c.type })),
             ...locals.map(l => ({ name: l.name, type: l.type })),
@@ -675,8 +694,15 @@ function buildPlpgsqlTrigger(code: string, schema: _ISchema): TriggerRunner {
         if (!comp) { comp = compileForTable(tctx.table); perTable.set(tctx.table, comp); }
         const ctx: RunCtx = { t };
         const vars = new Map<string, any>();
+        const tgArgv = tctx.args ?? [];
         vars.set('found', false);
         vars.set('tg_op', tctx.op);
+        vars.set('tg_name', tctx.name ?? null);
+        vars.set('tg_when', tctx.when ?? null);
+        vars.set('tg_level', tctx.level ?? null);
+        vars.set('tg_table_name', tctx.table.name);
+        vars.set('tg_nargs', tgArgv.length);
+        vars.set('tg_argv', tgArgv);
         for (const c of comp.cols) {
             vars.set('__n_' + c.id, tctx.new ? tctx.new[c.id] ?? null : null);
             vars.set('__o_' + c.id, tctx.old ? tctx.old[c.id] ?? null : null);
@@ -859,14 +885,16 @@ function compileBody(stmts: GStmt[], h: Helpers): GCompiled[] {
                     run(ctx) {
                         const res = run(ctx);
                         for (const row of res.rows ?? []) {
-                            // map the query's columns positionally onto the output columns
                             if (cols) {
+                                // RETURNS TABLE: map the query's columns positionally
                                 const keys = Object.keys(row);
                                 const mapped: any = {};
                                 cols.forEach((c, i) => mapped[c.name] = row[keys[i]] ?? null);
                                 ctx.emit?.(mapped);
                             } else {
-                                ctx.emit?.(row);
+                                // RETURNS SETOF <scalar>: emit the single column's value
+                                const keys = Object.keys(row);
+                                ctx.emit?.(keys.length === 1 ? row[keys[0]] : row);
                             }
                         }
                         return null;

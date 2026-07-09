@@ -60,6 +60,11 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
                 case null:
                 case undefined:
                     returns = schema.getType(fn.returns);
+                    // RETURNS SETOF <t> yields a set of <t>: the value is an array of <t>
+                    // (one row per element), matching how the SRF machinery expands it
+                    if (fn.setof) {
+                        returns = returns.asArray();
+                    }
                     break;
                 default:
                     throw NotSupported.never(fn.returns);
@@ -91,8 +96,8 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             argsVariadic,
             impure: fn.purity !== 'immutable',
             allowNullArguments: fn.onNullInput === 'call',
-            // RETURNS TABLE(...) is set-returning: the implementation returns an array
-            setReturning: fn.returns.kind === 'table',
+            // RETURNS TABLE(...) / RETURNS SETOF ...: set-returning (impl returns an array)
+            setReturning: fn.returns.kind === 'table' || !!fn.setof,
         };
         this.replace = fn.orReplace ?? false;
 

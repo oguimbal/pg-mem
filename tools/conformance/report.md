@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 129/129 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 132/132 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
@@ -15,12 +15,12 @@
 | joins | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | numeric-types | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | datetime-tz | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
-| triggers | 8/8 | 0 | 0 | 0 | 0 | 0 | 0 |
+| triggers | 10/10 | 0 | 0 | 0 | 0 | 0 | 0 |
 | transactions | 2/2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | prepared | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | domains | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | catalog | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
-| plpgsql | 11/11 | 0 | 0 | 0 | 0 | 0 | 0 |
+| plpgsql | 12/12 | 0 | 0 | 0 | 0 | 0 | 0 |
 | rls | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures

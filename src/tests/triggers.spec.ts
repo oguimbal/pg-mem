@@ -158,6 +158,55 @@ describe('Triggers', () => {
         expect(many(`select count(*)::int as c from log`)[0].c).toEqual(2);
     });
 
+    it('exposes TG_OP, TG_TABLE_NAME, TG_ARGV and TG_NARGS', () => {
+        none(`create table t (id int);
+               create table log (tbl text, op text, a0 text, a1 text, nargs int);
+               create function meta() returns trigger as $$
+                   begin
+                       insert into log(tbl, op, a0, a1, nargs)
+                           values (tg_table_name, tg_op, tg_argv[0], tg_argv[1], tg_nargs);
+                       return new;
+                   end;
+               $$ language plpgsql;
+               create trigger tm after insert on t for each row execute function meta('x', 'y');
+               insert into t values (1)`);
+        expect(many(`select tbl, op, a0, a1, nargs from log`)).toEqual([
+            { tbl: 't', op: 'INSERT', a0: 'x', a1: 'y', nargs: 2 },
+        ]);
+    });
+
+    it('INSTEAD OF triggers make a view insertable/updatable/deletable', () => {
+        none(`create table people (id int, first text, last text);
+               create view full_names as select id, first || ' ' || last as name from people;
+               create function v_ins() returns trigger as $$
+                   begin insert into people(id, first, last)
+                       values (new.id, split_part(new.name, ' ', 1), split_part(new.name, ' ', 2));
+                       return new; end;
+               $$ language plpgsql;
+               create function v_upd() returns trigger as $$
+                   begin update people set first = split_part(new.name, ' ', 1),
+                       last = split_part(new.name, ' ', 2) where id = old.id; return new; end;
+               $$ language plpgsql;
+               create function v_del() returns trigger as $$
+                   begin delete from people where id = old.id; return old; end;
+               $$ language plpgsql;
+               create trigger vi instead of insert on full_names for each row execute function v_ins();
+               create trigger vu instead of update on full_names for each row execute function v_upd();
+               create trigger vd instead of delete on full_names for each row execute function v_del();
+               insert into full_names(id, name) values (1, 'Ada Lovelace'), (2, 'Alan Turing');
+               update full_names set name = 'Ada King' where id = 1;
+               delete from full_names where id = 2`);
+        expect(many(`select id, first, last from people order by id`))
+            .toEqual([{ id: 1, first: 'Ada', last: 'King' }]);
+    });
+
+    it('rejects a BEFORE trigger on a view and INSTEAD OF on a table', () => {
+        none(`create table t (id int); create view v as select * from t;
+               create function f() returns trigger as $$ begin return new; end; $$ language plpgsql`);
+        expectQueryError(() => none(`create trigger x before insert on v for each row execute function f()`), /view|INSTEAD OF/i);
+        expectQueryError(() => none(`create trigger y instead of insert on t for each row execute function f()`), /INSTEAD OF/i);
+    });
+
     it('drops a trigger by name', () => {
         none(`create table t (id int, seen int);
                create function mark() returns trigger as $$

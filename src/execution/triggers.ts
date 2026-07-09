@@ -1,4 +1,4 @@
-import { _ITable, _Transaction, _ISchema, QueryError } from '../interfaces-private';
+import { _ITable, _IView, _Transaction, _ISchema, QueryError } from '../interfaces-private';
 import { getTriggerRunner, TriggerContext } from './plpgsql';
 
 export type TriggerTiming = 'before' | 'after' | 'instead of';
@@ -11,6 +11,8 @@ export interface Trigger {
     forEach: 'row' | 'statement';
     functionName: string;
     functionSchema: _ISchema;
+    /** literal arguments from EXECUTE FUNCTION f(args) - exposed as TG_ARGV */
+    arguments?: string[];
     /** compiled WHEN condition (NEW/OLD in scope); the trigger fires only if it is true */
     when?: (ctx: TriggerContext, t: _Transaction) => any;
     /** for `UPDATE OF a, b`: column ids to watch - fire only if one of them changed */
@@ -58,6 +60,7 @@ export function fireRowTriggers(
             new: current,
             old: oldRow,
             op: op.toUpperCase() as TriggerContext['op'],
+            ...triggerMeta(trig),
         };
         // WHEN condition (NEW/OLD in scope) gates the firing
         if (trig.when && trig.when(ctx, t) !== true) {
@@ -117,6 +120,49 @@ export function fireStatementTriggers(
         if (!runner) {
             throw new QueryError(`trigger "${trig.name}" references function "${trig.functionName}" which is not a trigger function`);
         }
-        runner({ table, new: null, old: null, op: op.toUpperCase() as TriggerContext['op'] }, t);
+        runner({ table, new: null, old: null, op: op.toUpperCase() as TriggerContext['op'], ...triggerMeta(trig) }, t);
     }
+}
+
+/**
+ * Fire a view's INSTEAD OF row triggers for an operation. Returns true if a trigger handled
+ * it (so the caller performs no real mutation), false if there was none.
+ */
+export function fireInsteadOf(
+    view: _IView,
+    op: TriggerOp,
+    newRow: any | null,
+    oldRow: any | null,
+    t: _Transaction,
+): boolean {
+    let fired = false;
+    for (const trig of view.triggers.triggers) {
+        if (trig.timing !== 'instead of' || trig.forEach !== 'row' || !trig.events.includes(op)) {
+            continue;
+        }
+        const fn = trig.functionSchema.getFunction(trig.functionName, []);
+        const runner = fn && getTriggerRunner(fn.implementation);
+        if (!runner) {
+            throw new QueryError(`trigger "${trig.name}" references function "${trig.functionName}" which is not a trigger function`);
+        }
+        // the view's selection provides NEW/OLD column resolution for the runner
+        runner({ table: view as any, new: newRow, old: oldRow, op: op.toUpperCase() as TriggerContext['op'], ...triggerMeta(trig) }, t);
+        fired = true;
+    }
+    return fired;
+}
+
+/** does a view have an INSTEAD OF trigger for this operation? */
+export function hasInsteadOf(view: _IView, op: TriggerOp): boolean {
+    return view.triggers.triggers.some(tr => tr.timing === 'instead of' && tr.events.includes(op));
+}
+
+/** the TG_* metadata fields for a trigger */
+function triggerMeta(trig: Trigger): Partial<TriggerContext> {
+    return {
+        name: trig.name,
+        when: trig.timing.toUpperCase(),
+        level: trig.forEach.toUpperCase(),
+        args: trig.arguments ?? [],
+    };
 }

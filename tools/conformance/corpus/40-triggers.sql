@@ -105,3 +105,30 @@ create trigger ds after insert on data for each statement execute function audit
 insert into data values (1), (2), (3);
 insert into data values (4);
 select count(*)::int as c from logt;
+
+-- @case: INSTEAD OF trigger makes a view insertable
+-- @expect: [{"id":1,"first":"Ada","last":"Lovelace"}]
+create table people (id int, first text, last text);
+create view full_names as select id, first || ' ' || last as name from people;
+create function v_ins() returns trigger as $$
+begin
+    insert into people(id, first, last)
+        values (new.id, split_part(new.name, ' ', 1), split_part(new.name, ' ', 2));
+    return new;
+end; $$ language plpgsql;
+create trigger vi instead of insert on full_names for each row execute function v_ins();
+insert into full_names(id, name) values (1, 'Ada Lovelace');
+select id, first, last from people;
+
+-- @case: trigger sees TG_OP, TG_TABLE_NAME and TG_ARGV
+-- @expect: [{"tbl":"t","op":"INSERT","a0":"x","nargs":2}]
+create table t (id int);
+create table log (tbl text, op text, a0 text, nargs int);
+create function meta() returns trigger as $$
+begin
+    insert into log(tbl, op, a0, nargs) values (tg_table_name, tg_op, tg_argv[0], tg_nargs);
+    return new;
+end; $$ language plpgsql;
+create trigger tm after insert on t for each row execute function meta('x', 'y');
+insert into t values (1);
+select tbl, op, a0, nargs from log;

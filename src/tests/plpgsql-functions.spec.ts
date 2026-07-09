@@ -232,5 +232,20 @@ describe('PL/pgSQL functions', () => {
             $$ language plpgsql`);
             expect(many(`select n from combo()`).map(r => r.n)).toEqual([100, 10, 20, 30]);
         });
+
+        it('RETURNS SETOF <scalar> yields one row per element', () => {
+            none(`create function nums(n int) returns setof int as $$
+                declare i int;
+                begin for i in 1..n loop return next i; end loop; end;
+            $$ language plpgsql`);
+            expect(many(`select * from nums(3)`).map(r => r.nums)).toEqual([1, 2, 3]);
+        });
+
+        it('RETURNS SETOF with RETURN QUERY', () => {
+            none(`create function allv() returns setof int as $$
+                begin return query select v from t order by v; end;
+            $$ language plpgsql`);
+            expect(many(`select * from allv()`).map(r => r.allv)).toEqual([10, 20, 30]);
+        });
     });
 });

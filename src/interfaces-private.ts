@@ -488,6 +488,10 @@ export interface _IView extends _RelationBase {
     readonly type: 'view';
     readonly db: _IDb;
     readonly selection: _ISelection;
+    /** INSTEAD OF triggers defined on this view */
+    readonly triggers: TableTriggers;
+    createTrigger(trigger: Trigger): void;
+    dropTrigger(name: string, ifExists: boolean): void;
     drop(t: _Transaction): void;
 }
 

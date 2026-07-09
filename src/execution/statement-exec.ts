@@ -31,6 +31,9 @@ import { AlterEnum } from "./schema-amends/alter-enum";
 import { Comment } from './schema-amends/comment';
 import { ExecutePrepared } from './execute-prepared';
 import { CreateDomain } from './schema-amends/create-domain';
+import { InsteadOfView } from './records-mutations/instead-of';
+import { hasInsteadOf, TriggerOp } from './triggers';
+import { _IView, _ITable } from '../interfaces-private';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -82,10 +85,15 @@ export class StatementExec implements _IStatement {
                 return new SavepointExecutor(p);
             case 'release savepoint':
                 return new ReleaseSavepointExecutor(p);
-            case 'select':
             case 'delete':
             case 'update':
-            case 'insert':
+            case 'insert': {
+                // DML on a view with an INSTEAD OF trigger fires the trigger instead
+                const io = this.insteadOfViewExecutor(p);
+                if (io) { return io; }
+                return new SelectExec(this, p);
+            }
+            case 'select':
             case 'union':
             case 'union all':
             case 'values':
@@ -207,21 +215,43 @@ export class StatementExec implements _IStatement {
             case 'create domain':
                 return new CreateDomain(this, p);
             case 'drop trigger':
-                // DROP TRIGGER <name> ON <table> [IF EXISTS]
+                // DROP TRIGGER <name> ON <table|view> [IF EXISTS]
                 return new SimpleExecutor(p, () => {
                     const dp = p as any;
-                    const table = this.schema.getThisOrSiblingFor(dp.onTable)
-                        .getTable(dp.onTable.name, !!dp.ifExists);
-                    if (!table) {
-                        return; // IF EXISTS: unknown table is a no-op
+                    const obj = this.schema.getThisOrSiblingFor(dp.onTable)
+                        .getObject(dp.onTable, { nullIfNotFound: !!dp.ifExists });
+                    if (!obj) {
+                        return; // IF EXISTS: unknown relation is a no-op
                     }
-                    table.dropTrigger(dp.name.name, !!dp.ifExists);
+                    if (obj.type !== 'table' && obj.type !== 'view') {
+                        throw new QueryError(`"${dp.onTable.name}" is not a table or view`);
+                    }
+                    (obj as _ITable | _IView).dropTrigger(dp.name.name, !!dp.ifExists);
                 }, 'DROP TRIGGER');
             case 'alter index':
                 return new AlterIndex(this, p);
             default:
                 throw NotSupported.never(p, 'statement type');
         }
+    }
+
+    /** if this DML targets a view with a matching INSTEAD OF trigger, an executor for it */
+    private insteadOfViewExecutor(p: Statement): _IStatementExecutor | null {
+        const target = p.type === 'insert' ? p.into
+            : p.type === 'update' ? p.table
+                : (p as any).from;
+        if (!target || target.type === 'statement') {
+            return null;
+        }
+        const obj = this.schema.getObject(target, { nullIfNotFound: true });
+        if (obj?.type !== 'view') {
+            return null;
+        }
+        const op = p.type as TriggerOp;
+        if (!hasInsteadOf(obj as _IView, op)) {
+            return null;
+        }
+        return new InsteadOfView(obj as _IView, p as any);
     }
 
 

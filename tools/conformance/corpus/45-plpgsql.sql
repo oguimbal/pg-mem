@@ -107,3 +107,11 @@ create function bigrows(threshold int) returns table(oid int, ov int) as $$
 begin return query select id, v from src where v > threshold order by id; end;
 $$ language plpgsql;
 select oid, ov from bigrows(15) order by oid;
+
+-- @case: RETURNS SETOF scalar
+-- @expect: [{"nums":1},{"nums":2},{"nums":3}]
+create function nums(n int) returns setof int as $$
+declare i int;
+begin for i in 1..n loop return next i; end loop; end;
+$$ language plpgsql;
+select * from nums(3);
