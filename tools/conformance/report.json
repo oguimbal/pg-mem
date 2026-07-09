@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 141,
-  "total": 141,
+  "passed": 146,
+  "total": 146,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1444,6 +1444,101 @@
       "category": "composite-types",
       "name": "duplicate composite type name rejected",
       "expectedError": "already exists",
+      "outcome": "pass"
+    },
+    {
+      "category": "merge",
+      "name": "merge upsert (matched update, not-matched insert)",
+      "expected": [
+        {
+          "id": 1,
+          "v": "A"
+        },
+        {
+          "id": 2,
+          "v": "B"
+        },
+        {
+          "id": 3,
+          "v": "c"
+        },
+        {
+          "id": 4,
+          "v": "D"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "merge",
+      "name": "merge conditional matched actions (delete then update)",
+      "expected": [
+        {
+          "id": 1,
+          "v": "A"
+        },
+        {
+          "id": 3,
+          "v": "c"
+        },
+        {
+          "id": 4,
+          "v": "D"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "merge",
+      "name": "merge do nothing on match leaves rows untouched",
+      "expected": [
+        {
+          "id": 1,
+          "v": "a"
+        },
+        {
+          "id": 2,
+          "v": "b"
+        },
+        {
+          "id": 3,
+          "v": "c"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "merge",
+      "name": "merge from a subquery source",
+      "expected": [
+        {
+          "id": 1,
+          "v": "A"
+        },
+        {
+          "id": 2,
+          "v": "b"
+        },
+        {
+          "id": 4,
+          "v": "D"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "merge",
+      "name": "merge insert with default column value",
+      "expected": [
+        {
+          "id": 1,
+          "v": "a"
+        },
+        {
+          "id": 2,
+          "v": "def"
+        }
+      ],
       "outcome": "pass"
     },
     {
