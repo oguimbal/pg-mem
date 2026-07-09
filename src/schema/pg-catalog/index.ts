@@ -10,6 +10,8 @@ import { PgSequencesTable } from './pg-sequences-list';
 import { PgTypeTable } from './pg-type-list';
 import { PgUserTable } from './pg-user-list';
 import { PgPoliciesTable } from './pg-policies-list';
+import { PgIndexesTable } from './pg-indexes-list';
+import { PgTablesTable } from './pg-tables-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../parser/expression-builder';
@@ -68,6 +70,8 @@ export function setupPgCatalog(db: _IDb) {
     new PgSequencesTable(catalog).register();
     new PgUserTable(catalog).register();
     new PgPoliciesTable(catalog).register();
+    new PgIndexesTable(catalog).register();
+    new PgTablesTable(catalog).register();
 
 
     // this is an ugly hack...

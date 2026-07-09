@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler, Row } from '../interfaces-private';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler, Row, _INamedIndex } from '../interfaces-private';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'pgsql-ast-parser';
 import { DataSourceBase } from '../transforms/transform-base';
 import { Schema, ColumnNotFound, nil, ISubscription, ColumnDef } from '../interfaces';
@@ -147,6 +147,9 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
     }
     renameIndex(oldName: string, newName: string): void {
         throw new PermissionDeniedError(this.name);
+    }
+    *listIndexes(): Iterable<_INamedIndex> {
+        // read-only catalog tables expose no user indexes
     }
     // read-only catalog tables never carry row-level security
     readonly rls: TableRls = emptyRls();

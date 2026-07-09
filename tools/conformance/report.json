@@ -1,8 +1,8 @@
 {
-  "mode": "offline",
+  "mode": "differential",
   "score": 100,
-  "passed": 108,
-  "total": 108,
+  "passed": 116,
+  "total": 116,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -439,7 +439,7 @@
         }
       ],
       "outcome": "known-gap",
-      "detail": "numeric ln/exp computed in float64, not arbitrary precision (@expect says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}])"
+      "detail": "numeric ln/exp computed in float64, not arbitrary precision (postgres says [{\"a\":2.718281828459045,\"b\":\"0.9999999999999999\"}], pg-mem says [{\"a\":2.718281828459045,\"b\":1}])"
     },
     {
       "category": "functions-math",
@@ -1104,6 +1104,81 @@
       "category": "prepared",
       "name": "deallocate removes a prepared statement",
       "expectedError": "does not exist",
+      "outcome": "pass"
+    },
+    {
+      "category": "domains",
+      "name": "domain check accepts a valid value",
+      "expected": [
+        {
+          "qty": 5
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "domains",
+      "name": "domain check rejects an invalid value",
+      "expectedError": "violates check constraint",
+      "outcome": "pass"
+    },
+    {
+      "category": "domains",
+      "name": "domain value behaves as its base type",
+      "expected": [
+        {
+          "r": 15
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "domains",
+      "name": "domain not null is enforced",
+      "expectedError": "null",
+      "outcome": "pass"
+    },
+    {
+      "category": "domains",
+      "name": "domain check enforced on explicit cast",
+      "expectedError": "violates check constraint",
+      "outcome": "pass"
+    },
+    {
+      "category": "catalog",
+      "name": "pg_indexes lists a table's indexes",
+      "offline": true,
+      "expected": [
+        {
+          "indexname": "users_email_idx"
+        },
+        {
+          "indexname": "users_pkey"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "catalog",
+      "name": "pg_indexes exposes an index definition",
+      "offline": true,
+      "expected": [
+        {
+          "indexdef": "CREATE UNIQUE INDEX users_email_idx ON public.users USING btree (email)"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "catalog",
+      "name": "pg_tables reports hasindexes and hastriggers",
+      "offline": true,
+      "expected": [
+        {
+          "tablename": "t",
+          "hasindexes": true
+        }
+      ],
       "outcome": "pass"
     },
     {

@@ -220,8 +220,29 @@ function _buildCall(val: ExprCall): IValue {
         }
         return agg.getAggregation(nm, val);
     }
+    // ROW(...) constructor -> an anonymous record with fields f1, f2, ...
+    if (nm === 'row' && !val.over) {
+        return buildRowConstructor(val.args);
+    }
     const args = val.args.map(x => _buildValue(x));
     return Value.function(val.function, args);
+}
+
+function buildRowConstructor(args: Expr[]): IValue {
+    const vals = args.map(a => _buildValue(a));
+    const cols = vals.map<RecordCol>((v, i) => ({ name: `f${i + 1}`, type: v.type }));
+    return new Evaluator(
+        Types.record(cols)
+        , null
+        , hash({ row: vals.map(v => v.hash) })
+        , vals
+        , (raw, t) => {
+            const ret: any = {};
+            for (let i = 0; i < vals.length; i++) {
+                ret[`f${i + 1}`] = vals[i].get(raw, t);
+            }
+            return ret;
+        });
 }
 
 function roleKeyword(keyword: string, get: (t: _Transaction) => string): IValue {

@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 108/108 (100.0%) · 1 known gap** — verified against offline (@expect annotations)
+**Score: 116/116 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
@@ -18,6 +18,8 @@
 | triggers | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | transactions | 2/2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | prepared | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
+| domains | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
+| catalog | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | rls | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures
@@ -26,5 +28,5 @@ _None._
 
 ## Known gaps (accepted divergences)
 
-- `functions-math/exp ln` — numeric ln/exp computed in float64, not arbitrary precision (@expect says [{"a":2.718281828459045,"b":"0.9999999999999999"}], pg-mem says [{"a":2.718281828459045,"b":1}])
+- `functions-math/exp ln` — numeric ln/exp computed in float64, not arbitrary precision (postgres says [{"a":2.718281828459045,"b":"0.9999999999999999"}], pg-mem says [{"a":2.718281828459045,"b":1}])
 

@@ -30,6 +30,7 @@ import { DropType } from './schema-amends/drop-type';
 import { AlterEnum } from "./schema-amends/alter-enum";
 import { Comment } from './schema-amends/comment';
 import { ExecutePrepared } from './execute-prepared';
+import { CreateDomain } from './schema-amends/create-domain';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -203,6 +204,8 @@ export class StatementExec implements _IStatement {
                 return new ExecutePrepared(this, p);
             case 'create composite type':
                 throw new NotSupported('create composite type');
+            case 'create domain':
+                return new CreateDomain(this, p);
             case 'drop trigger':
                 // DROP TRIGGER <name> ON <table> [IF EXISTS]
                 return new SimpleExecutor(p, () => {

@@ -782,6 +782,15 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
     }
 
 
+    *listIndexes(): Iterable<BIndex> {
+        for (const byName of this.indexByHashAndName.values()) {
+            for (const { index } of byName.values()) {
+                yield index;
+            }
+        }
+    }
+
+
     onIndex(sub: IndexHandler): ISubscription {
         this.indexHandlers.add(sub);
         return {
