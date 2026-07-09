@@ -8,6 +8,7 @@ import { ignore, suggestColumnName, notNil, modifyIfNecessary, asSingleQName } f
 import { applyReadRls } from './rls-enforce';
 import { JoinSelection } from '../transforms/join';
 import { buildSetOp } from '../transforms/union';
+import { expandGroupingSets } from './grouping-sets';
 import { buildWindow, exprsHaveWindow } from '../transforms/window';
 import { RecursiveCte, RecursiveCteBuffer } from './recursive-cte';
 import { expandSrfs } from '../transforms/expand-srf';
@@ -65,8 +66,11 @@ export function buildSelect(p: SelectStatement): _ISelection {
             return buildUnion(p);
         case 'with':
             return buildWith(p, false);
-        case 'select':
-            return buildRawSelect(p);
+        case 'select': {
+            // GROUP BY ROLLUP/CUBE/GROUPING SETS expands to a UNION ALL of grouping sets
+            const expanded = expandGroupingSets(p);
+            return expanded ? buildSelect(expanded) : buildRawSelect(p);
+        }
         case 'values':
             return buildValues(p);
         case 'with recursive':
