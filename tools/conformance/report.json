@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 159,
-  "total": 159,
+  "passed": 169,
+  "total": 169,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1733,6 +1733,113 @@
           "policyname": "p",
           "cmd": "SELECT",
           "permissive": "PERMISSIVE"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "to_tsvector simple config keeps all tokens",
+      "expected": [
+        {
+          "v": "'brown':3 'foxes':4 'quick':2 'the':1"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "to_tsvector english stems and drops stopwords",
+      "expected": [
+        {
+          "v": "'brown':3 'fox':4 'jump':5 'quick':2 'run':6"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "to_tsvector default config is english",
+      "expected": [
+        {
+          "v": "'dog':3 'run':2"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "to_tsvector lists repeated positions",
+      "expected": [
+        {
+          "v": "'cat':2 'the':1,3"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "plainto_tsquery ANDs stemmed tokens",
+      "expected": [
+        {
+          "q": "'jump' & 'fox'"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "to_tsquery keeps operators",
+      "expected": [
+        {
+          "q": "'quick' & 'brown'"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "@@ matches with stemming",
+      "expected": [
+        {
+          "a": true,
+          "b": false
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "@@ evaluates boolean AND / OR / NOT",
+      "expected": [
+        {
+          "a": true,
+          "b": false,
+          "c": true,
+          "d": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "full-text predicate over a table",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "text-search",
+      "name": "tsvector column stored and matched",
+      "expected": [
+        {
+          "id": 1
         }
       ],
       "outcome": "pass"
