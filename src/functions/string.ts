@@ -1,5 +1,34 @@
 import { DataType, FunctionDefinition, QueryError } from '../interfaces-private';
 import { md5 } from '../utils/md5';
+import { Types } from '../datatypes';
+import { nullIsh } from '../utils';
+
+function jsRegexFlags(flags: string): string {
+    let f = '';
+    if (flags.includes('i')) { f += 'i'; }
+    return f;
+}
+
+/** regexp_matches: one row per match, each a text[] of capture groups (or whole match) */
+function regexpMatches(str: string, pattern: string, flags: string): string[][] | null {
+    if (nullIsh(str) || nullIsh(pattern)) { return null; }
+    const global = flags.includes('g');
+    const rx = new RegExp(pattern, 'g' + jsRegexFlags(flags));
+    const rows: (string | null)[][] = [];
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(str)) !== null) {
+        const groups = m.length > 1 ? m.slice(1) : [m[0]];
+        rows.push(groups.map(g => g === undefined ? null : g));
+        if (!global) { break; }
+        if (m.index === rx.lastIndex) { rx.lastIndex++; } // avoid looping on empty match
+    }
+    return rows as string[][];
+}
+
+function regexpSplit(str: string, pattern: string, flags: string): string[] | null {
+    if (nullIsh(str) || nullIsh(pattern)) { return null; }
+    return str.split(new RegExp(pattern, jsRegexFlags(flags)));
+}
 
 // Unless allowNullArguments is set, null arguments short-circuit to a null result
 // before the implementation is called, so implementations can assume non-null args.
@@ -315,6 +344,54 @@ export const stringFunctions: FunctionDefinition[] = [
         args: [DataType.text, DataType.text, DataType.text, DataType.text],
         returns: DataType.text,
         implementation: pgRegexpReplace,
+    },
+    {
+        // one row per match; each row is a text[] of the capture groups
+        // (or the whole match when the pattern has no groups)
+        name: 'regexp_matches',
+        args: [DataType.text, DataType.text],
+        returns: Types.text().asArray().asArray(),
+        setReturning: true,
+        allowNullArguments: true,
+        implementation: (str: string, pattern: string) => regexpMatches(str, pattern, ''),
+    },
+    {
+        name: 'regexp_matches',
+        args: [DataType.text, DataType.text, DataType.text],
+        returns: Types.text().asArray().asArray(),
+        setReturning: true,
+        allowNullArguments: true,
+        implementation: (str: string, pattern: string, flags: string) => regexpMatches(str, pattern, flags),
+    },
+    {
+        name: 'regexp_split_to_array',
+        args: [DataType.text, DataType.text],
+        returns: Types.text().asArray(),
+        allowNullArguments: true,
+        implementation: (str: string, pattern: string) => regexpSplit(str, pattern, ''),
+    },
+    {
+        name: 'regexp_split_to_array',
+        args: [DataType.text, DataType.text, DataType.text],
+        returns: Types.text().asArray(),
+        allowNullArguments: true,
+        implementation: (str: string, pattern: string, flags: string) => regexpSplit(str, pattern, flags),
+    },
+    {
+        name: 'regexp_split_to_table',
+        args: [DataType.text, DataType.text],
+        returns: Types.text().asArray(),
+        setReturning: true,
+        allowNullArguments: true,
+        implementation: (str: string, pattern: string) => regexpSplit(str, pattern, ''),
+    },
+    {
+        name: 'regexp_split_to_table',
+        args: [DataType.text, DataType.text, DataType.text],
+        returns: Types.text().asArray(),
+        setReturning: true,
+        allowNullArguments: true,
+        implementation: (str: string, pattern: string, flags: string) => regexpSplit(str, pattern, flags),
     },
     {
         name: 'format',

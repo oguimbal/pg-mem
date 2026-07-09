@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 193,
-  "total": 193,
+  "passed": 199,
+  "total": 199,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2139,6 +2139,99 @@
         },
         {
           "d": "2020-01-01"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "regexp-functions",
+      "name": "regexp_matches capture groups",
+      "expected": [
+        {
+          "m": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "regexp-functions",
+      "name": "regexp_matches whole match when no groups",
+      "expected": [
+        {
+          "m": [
+            "oo"
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "regexp-functions",
+      "name": "regexp_matches global yields one row per match",
+      "expected": [
+        {
+          "m": [
+            "a",
+            "1"
+          ]
+        },
+        {
+          "m": [
+            "b",
+            "2"
+          ]
+        },
+        {
+          "m": [
+            "c",
+            "3"
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "regexp-functions",
+      "name": "regexp_split_to_array",
+      "expected": [
+        {
+          "a": [
+            "a",
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "regexp-functions",
+      "name": "regexp_split_to_table",
+      "expected": [
+        {
+          "p": "a"
+        },
+        {
+          "p": "b"
+        },
+        {
+          "p": "c"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "regexp-functions",
+      "name": "regexp_matches case-insensitive flag",
+      "expected": [
+        {
+          "m": [
+            "A",
+            "B"
+          ]
         }
       ],
       "outcome": "pass"
