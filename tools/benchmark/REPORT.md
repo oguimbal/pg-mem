@@ -46,8 +46,8 @@ ships after a consumer minifies).
 | bundle             | minified | min+gzip |
 |--------------------|---------:|---------:|
 | upstream 3.0.14    |   254 KB |  64.5 KB |
-| this fork          |   346 KB |  90.3 KB |
-| **delta**          | **+92 KB** | **+25.8 KB (+40%)** |
+| this fork          |   348 KB |  90.7 KB |
+| **delta**          | **+94 KB** | **+26.2 KB (+41%)** |
 
 Of the +26 KB gzipped, roughly ~6.5 KB is the parser grammar (the new `pgsql-ast-parser`
 rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers, prepared
@@ -66,7 +66,7 @@ real Postgres; RLS + roles is ~7 KB of it.
 
 ## Verdict
 
-The fork stays true to pg-mem's positioning: **+1.7% runtime and 90 KB gzipped** — still
+The fork stays true to pg-mem's positioning: **+1.7% runtime and 91 KB gzipped** — still
 ~35× smaller than PGlite's ~3 MB WASM, with no new dependencies and no hot-path
 regression. The size cost buys a large jump in SQL conformance (54% → 100% of the
 conformance corpus, with one documented known gap). If the RLS/roles footprint ever
