@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 234,
-  "total": 234,
+  "passed": 238,
+  "total": 238,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2770,6 +2770,54 @@
           "g": null,
           "sub": null,
           "s": 6
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-funcs-operators",
+      "name": "div / gcd / lcm / factorial",
+      "expected": [
+        {
+          "a": 3,
+          "b": 4,
+          "c": 12,
+          "d": 120
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-funcs-operators",
+      "name": "width_bucket and bit_length",
+      "expected": [
+        {
+          "a": 2,
+          "b": 24
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-funcs-operators",
+      "name": "bitwise operators",
+      "expected": [
+        {
+          "a": 1,
+          "b": 7,
+          "c": 4,
+          "d": 20,
+          "e": 5
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "numeric-funcs-operators",
+      "name": "exponentiation operator",
+      "expected": [
+        {
+          "v": 1024
         }
       ],
       "outcome": "pass"

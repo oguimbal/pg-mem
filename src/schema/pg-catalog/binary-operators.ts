@@ -9,9 +9,42 @@ import moment from 'moment';
 
 export function registerCommonOperators(schema: _ISchema) {
     registerNumericOperators(schema);
+    registerBitwiseOperators(schema);
     registerDatetimeOperators(schema);
     registerJsonOperators(schema);
     registerTextOperators(schema);
+}
+
+function registerBitwiseOperators(schema: _ISchema) {
+    // integer bitwise operators
+    const bit: [string, (a: number, b: number) => number][] = [
+        ['&', (a, b) => a & b],
+        ['|', (a, b) => a | b],
+        ['#', (a, b) => a ^ b], // # is XOR in Postgres
+        ['<<', (a, b) => a << b],
+        ['>>', (a, b) => a >> b],
+    ];
+    for (const [op, impl] of bit) {
+        schema.registerOperator({
+            operator: op as any,
+            commutative: op === '&' || op === '|' || op === '#',
+            left: Types.integer,
+            right: Types.integer,
+            returns: Types.integer,
+            implementation: impl,
+        });
+    }
+    // exponentiation (^) — Postgres returns double precision
+    for (const [left, right] of [[Types.float, Types.float], [Types.integer, Types.integer]] as const) {
+        schema.registerOperator({
+            operator: '^' as any,
+            commutative: false,
+            left,
+            right,
+            returns: Types.float,
+            implementation: (a: number, b: number) => Math.pow(a, b),
+        });
+    }
 }
 
 function* numberPairs() {
