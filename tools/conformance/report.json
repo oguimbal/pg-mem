@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 136,
-  "total": 136,
+  "passed": 141,
+  "total": 141,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1397,6 +1397,53 @@
           "title": "mine"
         }
       ],
+      "outcome": "pass"
+    },
+    {
+      "category": "composite-types",
+      "name": "composite field access",
+      "expected": [
+        {
+          "cx": 3,
+          "cy": 4
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "composite-types",
+      "name": "filter on composite field",
+      "expected": [
+        {
+          "id": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "composite-types",
+      "name": "composite text field",
+      "expected": [
+        {
+          "c": "Springfield"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "composite-types",
+      "name": "arithmetic on composite fields",
+      "expected": [
+        {
+          "s": 37
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "composite-types",
+      "name": "duplicate composite type name rejected",
+      "expectedError": "already exists",
       "outcome": "pass"
     },
     {

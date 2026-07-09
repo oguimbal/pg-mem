@@ -31,6 +31,7 @@ import { AlterEnum } from "./schema-amends/alter-enum";
 import { Comment } from './schema-amends/comment';
 import { ExecutePrepared } from './execute-prepared';
 import { CreateDomain } from './schema-amends/create-domain';
+import { CreateCompositeType } from './schema-amends/create-composite-type';
 import { InsteadOfView } from './records-mutations/instead-of';
 import { hasInsteadOf, TriggerOp } from './triggers';
 import { _IView, _ITable } from '../interfaces-private';
@@ -211,7 +212,7 @@ export class StatementExec implements _IStatement {
             case 'execute':
                 return new ExecutePrepared(this, p);
             case 'create composite type':
-                throw new NotSupported('create composite type');
+                return new CreateCompositeType(this, p);
             case 'create domain':
                 return new CreateDomain(this, p);
             case 'drop trigger':

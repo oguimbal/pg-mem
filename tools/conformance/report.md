@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 136/136 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 141/141 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
@@ -22,6 +22,7 @@
 | catalog | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | plpgsql | 12/12 | 0 | 0 | 0 | 0 | 0 | 0 |
 | supabase | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| composite-types | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | rls | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures

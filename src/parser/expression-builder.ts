@@ -610,6 +610,25 @@ function buildCase(op: ExprCase): IValue {
 
 function buildMember(op: ExprMember): IValue {
     const oop = op.op;
+    // composite / record field access: (expr).field
+    if (oop === '.') {
+        const on = buildValue(op.operand);
+        const cols = (on.type as any).columns as RecordCol[] | undefined;
+        const field = String(op.member);
+        const col = cols?.find(c => c.name === field);
+        if (!col) {
+            throw new QueryError(`could not identify column "${field}" in record data type`, '42703');
+        }
+        return new Evaluator(
+            col.type
+            , null
+            , hash({ field: on.hash, m: field })
+            , on
+            , (raw, t) => {
+                const v = on.get(raw, t);
+                return nullIsh(v) ? null : v[field];
+            });
+    }
     if (oop !== '->>' && oop !== '->') {
         throw NotSupported.never(oop);
     }
