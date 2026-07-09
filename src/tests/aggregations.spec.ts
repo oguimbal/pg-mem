@@ -247,5 +247,20 @@ describe('Aggregations', () => {
             expect(many(`select bool_or(a) from (values (true), (false)) as t(a)`))
                 .toEqual([{ bool_or: true }]);
         });
+
+        it('string_agg concatenates with a delimiter', () => {
+            expect(many(`select string_agg(a, ',') as v from (values ('x'), ('y'), ('z')) as t(a)`))
+                .toEqual([{ v: 'x,y,z' }]);
+        });
+
+        it('string_agg is null over an empty group', () => {
+            expect(many(`select string_agg(a, ',') as v from (values ('x')) as t(a) where a = 'nope'`))
+                .toEqual([{ v: null }]);
+        });
+
+        it('every() is a synonym for bool_and', () => {
+            expect(many(`select every(a) as v from (values (true), (false)) as t(a)`))
+                .toEqual([{ v: false }]);
+        });
     });
 });

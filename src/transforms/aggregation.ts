@@ -9,6 +9,7 @@ import { buildCount } from './aggregations/count';
 import { buildMinMax } from './aggregations/max-min';
 import { buildSum } from './aggregations/sum';
 import { buildArrayAgg } from './aggregations/array_agg';
+import { buildStringAgg } from './aggregations/string_agg';
 import { buildAvg } from './aggregations/avg';
 import { Selection } from './selection';
 import { buildCtx, withSelection } from '../parser/context';
@@ -373,7 +374,10 @@ export class Aggregation extends TransformBase implements _ISelection, _IAggrega
                 return buildJsonAgg(this.base, call, name);
             case 'bool_and':
             case 'bool_or':
-                return buildBoolAgg(this.base, call, name);
+            case 'every': // `every` is a synonym for bool_and
+                return buildBoolAgg(this.base, call, name === 'every' ? 'bool_and' : name);
+            case 'string_agg':
+                return buildStringAgg(this.base, call);
             default:
                 throw new NotSupported('aggregation function ' + name);
         }
