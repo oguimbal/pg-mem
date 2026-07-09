@@ -38,7 +38,7 @@ The small costs on writes (updates +4.8%, inserts +3%) come from the per-commit 
 constraint check and type-aware arithmetic dispatch; seq-scan +5.6% is the widest but
 still noise-level. Nothing is a structural regression.
 
-## Bundle — +25 KB gzipped (still tiny)
+## Bundle — +26 KB gzipped (still tiny)
 
 Both built with the repo's `webpack --prod`, then `terser -c -m` + gzip (what actually
 ships after a consumer minifies).
@@ -46,15 +46,15 @@ ships after a consumer minifies).
 | bundle             | minified | min+gzip |
 |--------------------|---------:|---------:|
 | upstream 3.0.14    |   254 KB |  64.5 KB |
-| this fork          |   342 KB |  89.2 KB |
-| **delta**          | **+88 KB** | **+24.7 KB (+38%)** |
+| this fork          |   346 KB |  90.3 KB |
+| **delta**          | **+92 KB** | **+25.8 KB (+40%)** |
 
-Of the +25 KB gzipped, roughly ~6.5 KB is the parser grammar (the new `pgsql-ast-parser`
+Of the +26 KB gzipped, roughly ~6.5 KB is the parser grammar (the new `pgsql-ast-parser`
 rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers, prepared
-statements, domains — nearley compiles grammar to sizeable tables), ~6 KB is the
+statements, domains — nearley compiles grammar to sizeable tables), ~7 KB is the
 trigger + PL/pgSQL interpreter (variables, control flow, embedded SQL, RAISE/EXCEPTION,
-set-returning functions), and the rest is other engine feature code (prepared statements,
-ALTER INDEX, tablespaces, WHEN / UPDATE
+set-returning functions, INSTEAD OF view triggers, TG_*), and the rest is other engine
+feature code (prepared statements, ALTER INDEX, tablespaces, WHEN / UPDATE
 OF trigger gating, domains, catalog views, ROW()).
 
 **Crucially, the growth is feature code, not dead weight, and no runtime dependency was
@@ -66,7 +66,7 @@ real Postgres; RLS + roles is ~7 KB of it.
 
 ## Verdict
 
-The fork stays true to pg-mem's positioning: **+1.7% runtime and 89 KB gzipped** — still
+The fork stays true to pg-mem's positioning: **+1.7% runtime and 90 KB gzipped** — still
 ~35× smaller than PGlite's ~3 MB WASM, with no new dependencies and no hot-path
 regression. The size cost buys a large jump in SQL conformance (54% → 100% of the
 conformance corpus, with one documented known gap). If the RLS/roles footprint ever
