@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 116,
-  "total": 116,
+  "passed": 120,
+  "total": 120,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1177,6 +1177,48 @@
         {
           "tablename": "t",
           "hasindexes": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql scalar function with IF/ELSIF/ELSE",
+      "expected": [
+        {
+          "a": "pos",
+          "b": "neg",
+          "c": "zero"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql FOR loop accumulation",
+      "expected": [
+        {
+          "r": 5050
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql recursion",
+      "expected": [
+        {
+          "r": 120
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql WHILE with EXIT and CONTINUE WHEN",
+      "expected": [
+        {
+          "r": 5
         }
       ],
       "outcome": "pass"

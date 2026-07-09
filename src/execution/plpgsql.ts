@@ -1,9 +1,11 @@
-import { _IDb, _ISchema, _ITable, _Transaction, IValue, _ISelection, QueryError, NotSupported, getId, setId } from '../interfaces-private';
+import { _IDb, _ISchema, _ITable, _Transaction, IValue, _ISelection, QueryError, NotSupported, getId, setId, _IType, Parameter, nil } from '../interfaces-private';
 import { Expr, parse } from 'pgsql-ast-parser';
 import { buildValue } from '../parser/expression-builder';
-import { withSelection } from '../parser/context';
+import { withSelection, withParameters } from '../parser/context';
 import { JoinSelection } from '../transforms/join';
 import { Types } from '../datatypes';
+import { Evaluator } from '../evaluator';
+import { executionCtx } from '../utils';
 
 // A minimal PL/pgSQL interpreter, scoped to the common trigger-function subset:
 //   BEGIN <stmts> END
@@ -34,6 +36,12 @@ function stripComments(code: string): string {
         .replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
+/** Tokenize a plpgsql fragment: strings, numbers, `..` range, `:=`, words, punctuation. */
+function tokenize(code: string): string[] {
+    return stripComments(code)
+        .match(/'(?:[^']|'')*'|\d+\.\d+|\d+|\.\.|:=|::|>=|<=|<>|!=|\|\||[a-zA-Z_][\w$]*|[(),.;]|[^\s]/g) ?? [];
+}
+
 /** Split a plpgsql fragment into top-level statements at ';', respecting parens and the
  * IF…END IF nesting. Returns statement source strings (without the trailing ';'). */
 class PlpgsqlParser {
@@ -41,8 +49,7 @@ class PlpgsqlParser {
     private i = 0;
 
     constructor(code: string) {
-        // tokenize into words, punctuation and strings
-        this.toks = stripComments(code).match(/'(?:[^']|'')*'|[a-zA-Z_][\w$]*|:=|[(),.;]|[^\s]/g) ?? [];
+        this.toks = tokenize(code);
     }
 
     private peek(n = 0) { return this.toks[this.i + n]?.toLowerCase(); }
@@ -271,12 +278,409 @@ function runBody(body: CompiledStmt[], ctx: TriggerContext, t: _Transaction): { 
     }
 }
 
+// ============================================================================
+// General PL/pgSQL: regular (callable) functions and DO blocks
+// ============================================================================
+
+interface VarDef {
+    name: string;
+    type: _IType;
+    default?: string | null;
+}
+
+type GStmt =
+    | { k: 'assign'; name: string; expr: string }
+    | { k: 'return'; expr: string | null }
+    | { k: 'if'; branches: { cond: string; body: GStmt[] }[]; else?: GStmt[] }
+    | { k: 'while'; cond: string; body: GStmt[] }
+    | { k: 'loop'; body: GStmt[] }
+    | { k: 'forrange'; varName: string; reverse: boolean; from: string; to: string; by: string | null; body: GStmt[] }
+    | { k: 'exit'; when: string | null }
+    | { k: 'continue'; when: string | null }
+    | { k: 'block'; body: GStmt[] }
+    | { k: 'raise' }
+    | { k: 'null' };
+
+/** parses a regular plpgsql function body: optional DECLARE section + BEGIN/END block */
+class GParser {
+    private toks: string[];
+    private i = 0;
+
+    constructor(code: string) {
+        this.toks = tokenize(code);
+    }
+
+    private peek(n = 0) { return this.toks[this.i + n]?.toLowerCase(); }
+    private next() { return this.toks[this.i++]; }
+    private eat(kw: string) {
+        if (this.peek() !== kw) {
+            throw new QueryError(`plpgsql: expected "${kw}", got "${this.toks[this.i] ?? '<eof>'}"`);
+        }
+        this.i++;
+    }
+
+    parse(): { decls: VarDef[]; body: GStmt[] } {
+        const decls: VarDef[] = [];
+        if (this.peek() === 'declare') {
+            this.i++;
+            while (this.i < this.toks.length && this.peek() !== 'begin') {
+                decls.push(this.parseDecl());
+            }
+        }
+        const body = this.parseBlockBody();
+        return { decls, body };
+    }
+
+    private parseDecl(): VarDef {
+        const name = this.next();
+        // read the type tokens up to ':=' / 'default' / ';'
+        const typeToks: string[] = [];
+        while (this.i < this.toks.length && this.peek() !== ';' && this.peek() !== ':=' && this.peek() !== 'default') {
+            typeToks.push(this.next());
+        }
+        let def: string | null = null;
+        if (this.peek() === ':=' || this.peek() === 'default') {
+            this.i++;
+            def = this.readUntil([';'], true);
+        } else if (this.peek() === ';') {
+            this.i++;
+        }
+        return { name, type: null as any, default: def, ...{ typeSrc: joinTokens(typeToks) } } as any;
+    }
+
+    /** BEGIN <stmts> END */
+    private parseBlockBody(): GStmt[] {
+        this.eat('begin');
+        const body = this.parseStmtsUntil(['end']);
+        this.eat('end');
+        if (this.peek() === ';') { this.i++; }
+        return body;
+    }
+
+    private parseStmtsUntil(terms: string[]): GStmt[] {
+        const out: GStmt[] = [];
+        while (this.i < this.toks.length && !terms.includes(this.peek()!)) {
+            const s = this.parseStmt();
+            if (s) { out.push(s); }
+        }
+        return out;
+    }
+
+    private parseStmt(): GStmt | null {
+        const kw = this.peek();
+        switch (kw) {
+            case 'return': {
+                this.i++;
+                if (this.peek() === ';') { this.i++; return { k: 'return', expr: null }; }
+                return { k: 'return', expr: this.readUntil([';'], true) };
+            }
+            case 'if':
+                return this.parseIf();
+            case 'while': {
+                this.i++;
+                const cond = this.readUntil(['loop']);
+                this.eat('loop');
+                const body = this.parseStmtsUntil(['end']);
+                this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
+                return { k: 'while', cond, body };
+            }
+            case 'loop': {
+                this.i++;
+                const body = this.parseStmtsUntil(['end']);
+                this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
+                return { k: 'loop', body };
+            }
+            case 'for':
+                return this.parseFor();
+            case 'exit':
+            case 'continue': {
+                this.i++;
+                let when: string | null = null;
+                if (this.peek() === 'when') { this.i++; when = this.readUntil([';'], true); }
+                else if (this.peek() === ';') { this.i++; }
+                return { k: kw as 'exit' | 'continue', when };
+            }
+            case 'raise':
+                this.readUntil([';'], true);
+                return { k: 'raise' };
+            case 'perform':
+                throw new NotSupported('PERFORM in plpgsql (coming in a later slice)');
+            case 'null':
+                this.i++; if (this.peek() === ';') { this.i++; }
+                return { k: 'null' };
+            case 'begin': {
+                const body = this.parseBlockBody();
+                return { k: 'block', body };
+            }
+            default: {
+                // assignment:  name := expr   |   name = expr
+                const name = this.next();
+                const op = this.peek();
+                if (op !== ':=' && op !== '=') {
+                    throw new NotSupported(`plpgsql statement starting with "${name}"`);
+                }
+                this.i++;
+                const expr = this.readUntil([';'], true);
+                return { k: 'assign', name, expr };
+            }
+        }
+    }
+
+    private parseIf(): GStmt {
+        this.eat('if');
+        const branches: { cond: string; body: GStmt[] }[] = [];
+        let cond = this.readUntil(['then']);
+        this.eat('then');
+        branches.push({ cond, body: this.parseStmtsUntil(['elsif', 'else', 'end']) });
+        while (this.peek() === 'elsif') {
+            this.i++;
+            cond = this.readUntil(['then']);
+            this.eat('then');
+            branches.push({ cond, body: this.parseStmtsUntil(['elsif', 'else', 'end']) });
+        }
+        let elseBody: GStmt[] | undefined;
+        if (this.peek() === 'else') {
+            this.i++;
+            elseBody = this.parseStmtsUntil(['end']);
+        }
+        this.eat('end'); this.eat('if'); if (this.peek() === ';') { this.i++; }
+        return { k: 'if', branches, else: elseBody };
+    }
+
+    private parseFor(): GStmt {
+        this.eat('for');
+        const varName = this.next();
+        this.eat('in');
+        let reverse = false;
+        if (this.peek() === 'reverse') { this.i++; reverse = true; }
+        const from = this.readUntil(['..']);
+        this.eat('..');
+        const to = this.readUntil(['by', 'loop']);
+        let by: string | null = null;
+        if (this.peek() === 'by') { this.i++; by = this.readUntil(['loop']); }
+        this.eat('loop');
+        const body = this.parseStmtsUntil(['end']);
+        this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
+        return { k: 'forrange', varName, reverse, from, to, by, body };
+    }
+
+    private readUntil(stops: string[], consumeStop = false): string {
+        const parts: string[] = [];
+        let depth = 0;
+        while (this.i < this.toks.length) {
+            const t = this.peek()!;
+            if (depth === 0 && stops.includes(t)) {
+                if (consumeStop) { this.i++; }
+                break;
+            }
+            if (this.toks[this.i] === '(') { depth++; }
+            if (this.toks[this.i] === ')') { depth--; }
+            parts.push(this.next());
+        }
+        return joinTokens(parts);
+    }
+}
+
+// ---- runtime: a stack of call frames (supports recursion) ----
+interface Frame { vars: Map<string, any>; }
+const frameStack: Frame[] = [];
+function frame(): Frame { return frameStack[frameStack.length - 1]; }
+
+const DUMMY_ROW = {};
+
+type Signal =
+    | { type: 'return'; value: any }
+    | { type: 'exit' }
+    | { type: 'continue' }
+    | null;
+
+interface GCompiled {
+    run(t: _Transaction): Signal;
+}
+
+interface GProgram {
+    locals: (VarDef & { defaultVal: ((t: _Transaction) => any) | null })[];
+    compiled: GCompiled[];
+}
+
+/** compiles a regular plpgsql function into a callable implementation */
+function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | nil, schema: _ISchema) {
+    const { decls, body } = new GParser(code).parse();
+    // compilation is deferred to first call: the function's own name (recursion) and any
+    // later-defined helpers must already be registered, which they are by call time
+    let program: GProgram | null = null;
+
+    const compile = (): GProgram => {
+        const locals = decls.map(d => ({
+            name: d.name,
+            type: schema.getType(parseTypeDef((d as any).typeSrc)) as _IType,
+            default: d.default ?? null,
+        }));
+        const allVars = [...args, ...locals];
+        // a placeholder IValue per variable, resolving against the current call frame
+        const params: Parameter[] = allVars.map((v, index) => ({
+            index,
+            value: new Evaluator(v.type, v.name, `plpgsql_var_${v.name}`, [],
+                () => frame().vars.get(v.name), { forceNotConstant: true }),
+        }));
+        const compileExpr = (src: string, castTo?: _IType): (t: _Transaction) => any => {
+            const ast = parseExpr(src);
+            // build (and cast) within the parameter + selection context
+            const val = withParameters(params, () => withSelection(schema.dualTable.selection, () => {
+                const v = buildValue(ast);
+                return castTo ? v.cast(castTo) : v;
+            }));
+            return (t) => val.get(DUMMY_ROW, t);
+        };
+        return {
+            locals: locals.map(l => ({ ...l, defaultVal: l.default != null ? compileExpr(l.default, l.type) : null })),
+            compiled: compileBody(body, compileExpr, returns),
+        };
+    };
+
+    return (...inArgs: any[]) => {
+        const t = executionCtx().transaction;
+        if (!program) { program = compile(); }
+        const vars = new Map<string, any>();
+        args.forEach((a, i) => vars.set(a.name, inArgs[i] ?? null));
+        frameStack.push({ vars });
+        try {
+            // initialise locals (defaults evaluated in declaration order)
+            for (const l of program.locals) {
+                vars.set(l.name, l.defaultVal ? l.defaultVal(t) : null);
+            }
+            const sig = runGBody(program.compiled, t);
+            return sig?.type === 'return' ? sig.value : null;
+        } finally {
+            frameStack.pop();
+        }
+    };
+}
+
+function parseTypeDef(typeSrc: string): any {
+    const e = parseExpr(`null::${typeSrc}`);
+    if (e.type !== 'cast') {
+        throw new QueryError(`plpgsql: invalid variable type "${typeSrc}"`);
+    }
+    return e.to;
+}
+
+function compileBody(stmts: GStmt[], compileExpr: (src: string, castTo?: _IType) => (t: _Transaction) => any, returns: _IType | nil): GCompiled[] {
+    return stmts.map<GCompiled>(s => {
+        switch (s.k) {
+            case 'assign': {
+                const val = compileExpr(s.expr);
+                return { run(t) { frame().vars.set(s.name, val(t)); return null; } };
+            }
+            case 'return': {
+                if (s.expr == null) { return { run: () => ({ type: 'return', value: null }) }; }
+                const val = compileExpr(s.expr, returns ?? undefined);
+                return { run: (t) => ({ type: 'return', value: val(t) }) };
+            }
+            case 'if': {
+                const branches = s.branches.map(b => ({ cond: compileExpr(b.cond, Types.bool), body: compileBody(b.body, compileExpr, returns) }));
+                const elseBody = s.else ? compileBody(s.else, compileExpr, returns) : null;
+                return {
+                    run(t) {
+                        for (const b of branches) {
+                            if (b.cond(t) === true) { return runGBody(b.body, t); }
+                        }
+                        return elseBody ? runGBody(elseBody, t) : null;
+                    },
+                };
+            }
+            case 'while': {
+                const cond = compileExpr(s.cond, Types.bool);
+                const body = compileBody(s.body, compileExpr, returns);
+                return {
+                    run(t) {
+                        while (cond(t) === true) {
+                            const sig = runGBody(body, t);
+                            if (sig?.type === 'return') { return sig; }
+                            if (sig?.type === 'exit') { break; }
+                        }
+                        return null;
+                    },
+                };
+            }
+            case 'loop': {
+                const body = compileBody(s.body, compileExpr, returns);
+                return {
+                    run(t) {
+                        while (true) {
+                            const sig = runGBody(body, t);
+                            if (sig?.type === 'return') { return sig; }
+                            if (sig?.type === 'exit') { break; }
+                        }
+                        return null;
+                    },
+                };
+            }
+            case 'forrange': {
+                const from = compileExpr(s.from, Types.integer);
+                const to = compileExpr(s.to, Types.integer);
+                const by = s.by ? compileExpr(s.by, Types.integer) : null;
+                const body = compileBody(s.body, compileExpr, returns);
+                const varName = s.varName;
+                const reverse = s.reverse;
+                return {
+                    run(t) {
+                        // FOR i IN [REVERSE] a..b : iterate from a to b (down when REVERSE)
+                        const a = from(t), b = to(t);
+                        const step = Math.abs(by ? by(t) : 1) * (reverse ? -1 : 1);
+                        for (let i = a; reverse ? i >= b : i <= b; i += step) {
+                            frame().vars.set(varName, i);
+                            const sig = runGBody(body, t);
+                            if (sig?.type === 'return') { return sig; }
+                            if (sig?.type === 'exit') { break; }
+                        }
+                        return null;
+                    },
+                };
+            }
+            case 'exit': {
+                const when = s.when ? compileExpr(s.when, Types.bool) : null;
+                return { run: (t) => (!when || when(t) === true) ? { type: 'exit' } : null };
+            }
+            case 'continue': {
+                const when = s.when ? compileExpr(s.when, Types.bool) : null;
+                return { run: (t) => (!when || when(t) === true) ? { type: 'continue' } : null };
+            }
+            case 'block': {
+                const body = compileBody(s.body, compileExpr, returns);
+                return { run: (t) => runGBody(body, t) };
+            }
+            case 'raise':
+            case 'null':
+                return { run: () => null };
+        }
+    });
+}
+
+function runGBody(body: GCompiled[], t: _Transaction): Signal {
+    for (const st of body) {
+        const sig = st.run(t);
+        if (sig) { return sig; }
+    }
+    return null;
+}
+
 /** A compiled trigger function: given a trigger context, runs the body and returns the
  * resulting row (or null). */
 export type TriggerRunner = (ctx: TriggerContext, t: _Transaction) => any;
 
 export function registerPlpgsqlLanguage(db: _IDb) {
-    db.registerLanguage('plpgsql', ({ code }) => {
+    db.registerLanguage('plpgsql', ({ code, args, returns, schema }) => {
+        // a `RETURNS trigger` function (record pseudo-type) uses the trigger interpreter;
+        // everything else is a regular callable function
+        const isTrigger = !!returns && (returns as _IType).primary === 'record';
+        if (!isTrigger) {
+            return buildPlpgsqlFunction(
+                code,
+                (args ?? []).map(a => ({ name: a.name!, type: a.type as _IType })),
+                returns as _IType,
+                schema as _ISchema);
+        }
         const body = new PlpgsqlParser(code).parseBlock();
         // expressions are compiled lazily per table (a function may be attached to many)
         const perTable = new Map<_ITable, CompiledStmt[]>();
