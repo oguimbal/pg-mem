@@ -38,7 +38,7 @@ The small costs on writes (updates +4.8%, inserts +3%) come from the per-commit 
 constraint check and type-aware arithmetic dispatch; seq-scan +5.6% is the widest but
 still noise-level. Nothing is a structural regression.
 
-## Bundle — +19 KB gzipped (still tiny)
+## Bundle — +20 KB gzipped (still tiny)
 
 Both built with the repo's `webpack --prod`, then `terser -c -m` + gzip (what actually
 ships after a consumer minifies).
@@ -46,13 +46,14 @@ ships after a consumer minifies).
 | bundle             | minified | min+gzip |
 |--------------------|---------:|---------:|
 | upstream 3.0.14    |   254 KB |  64.5 KB |
-| this fork          |   322 KB |  83.9 KB |
-| **delta**          | **+68 KB** | **+19.4 KB (+30%)** |
+| this fork          |   325 KB |  84.7 KB |
+| **delta**          | **+71 KB** | **+20.2 KB (+31%)** |
 
-Of the +19 KB gzipped, roughly ~6 KB is the parser grammar (the new `pgsql-ast-parser`
-rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers — nearley
-compiles grammar to sizeable tables), ~2.5 KB is the trigger + PL/pgSQL engine, and the
-rest is other engine feature code.
+Of the +20 KB gzipped, roughly ~6 KB is the parser grammar (the new `pgsql-ast-parser`
+rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers, prepared
+statements — nearley compiles grammar to sizeable tables), ~2.5 KB is the trigger +
+PL/pgSQL engine, and the rest is other engine feature code (prepared statements, ALTER
+INDEX, tablespaces, WHEN / UPDATE OF trigger gating).
 
 **Crucially, the growth is feature code, not dead weight, and no runtime dependency was
 added** — the `Decimal` type is hand-rolled on BigInt and timezones use the runtime's
