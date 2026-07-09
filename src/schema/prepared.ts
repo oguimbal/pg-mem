@@ -42,6 +42,9 @@ function isSchemaChange(s: Statement): boolean {
 
 let _paramList: Parameter[] | null = null;
 const paramsVisitor = astVisitor(() => ({
+    // a PREPAREd statement's own $-parameters are bound at EXECUTE time; they are not
+    // parameters of the enclosing query, so don't descend into its inner statement
+    prepare: () => { },
     parameter: p => {
         const [, istr] = /^\$(\d+)$/.exec(p.name) ?? [];
         if (!istr) {

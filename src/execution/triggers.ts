@@ -11,6 +11,10 @@ export interface Trigger {
     forEach: 'row' | 'statement';
     functionName: string;
     functionSchema: _ISchema;
+    /** compiled WHEN condition (NEW/OLD in scope); the trigger fires only if it is true */
+    when?: (ctx: TriggerContext, t: _Transaction) => any;
+    /** for `UPDATE OF a, b`: column ids to watch - fire only if one of them changed */
+    updateColumns?: string[];
 }
 
 export interface TableTriggers {
@@ -44,10 +48,10 @@ export function fireRowTriggers(
         if (trig.timing !== timing || trig.forEach !== 'row' || !trig.events.includes(op)) {
             continue;
         }
-        const fn = trig.functionSchema.getFunction(trig.functionName, []);
-        const runner = fn && getTriggerRunner(fn.implementation);
-        if (!runner) {
-            throw new QueryError(`trigger "${trig.name}" references function "${trig.functionName}" which is not a trigger function`);
+        // `UPDATE OF cols`: fire only when one of the listed columns actually changed
+        if (op === 'update' && trig.updateColumns && oldRow && current
+            && !trig.updateColumns.some(c => distinct(oldRow[c], current[c]))) {
+            continue;
         }
         const ctx: TriggerContext = {
             table,
@@ -55,6 +59,15 @@ export function fireRowTriggers(
             old: oldRow,
             op: op.toUpperCase() as TriggerContext['op'],
         };
+        // WHEN condition (NEW/OLD in scope) gates the firing
+        if (trig.when && trig.when(ctx, t) !== true) {
+            continue;
+        }
+        const fn = trig.functionSchema.getFunction(trig.functionName, []);
+        const runner = fn && getTriggerRunner(fn.implementation);
+        if (!runner) {
+            throw new QueryError(`trigger "${trig.name}" references function "${trig.functionName}" which is not a trigger function`);
+        }
         const result = runner(ctx, t);
         if (timing === 'before') {
             // BEFORE ROW: returning NULL vetoes the operation; otherwise (for INSERT/
@@ -68,4 +81,18 @@ export function fireRowTriggers(
         }
     }
     return current;
+}
+
+/** `IS DISTINCT FROM` semantics for the UPDATE OF change-detection (null-aware). */
+function distinct(a: any, b: any): boolean {
+    if (a === b) {
+        return false;
+    }
+    if (a instanceof Date && b instanceof Date) {
+        return +a !== +b;
+    }
+    if ((a === null || a === undefined) && (b === null || b === undefined)) {
+        return false;
+    }
+    return true;
 }

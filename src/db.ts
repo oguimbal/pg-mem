@@ -1,5 +1,5 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue } from './interfaces-private';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue, PreparedStatementRunner } from './interfaces-private';
 import { DbSchema } from './schema/schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -51,6 +51,8 @@ class MemoryDb implements _IDb {
     private extensions: { [name: string]: (schema: ISchema) => void } = {};
     private languages: { [name: string]: LanguageCompiler } = {};
     readonly searchPath = ['pg_catalog', 'public'];
+    // session-scoped named prepared statements (SQL-level PREPARE / EXECUTE)
+    readonly preparedStatements = new Map<string, PreparedStatementRunner>();
 
     get public() {
         return this.getSchema(null)

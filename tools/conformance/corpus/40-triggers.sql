@@ -54,3 +54,27 @@ $$ language plpgsql;
 create trigger t_keep before delete on t for each row execute function keep_one();
 delete from t;
 select id from t order by id;
+
+-- @case: WHEN condition gates row-trigger firing
+-- @expect: [{"id":1,"tag":null},{"id":2,"tag":"big"}]
+create table t (id int, n int, tag text);
+insert into t values (1, 5, null), (2, 15, null);
+create function mark() returns trigger as $$
+begin new.tag = 'big'; return new; end;
+$$ language plpgsql;
+create trigger t_when before update on t for each row
+    when (new.n > 10) execute function mark();
+update t set n = n;
+select id, tag from t order by id;
+
+-- @case: UPDATE OF fires only when a listed column changes
+-- @expect: [{"hits":1}]
+create table u (id int, a int, b int, hits int);
+insert into u values (1, 1, 1, 0);
+create function bump() returns trigger as $$
+begin new.hits = old.hits + 1; return new; end;
+$$ language plpgsql;
+create trigger u_bump before update of a on u for each row execute function bump();
+update u set b = 99 where id = 1;
+update u set a = 42 where id = 1;
+select hits from u;

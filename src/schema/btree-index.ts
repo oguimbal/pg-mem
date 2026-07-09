@@ -69,7 +69,7 @@ export class BIndex implements _INamedIndex {
     }
 
     constructor(t: _Transaction
-        , readonly name: string
+        , public name: string
         , readonly cols: readonly CreateIndexColDef[]
         , readonly onTable: _ITable
         , readonly hash: string

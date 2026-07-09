@@ -13,6 +13,9 @@ export class CreateIndexExec extends ExecHelper implements _IStatementExecutor {
         super(p);
         const indexName = p.indexName?.name;
         this.onTable = asTable(schema.getObject(p.table));
+        // tablespaces & storage params are physical; meaningless in-memory
+        ignore(p.tablespace);
+        ignore(p.with);
         // check that index algorithm is supported
         if (p.using && p.using.name.toLowerCase() !== 'btree') {
             if (schema.db.options.noIgnoreUnsupportedIndices) {

@@ -145,6 +145,9 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
     dropIndex(t: _Transaction, name: string): void {
         throw new PermissionDeniedError(this.name);
     }
+    renameIndex(oldName: string, newName: string): void {
+        throw new PermissionDeniedError(this.name);
+    }
     // read-only catalog tables never carry row-level security
     readonly rls: TableRls = emptyRls();
     createPolicy(): void {

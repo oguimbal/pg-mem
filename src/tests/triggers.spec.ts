@@ -85,6 +85,32 @@ describe('Triggers', () => {
         expect(many(`select seen from t`)[0].seen).toEqual(1);
     });
 
+    it('a WHEN condition gates row-trigger firing', () => {
+        none(`create table t (id int, n int, tag text);
+               insert into t values (1, 5, null), (2, 15, null);
+               create function mark() returns trigger as $$
+                   begin new.tag = 'big'; return new; end;
+               $$ language plpgsql;
+               create trigger tw before update on t for each row
+                   when (new.n > 10) execute function mark();
+               update t set n = n`);
+        expect(many(`select id, tag from t order by id`))
+            .toEqual([{ id: 1, tag: null }, { id: 2, tag: 'big' }]);
+    });
+
+    it('UPDATE OF fires only when a listed column changes', () => {
+        none(`create table u (id int, a int, b int, hits int default 0);
+               insert into u values (1, 1, 1, 0);
+               create function bump() returns trigger as $$
+                   begin new.hits = old.hits + 1; return new; end;
+               $$ language plpgsql;
+               create trigger tu before update of a on u for each row execute function bump()`);
+        none(`update u set b = 99 where id = 1`); // b changed, not a
+        expect(many(`select hits from u`)[0].hits).toEqual(0);
+        none(`update u set a = 42 where id = 1`); // a changed
+        expect(many(`select hits from u`)[0].hits).toEqual(1);
+    });
+
     it('drops a trigger by name', () => {
         none(`create table t (id int, seen int);
                create function mark() returns trigger as $$

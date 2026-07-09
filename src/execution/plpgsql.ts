@@ -181,7 +181,10 @@ class TriggerCompiler {
     }
 
     compileExpr(exprSrc: string): (ctx: TriggerContext, t: _Transaction) => any {
-        const ast = parseExpr(exprSrc);
+        return this.compileAst(parseExpr(exprSrc));
+    }
+
+    compileAst(ast: Expr): (ctx: TriggerContext, t: _Transaction) => any {
         const value: IValue = withSelection(this.ctxSel, () => buildValue(ast));
         return (ctx, t) => value.get(this.buildRow(ctx), t);
     }
@@ -301,4 +304,12 @@ export function registerPlpgsqlLanguage(db: _IDb) {
 
 export function getTriggerRunner(impl: any): TriggerRunner | null {
     return impl?.__triggerRunner ?? null;
+}
+
+/** Compile a trigger WHEN condition (with NEW/OLD in scope) against a table. */
+export function compileTriggerWhen(table: _ITable, when: Expr): (ctx: TriggerContext, t: _Transaction) => any {
+    return withSelection(table.selection, () => {
+        const c = new TriggerCompiler(table);
+        return c.compileAst(when);
+    });
 }

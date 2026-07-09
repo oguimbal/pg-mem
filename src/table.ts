@@ -753,6 +753,35 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
     }
 
 
+    renameIndex(oldName: string, newName: string): void {
+        if (oldName === newName) {
+            return;
+        }
+        const u = asIndex(this.ownerSchema.getOwnObject(oldName)) as BIndex;
+        if (!u || !this.indexByHashAndName.get(u.hash)?.has(oldName)) {
+            throw new QueryError('Cannot rename index that does not belong to this table: ' + oldName);
+        }
+        if (this.ownerSchema.getOwnObject(newName)) {
+            throw new QueryError(`relation "${newName}" already exists`, '42P07');
+        }
+        // schema relation registry
+        this.ownerSchema._reg_rename(u, oldName, newName);
+        u.name = newName;
+        // per-hash name map
+        const byHash = this.indexByHashAndName.get(u.hash)!;
+        byHash.set(newName, byHash.get(oldName)!);
+        byHash.delete(oldName);
+        // backing constraint (used by DROP INDEX / ON CONFLICT ON CONSTRAINT)
+        const cst = this.constraintsByName.get(oldName);
+        if (cst) {
+            this.constraintsByName.delete(oldName);
+            (cst as { name: string }).name = newName;
+            this.constraintsByName.set(newName, cst);
+        }
+        this.db.onSchemaChange();
+    }
+
+
     onIndex(sub: IndexHandler): ISubscription {
         this.indexHandlers.add(sub);
         return {

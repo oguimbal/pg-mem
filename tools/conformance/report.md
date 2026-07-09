@@ -1,6 +1,6 @@
 # pg-mem conformance report
 
-**Score: 101/101 (100.0%) · 1 known gap** — verified against offline (@expect annotations)
+**Score: 108/108 (100.0%) · 1 known gap** — verified against offline (@expect annotations)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
@@ -15,8 +15,9 @@
 | joins | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | numeric-types | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | datetime-tz | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
-| triggers | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| triggers | 6/6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | transactions | 2/2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| prepared | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | rls | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Failures

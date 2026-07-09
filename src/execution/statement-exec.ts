@@ -1,5 +1,5 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils';
-import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private';
+import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue, PreparedStatementRunner, _IPreparedQuery } from '../interfaces-private';
 import { toSql, Statement } from 'pgsql-ast-parser';
 import { ExecuteCreateTable } from './schema-amends/create-table';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence';
@@ -8,6 +8,7 @@ import { CreateIndexExec } from './schema-amends/create-index';
 import { Alter } from './schema-amends/alter';
 import { AlterSequence } from './schema-amends/alter-sequence';
 import { DropIndex } from './schema-amends/drop-index';
+import { AlterIndex } from './schema-amends/alter-index';
 import { DropTable } from './schema-amends/drop-table';
 import { DropSequence } from './schema-amends/drop-sequence';
 import { CommitExecutor, RollbackExecutor, BeginStatementExec, SavepointExecutor, ReleaseSavepointExecutor } from './transaction-statements';
@@ -28,6 +29,7 @@ import { withSelection, withStatement, withNameResolver, INameResolver } from '.
 import { DropType } from './schema-amends/drop-type';
 import { AlterEnum } from "./schema-amends/alter-enum";
 import { Comment } from './schema-amends/comment';
+import { ExecutePrepared } from './execute-prepared';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -150,12 +152,23 @@ export class StatementExec implements _IStatement {
             case 'comment':
                 return new Comment(this, p);
             case 'raise':
-            case 'deallocate':
             case 'grant':
             case 'revoke':
                 // pg-mem has no privilege system: parse & ignore (dumps, RLS setup)
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
+
+            case 'deallocate':
+                ignore(p.target);
+                return new SimpleExecutor(p, () => {
+                    const tgt = p.target;
+                    if ('option' in tgt) {
+                        // DEALLOCATE ALL
+                        this.db.preparedStatements.clear();
+                    } else if (!this.db.preparedStatements.delete(tgt.name)) {
+                        throw new QueryError(`prepared statement "${tgt.name}" does not exist`, '26000');
+                    }
+                }, 'DEALLOCATE');
 
             case 'refresh materialized view':
                 // todo: a decent materialized view implementation
@@ -163,9 +176,31 @@ export class StatementExec implements _IStatement {
                 return new SimpleExecutor(p, () => { });
 
             case 'tablespace':
-                throw new NotSupported('"TABLESPACE" statement');
-            case 'prepare':
-                throw new NotSupported('"PREPARE" statement');
+                // tablespaces are physical storage; meaningless in-memory
+                ignore(p);
+                return new SimpleExecutor(p, () => { });
+            case 'prepare': {
+                // plan the statement now (like postgres: at PREPARE time), outside any
+                // execution context, then stash a runner. The raw (unproxied) inner AST is
+                // used so it gets its own coverage checking inside schema.prepare.
+                ignore(p.statement);
+                ignore(p.args);
+                const raw = this.statement as typeof p;
+                const compiled = this.schema.prepare([raw.statement]) as _IPreparedQuery;
+                const runner: PreparedStatementRunner = (args, t) => {
+                    const res = compiled.bind(args).executeAll(t) as any;
+                    const { state, ...result } = res;
+                    return { result, state };
+                };
+                return new SimpleExecutor(p, () => {
+                    if (this.db.preparedStatements.has(p.name.name)) {
+                        throw new QueryError(`prepared statement "${p.name.name}" already exists`, '42P05');
+                    }
+                    this.db.preparedStatements.set(p.name.name, runner);
+                }, 'PREPARE');
+            }
+            case 'execute':
+                return new ExecutePrepared(this, p);
             case 'create composite type':
                 throw new NotSupported('create composite type');
             case 'drop trigger':
@@ -180,7 +215,7 @@ export class StatementExec implements _IStatement {
                     table.dropTrigger(dp.name.name, !!dp.ifExists);
                 }, 'DROP TRIGGER');
             case 'alter index':
-                throw new NotSupported('"alter index" statement');
+                return new AlterIndex(this, p);
             default:
                 throw NotSupported.never(p, 'statement type');
         }

@@ -113,6 +113,9 @@ export interface StatementResult {
     state: _Transaction;
 }
 
+/** Runs a PREPAREd statement: binds argument values and executes against a transaction. */
+export type PreparedStatementRunner = (args: any[], t: _Transaction) => StatementResult;
+
 export type OnStatementExecuted = (t: _Transaction) => void;
 
 export interface QueryObjOpts extends Partial<BeingCreated> {
@@ -385,6 +388,9 @@ export interface _IDb extends IMemoryDb {
     readonly public: _ISchema;
     readonly data: _Transaction;
     readonly searchPath: ReadonlyArray<string>;
+    /** session-scoped named prepared statements (SQL-level PREPARE / EXECUTE);
+     * each entry is a runner that binds args and executes against a transaction */
+    readonly preparedStatements: Map<string, PreparedStatementRunner>;
 
     createSchema(db: string): _ISchema;
     getSchema(db?: string | null, nullIfNotFound?: false): _ISchema;
@@ -459,6 +465,7 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint | nil;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
+    renameIndex(oldName: string, newName: string): void;
     drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
     onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;

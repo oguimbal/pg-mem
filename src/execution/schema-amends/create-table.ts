@@ -38,6 +38,8 @@ export class ExecuteCreateTable extends ExecHelper implements _IStatementExecuto
                     throw NotSupported.never(f);
             }
         }
+        // tablespaces are physical storage; meaningless in-memory
+        ignore(p.tablespace);
         this.ifNotExists = !!p.ifNotExists;
         this.name = p.name;
         this.toDeclare = {

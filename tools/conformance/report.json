@@ -1,8 +1,8 @@
 {
   "mode": "offline",
   "score": 100,
-  "passed": 101,
-  "total": 101,
+  "passed": 108,
+  "total": 108,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1016,6 +1016,31 @@
       "outcome": "pass"
     },
     {
+      "category": "triggers",
+      "name": "WHEN condition gates row-trigger firing",
+      "expected": [
+        {
+          "id": 1,
+          "tag": null
+        },
+        {
+          "id": 2,
+          "tag": "big"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "triggers",
+      "name": "UPDATE OF fires only when a listed column changes",
+      "expected": [
+        {
+          "hits": 1
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
       "category": "transactions",
       "name": "savepoint rollback",
       "expected": [
@@ -1028,6 +1053,57 @@
     {
       "category": "transactions",
       "name": "deferrable constraint",
+      "outcome": "pass"
+    },
+    {
+      "category": "prepared",
+      "name": "prepared select with typed parameter",
+      "expected": [
+        {
+          "r": 42
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "prepared",
+      "name": "prepared statement with an expression argument",
+      "expected": [
+        {
+          "r": 10
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "prepared",
+      "name": "prepared insert then read back",
+      "expected": [
+        {
+          "id": 1,
+          "name": "alice"
+        },
+        {
+          "id": 2,
+          "name": "bob"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "prepared",
+      "name": "parameter compared to an indexed column",
+      "expected": [
+        {
+          "name": "bob"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "prepared",
+      "name": "deallocate removes a prepared statement",
+      "expectedError": "does not exist",
       "outcome": "pass"
     },
     {
