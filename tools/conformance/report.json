@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 233,
-  "total": 233,
+  "passed": 234,
+  "total": 234,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -2738,6 +2738,38 @@
           "g": "b",
           "sub": null,
           "s": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "grouping-sets",
+      "name": "GROUPING SETS explicit sets",
+      "expected": [
+        {
+          "g": "a",
+          "sub": null,
+          "s": 3
+        },
+        {
+          "g": "b",
+          "sub": null,
+          "s": 3
+        },
+        {
+          "g": null,
+          "sub": "x",
+          "s": 4
+        },
+        {
+          "g": null,
+          "sub": "y",
+          "s": 2
+        },
+        {
+          "g": null,
+          "sub": null,
+          "s": 6
         }
       ],
       "outcome": "pass"

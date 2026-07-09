@@ -110,7 +110,12 @@ export function expandGroupingSets(p: SelectFromStatement): SelectStatement | nu
             if (!present.has(k)) { drop.add(k); }
         }
         const mapper = nullOutRefs(drop);
-        const columns = (p.columns ?? []).map(c => ({ ...c, expr: mapper.expr(c.expr)! }));
+        // pin each column's output name: NULLing a `sub` ref would otherwise change the
+        // inferred column name, breaking the UNION and any outer ORDER BY on that name
+        const columns = (p.columns ?? []).map(c => {
+            const alias = c.alias ?? (c.expr.type === 'ref' ? { name: c.expr.name } : undefined);
+            return { ...c, expr: mapper.expr(c.expr)!, ...(alias ? { alias } : {}) };
+        });
         const branch: SelectFromStatement = {
             ...p,
             columns,

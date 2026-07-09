@@ -44,6 +44,19 @@ describe('GROUP BY ROLLUP / CUBE', () => {
             ]);
     });
 
+    it('GROUPING SETS lists explicit sets', () => {
+        expect(many(`select g, sub, sum(amt)::int as s from s
+                     group by grouping sets ((g), (sub), ())
+                     order by g nulls last, sub nulls last`))
+            .toEqual([
+                { g: 'a', sub: null, s: 3 },
+                { g: 'b', sub: null, s: 3 },
+                { g: null, sub: 'x', s: 4 },
+                { g: null, sub: 'y', s: 2 },
+                { g: null, sub: null, s: 6 },
+            ]);
+    });
+
     it('mixes plain columns with ROLLUP', () => {
         expect(many(`select g, sub, sum(amt)::int as s from s
                      group by g, rollup(sub)

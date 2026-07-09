@@ -46,8 +46,8 @@ ships after a consumer minifies).
 | bundle             | minified | min+gzip |
 |--------------------|---------:|---------:|
 | upstream 3.0.14    |   254 KB |  64.5 KB |
-| this fork          |   378 KB |  99.9 KB |
-| **delta**          | **+124 KB** | **+35.4 KB (+55%)** |
+| this fork          |   379 KB | 100.0 KB |
+| **delta**          | **+125 KB** | **+35.5 KB (+55%)** |
 
 Of the +26 KB gzipped, roughly ~6.5 KB is the parser grammar (the new `pgsql-ast-parser`
 rules: roles, policies, GRANT, window frames, `position`, deferrable, triggers, prepared
@@ -64,7 +64,7 @@ ORDINALITY, the jsonb_pretty / #- helpers, and timestamptz overloads for
 date_trunc/date_part/age/to_char plus to_timestamp, array_remove / array_replace /
 row_to_json / array_to_json, IS [NOT] DISTINCT FROM, week/decade/century/millennium
 interval units, the nth_value / cume_dist / percent_rank window functions, and GROUP BY
-ROLLUP / CUBE).
+ROLLUP / CUBE / GROUPING SETS).
 
 **Crucially, the growth is feature code, not dead weight, and no runtime dependency was
 added** — the `Decimal` type is hand-rolled on BigInt and timezones use the runtime's
