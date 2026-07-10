@@ -33,3 +33,15 @@ select array_position(array['a', 'b', 'c'], 'b') as r;
 -- @case: any of array
 -- @expect: [{"r":true}]
 select 2 = any(array[1, 2, 3]) as r;
+
+-- @case: array slice [lo:hi]
+-- @expect: [{"s":[20,30]}]
+select (array[10,20,30,40])[2:3] as s;
+
+-- @case: array slice open-ended [:hi] and [lo:]
+-- @expect: [{"a":[1,2]},{"b":[2,3]}]
+select (array[1,2,3])[:2] as a, (array[1,2,3])[2:] as b;
+
+-- @case: array slice in a function body (string_to_array folder path)
+-- @expect: [{"s":["a","b"]}]
+select (string_to_array('a/b/c', '/'))[1 : array_length(string_to_array('a/b/c', '/'), 1) - 1] as s;

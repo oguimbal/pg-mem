@@ -10,6 +10,7 @@ import { PgNamespaceTable } from './pg-namespace-list';
 import { PgSequencesTable } from './pg-sequences-list';
 import { PgTypeTable } from './pg-type-list';
 import { PgUserTable } from './pg-user-list';
+import { PgRolesTable } from './pg-roles-list';
 import { PgPoliciesTable } from './pg-policies-list';
 import { PgIndexesTable } from './pg-indexes-list';
 import { PgTablesTable } from './pg-tables-list';
@@ -72,6 +73,7 @@ export function setupPgCatalog(db: _IDb) {
     new PgEnumTable(catalog).register();
     new PgSequencesTable(catalog).register();
     new PgUserTable(catalog).register();
+    new PgRolesTable(catalog).register();
     new PgPoliciesTable(catalog).register();
     new PgIndexesTable(catalog).register();
     new PgTablesTable(catalog).register();
@@ -176,6 +178,43 @@ export function setupPgCatalog(db: _IDb) {
         returns: DataType.text,
         implementation: x => 'Fake description provided by pg-mem',
     });
+
+    // version()/size functions — introspection tools & admin dashboards call these.
+    // pg-mem is in-memory with no on-disk footprint, so sizes are nominal (0).
+    catalog.registerFunction({
+        name: 'version',
+        args: [],
+        returns: Types.text(),
+        implementation: () => 'PostgreSQL 16.4 (pg-mem) on javascript, in-memory',
+    });
+    const sizePretty = (bytes: number | string): string => {
+        let n = Number(bytes);
+        if (!isFinite(n)) { return '0 bytes'; }
+        if (Math.abs(n) < 10 * 1024) { return `${Math.round(n)} bytes`; }
+        const units = ['kB', 'MB', 'GB', 'TB', 'PB'];
+        let i = 0;
+        n /= 1024;
+        while (Math.abs(n) >= 10 * 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return `${Math.round(n)} ${units[i]}`;
+    };
+    catalog.registerFunction({
+        name: 'pg_size_pretty',
+        args: [Types.bigint],
+        returns: Types.text(),
+        implementation: sizePretty,
+    });
+    catalog.registerFunction({
+        name: 'pg_size_pretty',
+        args: [Types.integer],
+        returns: Types.text(),
+        implementation: sizePretty,
+    });
+    // pg-mem holds no on-disk data; report a nominal 0-byte size for any target.
+    for (const name of ['pg_database_size', 'pg_relation_size', 'pg_table_size', 'pg_total_relation_size', 'pg_indexes_size']) {
+        for (const arg of [Types.text(), Types.integer]) {
+            catalog.registerFunction({ name, args: [arg], returns: Types.bigint, implementation: () => '0' });
+        }
+    }
 
     registerCommonOperators(catalog);
     registerRanges(catalog);

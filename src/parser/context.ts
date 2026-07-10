@@ -28,6 +28,8 @@ class StackOf<T> {
 
 const _selectionStack = new StackOf<_ISelection>('build context');
 const _statementStack = new StackOf<_IStatement>('execution statement');
+/** Collectors for correlated-subquery references (see withCorrelation). */
+const _correlationStack: { register: (outer: IValue) => { value: any } }[] = [];
 const _tempBindings = new StackOf<Map<string, _ISelection | 'no returning'>>('binding context');
 const _parametersStack = new StackOf<Parameter[]>('parameter context');
 const _nameResolver = new StackOf<INameResolver>('name resolver');
@@ -120,6 +122,37 @@ export function withBindingScope<T>(act: () => T): T {
 }
 export const withParameters = _parametersStack.usingValue;
 export const withNameResolver = _nameResolver.usingValue;
+
+/**
+ * Correlated subqueries: while building a subquery's body, a column reference that
+ * is not found in the subquery's own selection may refer to a column of an enclosing
+ * query. `resolveOuterColumn` searches the enclosing selections (everything below the
+ * current top of the selection stack), and `withCorrelation` lets the subquery builder
+ * collect those outer columns so it can feed the outer row in at enumeration time.
+ */
+export function resolveOuterColumn(ref: any): IValue | nil {
+    // search from the enclosing selection outwards (skip the current/top one)
+    for (let i = _selectionStack.stack.length - 2; i >= 0; i--) {
+        const found = _selectionStack.stack[i].getColumn(ref, true);
+        if (found) {
+            return found;
+        }
+    }
+    return null;
+}
+
+export function withCorrelation<T>(collector: { register: (outer: IValue) => { value: any } }, act: () => T): T {
+    _correlationStack.push(collector);
+    try {
+        return act();
+    } finally {
+        _correlationStack.pop();
+    }
+}
+
+export function currentCorrelation(): { register: (outer: IValue) => { value: any } } | nil {
+    return _correlationStack[_correlationStack.length - 1];
+}
 
 export function resolveName(name: string): IValue | null {
     for (let i = _nameResolver.stack.length - 1; i >= 0; i--) {

@@ -1,7 +1,7 @@
 import { ISchema, DataType, IType, RelationNotFound, Schema, QueryResult, SchemaField, nil, FunctionDefinition, PermissionDeniedError, TypeNotFound, ArgDefDetails, IEquivalentType, QueryInterceptor, ISubscription, QueryError, typeDefToStr, OperatorDefinition, QueryOrAst, IPreparedQuery } from '../interfaces';
 import { _IDb, _ISelection, _ISchema, _Transaction, _ITable, _SelectExplanation, _Explainer, IValue, _IIndex, _IType, _IRelation, QueryObjOpts, _ISequence, _INamedIndex, RegClass, Reg, TypeQuery, asType, _ArgDefDetails, BeingCreated, _FunctionDefinition, _OperatorDefinition } from '../interfaces-private';
 import { asSingleQName, ignore, isType, notNil, parseRegClass, randomString, schemaOf } from '../utils';
-import { typeSynonyms } from '../datatypes';
+import { typeSynonyms, Types } from '../datatypes';
 import { DropFunctionStatement, BinaryOperator, QName, DataTypeDef, CreateSequenceOptions, CreateExtensionStatement, Statement } from 'pgsql-ast-parser';
 import { MemoryTable } from '../table';
 import { parseSql } from '../parser/parse-cache';
@@ -185,7 +185,17 @@ export class DbSchema implements _ISchema, ISchema {
             ignore(t.config);
         }
 
-        return this.simpleTypes[name] ?? null;
+        if (this.simpleTypes[name]) {
+            return this.simpleTypes[name];
+        }
+        // Postgres creates an implicit composite (row) type for every table/view, so a
+        // table name is usable as a type (e.g. `RETURNS SETOF mytable`, a plpgsql var).
+        const rel = this.getOwnObject(name);
+        const cols = (rel as any)?.selection?.columns as { id?: string; type: _IType }[] | undefined;
+        if ((rel?.type === 'table' || rel?.type === 'view') && cols?.length) {
+            return Types.record(cols.map(c => ({ name: c.id!, type: c.type })));
+        }
+        return null;
     }
 
 

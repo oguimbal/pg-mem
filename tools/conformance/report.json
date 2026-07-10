@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 248,
-  "total": 248,
+  "passed": 255,
+  "total": 255,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -751,6 +751,51 @@
       "outcome": "pass"
     },
     {
+      "category": "functions-array",
+      "name": "array slice [lo:hi]",
+      "expected": [
+        {
+          "s": [
+            20,
+            30
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "array slice open-ended [:hi] and [lo:]",
+      "expected": [
+        {
+          "a": [
+            1,
+            2
+          ]
+        },
+        {
+          "b": [
+            2,
+            3
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "functions-array",
+      "name": "array slice in a function body (string_to_array folder path)",
+      "expected": [
+        {
+          "s": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
       "category": "window-functions",
       "name": "row_number over",
       "expected": [
@@ -895,6 +940,61 @@
           "id": 1,
           "x": "a",
           "y": "b"
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "correlated EXISTS subquery",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "correlated scalar subquery in select list",
+      "expected": [
+        {
+          "id": 1,
+          "n": 1
+        },
+        {
+          "id": 2,
+          "n": 1
+        },
+        {
+          "id": 3,
+          "n": 0
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "scalar subquery (single value)",
+      "expected": [
+        {
+          "n": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "joins",
+      "name": "IN with a subquery",
+      "expected": [
+        {
+          "id": 1
+        },
+        {
+          "id": 2
         }
       ],
       "outcome": "pass"

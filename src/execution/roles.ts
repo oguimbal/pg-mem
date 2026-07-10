@@ -42,6 +42,16 @@ export function getRole(t: _Transaction, name: string): Role | undefined {
     return rolesMap(t).get(name);
 }
 
+/** All roles known in this transaction, including the synthetic default superuser. */
+export function listRoles(t: _Transaction): Role[] {
+    const map = rolesMap(t);
+    const out = map.has(DEFAULT_ROLE_NAME) ? [] : [DEFAULT_ROLE];
+    for (const r of map.values()) {
+        out.push(r);
+    }
+    return out;
+}
+
 export function sessionRoleName(t: _Transaction): string {
     return t.getMap(GLOBAL_VARS).get(SESSION_ROLE_KEY) ?? DEFAULT_ROLE_NAME;
 }

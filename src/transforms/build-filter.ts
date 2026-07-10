@@ -1,5 +1,5 @@
 import { _ISelection, CastError, DataType, NotSupported, IValue } from '../interfaces-private';
-import { buildValue } from '../parser/expression-builder';
+import { buildValue, isSubqueryNode, buildSubqueryArray } from '../parser/expression-builder';
 import { Types, ArrayType, reconciliateTypes } from '../datatypes';
 import { EqFilter } from './eq-filter';
 import { Value } from '../evaluator';
@@ -101,7 +101,8 @@ function buildBinaryFilter(this: void, on: _ISelection, filter: ExprBinary): _IS
         case 'IN':
         case 'NOT IN': {
             const value = buildValue(left);
-            let arrayValue = buildValue(right);
+            // a subquery RHS must be built as the list of its rows (not a scalar)
+            let arrayValue = isSubqueryNode(right) ? buildSubqueryArray(right) : buildValue(right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
             if (arrayValue.type.primary !== DataType.list) {
                 arrayValue = Value.list([arrayValue]);

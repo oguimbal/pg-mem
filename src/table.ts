@@ -847,7 +847,19 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
 
     addForeignKey(cst: TableConstraintForeignKey, t: _Transaction): _IConstraint | nil {
         const ihash = indexHash(cst.localColumns.map(x => x.name));
-        const constraintName = this.determineIndexRelName(cst.constraintName?.name, ihash, false, 'fk');
+        let constraintName: string | nil;
+        if (cst.constraintName?.name) {
+            constraintName = this.determineIndexRelName(cst.constraintName.name, ihash, false, 'fk');
+        } else {
+            // Postgres convention for an unnamed FK: <table>_<col1>_<col2>..._fkey
+            // (a numeric suffix is appended on collision, like Postgres)
+            const base = `${this.name}_${cst.localColumns.map(x => x.name).join('_')}_fkey`;
+            constraintName = base;
+            let i = 1;
+            while (this.constraintsByName.has(constraintName) || this.ownerSchema.getOwnObject(constraintName)) {
+                constraintName = base + (i++);
+            }
+        }
         if (!constraintName) {
             return null;
         }
