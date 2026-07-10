@@ -20,6 +20,10 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
 
         const lang = schema.db.getLanguage(fn.language.name);
 
+        // SECURITY DEFINER/INVOKER is a privilege concept; pg-mem has no roles, so
+        // the body simply runs with the caller's (only) rights either way.
+        ignore(fn.security);
+
         // determine arg types
         const args = withSelection(schema.dualTable.selection, () => fn.arguments.map<_ArgDefDetails>(a => ({
             name: a.name?.name,

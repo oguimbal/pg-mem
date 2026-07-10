@@ -115,3 +115,27 @@ declare i int;
 begin for i in 1..n loop return next i; end loop; end;
 $$ language plpgsql;
 select * from nums(3);
+
+-- @case: plpgsql FOREACH over an int array
+-- @expect: [{"r":10}]
+create function sum_arr(a int[]) returns int as $$
+declare x int; total int := 0;
+begin
+    foreach x in array a loop total := total + x; end loop;
+    return total;
+end; $$ language plpgsql;
+select sum_arr(array[1,2,3,4]) as r;
+
+-- @case: plpgsql SECURITY DEFINER function runs normally
+-- @expect: [{"r":42}]
+create function secret() returns int language plpgsql security definer as $$
+begin return 42; end; $$;
+select secret() as r;
+
+-- @case: embedded DDL inside a DO block persists
+-- @expect: [{"id":7}]
+do $$ begin
+    create table made_in_do(id int);
+    insert into made_in_do values (7);
+end $$;
+select * from made_in_do;

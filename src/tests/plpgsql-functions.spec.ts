@@ -248,4 +248,54 @@ describe('PL/pgSQL functions', () => {
             expect(many(`select * from allv()`).map(r => r.allv)).toEqual([10, 20, 30]);
         });
     });
+
+    describe('FOREACH ... IN ARRAY', () => {
+        it('iterates array elements', () => {
+            none(`create function sum_arr(a int[]) returns int as $$
+                declare x int; total int := 0;
+                begin
+                    foreach x in array a loop total := total + x; end loop;
+                    return total;
+                end; $$ language plpgsql`);
+            expect(one(`select sum_arr(array[1,2,3,4]) as v`).v).toEqual(10);
+        });
+
+        it('is a no-op for an empty array', () => {
+            none(`create function cnt(a int[]) returns int as $$
+                declare x int; n int := 0;
+                begin
+                    foreach x in array a loop n := n + 1; end loop;
+                    return n;
+                end; $$ language plpgsql`);
+            expect(one(`select cnt(array[]::int[]) as v`).v).toEqual(0);
+        });
+
+        it('honours EXIT inside the loop', () => {
+            none(`create function first_gt(a int[], lim int) returns int as $$
+                declare x int; res int;
+                begin
+                    foreach x in array a loop
+                        if x > lim then res := x; exit; end if;
+                    end loop;
+                    return res;
+                end; $$ language plpgsql`);
+            expect(one(`select first_gt(array[1,5,9], 4) as v`).v).toEqual(5);
+        });
+    });
+
+    describe('embedded DDL in a DO block', () => {
+        it('creates a table and populates it', () => {
+            none(`do $$ begin
+                create table if not exists made_in_do(id int);
+                insert into made_in_do values (42);
+            end $$;`);
+            expect(many(`select * from made_in_do`)).toEqual([{ id: 42 }]);
+        });
+
+        it('persists changes across subsequent statements', () => {
+            none(`do $$ begin create table dslog(msg text); end $$;`);
+            none(`insert into dslog values ('after')`);
+            expect(many(`select * from dslog`)).toEqual([{ msg: 'after' }]);
+        });
+    });
 });

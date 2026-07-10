@@ -1,10 +1,10 @@
 # pg-mem conformance report
 
-**Score: 243/243 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
+**Score: 248/248 (100.0%) · 1 known gap** — verified against differential (postgres://***@localhost:5433/postgres)
 
 | Category | Pass | Known gap | Wrong result | Missing function | Not supported | Parse error | Error |
 |---|---|---|---|---|---|---|---|
-| basics | 10/10 | 0 | 0 | 0 | 0 | 0 | 0 |
+| basics | 12/12 | 0 | 0 | 0 | 0 | 0 | 0 |
 | functions-string | 22/22 | 0 | 0 | 0 | 0 | 0 | 0 |
 | functions-math | 10/10 | 1 | 0 | 0 | 0 | 0 | 0 |
 | functions-datetime | 9/9 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -20,7 +20,7 @@
 | prepared | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | domains | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | catalog | 3/3 | 0 | 0 | 0 | 0 | 0 | 0 |
-| plpgsql | 12/12 | 0 | 0 | 0 | 0 | 0 | 0 |
+| plpgsql | 15/15 | 0 | 0 | 0 | 0 | 0 | 0 |
 | supabase | 4/4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | composite-types | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |
 | merge | 5/5 | 0 | 0 | 0 | 0 | 0 | 0 |

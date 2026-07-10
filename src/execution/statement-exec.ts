@@ -171,7 +171,15 @@ export class StatementExec implements _IStatement {
             case 'raise':
             case 'grant':
             case 'revoke':
-                // pg-mem has no privilege system: parse & ignore (dumps, RLS setup)
+            case 'alter role':
+            case 'alter default privileges':
+                // pg-mem has no privilege/role-config system: parse & ignore (dumps, RLS setup)
+                ignore(p);
+                return new SimpleExecutor(p, () => { });
+            case 'notify':
+            case 'listen':
+            case 'unlisten':
+                // no async notification delivery in-memory: parse & ignore
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
 

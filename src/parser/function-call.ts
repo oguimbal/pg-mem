@@ -28,6 +28,11 @@ export function buildCall(name: string | QName, args: IValue[]): IValue {
             type = Types.text();
             get = () => 'public';
             break;
+        case 'current_database':
+        case 'current_catalog':
+            type = Types.text();
+            get = () => 'pg_mem';
+            break;
         // a set of functions that are calledby Tyopeorm, but we dont needto support them yet
         // since there is not result (function never actually called)
         case 'pg_get_constraintdef':

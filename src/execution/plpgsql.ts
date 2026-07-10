@@ -143,6 +143,7 @@ type GStmt =
     | { k: 'while'; cond: string; body: GStmt[] }
     | { k: 'loop'; body: GStmt[] }
     | { k: 'forrange'; varName: string; reverse: boolean; from: string; to: string; by: string | null; body: GStmt[] }
+    | { k: 'foreach'; varName: string; array: string; body: GStmt[] }
     | { k: 'exit'; when: string | null }
     | { k: 'continue'; when: string | null }
     | { k: 'block'; body: GStmt[]; handlers: ExceptionHandler[] }
@@ -270,6 +271,8 @@ class GParser {
             }
             case 'for':
                 return this.parseFor();
+            case 'foreach':
+                return this.parseForeach();
             case 'exit':
             case 'continue': {
                 this.i++;
@@ -289,6 +292,20 @@ class GParser {
             case 'insert':
             case 'update':
             case 'delete':
+            // embedded DDL / utility statements run as-is against the current transaction
+            case 'create':
+            case 'drop':
+            case 'alter':
+            case 'truncate':
+            case 'comment':
+            case 'grant':
+            case 'revoke':
+            case 'set':
+            case 'reset':
+            case 'call':
+            case 'refresh':
+            case 'do':
+            case 'copy':
                 return { k: 'sql', sql: joinTokens(this.captureStmt()) };
             case 'execute': {
                 this.i++;
@@ -358,6 +375,20 @@ class GParser {
         const body = this.parseStmtsUntil(['end']);
         this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
         return { k: 'forrange', varName, reverse, from, to, by, body };
+    }
+
+    private parseForeach(): GStmt {
+        this.eat('foreach');
+        const varName = this.next();
+        // optional SLICE <n> (we only support element-wise iteration = slice 0)
+        if (this.peek() === 'slice') { this.i++; this.next(); }
+        this.eat('in');
+        this.eat('array');
+        const array = this.readUntil(['loop']);
+        this.eat('loop');
+        const body = this.parseStmtsUntil(['end']);
+        this.eat('end'); this.eat('loop'); if (this.peek() === ';') { this.i++; }
+        return { k: 'foreach', varName, array, body };
     }
 
     /** RAISE [level] ['format' [, expr]*] [USING ...] */
@@ -492,7 +523,7 @@ function usesSetof(stmts: GStmt[]): boolean {
         if (s.k === 'returnnext' || s.k === 'returnquery') { return true; }
         const nested: GStmt[][] = [];
         if (s.k === 'if') { s.branches.forEach(b => nested.push(b.body)); if (s.else) { nested.push(s.else); } }
-        if (s.k === 'while' || s.k === 'loop' || s.k === 'forrange' || s.k === 'forquery' || s.k === 'block') { nested.push((s as any).body); }
+        if (s.k === 'while' || s.k === 'loop' || s.k === 'forrange' || s.k === 'foreach' || s.k === 'forquery' || s.k === 'block') { nested.push((s as any).body); }
         if (s.k === 'block') { s.handlers.forEach(h => nested.push(h.body)); }
         if (nested.some(usesSetof)) { return true; }
     }
@@ -612,6 +643,9 @@ function buildPlpgsqlFunction(code: string, args: VarDef[], returns: _IType | ni
             return sig?.type === 'return' ? sig.value : null;
         } finally {
             frameStack.pop();
+            // hand the (possibly forked/committed by embedded DDL) transaction back
+            // to a listening caller, e.g. a DO block executor
+            executionCtx().onTransaction?.(ctx.t);
         }
     };
 }
@@ -811,6 +845,28 @@ function compileBody(stmts: GStmt[], h: Helpers): GCompiled[] {
                     },
                 };
             }
+            case 'foreach': {
+                // FOREACH x IN ARRAY <expr> LOOP : iterate over the array's elements
+                const arr = compileExpr(s.array);
+                const body = compileBody(s.body, h);
+                const varName = s.varName;
+                return {
+                    run(ctx) {
+                        const list = arr(ctx.t);
+                        if (list == null) { return null; }
+                        if (!Array.isArray(list)) {
+                            throw new QueryError('FOREACH expression must be an array', '22023');
+                        }
+                        for (const el of list) {
+                            frame().vars.set(varName, el ?? null);
+                            const sig = runGBody(body, ctx);
+                            if (sig?.type === 'return') { return sig; }
+                            if (sig?.type === 'exit') { break; }
+                        }
+                        return null;
+                    },
+                };
+            }
             case 'exit': {
                 const when = s.when ? compileExpr(s.when, Types.bool) : null;
                 return { run: (ctx) => (!when || when(ctx.t) === true) ? { type: 'exit' } : null };
@@ -931,8 +987,11 @@ function compileBody(stmts: GStmt[], h: Helpers): GCompiled[] {
             }
             case 'perform':
             case 'sql': {
-                const run = h.prepareSql(s.sql);
-                return { run(ctx) { run(ctx); return null; } };
+                // Defer compilation to first execution: embedded DDL (e.g. CREATE TABLE)
+                // earlier in the same body may be a prerequisite for planning this one
+                // (a statement that references a just-created relation). Cached after.
+                let run: ((ctx: RunCtx) => any) | null = null;
+                return { run(ctx) { (run ??= h.prepareSql(s.sql))(ctx); return null; } };
             }
             case 'execute': {
                 const exprFn = compileExpr(s.exprSrc, Types.text());

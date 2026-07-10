@@ -16,6 +16,9 @@ export class CreateIndexExec extends ExecHelper implements _IStatementExecutor {
         // tablespaces & storage params are physical; meaningless in-memory
         ignore(p.tablespace);
         ignore(p.with);
+        // INCLUDE (cols) is a covering-index payload optimisation (index-only scans);
+        // in-memory lookups read the row directly, so the payload list is a no-op
+        ignore(p.include);
         // check that index algorithm is supported
         if (p.using && p.using.name.toLowerCase() !== 'btree') {
             if (schema.db.options.noIgnoreUnsupportedIndices) {

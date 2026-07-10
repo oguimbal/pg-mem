@@ -51,3 +51,17 @@ select coalesce(null, 1) as a, nullif(5, 5) as b;
 -- @case: limit offset
 -- @expect: [{"x":2}]
 select x from (values (1), (2), (3)) v(x) order by x limit 1 offset 1;
+
+-- @case: alter column type with USING conversion
+-- @expect: [{"v":42}]
+create table alt_using (v text);
+insert into alt_using values ('42');
+alter table alt_using alter column v type int using v::int;
+select v from alt_using;
+
+-- @case: create index with INCLUDE payload columns
+-- @expect: [{"a":1,"b":"x"}]
+create table idx_inc (a int, b text);
+insert into idx_inc values (1, 'x');
+create index idx_inc_a on idx_inc(a) include (b);
+select a, b from idx_inc where a = 1;

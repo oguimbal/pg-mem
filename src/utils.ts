@@ -382,6 +382,12 @@ export interface ExecCtx {
     readonly schema: _ISchema;
     readonly transaction: _Transaction;
     readonly parametersValues?: any[];
+    /**
+     * Optional sink notified with the final transaction of a nested procedural
+     * body (e.g. a DO block). Embedded DDL forks/commits the transaction, so the
+     * caller must pick up the new handle rather than the one it passed in.
+     */
+    readonly onTransaction?: (t: _Transaction) => void;
 }
 const curCtx: ExecCtx[] = [];
 export function executionCtx(): ExecCtx {

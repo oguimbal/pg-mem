@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 243,
-  "total": 243,
+  "passed": 248,
+  "total": 248,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -118,6 +118,27 @@
       "expected": [
         {
           "x": 2
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "alter column type with USING conversion",
+      "expected": [
+        {
+          "v": 42
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "basics",
+      "name": "create index with INCLUDE payload columns",
+      "expected": [
+        {
+          "a": 1,
+          "b": "x"
         }
       ],
       "outcome": "pass"
@@ -1354,6 +1375,36 @@
         },
         {
           "nums": 3
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql FOREACH over an int array",
+      "expected": [
+        {
+          "r": 10
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "plpgsql SECURITY DEFINER function runs normally",
+      "expected": [
+        {
+          "r": 42
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "plpgsql",
+      "name": "embedded DDL inside a DO block persists",
+      "expected": [
+        {
+          "id": 7
         }
       ],
       "outcome": "pass"

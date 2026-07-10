@@ -244,6 +244,12 @@ describe('Simple queries', () => {
         expect(many('select current_schema')).toEqual([{ current_schema: 'public' }]);
     });
 
+    it('can select current_database() and current_catalog()', () => {
+        simpleDb();
+        expect(many('select current_database() as d')).toEqual([{ d: 'pg_mem' }]);
+        expect(many('select current_catalog() as d')).toEqual([{ d: 'pg_mem' }]);
+    });
+
 
     it('can select obj_description', () => {
         simpleDb();
