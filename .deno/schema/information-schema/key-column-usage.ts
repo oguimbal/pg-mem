@@ -2,6 +2,7 @@ import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema 
 import { Schema } from '../../interfaces.ts';
 import { Types } from '../../datatypes/index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
+import { listConstraintRows } from './constraint-rows.ts';
 
 
 export class KeyColumnUsage extends ReadOnlyTable implements _ITable {
@@ -28,11 +29,27 @@ export class KeyColumnUsage extends ReadOnlyTable implements _ITable {
     }
 
     *enumerate() {
+        for (const c of listConstraintRows(this.db)) {
+            for (let i = 0; i < c.columns.length; i++) {
+                const ret = {
+                    constraint_catalog: 'pgmem',
+                    constraint_schema: c.schema,
+                    constraint_name: c.name,
+                    table_catalog: 'pgmem',
+                    table_schema: c.schema,
+                    table_name: c.table,
+                    column_name: c.columns[i],
+                    ordinal_position: i + 1,
+                    position_in_unique_constraint: null,
+                };
+                yield setId(ret, `/information_schema/key_column_usage/${c.schema}/${c.table}/${c.name}/${c.columns[i]}`);
+            }
+        }
     }
 
 
     hasItem(value: any): boolean {
-        return false;
+        return !!value;
     }
 
 }
