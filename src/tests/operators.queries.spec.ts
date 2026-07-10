@@ -6,7 +6,7 @@ import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { expectQueryError, preventSeqScan } from './test-utils';
 import { _IDb } from '../interfaces-private';
-import moment from 'moment';
+import { utc, startOf, addDays } from '../datatypes/date-utils';
 
 describe('Operators', () => {
 
@@ -53,7 +53,7 @@ describe('Operators', () => {
         const result = many(`select  interval '1 day' + now()::date as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(dt.toString()).toBe(moment.utc().startOf('day').add(1, 'day').toDate().toString());
+        expect(dt.toString()).toBe(addDays(startOf(new Date(), 'day'), 1).toString());
     });
 
     it('date - date', () => {
@@ -78,7 +78,7 @@ describe('Operators', () => {
         const result = many(`select now() + interval '1 day' as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(1, 'day').toISOString());
+        expect(startOf(dt, 'second').toISOString()).toBe(addDays(startOf(new Date(), 'second'), 1).toISOString());
     });
 
 
@@ -86,7 +86,7 @@ describe('Operators', () => {
         const result = many(`select interval '1 day' + now() as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(1, 'day').toISOString());
+        expect(startOf(dt, 'second').toISOString()).toBe(addDays(startOf(new Date(), 'second'), 1).toISOString());
     });
 
     it('adds interval months calendar-aware', () => {
@@ -114,7 +114,7 @@ describe('Operators', () => {
         const result = many(`select now() - interval '1 day' as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(-1, 'day').toISOString());
+        expect(startOf(dt, 'second').toISOString()).toBe(addDays(startOf(new Date(), 'second'), -1).toISOString());
     });
 
     it('- on ints', () => {

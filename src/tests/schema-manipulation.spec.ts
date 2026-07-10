@@ -3,7 +3,7 @@ import { describe, it, beforeEach, expect } from 'bun:test';
 import { newDb } from '../db';
 
 import { expectQueryError, preventSeqScan } from './test-utils';
-import moment from 'moment';
+const fmtUtc = (v: any) => { const d = new Date(v); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`; };
 import { MemoryTable } from '../table';
 
 describe('Schema manipulation', () => {
@@ -98,7 +98,7 @@ describe('Schema manipulation', () => {
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
         expect(many.map(x => x.value instanceof Date)).toEqual([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 03:04:05']);
+        expect(many.map(x => fmtUtc(x.value))).toEqual(['2000-01-02 03:04:05']);
     });
 
     it('table timestamp with time zone', () => {
@@ -107,7 +107,7 @@ describe('Schema manipulation', () => {
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
         expect(many.map(x => x.value instanceof Date)).toEqual([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 03:04:05']);
+        expect(many.map(x => fmtUtc(x.value))).toEqual(['2000-01-02 03:04:05']);
     });
 
     it('table timestamp without time zone', () => {
@@ -116,7 +116,7 @@ describe('Schema manipulation', () => {
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
         expect(many.map(x => x.value instanceof Date)).toEqual([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 03:04:05']);
+        expect(many.map(x => fmtUtc(x.value))).toEqual(['2000-01-02 03:04:05']);
     });
 
     it('table date', () => {
@@ -125,7 +125,7 @@ describe('Schema manipulation', () => {
                                     insert into test(value) values ('2000-01-02 03:04:05');
                                     select * from test;`);
         expect(many.map(x => x.value instanceof Date)).toEqual([true]);
-        expect(many.map(x => moment.utc(x.value)?.format('YYYY-MM-DD HH:mm:ss'))).toEqual(['2000-01-02 00:00:00']);
+        expect(many.map(x => fmtUtc(x.value))).toEqual(['2000-01-02 00:00:00']);
     });
 
 
@@ -137,7 +137,7 @@ describe('Schema manipulation', () => {
         if (!Array.isArray(value)) {
             expect('should be array').toBe('');
         }
-        expect(value.map((y: any) => moment.utc(y)?.format('YYYY-MM-DD HH:mm:ss')))
+        expect(value.map((y: any) => fmtUtc(y)))
             .toEqual(['2000-01-02 00:00:00', '2000-01-02 00:00:00']);
     });
 
