@@ -1,5 +1,8 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
 import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue, PreparedStatementRunner } from './interfaces-private';
+import { Statement } from 'pgsql-ast-parser';
+import { DbSnapshot } from './interfaces';
+import { serializeDb, deserializeDb, isSchemaStatement } from './persistence';
 import { DbSchema } from './schema/schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -53,6 +56,24 @@ class MemoryDb implements _IDb {
     readonly searchPath = ['pg_catalog', 'public'];
     // session-scoped named prepared statements (SQL-level PREPARE / EXECUTE)
     readonly preparedStatements = new Map<string, PreparedStatementRunner>();
+    // schema-defining statements executed so far (for serialize())
+    readonly ddl: Statement[] = [];
+
+    recordDdl(statements: Statement[]): void {
+        for (const st of statements) {
+            if (isSchemaStatement(st)) {
+                this.ddl.push(st);
+            }
+        }
+    }
+
+    serialize(): DbSnapshot {
+        return serializeDb(this);
+    }
+
+    deserialize(snapshot: DbSnapshot): void {
+        deserializeDb(this, snapshot);
+    }
 
     get public() {
         return this.getSchema(null)

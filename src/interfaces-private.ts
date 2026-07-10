@@ -1,5 +1,5 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult, IBoundQuery, IPreparedQuery } from './interfaces';
-import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall, Statement } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
 import type { TableRls, Policy } from './execution/rls';
 export type { TableRls, Policy } from './execution/rls';
@@ -392,6 +392,10 @@ export interface _IDb extends IMemoryDb {
      * each entry is a runner that binds args and executes against a transaction */
     readonly preparedStatements: Map<string, PreparedStatementRunner>;
 
+    /** schema-defining statements executed on this db, in order (used by serialize()) */
+    readonly ddl: Statement[];
+    recordDdl(statements: Statement[]): void;
+
     createSchema(db: string): _ISchema;
     getSchema(db?: string | null, nullIfNotFound?: false): _ISchema;
     getSchema(db: string, nullIfNotFound: true): _ISchema | null;
@@ -452,6 +456,8 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     setReadonly(): this;
     delete(t: _Transaction, toDelete: Row): void;
     update(t: _Transaction, toUpdate: Row): Row | never;
+    /** After bulk-loading rows, advance serial/identity counters past the loaded values */
+    restoreSerials?(t: _Transaction, rows: Row[]): void;
     createIndex(t: _Transaction, expressions: CreateIndexDef): _IConstraint | nil;
     createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string | nil): _IConstraint;
     setReadonly(): this;

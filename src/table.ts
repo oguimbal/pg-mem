@@ -348,6 +348,24 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
         return deepCloneSimple(ret);
     }
 
+    /** After bulk-loading rows (e.g. deserialize), set each serial counter to the max
+     * loaded value so subsequent inserts don't collide with restored ids. */
+    restoreSerials(t: _Transaction, rows: Row[]): void {
+        let serials = t.getMap(this.serialsId);
+        for (const [col, cur] of serials.entries()) {
+            let max = cur;
+            for (const r of rows) {
+                const v = (r as any)[col];
+                const n = typeof v === 'string' ? Number(v) : v;
+                if (typeof n === 'number' && Number.isFinite(n) && n > max) {
+                    max = n;
+                }
+            }
+            serials = serials.set(col, max);
+        }
+        t.set(this.serialsId, serials);
+    }
+
     /** apply column DEFAULTs to a candidate row (idempotent; used before the RLS WITH
      * CHECK so it sees defaulted values, as postgres does) */
     fillDefaults(toInsert: Row, t: _Transaction): void {
