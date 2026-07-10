@@ -8,6 +8,7 @@ import { QName } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 
 export interface EvaluatorOptions {
     isAny?: boolean;
+    isAll?: boolean;
     isColumnOf?: _ISelection;
     /** its type will act as if it is a constant literal (for parameters type resolution) */
     actAsConstantLiteral?: boolean;
@@ -37,6 +38,15 @@ export class Evaluator<T = any> implements IValue<T> {
 
     get isAny(): boolean {
         return this.opts?.isAny ?? false;
+    }
+
+    get isAll(): boolean {
+        return this.opts?.isAll ?? false;
+    }
+
+    /** ANY(...) or ALL(...): a value that yields the whole array to a quantified comparison */
+    get isQuantified(): boolean {
+        return this.isAny || this.isAll;
     }
 
     constructor(readonly type: _IType<T>
@@ -121,7 +131,7 @@ export class Evaluator<T = any> implements IValue<T> {
                 if (nullIsh(got)) {
                     return null;
                 }
-                if (!this.isAny) {
+                if (!this.isQuantified) {
                     return converter(got, t);
                 }
                 if (!Array.isArray(got)) {
@@ -151,7 +161,7 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     map<TNew>(mapper: (val: T) => TNew, newType?: _IType<TNew>): IValue<TNew> {
-        if (this.isAny) {
+        if (this.isQuantified) {
             throw new QueryError('Unexpected use of ANY()');
         }
         const ret = new Evaluator<TNew>(
@@ -173,7 +183,7 @@ export class Evaluator<T = any> implements IValue<T> {
     }
 
     setWrapper<TNew>(newOrigin: _ISelection, unwrap: (val: T) => TNew, newType?: _IType<TNew>): IValue<TNew> {
-        if (this.isAny) {
+        if (this.isQuantified) {
             throw new QueryError('Unexpected use of ANY()');
         }
         const ret = new Evaluator<TNew>(

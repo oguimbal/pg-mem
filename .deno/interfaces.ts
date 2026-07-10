@@ -93,6 +93,18 @@ export interface MemoryDbOptions {
     readonly autoCreateForeignKeyIndices?: boolean;
 }
 
+/**
+ * A backend-agnostic, JSON-serializable snapshot of a database: the schema (as the DDL
+ * statements executed) plus the data of every user table.
+ */
+export interface DbSnapshot {
+    pgMemPersistence: 1;
+    /** schema-defining statements, in execution order, as SQL */
+    ddl: string[];
+    /** table data, in load order */
+    data: { schema: string; table: string; rows: any[] }[];
+}
+
 export interface IMemoryDb {
     /**
      * Adapters to create wrappers of this db compatible with known libraries
@@ -128,6 +140,20 @@ export interface IMemoryDb {
      * 👉 This operation is O(1) (instantaneous, even with millions of records).
      * */
     backup(): IBackup;
+
+    /**
+     * Export a backend-agnostic, JSON-serializable snapshot of this database (the schema
+     * DDL plus all user-table data). Persist it however you like (OPFS, IndexedDB,
+     * localStorage, a file, ...) with JSON.stringify, and reload it later with
+     * `newDb()` + `db.deserialize(snapshot)`.
+     */
+    serialize(): DbSnapshot;
+
+    /**
+     * Load a snapshot produced by `serialize()` into this (freshly created) database:
+     * replays the schema DDL, then bulk-loads the table data.
+     */
+    deserialize(snapshot: DbSnapshot): void;
 
     /**
      * Registers an extension (that can be installed using the 'create extension' statement)
@@ -390,6 +416,10 @@ export interface FunctionDefinition {
 
     /** If true, the function will also be called when passing null arguments */
     allowNullArguments?: boolean;
+
+    /** If true, the function returns a set: it must return an array, which yields
+     * one output row per element when used in a select list or a FROM clause */
+    setReturning?: boolean;
 
     /** Actual implementation of the function */
     implementation: CompiledFunction;

@@ -83,6 +83,9 @@ export class Alter extends ExecHelper implements _IStatementExecutor {
                     // however, in order to support, pg_dump, we're just ignoring them.
                     ignoreChange();
                     break;
+                case 'row level security':
+                    this.table.setRowLevelSecurity(change.action);
+                    break;
                 default:
                     throw NotSupported.never(change, 'alter request');
 

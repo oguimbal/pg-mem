@@ -1,4 +1,6 @@
 import { _ITable, _Transaction, IValue, _Explainer, nil, _ISchema, asTable, _ISelection, _IIndex, QueryError, OnConflictHandler, ChangeOpts, _IStatement, NotSupported } from '../../interfaces-private.ts';
+import { checkWriteRls } from '../rls-enforce.ts';
+import { fireRowTriggers, fireStatementTriggers, SKIP_ROW } from '../triggers.ts';
 import { InsertStatement } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { buildValue } from '../../parser/expression-builder.ts';
 import { Types } from '../../datatypes/index.ts';
@@ -156,6 +158,9 @@ export class Insert extends MutationDataSourceBase {
         // insert values
         const ret: any[] = [];
 
+        const hasTriggers = this.table.triggers.triggers.length > 0;
+        if (hasTriggers) { fireStatementTriggers(this.table, 'before', 'insert', t); }
+
         for (const val of values) {
             if (val.length !== this.insertColumns.length) {
                 throw new QueryError('Insert columns / values count mismatch');
@@ -179,11 +184,29 @@ export class Insert extends MutationDataSourceBase {
                 //     toInsert[columns[i]] = converted.get();
                 // }
             }
-            const insertedRow = this.table.doInsert(t, toInsert, this.opts)
+            // BEFORE INSERT row triggers may modify the row or (returning null) skip it
+            let row = toInsert;
+            if (this.table.triggers.triggers.length) {
+                row = fireRowTriggers(this.table, 'before', 'insert', toInsert, null, t);
+                if (row === SKIP_ROW) {
+                    continue;
+                }
+            }
+            // apply column DEFAULTs before the RLS check so WITH CHECK sees the final row
+            // (e.g. Supabase's `user_id uuid default auth.uid()` with `check (user_id = auth.uid())`)
+            this.table.fillDefaults(row, t);
+            // row-level security: the inserted row must satisfy WITH CHECK
+            checkWriteRls(this.table, 'insert', row, t);
+            const insertedRow = this.table.doInsert(t, row, this.opts)
             if (insertedRow) {
+                if (this.table.triggers.triggers.length) {
+                    fireRowTriggers(this.table, 'after', 'insert', insertedRow, null, t);
+                }
                 ret.push(insertedRow);
             }
         }
+
+        if (hasTriggers) { fireStatementTriggers(this.table, 'after', 'insert', t); }
 
         return ret;
     }

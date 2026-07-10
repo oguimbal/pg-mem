@@ -382,6 +382,12 @@ export interface ExecCtx {
     readonly schema: _ISchema;
     readonly transaction: _Transaction;
     readonly parametersValues?: any[];
+    /**
+     * Optional sink notified with the final transaction of a nested procedural
+     * body (e.g. a DO block). Embedded DDL forks/commits the transaction, so the
+     * caller must pick up the new handle rather than the one it passed in.
+     */
+    readonly onTransaction?: (t: _Transaction) => void;
 }
 const curCtx: ExecCtx[] = [];
 export function executionCtx(): ExecCtx {
@@ -556,6 +562,20 @@ export function intervalToSec(v: Interval) {
         + (v.days ?? 0) * 3600 * 24
         + (v.months ?? 0) * 3600 * 24 * 30
         + (v.years ?? 0) * 3600 * 24 * 30 * 12;
+}
+
+// pg datetime "+-" interval is calendar-aware, not a fixed number of seconds:
+// months are added first (clamping to the target month's last day, e.g. jan 31
+// + 1 month = feb 28), then days, then the time part
+export function dateAddInterval(d: Date, v: Interval, factor: 1 | -1): Date {
+    return moment.utc(d)
+        .add(factor * ((v.years ?? 0) * 12 + (v.months ?? 0)), 'months')
+        .add(factor * (v.days ?? 0), 'days')
+        .add(factor * ((v.hours ?? 0) * 3600000
+            + (v.minutes ?? 0) * 60000
+            + (v.seconds ?? 0) * 1000
+            + (v.milliseconds ?? 0)), 'milliseconds')
+        .toDate();
 }
 
 export function parseRegClass(_reg: RegClass): QName | number {

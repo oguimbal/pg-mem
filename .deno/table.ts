@@ -1,6 +1,8 @@
 import { IMemoryTable, Schema, QueryError, TableEvent, PermissionDeniedError, NotSupported, IndexDef, ISubscription, nil, ColumnDef } from './interfaces.ts';
 import { IValue, _ITable, setId, getId, CreateIndexDef, CreateIndexColDef, _Transaction, _ISchema, _Column, _IType, SchemaField, _IIndex, _Explainer, _SelectExplanation, ChangeHandler, Stats, DropHandler, IndexHandler, asIndex, Reg, ChangeOpts, _IConstraint, TruncateHandler, TruncateOpts, Row } from './interfaces-private.ts';
 import { buildValue } from './parser/expression-builder.ts';
+import { TableRls, Policy, emptyRls } from './execution/rls.ts';
+import { TableTriggers, Trigger, emptyTriggers } from './execution/triggers.ts';
 import { BIndex } from './schema/btree-index.ts';
 import { columnEvaluator } from './transforms/selection.ts';
 import { nullIsh, deepCloneSimple, Optional, indexHash, findTemplate, colByName } from './utils.ts';
@@ -63,6 +65,52 @@ class ColumnManager {
 
 export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _ITable {
     comment: string | nil;
+    readonly rls: TableRls = emptyRls();
+
+    createPolicy(policy: Policy): void {
+        if (this.rls.policies.some(p => p.name === policy.name)) {
+            throw new QueryError(`policy "${policy.name}" for table "${this.name}" already exists`, '42710');
+        }
+        this.rls.policies.push(policy);
+    }
+
+    dropPolicy(name: string, ifExists: boolean): void {
+        const idx = this.rls.policies.findIndex(p => p.name === name);
+        if (idx < 0) {
+            if (ifExists) {
+                return;
+            }
+            throw new QueryError(`policy "${name}" for table "${this.name}" does not exist`, '42704');
+        }
+        this.rls.policies.splice(idx, 1);
+    }
+
+    setRowLevelSecurity(action: 'enable' | 'disable' | 'force' | 'no force'): void {
+        switch (action) {
+            case 'enable': this.rls.enabled = true; break;
+            case 'disable': this.rls.enabled = false; break;
+            case 'force': this.rls.forced = true; break;
+            case 'no force': this.rls.forced = false; break;
+        }
+    }
+
+    readonly triggers: TableTriggers = emptyTriggers();
+
+    createTrigger(trigger: Trigger): void {
+        if (this.triggers.triggers.some(t => t.name === trigger.name)) {
+            throw new QueryError(`trigger "${trigger.name}" for relation "${this.name}" already exists`, '42710');
+        }
+        this.triggers.triggers.push(trigger);
+    }
+
+    dropTrigger(name: string, ifExists: boolean): void {
+        const idx = this.triggers.triggers.findIndex(t => t.name === name);
+        if (idx < 0) {
+            if (ifExists) { return; }
+            throw new QueryError(`trigger "${name}" for table "${this.name}" does not exist`, '42704');
+        }
+        this.triggers.triggers.splice(idx, 1);
+    }
     get isExecutionWithNoResult(): boolean {
         return false;
     }
@@ -298,6 +346,32 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
             return null
         }
         return deepCloneSimple(ret);
+    }
+
+    /** After bulk-loading rows (e.g. deserialize), set each serial counter to the max
+     * loaded value so subsequent inserts don't collide with restored ids. */
+    restoreSerials(t: _Transaction, rows: Row[]): void {
+        let serials = t.getMap(this.serialsId);
+        for (const [col, cur] of serials.entries()) {
+            let max = cur;
+            for (const r of rows) {
+                const v = (r as any)[col];
+                const n = typeof v === 'string' ? Number(v) : v;
+                if (typeof n === 'number' && Number.isFinite(n) && n > max) {
+                    max = n;
+                }
+            }
+            serials = serials.set(col, max);
+        }
+        t.set(this.serialsId, serials);
+    }
+
+    /** apply column DEFAULTs to a candidate row (idempotent; used before the RLS WITH
+     * CHECK so it sees defaulted values, as postgres does) */
+    fillDefaults(toInsert: Row, t: _Transaction): void {
+        for (const c of this.columnMgr.values()) {
+            c.setDefaults(toInsert, t);
+        }
     }
 
     doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | null {
@@ -700,6 +774,44 @@ export class MemoryTable extends DataSourceBase implements IMemoryTable<any>, _I
         for (const col of u.expressions) {
             for (const used of col.usedColumns) {
                 this.getColumnRef(used.id!).usedInIndexes.delete(u);
+            }
+        }
+    }
+
+
+    renameIndex(oldName: string, newName: string): void {
+        if (oldName === newName) {
+            return;
+        }
+        const u = asIndex(this.ownerSchema.getOwnObject(oldName)) as BIndex;
+        if (!u || !this.indexByHashAndName.get(u.hash)?.has(oldName)) {
+            throw new QueryError('Cannot rename index that does not belong to this table: ' + oldName);
+        }
+        if (this.ownerSchema.getOwnObject(newName)) {
+            throw new QueryError(`relation "${newName}" already exists`, '42P07');
+        }
+        // schema relation registry
+        this.ownerSchema._reg_rename(u, oldName, newName);
+        u.name = newName;
+        // per-hash name map
+        const byHash = this.indexByHashAndName.get(u.hash)!;
+        byHash.set(newName, byHash.get(oldName)!);
+        byHash.delete(oldName);
+        // backing constraint (used by DROP INDEX / ON CONFLICT ON CONSTRAINT)
+        const cst = this.constraintsByName.get(oldName);
+        if (cst) {
+            this.constraintsByName.delete(oldName);
+            (cst as { name: string }).name = newName;
+            this.constraintsByName.set(newName, cst);
+        }
+        this.db.onSchemaChange();
+    }
+
+
+    *listIndexes(): Iterable<BIndex> {
+        for (const byName of this.indexByHashAndName.values()) {
+            for (const { index } of byName.values()) {
+                yield index;
             }
         }
     }

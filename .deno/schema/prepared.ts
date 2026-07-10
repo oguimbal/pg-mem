@@ -1,6 +1,7 @@
 import { astVisitor, Statement } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { _IDb, _IPreparedQuery, _ISchema, _IStatementExecutor, _Transaction, FieldInfo, _IBoundQuery, IPreparedQuery, nil, NotSupported, Parameter, ParameterInfo, QueryDescription, QueryError, QueryResult, StatementResult, _QueryResult } from '../interfaces-private.ts';
 import { StatementExec } from '../execution/statement-exec.ts';
+import { runDeferredChecks } from '../execution/deferred-checks.ts';
 import { SelectExec } from '../execution/select.ts';
 import { Types } from '../datatypes/index.ts';
 import { withParameters } from '../parser/context.ts';
@@ -41,6 +42,9 @@ function isSchemaChange(s: Statement): boolean {
 
 let _paramList: Parameter[] | null = null;
 const paramsVisitor = astVisitor(() => ({
+    // a PREPAREd statement's own $-parameters are bound at EXECUTE time; they are not
+    // parameters of the enclosing query, so don't descend into its inner statement
+    prepare: () => { },
     parameter: p => {
         const [, istr] = /^\$(\d+)$/.exec(p.name) ?? [];
         if (!istr) {
@@ -146,6 +150,7 @@ class NoDescribeBound implements _IBoundQuery {
     }
     executeAll(): QueryResult {
         const last = this.results[this.results.length - 1]!;
+        runDeferredChecks(last.state);
         last.state.fullCommit();
         this.parent.executed?.();
         return last.result;
@@ -258,6 +263,9 @@ class Bound implements _IBoundQuery {
         this.parent.executed?.();
 
         if (!outerTx) {
+            // run any deferred (DEFERRABLE INITIALLY DEFERRED) constraint checks before
+            // finalizing - a violation aborts the batch, so nothing persists to root
+            runDeferredChecks(lastResult!.state);
             lastResult!.state.fullCommit();
         }
     }

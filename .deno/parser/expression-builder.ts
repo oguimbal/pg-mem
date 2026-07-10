@@ -1,12 +1,14 @@
-import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private.ts';
-import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx } from '../utils.ts';
+import { _ISelection, IValue, _IType, _ISchema, _IAlias, _Transaction } from '../interfaces-private.ts';
+import { currentRoleName, sessionRoleName } from '../execution/roles.ts';
+import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx, ignore } from '../utils.ts';
 import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces.ts';
 import hash from 'https://deno.land/x/object_hash@2.0.3.1/mod.ts';
 import { Value, Evaluator } from '../evaluator.ts';
 import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../datatypes/index.ts';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprPosition, ExprCall } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import lru from 'https://deno.land/x/lru_cache@6.0.0-deno.4/mod.ts';
 import { aggregationFunctions, getAggregator } from '../transforms/aggregation.ts';
+import { getWindower } from '../transforms/window.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results.ts';
 import { buildCtx } from './context.ts';
@@ -100,8 +102,16 @@ function _buildValueReal(val: Expr): IValue {
                 ? Value.list(vals)
                 : Value.array(vals);
         case 'numeric':
+            // a decimal literal stays float unless used in a numeric context; the exact
+            // value is recovered from value.toString() when cast to numeric
+            ignore(val.valueText);
             return Value.number(val.value);
         case 'integer':
+            // an integer literal that overflows a safe JS number is a bigint (as in pg),
+            // carried through valueText with full precision
+            if (val.valueText) {
+                return new Evaluator(Types.bigint, null, val.valueText, null, val.valueText);
+            }
             return Value.number(val.value, Types.integer);
         case 'call':
             return _buildCall(val);
@@ -121,6 +131,10 @@ function _buildValueReal(val: Expr): IValue {
         case 'select':
         case 'union':
         case 'union all':
+        case 'intersect':
+        case 'intersect all':
+        case 'except':
+        case 'except all':
         case 'with':
         case 'with recursive':
         case 'values':
@@ -168,6 +182,8 @@ function _buildValueReal(val: Expr): IValue {
             return buildOverlay(val);
         case 'substring':
             return buildSubstring(val);
+        case 'position':
+            return buildPosition(val);
         case 'default':
             throw new QueryError(`DEFAULT is not allowed in this context`, '42601');
         default:
@@ -194,7 +210,11 @@ function _buildCall(val: ExprCall): IValue {
     //     return buildKeyword( val.function, val.args);
     // }
     if (val.over) {
-        throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
+        const windower = getWindower();
+        if (!windower) {
+            throw new QueryError('window functions are not allowed here');
+        }
+        return windower.getWindowValue(val);
     }
     const nm = asSingleQName(val.function, 'pg_catalog');
     if (nm && aggregationFunctions.has(nm)) {
@@ -204,8 +224,40 @@ function _buildCall(val: ExprCall): IValue {
         }
         return agg.getAggregation(nm, val);
     }
+    // ROW(...) constructor -> an anonymous record with fields f1, f2, ...
+    if (nm === 'row' && !val.over) {
+        return buildRowConstructor(val.args);
+    }
     const args = val.args.map(x => _buildValue(x));
     return Value.function(val.function, args);
+}
+
+function buildRowConstructor(args: Expr[]): IValue {
+    const vals = args.map(a => _buildValue(a));
+    const cols = vals.map<RecordCol>((v, i) => ({ name: `f${i + 1}`, type: v.type }));
+    return new Evaluator(
+        Types.record(cols)
+        , null
+        , hash({ row: vals.map(v => v.hash) })
+        , vals
+        , (raw, t) => {
+            const ret: any = {};
+            for (let i = 0; i < vals.length; i++) {
+                ret[`f${i + 1}`] = vals[i].get(raw, t);
+            }
+            return ret;
+        });
+}
+
+function roleKeyword(keyword: string, get: (t: _Transaction) => string): IValue {
+    // the session/current role can change at runtime (SET ROLE), so this is not constant
+    return new Evaluator(
+        Types.text()
+        , null
+        , `role_kw_${keyword}`
+        , []
+        , () => get(executionCtx().transaction)
+        , { forceNotConstant: true, unpure: true });
 }
 
 function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
@@ -216,11 +268,13 @@ function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
         throw new Error('Invalid AST');
     }
     switch (kw.keyword) {
-        case 'current_catalog':
         case 'current_role':
         case 'current_user':
-        case 'session_user':
         case 'user':
+            return roleKeyword(kw.keyword, t => currentRoleName(t));
+        case 'session_user':
+            return roleKeyword(kw.keyword, t => sessionRoleName(t));
+        case 'current_catalog':
             return Value.constant(Types.text(), 'pg_mem');
         case 'current_schema':
             return Value.constant(Types.text(), 'public');
@@ -314,12 +368,27 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
         rightValue = rightValue.cast(t);
     }
 
-    let getter: (a: any, b: any) => any;
+    let getter!: (a: any, b: any) => any;
     let returnType: _IType = Types.bool;
     let commutative = true;
     let forcehash: any = null;
     let rejectNils = true;
     let impure = false;
+    // resolve a custom operator registered on the schema (ranges, extensions, ...)
+    const resolveCustom = () => {
+        const { schema } = buildCtx();
+        const resolved = schema.resolveOperator(op, leftValue, rightValue);
+        if (!resolved) {
+            throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
+        }
+        leftValue = leftValue.cast(resolved.left);
+        rightValue = rightValue.cast(resolved.right);
+        commutative = resolved.commutative;
+        returnType = resolved.returns;
+        getter = resolved.implementation;
+        rejectNils = !resolved.allowNullArguments;
+        impure = !!resolved.impure;
+    };
     switch (op) {
         case '=': {
             const type = expectSame();
@@ -331,6 +400,19 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             getter = (a, b) => {
                 const ret = type.equals(a, b);
                 return nullIsh(ret) ? null : !ret;
+            };
+            break;
+        }
+        case 'IS DISTINCT FROM':
+        case 'IS NOT DISTINCT FROM': {
+            const type = expectSame();
+            const wantNotDistinct = op === 'IS NOT DISTINCT FROM';
+            rejectNils = false; // NULL is a normal comparable value here (never returns NULL)
+            getter = (a, b) => {
+                const an = nullIsh(a), bn = nullIsh(b);
+                // distinct: exactly one is null, or both non-null and unequal
+                const distinct = an || bn ? an !== bn : !type.equals(a, b);
+                return wantNotDistinct ? !distinct : distinct;
             };
             break;
         }
@@ -369,11 +451,16 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             }
             break;
         case '&&':
-            if (leftValue.type.primary !== DataType.array || !rightValue.canCast(leftValue.type)) {
-                throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
+            if (leftValue.type.primary === DataType.array) {
+                if (!rightValue.canCast(leftValue.type)) {
+                    throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
+                }
+                rightValue = rightValue.cast(leftValue.type);
+                getter = (a, b) => a.some((element: any) => b.includes(element));
+                break;
             }
-            rightValue = rightValue.cast(leftValue.type);
-            getter = (a, b) => a.some((element: any) => b.includes(element));
+            // non-array && (e.g. range overlap) resolves via a registered operator
+            resolveCustom();
             break;
         case 'LIKE':
         case 'ILIKE':
@@ -420,18 +507,7 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             }
             break;
         default: {
-            const { schema } = buildCtx();
-            const resolved = schema.resolveOperator(op, leftValue, rightValue);
-            if (!resolved) {
-                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
-            }
-            leftValue = leftValue.cast(resolved.left);
-            rightValue = rightValue.cast(resolved.right);
-            commutative = resolved.commutative;
-            returnType = resolved.returns;
-            getter = resolved.implementation;
-            rejectNils = !resolved.allowNullArguments;
-            impure = !!resolved.impure;
+            resolveCustom();
             break;
         }
     }
@@ -441,9 +517,9 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             ? { op, vals: [leftValue.hash, rightValue.hash].sort() }
             : { left: leftValue.hash, op, right: rightValue.hash }));
 
-    // handle cases like:  blah = ANY(stuff)
-    if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(leftValue, op, rightValue, returnType, getter, hashed);
+    // handle cases like:  blah = ANY(stuff)  /  blah <> ALL(stuff)
+    if (leftValue.isQuantified || rightValue.isQuantified) {
+        return buildBinaryQuantified(leftValue, op, rightValue, returnType, getter, hashed);
     }
 
     return new Evaluator(
@@ -462,51 +538,47 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
 
 }
 
-function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
-    if (leftValue.isAny && rightValue.isAny) {
-        throw new QueryError('ANY() cannot be compared to ANY()');
+function buildBinaryQuantified(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
+    if (leftValue.isQuantified && rightValue.isQuantified) {
+        throw new QueryError('ANY()/ALL() cannot be compared to ANY()/ALL()');
     }
     if (returnType !== Types.bool) {
-        throw new QueryError('Invalid ANY() usage');
+        throw new QueryError('Invalid ANY()/ALL() usage');
     }
+    // which side holds the array, and whether it's ALL (every) or ANY (some)
+    const arrOnLeft = leftValue.isQuantified;
+    const quant = arrOnLeft ? leftValue : rightValue;
+    const scalar = arrOnLeft ? rightValue : leftValue;
+    const isAll = quant.isAll;
     return new Evaluator(
         returnType
         , null
         , hashed
         , [leftValue, rightValue]
-        , leftValue.isAny
-            ? (raw, t) => {
-                const leftRaw = leftValue.get(raw, t);
-                if (nullIsh(leftRaw)) {
-                    return null;
-                }
-                if (!Array.isArray(leftRaw)) {
-                    throw new QueryError('Invalid ANY() usage: was expacting an array');
-                }
-                for (const lr of leftRaw) {
-                    const rightRaw = rightValue.get(raw, t);
-                    if (getter(lr, rightRaw)) {
-                        return true;
-                    }
-                }
-                return false;
+        , (raw, t) => {
+            const arr = quant.get(raw, t);
+            if (nullIsh(arr)) {
+                return null;
             }
-            : (raw, t) => {
-                const rightRaw = rightValue.get(raw, t);
-                if (nullIsh(rightRaw)) {
-                    return null;
+            if (!Array.isArray(arr)) {
+                throw new QueryError('Invalid ANY()/ALL() usage: was expecting an array');
+            }
+            let sawNull = false;
+            for (const el of arr) {
+                const s = scalar.get(raw, t);
+                const res = arrOnLeft ? getter(el, s) : getter(s, el);
+                if (isAll) {
+                    if (res === false) { return false; }
+                    if (nullIsh(res)) { sawNull = true; }
+                } else {
+                    if (res === true) { return true; }
+                    if (nullIsh(res)) { sawNull = true; }
                 }
-                if (!Array.isArray(rightRaw)) {
-                    throw new QueryError('Invalid ANY() usage: was expacting an array');
-                }
-                for (const rr of rightRaw) {
-                    const leftRaw = leftValue.get(raw, t);
-                    if (getter(leftRaw, rr)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
+            }
+            // ALL: true unless a false was found (null if any comparison was null)
+            // ANY: false unless a true was found (null if any comparison was null)
+            return sawNull ? null : isAll;
+        });
 }
 
 
@@ -560,6 +632,25 @@ function buildCase(op: ExprCase): IValue {
 
 function buildMember(op: ExprMember): IValue {
     const oop = op.op;
+    // composite / record field access: (expr).field
+    if (oop === '.') {
+        const on = buildValue(op.operand);
+        const cols = (on.type as any).columns as RecordCol[] | undefined;
+        const field = String(op.member);
+        const col = cols?.find(c => c.name === field);
+        if (!col) {
+            throw new QueryError(`could not identify column "${field}" in record data type`, '42703');
+        }
+        return new Evaluator(
+            col.type
+            , null
+            , hash({ field: on.hash, m: field })
+            , on
+            , (raw, t) => {
+                const v = on.get(raw, t);
+                return nullIsh(v) ? null : v[field];
+            });
+    }
     if (oop !== '->>' && oop !== '->') {
         throw NotSupported.never(oop);
     }
@@ -847,6 +938,25 @@ function buildOverlay(op: ExprOverlay): IValue {
                 return null;
             }
             return before + _placing + after;
+        });
+}
+
+function buildPosition(op: ExprPosition): IValue {
+    // position(substring in string) -> 1-based index, 0 if absent
+    const substring = _buildValue(op.substring).cast(Types.text());
+    const string = _buildValue(op.string).cast(Types.text());
+    return new Evaluator(
+        Types.integer
+        , null
+        , hash({ position: substring.hash, in: string.hash })
+        , [substring, string]
+        , (raw, t) => {
+            const sub = substring.get(raw, t) as string;
+            const str = string.get(raw, t) as string;
+            if (nullIsh(sub) || nullIsh(str)) {
+                return null;
+            }
+            return str.indexOf(sub) + 1;
         });
 }
 

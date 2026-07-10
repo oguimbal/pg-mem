@@ -91,6 +91,8 @@ export class DbSchema implements _ISchema, ISchema {
 
             ret.executed = () => {
                 this.db.raiseGlobal('query', query);
+                // remember schema-defining statements so the db can be serialized
+                this.db.recordDdl(parsed);
             };
             ret.failed = (e) => {
                 this.db.raiseGlobal('query-failed', query);
@@ -506,6 +508,7 @@ export class DbSchema implements _ISchema, ISchema {
             impure: !!fn.impure,
             implementation: fn.implementation,
             allowNullArguments: fn.allowNullArguments,
+            setReturning: fn.setReturning,
         };
 
         this.fns.add(def, replace ?? true);
