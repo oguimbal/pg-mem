@@ -5,7 +5,7 @@ import { DataType } from '../../interfaces';
 import { dateAddInterval, queryJson } from '../../utils';
 import { jsonPathGet, jsonAsText, jsonRemovePath } from '../../functions/json';
 import { timestampAtZone, instantToZoneWall } from '../../datatypes/timezone';
-import moment from 'moment';
+import { utc, addDays } from '../../datatypes/date-utils';
 
 export function registerCommonOperators(schema: _ISchema) {
     registerNumericOperators(schema);
@@ -166,7 +166,7 @@ function registerDatetimeOperators(schema: _ISchema) {
         left: Types.date,
         right: Types.date,
         returns: Types.interval,
-        implementation: (a, b) => moment(a).diff(moment(b), 'days'),
+        implementation: (a, b) => utc(a).diff(utc(b), 'days'),
     })
 
     // ======= date/time "+ -" timestamp =======
@@ -211,7 +211,7 @@ function registerDatetimeOperators(schema: _ISchema) {
             left: Types.date,
             right: Types.integer,
             returns: Types.date,
-            implementation: (a, b) => moment(a).add(f * b, 'days').toDate(),
+            implementation: (a, b) => addDays(a, f * b),
         });
     }
 }

@@ -5,7 +5,7 @@ import { DataType } from '../../interfaces.ts';
 import { dateAddInterval, queryJson } from '../../utils.ts';
 import { jsonPathGet, jsonAsText, jsonRemovePath } from '../../functions/json.ts';
 import { timestampAtZone, instantToZoneWall } from '../../datatypes/timezone.ts';
-import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
+import { utc, addDays } from '../../datatypes/date-utils.ts';
 
 export function registerCommonOperators(schema: _ISchema) {
     registerNumericOperators(schema);
@@ -166,7 +166,7 @@ function registerDatetimeOperators(schema: _ISchema) {
         left: Types.date,
         right: Types.date,
         returns: Types.interval,
-        implementation: (a, b) => moment(a).diff(moment(b), 'days'),
+        implementation: (a, b) => utc(a).diff(utc(b), 'days'),
     })
 
     // ======= date/time "+ -" timestamp =======
@@ -211,7 +211,7 @@ function registerDatetimeOperators(schema: _ISchema) {
             left: Types.date,
             right: Types.integer,
             returns: Types.date,
-            implementation: (a, b) => moment(a).add(f * b, 'days').toDate(),
+            implementation: (a, b) => addDays(a, f * b),
         });
     }
 }

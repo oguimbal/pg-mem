@@ -1,7 +1,7 @@
 import { DataType, nil, QueryError, _IType } from '../interfaces-private.ts';
 import { TypeBase } from './datatype-base.ts';
 import { Evaluator } from '../evaluator.ts';
-import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
+import { utc, startOf } from './date-utils.ts';
 import { parseTime, nullIsh } from '../utils.ts';
 import { renderTimestamp, renderTimestamptz, sessionTimezone } from './timezone.ts';
 import { Types } from './datatypes.ts';
@@ -70,12 +70,12 @@ export class TimestampType extends TypeBase<Date> {
                 return value;
             case DataType.date:
                 return value
-                    .setConversion(raw => moment.utc(raw).startOf('day').toDate()
+                    .setConversion(raw => startOf(utc(raw).toDate(), 'day')
                         , toDate => ({ toDate }));
             case DataType.time:
             case DataType.timetz:
                 return value
-                    .setConversion(raw => moment.utc(raw).format('HH:mm:ss') + '.000000'
+                    .setConversion(raw => utc(raw).format('HH:mm:ss') + '.000000'
                         , toDate => ({ toDate }));
             case DataType.text: {
                 const primary = this.primary;
@@ -113,7 +113,7 @@ export class TimestampType extends TypeBase<Date> {
                     case DataType.timestamptz:
                         return value
                             .setConversion(str => {
-                                const conv = moment.utc(str);
+                                const conv = utc(str);
                                 if (!conv.isValid()) {
                                     throw new QueryError(`Invalid timestamp format: ` + str);
                                 }
@@ -123,11 +123,11 @@ export class TimestampType extends TypeBase<Date> {
                     case DataType.date:
                         return value
                             .setConversion(str => {
-                                const conv = moment.utc(str);
+                                const conv = utc(str);
                                 if (!conv.isValid()) {
                                     throw new QueryError(`Invalid timestamp format: ` + str);
                                 }
-                                return conv.startOf('day').toDate();
+                                return startOf(conv.toDate(), 'day');
                             }
                                 , toDate => ({ toDate }));
                     case DataType.time:
@@ -146,12 +146,12 @@ export class TimestampType extends TypeBase<Date> {
 
 
     doEquals(a: any, b: any): boolean {
-        return Math.abs(moment(a).diff(moment(b))) < 0.1;
+        return Math.abs(utc(a).diff(utc(b))) < 0.1;
     }
     doGt(a: any, b: any): boolean {
-        return moment(a).diff(moment(b)) > 0;
+        return utc(a).diff(utc(b)) > 0;
     }
     doLt(a: any, b: any): boolean {
-        return moment(a).diff(moment(b)) < 0;
+        return utc(a).diff(utc(b)) < 0;
     }
 }

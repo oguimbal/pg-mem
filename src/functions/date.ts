@@ -1,5 +1,5 @@
 import { FunctionDefinition } from '../interfaces';
-import moment from 'moment';
+import { utc, fromParts, startOf, parseFormat } from '../datatypes/date-utils';
 import { Interval } from 'pgsql-ast-parser';
 import { DataType, QueryError } from '../interfaces-private';
 import { nullIsh } from '../utils';
@@ -15,11 +15,11 @@ export const dateFunctions: FunctionDefinition[] = [
             if (nullIsh(data) || nullIsh(format)) {
                 return null; // if one argument is null => null
             }
-            const ret = moment.utc(data, format);
-            if (!ret.isValid()) {
+            const ret = parseFormat(data, format);
+            if (!ret) {
                 throw new QueryError(`The text '${data}' does not match the date format ${format}`);
             }
-            return ret.toDate();
+            return ret;
         }
     },
     {
@@ -41,7 +41,7 @@ export const dateFunctions: FunctionDefinition[] = [
             if (!unit) {
                 throw new QueryError(`unit "${field}" not supported for type timestamp`);
             }
-            return moment.utc(val).startOf(unit).toDate();
+            return startOf(val, unit);
         },
     })),
     ...[DataType.timestamp, DataType.timestamptz, DataType.date].map<FunctionDefinition>(arg => ({
@@ -62,11 +62,11 @@ export const dateFunctions: FunctionDefinition[] = [
         args: [DataType.integer, DataType.integer, DataType.integer],
         returns: DataType.date,
         implementation: (year: number, month: number, day: number) => {
-            const ret = moment.utc({ year, month: month - 1, day });
-            if (!ret.isValid()) {
+            const ret = fromParts({ year, month: month - 1, day });
+            if (!ret) {
                 throw new QueryError(`date field value out of range: ${year}-${month}-${day}`);
             }
-            return ret.toDate();
+            return ret;
         },
     },
     ...[DataType.timestamp, DataType.timestamptz, DataType.date].map<FunctionDefinition>(arg => ({
@@ -82,11 +82,11 @@ export const dateFunctions: FunctionDefinition[] = [
         implementation: (year: number, month: number, day: number, hour: number, min: number, sec: number) => {
             const whole = Math.floor(sec);
             const ms = Math.round((sec - whole) * 1000);
-            const ret = moment.utc({ year, month: month - 1, day, hour, minute: min, second: whole, millisecond: ms });
-            if (!ret.isValid()) {
+            const ret = fromParts({ year, month: month - 1, day, hour, minute: min, second: whole, millisecond: ms });
+            if (!ret) {
                 throw new QueryError(`date/time field value out of range`);
             }
-            return ret.toDate();
+            return ret;
         },
     },
     {
@@ -121,7 +121,7 @@ export const dateFunctions: FunctionDefinition[] = [
         args: [arg],
         returns: DataType.interval,
         impure: true,
-        implementation: (of: Date) => dateAge(moment.utc().startOf('day').toDate(), of),
+        implementation: (of: Date) => dateAge(startOf(new Date(), 'day'), of),
     }]),
     {
         name: 'justify_interval',
@@ -170,9 +170,9 @@ function dateAge(later: Date, earlier: Date): Interval {
         const inv = dateAge(earlier, later);
         return Object.fromEntries(Object.entries(inv).map(([k, v]) => [k, -v!])) as Interval;
     }
-    const a = moment.utc(later);
-    const b = moment.utc(earlier);
-    const daySeconds = (m: moment.Moment) => m.hours() * 3600
+    const a = utc(later);
+    const b = utc(earlier);
+    const daySeconds = (m: typeof a) => m.hours() * 3600
         + m.minutes() * 60
         + m.seconds()
         + m.milliseconds() / 1000;
@@ -184,7 +184,7 @@ function dateAge(later: Date, earlier: Date): Interval {
         seconds += 86400;
         days--;
     }
-    const earlierMonthDays = moment.utc({ year: b.year(), month: b.month() }).daysInMonth();
+    const earlierMonthDays = utc(fromParts({ year: b.year(), month: b.month(), day: 1 })!).daysInMonth();
     while (days < 0) {
         days += earlierMonthDays;
         months--;
@@ -233,7 +233,7 @@ function justifyInterval(v: Interval, only?: 'hours' | 'days'): Interval {
     return toInterval(months, days, seconds);
 }
 
-const dateTruncUnits: { [field: string]: moment.unitOfTime.StartOf } = {
+const dateTruncUnits: { [field: string]: 'year' | 'quarter' | 'month' | 'isoWeek' | 'day' | 'hour' | 'minute' | 'second' | 'millisecond' } = {
     millennium: 'year',
     century: 'year',
     decade: 'year',
@@ -249,7 +249,7 @@ const dateTruncUnits: { [field: string]: moment.unitOfTime.StartOf } = {
 };
 
 function datePart(field: string, val: Date): number {
-    const m = moment.utc(val);
+    const m = utc(val);
     switch (field?.toLowerCase()) {
         case 'millennium': return Math.ceil(m.year() / 1000);
         case 'century': return Math.ceil(m.year() / 100);

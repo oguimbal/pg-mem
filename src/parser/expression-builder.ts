@@ -9,7 +9,7 @@ import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprAr
 import lru from 'lru-cache';
 import { aggregationFunctions, getAggregator } from '../transforms/aggregation';
 import { getWindower } from '../transforms/window';
-import moment from 'moment';
+import { utc } from '../datatypes/date-utils';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results';
 import { buildCtx, resolveOuterColumn, withCorrelation, currentCorrelation } from './context';
 import { buildSelect } from '../execution/select';
@@ -974,14 +974,14 @@ function buildExtract(op: ExprExtract): IValue {
     }
     switch (op.field.name) {
         case 'millennium':
-            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 1000));
+            return extract(Types.date, x => Math.ceil(utc(x).year() / 1000));
         case 'century':
-            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 100));
+            return extract(Types.date, x => Math.ceil(utc(x).year() / 100));
         case 'decade':
-            return extract(Types.date, x => Math.floor(moment.utc(x).year() / 10));
+            return extract(Types.date, x => Math.floor(utc(x).year() / 10));
         case 'day':
             if (from.canCast(Types.date)) {
-                return extract(Types.date, x => moment.utc(x).date());
+                return extract(Types.date, x => utc(x).date());
             }
             return extract(Types.interval, (x: Interval) => x.days ?? 0);
         case 'second':
@@ -1007,42 +1007,42 @@ function buildExtract(op: ExprExtract): IValue {
             return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000 + (x.milliseconds ?? 0), Types.float);
         case 'month':
             if (from.canCast(Types.date)) {
-                return extract(Types.date, x => moment.utc(x).month() + 1);
+                return extract(Types.date, x => utc(x).month() + 1);
             }
             return extract(Types.interval, (x: Interval) => x.months ?? 0);
         case 'year':
             if (from.canCast(Types.date)) {
-                return extract(Types.date, x => moment.utc(x).year());
+                return extract(Types.date, x => utc(x).year());
             }
             return extract(Types.interval, (x: Interval) => x.years ?? 0);
         case 'dow':
-            return extract(Types.date, x => moment.utc(x).day());
+            return extract(Types.date, x => utc(x).day());
         case 'isodow':
             return extract(Types.date, x => {
-                const dow = moment.utc(x).day();
+                const dow = utc(x).day();
                 return dow ? dow : 7;
             });
         case 'doy':
-            return extract(Types.date, x => moment.utc(x).dayOfYear());
+            return extract(Types.date, x => utc(x).dayOfYear());
         case 'epoch':
             if (from.canCast(Types.timestamp())) {
-                return extract(Types.timestamp(), x => moment.utc(x).unix(), Types.float);
+                return extract(Types.timestamp(), x => utc(x).unix(), Types.float);
             }
             return extract(Types.interval, (x: Interval) => intervalToSec(x));
         case 'hour':
             if (from.canCast(Types.timestamp())) {
-                return extract(Types.timestamp(), x => moment.utc(x).hour());
+                return extract(Types.timestamp(), x => utc(x).hour());
             }
             return extract(Types.interval, (x: Interval) => x.hours ?? 0);
         case 'isoyear':
             return extract(Types.date, x => {
-                const d = moment.utc(x);
+                const d = utc(x);
                 return d.dayOfYear() <= 1 ? d.year() - 1 : d.year();
             });
         case 'quarter':
-            return extract(Types.date, x => moment.utc(x).quarter());
+            return extract(Types.date, x => utc(x).quarter());
         case 'week':
-            return extract(Types.date, x => moment.utc(x).week());
+            return extract(Types.date, x => utc(x).week());
         case 'microseconds':
             if (from.canCast(Types.time)) {
                 return extract(Types.time, x => {

@@ -1,4 +1,4 @@
-import moment from 'moment';
+import { UtcDate, utc, fromParts, addDays, addMonths, addMilliseconds } from './datatypes/date-utils';
 import { List } from 'immutable';
 import { IValue, NotSupported, RegClass, _IRelation, _ISchema, _ISelection, _ITable, _IType, _Transaction } from './interfaces-private';
 import { BinaryOperator, DataTypeDef, Expr, ExprRef, ExprValueKeyword, Interval, nil, parse, QName, SelectedColumn } from 'pgsql-ast-parser';
@@ -26,7 +26,7 @@ export function trimNullish<T>(value: T, depth = 5): T {
     if (value instanceof Array) {
         value.forEach(x => trimNullish(x, depth - 1))
     }
-    if (typeof value !== 'object' || value instanceof Date || moment.isMoment(value) || moment.isDuration(value))
+    if (typeof value !== 'object' || value instanceof Date)
         return value;
 
     if (!value) {
@@ -153,9 +153,9 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
     }
 
     // handle dates
-    if (a instanceof Date || b instanceof Date || moment.isMoment(a) || moment.isMoment(b)) {
-        const am = moment(a as any);
-        const bm = moment(b as any);
+    if (a instanceof Date || b instanceof Date) {
+        const am = new UtcDate(a as any);
+        const bm = new UtcDate(b as any);
         if (am.isValid() !== bm.isValid()) {
             return am.isValid()
                 ? -1
@@ -163,22 +163,6 @@ export function deepCompare<T>(a: T, b: T, strict?: boolean, depth = 10, numberD
         }
         const diff = am.diff(bm, 'seconds');
         if (Math.abs(diff) < 0.001) {
-            return 0;
-        }
-        return diff > 0 ? 1 : -1;
-    }
-
-    // handle durations
-    if (moment.isDuration(a) || moment.isDuration(b)) {
-        const da = moment.duration(a as any);
-        const db = moment.duration(b as any);
-        if (da.isValid() !== db.isValid()) {
-            return da.isValid()
-                ? -1
-                : 1;
-        }
-        const diff = da.asMilliseconds() - db.asMilliseconds();
-        if (Math.abs(diff) < 1) {
             return 0;
         }
         return diff > 0 ? 1 : -1;
@@ -488,10 +472,8 @@ export function findTemplate<T>(this: void, selection: _ISelection, t: _Transact
                     break;
                 case 'object':
                     // handle {myprop: new Date()}
-                    if (moment.isMoment(v)) {
+                    if (v instanceof Date) {
                         value = { type: 'string', value: v.toISOString() };
-                    } else if (v instanceof Date) {
-                        value = { type: 'string', value: moment(v).toISOString() };
                     } else {
                         // handle {myprop: {obj: "test"}}
                         op = '@>';
@@ -568,14 +550,14 @@ export function intervalToSec(v: Interval) {
 // months are added first (clamping to the target month's last day, e.g. jan 31
 // + 1 month = feb 28), then days, then the time part
 export function dateAddInterval(d: Date, v: Interval, factor: 1 | -1): Date {
-    return moment.utc(d)
-        .add(factor * ((v.years ?? 0) * 12 + (v.months ?? 0)), 'months')
-        .add(factor * (v.days ?? 0), 'days')
-        .add(factor * ((v.hours ?? 0) * 3600000
-            + (v.minutes ?? 0) * 60000
-            + (v.seconds ?? 0) * 1000
-            + (v.milliseconds ?? 0)), 'milliseconds')
-        .toDate();
+    // months first (calendar-aware, day-clamping), then days, then the time part
+    let ret = addMonths(d, factor * ((v.years ?? 0) * 12 + (v.months ?? 0)));
+    ret = addDays(ret, factor * (v.days ?? 0));
+    ret = addMilliseconds(ret, factor * ((v.hours ?? 0) * 3600000
+        + (v.minutes ?? 0) * 60000
+        + (v.seconds ?? 0) * 1000
+        + (v.milliseconds ?? 0)));
+    return ret;
 }
 
 export function parseRegClass(_reg: RegClass): QName | number {
@@ -597,39 +579,26 @@ export function parseRegClass(_reg: RegClass): QName | number {
 
 
 const timeReg = /^(\d+):(\d+)(:(\d+))?(\.\d+)?$/;
-export function parseTime(str: string): moment.Moment {
+export function parseTime(str: string): UtcDate {
     const [_, a, b, __, c, d] = timeReg.exec(str) ?? [];
     if (!_) {
         throw new QueryError(`Invalid time format: ` + str);
     }
-    const ms = d ? parseFloat(d) * 1000 : undefined;
-    let ret: moment.Moment;
+    const ms = d ? Math.floor(parseFloat(d) * 1000) : 0; // truncate: sub-ms unsupported
+    let parts: { hour: number; minute: number; second: number };
     if (c) {
-        ret = moment.utc({
-            h: parseInt(a, 10),
-            m: parseInt(b, 10),
-            s: parseInt(c, 10),
-            ms,
-        });
+        parts = { hour: parseInt(a, 10), minute: parseInt(b, 10), second: parseInt(c, 10) };
+    } else if (d) {
+        // "MM:SS.ms" — no hour component
+        parts = { hour: 0, minute: parseInt(a, 10), second: parseInt(b, 10) };
     } else {
-        if (d) {
-            ret = moment.utc({
-                m: parseInt(a, 10),
-                s: parseInt(b, 10),
-                ms,
-            });
-        } else {
-            ret = moment.utc({
-                h: parseInt(a, 10),
-                m: parseInt(b, 10),
-                ms,
-            });
-        }
+        parts = { hour: parseInt(a, 10), minute: parseInt(b, 10), second: 0 };
     }
-    if (!ret.isValid()) {
+    const ret = fromParts({ year: 1970, month: 0, day: 1, ...parts, millisecond: ms });
+    if (!ret) {
         throw new QueryError(`Invalid time format: ` + str);
     }
-    return ret;
+    return utc(ret);
 }
 
 

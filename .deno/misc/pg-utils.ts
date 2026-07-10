@@ -4,7 +4,7 @@
 import { nullIsh } from '../utils.ts';
 import { bufToString, isBuf } from './buffer-deno.ts';
 import { literal } from './pg-escape.ts';
-import { jsonStringify as  stringify} from 'https://deno.land/x/stable_stringify@v0.2.1/jsonStringify.ts';
+import stringify from './stable-stringify.ts';
 
 export function toLiteral(val: any) {
   return prepareValue(val);

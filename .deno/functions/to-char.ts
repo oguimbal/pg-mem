@@ -1,5 +1,8 @@
 import { QueryError } from '../interfaces-private.ts';
-import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
+import { UtcDate, utc } from '../datatypes/date-utils.ts';
+
+// Julian day 0 = 4714 BC-11-24 (proleptic Gregorian) = astronomical year -4713
+const JULIAN_EPOCH_MS = Date.UTC(-4713, 10, 24);
 
 // to_char() formatting - the commonly used subset, verified against postgres 16.
 
@@ -141,7 +144,7 @@ export function numberToChar(value: number, fmt: string): string {
 interface DateToken {
     /** pattern, longest first */
     pat: string;
-    fmt: (m: moment.Moment, fm: boolean) => string;
+    fmt: (m: UtcDate, fm: boolean) => string;
 }
 
 function padName(name: string, fm: boolean): string {
@@ -204,7 +207,7 @@ const DATE_TOKENS: DateToken[] = [
     { pat: 'Q', fmt: m => String(m.quarter()) },
     { pat: 'TZ', fmt: () => '' },
     { pat: 'OF', fmt: () => '+00' },
-    { pat: 'J', fmt: m => String(m.diff(moment.utc('-4713-11-24', 'Y-MM-DD'), 'days')) },
+    { pat: 'J', fmt: m => String(Math.trunc((m.valueOf() - JULIAN_EPOCH_MS) / 86400000)) },
 ];
 
 // interval fields map directly (no date anchoring: 'DD' of '3 days' is '03')
@@ -243,7 +246,7 @@ export function intervalToChar(value: any, fmt: string): string {
 }
 
 export function dateToChar(value: Date, fmt: string): string {
-    const m = moment.utc(value);
+    const m = utc(value);
     let ret = '';
     let fm = false;
     let i = 0;
