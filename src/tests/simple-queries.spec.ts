@@ -284,6 +284,24 @@ describe('Simple queries', () => {
                 , { column_name: 'otherstr' }]);
     });
 
+    it('exposes primary keys via information_schema.table_constraints + key_column_usage', () => {
+        none(`create table cats (slug text primary key, name text)`);
+        expect(many(`select constraint_type, constraint_name from information_schema.table_constraints where table_name='cats'`))
+            .toEqual([{ constraint_type: 'PRIMARY KEY', constraint_name: 'cats_pkey' }]);
+        expect(many(`select kcu.column_name
+                     from information_schema.table_constraints tc
+                     join information_schema.key_column_usage kcu
+                       on kcu.constraint_name = tc.constraint_name
+                     where tc.constraint_type = 'PRIMARY KEY' and tc.table_name = 'cats'`))
+            .toEqual([{ column_name: 'slug' }]);
+    });
+
+    it('exposes unique constraints via information_schema.table_constraints', () => {
+        none(`create table u (id int primary key, email text unique)`);
+        expect(many(`select constraint_type from information_schema.table_constraints where table_name='u' order by constraint_type`))
+            .toEqual([{ constraint_type: 'PRIMARY KEY' }, { constraint_type: 'UNIQUE' }]);
+    });
+
 
     it('supports to_date function', () => {
         expect(many(`select to_date('20170103','YYYYMMDD') as x`))

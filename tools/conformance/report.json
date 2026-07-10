@@ -1,8 +1,8 @@
 {
   "mode": "differential",
   "score": 100,
-  "passed": 255,
-  "total": 255,
+  "passed": 256,
+  "total": 256,
   "knownGaps": 1,
   "gapsClosed": 0,
   "results": [
@@ -1345,6 +1345,17 @@
         {
           "tablename": "t",
           "hasindexes": true
+        }
+      ],
+      "outcome": "pass"
+    },
+    {
+      "category": "catalog",
+      "name": "information_schema.table_constraints reports a table's primary key",
+      "expected": [
+        {
+          "constraint_type": "PRIMARY KEY",
+          "column_name": "slug"
         }
       ],
       "outcome": "pass"
