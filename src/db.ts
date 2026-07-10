@@ -1,5 +1,8 @@
 import { Schema, IMemoryDb, ISchema, TableEvent, GlobalEvent, QueryError, IBackup, MemoryDbOptions, ISubscription, LanguageCompiler, nil } from './interfaces';
-import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue } from './interfaces-private';
+import { _IDb, _ISelection, _ITable, _Transaction, _ISchema, _FunctionDefinition, GLOBAL_VARS, _IType, _OperatorDefinition, IValue, PreparedStatementRunner } from './interfaces-private';
+import { Statement } from 'pgsql-ast-parser';
+import { DbSnapshot } from './interfaces';
+import { serializeDb, deserializeDb, isSchemaStatement } from './persistence';
 import { DbSchema } from './schema/schema';
 import { initialize } from './transforms/transform-base';
 import { buildSelection } from './transforms/selection';
@@ -31,7 +34,9 @@ export function newDb(opts?: MemoryDbOptions): IMemoryDb {
     // root transaction
     const root = Transaction.root();
     const globals = root.getMap(GLOBAL_VARS)
-        .set('server_version', '12.2 (pg-mem)');
+        .set('server_version', '12.2 (pg-mem)')
+        // pg-mem has no timezone support: everything behaves as UTC
+        .set('timezone', 'UTC');
     root.set(GLOBAL_VARS, globals);
 
     // create db
@@ -49,6 +54,26 @@ class MemoryDb implements _IDb {
     private extensions: { [name: string]: (schema: ISchema) => void } = {};
     private languages: { [name: string]: LanguageCompiler } = {};
     readonly searchPath = ['pg_catalog', 'public'];
+    // session-scoped named prepared statements (SQL-level PREPARE / EXECUTE)
+    readonly preparedStatements = new Map<string, PreparedStatementRunner>();
+    // schema-defining statements executed so far (for serialize())
+    readonly ddl: Statement[] = [];
+
+    recordDdl(statements: Statement[]): void {
+        for (const st of statements) {
+            if (isSchemaStatement(st)) {
+                this.ddl.push(st);
+            }
+        }
+    }
+
+    serialize(): DbSnapshot {
+        return serializeDb(this);
+    }
+
+    deserialize(snapshot: DbSnapshot): void {
+        deserializeDb(this, snapshot);
+    }
 
     get public() {
         return this.getSchema(null)

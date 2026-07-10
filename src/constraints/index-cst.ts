@@ -2,7 +2,7 @@ import { _IConstraint, _IIndex, _ITable, _Transaction } from '../interfaces-priv
 
 export class IndexConstraint implements _IConstraint {
 
-    constructor(readonly name: string, readonly index: _IIndex, private table: _ITable) {
+    constructor(public name: string, readonly index: _IIndex, private table: _ITable) {
     }
 
     uninstall(t: _Transaction): void {

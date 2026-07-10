@@ -5,7 +5,7 @@ import { deepCompare, deepEqual, errorMessage } from '../utils.ts';
 import { Types } from './datatypes.ts';
 import { JSON_NIL } from '../execution/clean-results.ts';
 import { QueryError } from '../interfaces.ts';
-import { jsonStringify as  stringify} from 'https://deno.land/x/stable_stringify@v0.2.1/jsonStringify.ts';
+import stringify from '../misc/stable-stringify.ts';
 
 export class JSONBType extends TypeBase<any> {
 

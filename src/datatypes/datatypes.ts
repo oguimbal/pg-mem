@@ -14,6 +14,7 @@ import { JSONBType } from './t-jsonb';
 import { RegTypeImpl } from './t-regtype';
 import { RegClassImpl } from './t-regclass';
 import { RecordType } from './t-record';
+import { Decimal } from './numeric';
 import { INetType } from './t-inet';
 import { buildCtx } from '../parser/context';
 
@@ -189,9 +190,121 @@ class NumberType extends TypeBase<number> {
                     .setType(to)
                     .setConversion((int: number) => int.toString()
                         , toTxt => ({ toTxt }));
+            case DataType.bigint:
+                // number -> bigint : produce the exact digit string
+                return value
+                    .setType(Types.bigint)
+                    .setConversion((n: number) => BigInt(Math.trunc(n)).toString()
+                        , numToBigint => ({ numToBigint }));
+            case DataType.decimal: {
+                // number -> numeric, rounding to the target scale when one is given
+                const scale = (to as DecimalType).scale;
+                return value
+                    .setType(to)
+                    .setConversion((n: number) => {
+                        const d = Decimal.fromNumber(n);
+                        return (scale === null || scale === undefined ? d : d.round(scale)).toString();
+                    }
+                        , numToDec => ({ numToDec, scale }));
+            }
         }
         return value.setType(to);
     }
+}
+
+// postgres `bigint` (int8): stored as a decimal-digit string so 64-bit values keep
+// full precision (JS numbers lose it above 2^53) and serialize cleanly.
+class BigIntType extends TypeBase<string> {
+    constructor(readonly primary: DataType, typeId: number) {
+        super(typeId);
+    }
+    doCanConvertImplicit(to: _IType) {
+        return to.primary === DataType.bigint
+            || to.primary === DataType.decimal
+            || to.primary === DataType.float;
+    }
+    doPrefer(type: _IType): _IType | null {
+        switch (type.primary) {
+            case DataType.integer:
+            case DataType.bigint:
+                return this;
+            case DataType.decimal:
+            case DataType.float:
+                return type;
+        }
+        return null;
+    }
+    doCanCast(to: _IType) {
+        return numbers.has(to.primary) || to.primary === DataType.text;
+    }
+    doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
+        switch (to.primary) {
+            case DataType.bigint:
+                return value.setType(to);
+            case DataType.text:
+                return value.setType(to);
+            case DataType.integer:
+                return value.setType(to).setConversion((s: string) => Number(BigInt(s)), toInt => ({ toInt }));
+            case DataType.float:
+                return value.setType(to).setConversion((s: string) => Number(s), toFloat => ({ toFloat }));
+            case DataType.decimal:
+                return value.setType(to);
+        }
+        return value.setType(to);
+    }
+    doEquals(a: string, b: string) { return BigInt(a) === BigInt(b); }
+    doGt(a: string, b: string) { return BigInt(a) > BigInt(b); }
+    doLt(a: string, b: string) { return BigInt(a) < BigInt(b); }
+}
+
+// postgres `numeric`/`decimal`: arbitrary precision, stored as a canonical decimal
+// string (see the Decimal helper). An optional scale rounds on cast.
+class DecimalType extends TypeBase<string> {
+    constructor(typeId: number, readonly scale: number | null = null) {
+        super(typeId);
+    }
+    get primary() { return DataType.decimal; }
+    doCanConvertImplicit(to: _IType) {
+        return to.primary === DataType.decimal || to.primary === DataType.float;
+    }
+    doPrefer(type: _IType): _IType | null {
+        switch (type.primary) {
+            case DataType.integer:
+            case DataType.bigint:
+            case DataType.decimal:
+                return this;
+            case DataType.float:
+                return type;
+        }
+        return null;
+    }
+    doCanCast(to: _IType) {
+        return numbers.has(to.primary) || to.primary === DataType.text;
+    }
+    doCast(value: Evaluator<any>, to: _IType): Evaluator<any> {
+        switch (to.primary) {
+            case DataType.decimal: {
+                const scale = (to as DecimalType).scale;
+                if (scale === null || scale === undefined) {
+                    return value.setType(to);
+                }
+                return value.setType(to).setConversion((s: string) => Decimal.fromText(s).round(scale).toString()
+                    , roundDec => ({ roundDec, scale }));
+            }
+            case DataType.text:
+                return value.setType(to);
+            case DataType.float:
+                return value.setType(to).setConversion((s: string) => Number(s), toFloat => ({ toFloat }));
+            case DataType.integer:
+                return value.setType(to).setConversion((s: string) => Number(Decimal.fromText(s).round(0).toString()), toInt => ({ toInt }));
+            case DataType.bigint:
+                return value.setType(to).setConversion((s: string) => Decimal.fromText(s).round(0).toString(), toBig => ({ toBig }));
+        }
+        return value.setType(to);
+    }
+    doEquals(a: string, b: string) { return Decimal.fromText(a).compare(Decimal.fromText(b)) === 0; }
+    doGt(a: string, b: string) { return Decimal.fromText(a).compare(Decimal.fromText(b)) > 0; }
+    doLt(a: string, b: string) { return Decimal.fromText(a).compare(Decimal.fromText(b)) < 0; }
 }
 
 
@@ -654,7 +767,8 @@ export const Types = {
     [DataType.null]: new NullType(null) as _IType,
     [DataType.float]: new NumberType(DataType.float, 700) as _IType,
     [DataType.integer]: new NumberType(DataType.integer, 23) as _IType,
-    [DataType.bigint]: new NumberType(DataType.bigint, 20) as _IType,
+    [DataType.bigint]: new BigIntType(DataType.bigint, 20) as _IType,
+    [DataType.decimal]: (precision: number | nil = null, scale: number | nil = null) => makeDecimal(scale) as _IType,
     [DataType.bytea]: new ByteArrayType(17) as _IType,
     [DataType.point]: new PointType(600) as _IType,
     [DataType.line]: new LineType(628) as _IType,
@@ -703,6 +817,16 @@ function makeText(len: number | nil = null) {
     return got;
 }
 
+const decimals = new Map<number | null, _IType>();
+function makeDecimal(scale: number | nil = null) {
+    const key = scale ?? null;
+    let got = decimals.get(key);
+    if (!got) {
+        decimals.set(key, got = new DecimalType(1700, key));
+    }
+    return got;
+}
+
 const timestamps = new Map<string, _IType>();
 function makeTimestamp(primary: DataType, len: number | nil = null) {
     len = len ?? null;
@@ -728,21 +852,22 @@ export const typeSynonyms: { [key: string]: DataType | { type: DataType; ignoreC
 
     'int': DataType.integer,
     'int4': DataType.integer,
+    'int2': DataType.integer,
     'int8': DataType.bigint,
     'serial': DataType.integer,
     'serial8': DataType.bigint,
-    'bigserial': DataType.integer,
+    'bigserial': DataType.bigint,
     'smallserial': DataType.integer,
     'smallint': DataType.integer,
-    'bigint': DataType.integer,
+    'bigint': DataType.bigint,
     'oid': DataType.integer,
 
-    'decimal': DataType.float,
+    'decimal': DataType.decimal,
+    'numeric': DataType.decimal,
+    'money': DataType.decimal,
     'float': DataType.float,
     'double precision': DataType.float,
-    'numeric': { type: DataType.float, ignoreConfig: true },
     'real': DataType.float,
-    'money': DataType.float,
 
     'timestamp with time zone': DataType.timestamptz,
     'timestamp without time zone': DataType.timestamp,

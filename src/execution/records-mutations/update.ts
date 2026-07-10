@@ -1,4 +1,6 @@
 import { _ITable, _Transaction, _Explainer, _ISchema, asTable, _ISelection, _IIndex, _IStatement } from '../../interfaces-private';
+import { applyReadRls, checkWriteRls } from '../rls-enforce';
+import { fireRowTriggers, fireStatementTriggers, SKIP_ROW } from '../triggers';
 import { UpdateStatement } from 'pgsql-ast-parser';
 import { MutationDataSourceBase, Setter, createSetter } from './mutation-base';
 import { buildCtx } from '../../parser/context';
@@ -60,8 +62,8 @@ export class Update extends MutationDataSourceBase {
         } else {
 
             //  => REGULAR UPDATE
-            mutatedSel = into
-                .selection
+            // row-level security: UPDATE can only affect rows visible via UPDATE policies
+            mutatedSel = applyReadRls(into, into.selection, 'update')
                 .filter(ast.where);
         }
 
@@ -76,13 +78,30 @@ export class Update extends MutationDataSourceBase {
     protected performMutation(t: _Transaction): any[] {
         // perform update
         const rows: any[] = [];
+        const hasTriggers = this.table.triggers.triggers.length > 0;
+        if (hasTriggers) { fireStatementTriggers(this.table, 'before', 'update', t); }
         for (const i of this.mutatedSel.enumerate(t)) {
             const data = deepCloneSimple(this.fetchObjectToUpdate
                 ? this.fetchObjectToUpdate(i)
                 : i);
             this.setter(t, data, i);
-            rows.push(this.table.update(t, data));
+            // BEFORE UPDATE row triggers may modify the new row or (null) skip it
+            let neu = data;
+            if (this.table.triggers.triggers.length) {
+                neu = fireRowTriggers(this.table, 'before', 'update', data, i, t);
+                if (neu === SKIP_ROW) {
+                    continue;
+                }
+            }
+            // row-level security: the updated row must satisfy WITH CHECK
+            checkWriteRls(this.table, 'update', neu, t);
+            const updated = this.table.update(t, neu);
+            if (this.table.triggers.triggers.length) {
+                fireRowTriggers(this.table, 'after', 'update', updated, i, t);
+            }
+            rows.push(updated);
         }
+        if (hasTriggers) { fireStatementTriggers(this.table, 'after', 'update', t); }
         return rows;
     }
 }

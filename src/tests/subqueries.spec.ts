@@ -59,21 +59,28 @@ describe('Subqueries', () => {
         }
 
 
-        describe.skip('With subqueries accessing parent scope', () => {
+        describe('With subqueries accessing parent scope (correlated)', () => {
                 it('fails if multiple columns in predicate', () => {
                         mytable();
                         expectQueryError(() => many(`SELECT name FROM my_table as t1 WHERE id = (SELECT name, id FROM my_table as t2 WHERE t2.parent_id = t1.id);`), /subquery must return only one column/);
                 });
 
-                it('fails if multiple columns in selection', () => {
+                it('resolves a correlated scalar subquery in the selection', () => {
                         mytable();
-                        expectQueryError(() => many(`SELECT name, (SELECT name FROM my_table as t2 WHERE t2.parent_id = t1.id) FROM my_table as t1`), /subquery must return only one column/);
+                        expect(many(`SELECT name, (SELECT name FROM my_table as t2 WHERE t2.parent_id = t1.id) as child FROM my_table as t1`))
+                                .toEqual([{ name: 'Parent', child: 'Child' }, { name: 'Child', child: null }]);
                 });
 
-                it('supports self aliasing (bugfix)', () => {
+                it('supports a correlated (self-aliased) NOT EXISTS', () => {
                         mytable();
                         expect(many(`SELECT name FROM my_table as t1 WHERE NOT EXISTS (SELECT * FROM my_table as t2 WHERE t2.parent_id = t1.id);`))
                                 .toEqual([{ name: 'Child' }]);
+                });
+
+                it('resolves a correlated reference by outer table name', () => {
+                        mytable();
+                        expect(many(`SELECT name FROM my_table as t1 WHERE EXISTS (SELECT 1 FROM my_table as t2 WHERE t2.parent_id = t1.id);`))
+                                .toEqual([{ name: 'Parent' }]);
                 });
         });
 

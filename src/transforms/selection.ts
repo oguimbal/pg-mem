@@ -38,6 +38,10 @@ function hasAggreg(e: Expr) {
     let has = false;
     astVisitor(visitor => ({
         call: expr => {
+            if (expr.over) {
+                // windowed aggregates (sum(..) over ..) do not make this an implicit aggregation
+                return;
+            }
             const nm = asSingleQName(expr.function, 'pg_catalog');
             if (nm && aggregationFunctions.has(nm)) {
                 // yea, this is an aggregation
@@ -115,6 +119,11 @@ export class Selection extends TransformBase implements _ISelection {
 
     private columnIds: string[] = [];
     private columnsOrigin: IValue[] = [];
+
+    /** Pre-projection values, in output-column order */
+    get originValues(): readonly IValue[] {
+        return this.columnsOrigin;
+    }
     private columnMapping = new Map<IValue, IValue>();
     private indexCache = new Map<IValue, _IIndex>();
     private columnsById = new Map<string, IValue[]>();

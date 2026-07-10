@@ -4,6 +4,8 @@ import { systemFunctions } from './system';
 import { sequenceFunctions } from './sequence-fns';
 import { numberFunctions } from './numbers';
 import { subqueryFunctions } from './subquery';
+import { arrayFunctions } from './array';
+import { jsonFunctions } from './json';
 
 
 export const allFunctions = [
@@ -13,4 +15,6 @@ export const allFunctions = [
     , ... sequenceFunctions
     , ... numberFunctions
     , ... subqueryFunctions
+    , ... arrayFunctions
+    , ... jsonFunctions
 ]

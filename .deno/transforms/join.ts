@@ -59,6 +59,7 @@ export class JoinSelection extends DataSourceBase {
     strategies: JoinStrategy[] = [];
     private building = false;
     private ignoreDupes?: Set<IValue>;
+    private usingColumns?: Set<string>;
     private mergeSelect?: Selection;
 
 
@@ -85,7 +86,8 @@ export class JoinSelection extends DataSourceBase {
     constructor(readonly restrictive: _ISelection
         , readonly joined: _ISelection
         , on: JoinClause
-        , readonly innerJoin: boolean) {
+        , readonly innerJoin: boolean
+        , readonly fullJoin = false) {
         super(buildCtx().schema);
 
 
@@ -178,7 +180,10 @@ export class JoinSelection extends DataSourceBase {
                     , this.wrap(right))
             }
         });
-        this.ignoreDupes = new Set(ands.map(x => this.wrap(x.left)));
+        // "select *" must yield a single copy of each USING column, taken from the
+        // preserved (restrictive) side - its value survives outer joins without a match
+        this.ignoreDupes = new Set(ands.map(x => this.wrap(x.right)));
+        this.usingColumns = new Set(_using.map(n => n.name));
 
         // compute strategies
         this.fetchAndStrategies(ands, []);
@@ -263,7 +268,14 @@ export class JoinSelection extends DataSourceBase {
             throw new ColumnNotFound(colToStr(column));
         }
         if (!!onLeft && !!onRight) {
-            throw new QueryError(`column reference "${colToStr(column)}" is ambiguous`);
+            // USING columns are merged: an unqualified reference to one is not
+            // ambiguous, and resolves to the preserved (restrictive) side
+            const name = typeof column === 'string' ? column : column.name;
+            if (this.usingColumns?.has(name)) {
+                onRight = null;
+            } else {
+                throw new QueryError(`column reference "${colToStr(column)}" is ambiguous`);
+            }
         }
         const on = onLeft ?? onRight;
         if (this.building) {
@@ -281,6 +293,33 @@ export class JoinSelection extends DataSourceBase {
     }
 
     *enumerate(t: _Transaction): Iterable<any> {
+        if (!this.fullJoin) {
+            yield* this.enumerateCore(t);
+            return;
+        }
+        // full join: run as a left join over a materialized joined side, remembering
+        // (by object identity - ids are not stable on all sources) which joined-side
+        // rows matched, then yield the ones that never did
+        this.db.raiseGlobal('catastrophic-join-optimization');
+        const others = [...this.joined.enumerate(t)];
+        const matched = new Set<any>();
+        for (const l of this.restrictive.enumerate(t)) {
+            for (const item of this.iterateCatastrophicItem(l, others, 'restrictive', t)) {
+                const j = (item as any)['>joined'];
+                if (j) {
+                    matched.add(j);
+                }
+                yield item;
+            }
+        }
+        for (const r of others) {
+            if (!matched.has(r)) {
+                yield this.buildItem(null as any, r);
+            }
+        }
+    }
+
+    private *enumerateCore(t: _Transaction): Iterable<any> {
         const strategy = chooseStrategy(t, this.strategies);
         if (strategy) {
             // choose the iterator that has less values

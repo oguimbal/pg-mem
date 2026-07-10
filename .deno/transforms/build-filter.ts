@@ -1,5 +1,5 @@
 import { _ISelection, CastError, DataType, NotSupported, IValue } from '../interfaces-private.ts';
-import { buildValue } from '../parser/expression-builder.ts';
+import { buildValue, isSubqueryNode, buildSubqueryArray } from '../parser/expression-builder.ts';
 import { Types, ArrayType, reconciliateTypes } from '../datatypes/index.ts';
 import { EqFilter } from './eq-filter.ts';
 import { Value } from '../evaluator.ts';
@@ -101,7 +101,8 @@ function buildBinaryFilter(this: void, on: _ISelection, filter: ExprBinary): _IS
         case 'IN':
         case 'NOT IN': {
             const value = buildValue(left);
-            let arrayValue = buildValue(right);
+            // a subquery RHS must be built as the list of its rows (not a scalar)
+            let arrayValue = isSubqueryNode(right) ? buildSubqueryArray(right) : buildValue(right);
             // to support things like: "col in (value)" - which RHS does not parse to an array
             if (arrayValue.type.primary !== DataType.list) {
                 arrayValue = Value.list([arrayValue]);
@@ -184,10 +185,13 @@ function buildComparison(this: void, on: _ISelection, filter: ExprBinary): _ISel
     switch (op) {
         case '=':
         case '!=': {
-            if (leftValue.index && rightValue.isConstant) {
+            // nb: isConstantReal (not isConstant) - the seek key is `.get()`-ed here at
+            // build time, so it must be a literal, not a param / scalar-subquery whose
+            // value is only known at execution (those fall through to per-row filtering)
+            if (leftValue.index && rightValue.isConstantReal) {
                 return new EqFilter(leftValue, rightValue.get(), op === '=' ? 'eq' : 'neq', false)
             }
-            if (rightValue.index && leftValue.isConstant) {
+            if (rightValue.index && leftValue.isConstantReal) {
                 return new EqFilter(rightValue, leftValue.get(), op === '=' ? 'eq' : 'neq', false);
             }
             break;
@@ -196,14 +200,14 @@ function buildComparison(this: void, on: _ISelection, filter: ExprBinary): _ISel
         case '>=':
         case '<':
         case '<=':
-            if (leftValue.index && leftValue.index.expressions[0].hash === leftValue.hash && rightValue.isConstant) {
+            if (leftValue.index && leftValue.index.expressions[0].hash === leftValue.hash && rightValue.isConstantReal) {
                 const fop = op === '>' ? 'gt'
                     : op === '>=' ? 'ge'
                         : op === '<' ? 'lt'
                             : 'le';
                 return new IneqFilter(leftValue, fop, rightValue.get());
             }
-            if (rightValue.index && rightValue.index.expressions[0].hash === rightValue.hash && leftValue.isConstant) {
+            if (rightValue.index && rightValue.index.expressions[0].hash === rightValue.hash && leftValue.isConstantReal) {
                 const fop = op === '>' ? 'le'
                     : op === '>=' ? 'lt'
                         : op === '<' ? 'ge'
@@ -223,7 +227,7 @@ function buildTernaryFilter(this: void, on: _ISelection, filter: ExprTernary): _
             const lo = buildValue(filter.lo);
             const hi = buildValue(filter.hi);
             const valueIndex = value.index;
-            if (valueIndex && valueIndex.expressions[0].hash === value.hash && lo.isConstant && hi.isConstant) {
+            if (valueIndex && valueIndex.expressions[0].hash === value.hash && lo.isConstantReal && hi.isConstantReal) {
                 const lov = lo.get();
                 const hiv = hi.get();
                 if (hasNullish(lov, hiv)) {

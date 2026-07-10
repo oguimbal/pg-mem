@@ -6,7 +6,7 @@ import { trimNullish } from '../utils';
 import { Types } from '../datatypes';
 import { expectQueryError, preventSeqScan } from './test-utils';
 import { _IDb } from '../interfaces-private';
-import moment from 'moment';
+import { utc, startOf, addDays } from '../datatypes/date-utils';
 
 describe('Operators', () => {
 
@@ -53,7 +53,7 @@ describe('Operators', () => {
         const result = many(`select  interval '1 day' + now()::date as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(dt.toString()).toBe(moment.utc().startOf('day').add(1, 'day').toDate().toString());
+        expect(dt.toString()).toBe(addDays(startOf(new Date(), 'day'), 1).toString());
     });
 
     it('date - date', () => {
@@ -78,7 +78,7 @@ describe('Operators', () => {
         const result = many(`select now() + interval '1 day' as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(1, 'day').toISOString());
+        expect(startOf(dt, 'second').toISOString()).toBe(addDays(startOf(new Date(), 'second'), 1).toISOString());
     });
 
 
@@ -86,14 +86,35 @@ describe('Operators', () => {
         const result = many(`select interval '1 day' + now() as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(1, 'day').toISOString());
+        expect(startOf(dt, 'second').toISOString()).toBe(addDays(startOf(new Date(), 'second'), 1).toISOString());
+    });
+
+    it('adds interval months calendar-aware', () => {
+        // a month is not 30 days
+        expect(many(`select timestamp '2020-01-01 00:00:00' + interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 1, 1)));
+        expect(many(`select timestamp '2020-02-01 00:00:00' + interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 2, 1)));
+        // clamps to the target month's last day
+        expect(many(`select timestamp '2020-01-31 00:00:00' + interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 1, 29)));
+        // subtraction
+        expect(many(`select timestamp '2020-03-01 00:00:00' - interval '1 month' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2020, 1, 1)));
+        // years + mixed components: months, then days, then time
+        expect(many(`select timestamp '2020-01-01 00:00:00' + interval '1 year 1 month 1 day 1 hour' as dt`)[0].dt)
+            .toEqual(new Date(Date.UTC(2021, 1, 2, 1)));
+    });
+
+    it('show timezone uses canonical column casing', () => {
+        expect(many(`show timezone`)).toEqual([{ TimeZone: 'UTC' }]);
     });
 
     it('timestamp - interval', () => {
         const result = many(`select now() - interval '1 day' as dt`);
         const dt = result[0]?.dt
         expect(dt).toBeInstanceOf(Date);
-        expect(moment(dt).startOf('second').toISOString()).toBe(moment.utc().startOf('second').add(-1, 'day').toISOString());
+        expect(startOf(dt, 'second').toISOString()).toBe(addDays(startOf(new Date(), 'second'), -1).toISOString());
     });
 
     it('- on ints', () => {
@@ -336,7 +357,7 @@ describe('Operators', () => {
             fill();
             expectQueryError(() => {
                 none(`select id from test where id && '{"b", "e"}'::text array;`)
-            }, /Operator does not exist: text && text\[\]/);
+            }, /operator does not exist: text && text\[\]/i);
         })
 
     });

@@ -1,15 +1,17 @@
-import { _ISelection, IValue, _IType, _ISchema, _IAlias } from '../interfaces-private';
-import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx } from '../utils';
+import { _ISelection, IValue, _IType, _ISchema, _IAlias, _Transaction } from '../interfaces-private';
+import { currentRoleName, sessionRoleName } from '../execution/roles';
+import { buildLikeMatcher, nullIsh, hasNullish, intervalToSec, parseTime, asSingleQName, colToStr, executionCtx, ignore } from '../utils';
 import { DataType, CastError, QueryError, NotSupported, nil, ColumnNotFound } from '../interfaces';
 import hash from 'object-hash';
 import { Value, Evaluator } from '../evaluator';
 import { Types, isNumeric, reconciliateTypes, ArrayType, RecordCol } from '../datatypes';
-import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprCall } from 'pgsql-ast-parser';
+import { Expr, ExprBinary, UnaryOperator, ExprCase, ExprWhen, ExprMember, ExprArrayIndex, ExprTernary, BinaryOperator, SelectStatement, ExprValueKeyword, ExprExtract, Interval, ExprOverlay, ExprSubstring, ExprPosition, ExprCall } from 'pgsql-ast-parser';
 import lru from 'lru-cache';
 import { aggregationFunctions, getAggregator } from '../transforms/aggregation';
-import moment from 'moment';
+import { getWindower } from '../transforms/window';
+import { utc } from '../datatypes/date-utils';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results';
-import { buildCtx } from './context';
+import { buildCtx, resolveOuterColumn, withCorrelation, currentCorrelation } from './context';
 import { buildSelect } from '../execution/select';
 
 
@@ -78,6 +80,11 @@ function _buildValueReal(val: Expr): IValue {
             if (found) {
                 return found;
             }
+            // correlated subquery: the ref may be a column of an enclosing query
+            const correlated = buildCorrelatedRef(val);
+            if (correlated) {
+                return correlated;
+            }
             // try to get a parameter reference
             const arg = !val.table && getParameter(val.name);
             if (arg) {
@@ -100,8 +107,16 @@ function _buildValueReal(val: Expr): IValue {
                 ? Value.list(vals)
                 : Value.array(vals);
         case 'numeric':
+            // a decimal literal stays float unless used in a numeric context; the exact
+            // value is recovered from value.toString() when cast to numeric
+            ignore(val.valueText);
             return Value.number(val.value);
         case 'integer':
+            // an integer literal that overflows a safe JS number is a bigint (as in pg),
+            // carried through valueText with full precision
+            if (val.valueText) {
+                return new Evaluator(Types.bigint, null, val.valueText, null, val.valueText);
+            }
             return Value.number(val.value, Types.integer);
         case 'call':
             return _buildCall(val);
@@ -114,6 +129,8 @@ function _buildValueReal(val: Expr): IValue {
             return buildMember(val);
         case 'arrayIndex':
             return buildArrayIndex(val);
+        case 'arraySlice':
+            return buildArraySlice(val);
         case 'boolean':
             return Value.bool(val.value);
         case 'ternary':
@@ -121,10 +138,16 @@ function _buildValueReal(val: Expr): IValue {
         case 'select':
         case 'union':
         case 'union all':
+        case 'intersect':
+        case 'intersect all':
+        case 'except':
+        case 'except all':
         case 'with':
         case 'with recursive':
         case 'values':
-            return buildSelectAsArray(val);
+            // a bare subquery in expression position is scalar (one row, one column);
+            // the array form is only for IN / ANY / ALL / EXISTS / ARRAY(...)
+            return buildScalarSubquery(val);
         case 'array select':
             return buildSelectAsArray(val.select);
         case 'constant':
@@ -168,6 +191,8 @@ function _buildValueReal(val: Expr): IValue {
             return buildOverlay(val);
         case 'substring':
             return buildSubstring(val);
+        case 'position':
+            return buildPosition(val);
         case 'default':
             throw new QueryError(`DEFAULT is not allowed in this context`, '42601');
         default:
@@ -194,7 +219,11 @@ function _buildCall(val: ExprCall): IValue {
     //     return buildKeyword( val.function, val.args);
     // }
     if (val.over) {
-        throw new NotSupported('"OVER" clause is not implemented in pg-mem yet');
+        const windower = getWindower();
+        if (!windower) {
+            throw new QueryError('window functions are not allowed here');
+        }
+        return windower.getWindowValue(val);
     }
     const nm = asSingleQName(val.function, 'pg_catalog');
     if (nm && aggregationFunctions.has(nm)) {
@@ -204,8 +233,54 @@ function _buildCall(val: ExprCall): IValue {
         }
         return agg.getAggregation(nm, val);
     }
-    const args = val.args.map(x => _buildValue(x));
+    // ROW(...) constructor -> an anonymous record with fields f1, f2, ...
+    if (nm === 'row' && !val.over) {
+        return buildRowConstructor(val.args);
+    }
+    // exists/any/all consume the subquery as a set of rows (array), not a scalar.
+    // EXISTS only cares whether any row exists (any number of columns is fine);
+    // ANY/ALL need the single-column value list.
+    const args = val.args.map(x => {
+        if (!isSubqueryNode(x)) {
+            return _buildValue(x);
+        }
+        if (nm === 'exists') {
+            return buildExistsArray(x as any);
+        }
+        if (nm === 'any' || nm === 'all') {
+            return buildSelectAsArray(x as any);
+        }
+        return _buildValue(x);
+    });
     return Value.function(val.function, args);
+}
+
+function buildRowConstructor(args: Expr[]): IValue {
+    const vals = args.map(a => _buildValue(a));
+    const cols = vals.map<RecordCol>((v, i) => ({ name: `f${i + 1}`, type: v.type }));
+    return new Evaluator(
+        Types.record(cols)
+        , null
+        , hash({ row: vals.map(v => v.hash) })
+        , vals
+        , (raw, t) => {
+            const ret: any = {};
+            for (let i = 0; i < vals.length; i++) {
+                ret[`f${i + 1}`] = vals[i].get(raw, t);
+            }
+            return ret;
+        });
+}
+
+function roleKeyword(keyword: string, get: (t: _Transaction) => string): IValue {
+    // the session/current role can change at runtime (SET ROLE), so this is not constant
+    return new Evaluator(
+        Types.text()
+        , null
+        , `role_kw_${keyword}`
+        , []
+        , () => get(executionCtx().transaction)
+        , { forceNotConstant: true, unpure: true });
 }
 
 function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
@@ -216,11 +291,13 @@ function buildKeyword(kw: ExprValueKeyword, args: Expr[]): IValue {
         throw new Error('Invalid AST');
     }
     switch (kw.keyword) {
-        case 'current_catalog':
         case 'current_role':
         case 'current_user':
-        case 'session_user':
         case 'user':
+            return roleKeyword(kw.keyword, t => currentRoleName(t));
+        case 'session_user':
+            return roleKeyword(kw.keyword, t => sessionRoleName(t));
+        case 'current_catalog':
             return Value.constant(Types.text(), 'pg_mem');
         case 'current_schema':
             return Value.constant(Types.text(), 'public');
@@ -265,9 +342,24 @@ function buildUnary(op: UnaryOperator, operand: Expr) {
     }
 }
 
+const SUBQUERY_NODE_TYPES = new Set([
+    'select', 'union', 'union all', 'intersect', 'intersect all',
+    'except', 'except all', 'with', 'with recursive', 'values',
+]);
+export function isSubqueryNode(e: Expr): boolean {
+    return SUBQUERY_NODE_TYPES.has((e as any).type);
+}
+
+/** Build a subquery as a list of its (single-column) row values — the form needed by
+ * IN / ANY / ALL / EXISTS. Supports correlation (see buildSelectAsArray). */
+export function buildSubqueryArray(op: Expr): IValue {
+    return buildSelectAsArray(op as any);
+}
+
 function buildIn(left: Expr, array: Expr, inclusive: boolean): IValue {
     let leftValue = _buildValue(left);
-    let rightValue = _buildValue(array);
+    // `x IN (subquery)` needs the subquery's rows as a list, not a scalar
+    let rightValue = isSubqueryNode(array) ? buildSelectAsArray(array as any) : _buildValue(array);
     return Value.in(leftValue, rightValue, inclusive);
 }
 
@@ -314,12 +406,27 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
         rightValue = rightValue.cast(t);
     }
 
-    let getter: (a: any, b: any) => any;
+    let getter!: (a: any, b: any) => any;
     let returnType: _IType = Types.bool;
     let commutative = true;
     let forcehash: any = null;
     let rejectNils = true;
     let impure = false;
+    // resolve a custom operator registered on the schema (ranges, extensions, ...)
+    const resolveCustom = () => {
+        const { schema } = buildCtx();
+        const resolved = schema.resolveOperator(op, leftValue, rightValue);
+        if (!resolved) {
+            throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
+        }
+        leftValue = leftValue.cast(resolved.left);
+        rightValue = rightValue.cast(resolved.right);
+        commutative = resolved.commutative;
+        returnType = resolved.returns;
+        getter = resolved.implementation;
+        rejectNils = !resolved.allowNullArguments;
+        impure = !!resolved.impure;
+    };
     switch (op) {
         case '=': {
             const type = expectSame();
@@ -331,6 +438,19 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             getter = (a, b) => {
                 const ret = type.equals(a, b);
                 return nullIsh(ret) ? null : !ret;
+            };
+            break;
+        }
+        case 'IS DISTINCT FROM':
+        case 'IS NOT DISTINCT FROM': {
+            const type = expectSame();
+            const wantNotDistinct = op === 'IS NOT DISTINCT FROM';
+            rejectNils = false; // NULL is a normal comparable value here (never returns NULL)
+            getter = (a, b) => {
+                const an = nullIsh(a), bn = nullIsh(b);
+                // distinct: exactly one is null, or both non-null and unequal
+                const distinct = an || bn ? an !== bn : !type.equals(a, b);
+                return wantNotDistinct ? !distinct : distinct;
             };
             break;
         }
@@ -369,11 +489,16 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             }
             break;
         case '&&':
-            if (leftValue.type.primary !== DataType.array || !rightValue.canCast(leftValue.type)) {
-                throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
+            if (leftValue.type.primary === DataType.array) {
+                if (!rightValue.canCast(leftValue.type)) {
+                    throw new QueryError(`Operator does not exist: ${leftValue.type.name} && ${rightValue.type.name}`, '42883');
+                }
+                rightValue = rightValue.cast(leftValue.type);
+                getter = (a, b) => a.some((element: any) => b.includes(element));
+                break;
             }
-            rightValue = rightValue.cast(leftValue.type);
-            getter = (a, b) => a.some((element: any) => b.includes(element));
+            // non-array && (e.g. range overlap) resolves via a registered operator
+            resolveCustom();
             break;
         case 'LIKE':
         case 'ILIKE':
@@ -420,18 +545,7 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             }
             break;
         default: {
-            const { schema } = buildCtx();
-            const resolved = schema.resolveOperator(op, leftValue, rightValue);
-            if (!resolved) {
-                throw new QueryError(`operator does not exist: ${leftValue.type.name} ${op} ${rightValue.type.name}`, '42883');
-            }
-            leftValue = leftValue.cast(resolved.left);
-            rightValue = rightValue.cast(resolved.right);
-            commutative = resolved.commutative;
-            returnType = resolved.returns;
-            getter = resolved.implementation;
-            rejectNils = !resolved.allowNullArguments;
-            impure = !!resolved.impure;
+            resolveCustom();
             break;
         }
     }
@@ -441,9 +555,9 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
             ? { op, vals: [leftValue.hash, rightValue.hash].sort() }
             : { left: leftValue.hash, op, right: rightValue.hash }));
 
-    // handle cases like:  blah = ANY(stuff)
-    if (leftValue.isAny || rightValue.isAny) {
-        return buildBinaryAny(leftValue, op, rightValue, returnType, getter, hashed);
+    // handle cases like:  blah = ANY(stuff)  /  blah <> ALL(stuff)
+    if (leftValue.isQuantified || rightValue.isQuantified) {
+        return buildBinaryQuantified(leftValue, op, rightValue, returnType, getter, hashed);
     }
 
     return new Evaluator(
@@ -462,51 +576,47 @@ export function buildBinaryValue(leftValue: IValue, op: BinaryOperator, rightVal
 
 }
 
-function buildBinaryAny(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
-    if (leftValue.isAny && rightValue.isAny) {
-        throw new QueryError('ANY() cannot be compared to ANY()');
+function buildBinaryQuantified(leftValue: IValue, op: BinaryOperator, rightValue: IValue, returnType: _IType, getter: (a: any, b: any) => boolean, hashed: string) {
+    if (leftValue.isQuantified && rightValue.isQuantified) {
+        throw new QueryError('ANY()/ALL() cannot be compared to ANY()/ALL()');
     }
     if (returnType !== Types.bool) {
-        throw new QueryError('Invalid ANY() usage');
+        throw new QueryError('Invalid ANY()/ALL() usage');
     }
+    // which side holds the array, and whether it's ALL (every) or ANY (some)
+    const arrOnLeft = leftValue.isQuantified;
+    const quant = arrOnLeft ? leftValue : rightValue;
+    const scalar = arrOnLeft ? rightValue : leftValue;
+    const isAll = quant.isAll;
     return new Evaluator(
         returnType
         , null
         , hashed
         , [leftValue, rightValue]
-        , leftValue.isAny
-            ? (raw, t) => {
-                const leftRaw = leftValue.get(raw, t);
-                if (nullIsh(leftRaw)) {
-                    return null;
-                }
-                if (!Array.isArray(leftRaw)) {
-                    throw new QueryError('Invalid ANY() usage: was expacting an array');
-                }
-                for (const lr of leftRaw) {
-                    const rightRaw = rightValue.get(raw, t);
-                    if (getter(lr, rightRaw)) {
-                        return true;
-                    }
-                }
-                return false;
+        , (raw, t) => {
+            const arr = quant.get(raw, t);
+            if (nullIsh(arr)) {
+                return null;
             }
-            : (raw, t) => {
-                const rightRaw = rightValue.get(raw, t);
-                if (nullIsh(rightRaw)) {
-                    return null;
+            if (!Array.isArray(arr)) {
+                throw new QueryError('Invalid ANY()/ALL() usage: was expecting an array');
+            }
+            let sawNull = false;
+            for (const el of arr) {
+                const s = scalar.get(raw, t);
+                const res = arrOnLeft ? getter(el, s) : getter(s, el);
+                if (isAll) {
+                    if (res === false) { return false; }
+                    if (nullIsh(res)) { sawNull = true; }
+                } else {
+                    if (res === true) { return true; }
+                    if (nullIsh(res)) { sawNull = true; }
                 }
-                if (!Array.isArray(rightRaw)) {
-                    throw new QueryError('Invalid ANY() usage: was expacting an array');
-                }
-                for (const rr of rightRaw) {
-                    const leftRaw = leftValue.get(raw, t);
-                    if (getter(leftRaw, rr)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
+            }
+            // ALL: true unless a false was found (null if any comparison was null)
+            // ANY: false unless a true was found (null if any comparison was null)
+            return sawNull ? null : isAll;
+        });
 }
 
 
@@ -560,6 +670,25 @@ function buildCase(op: ExprCase): IValue {
 
 function buildMember(op: ExprMember): IValue {
     const oop = op.op;
+    // composite / record field access: (expr).field
+    if (oop === '.') {
+        const on = buildValue(op.operand);
+        const cols = (on.type as any).columns as RecordCol[] | undefined;
+        const field = String(op.member);
+        const col = cols?.find(c => c.name === field);
+        if (!col) {
+            throw new QueryError(`could not identify column "${field}" in record data type`, '42703');
+        }
+        return new Evaluator(
+            col.type
+            , null
+            , hash({ field: on.hash, m: field })
+            , on
+            , (raw, t) => {
+                const v = on.get(raw, t);
+                return nullIsh(v) ? null : v[field];
+            });
+    }
     if (oop !== '->>' && oop !== '->') {
         throw NotSupported.never(oop);
     }
@@ -637,6 +766,34 @@ function buildArrayIndex(op: ExprArrayIndex): IValue {
 }
 
 
+function buildArraySlice(op: any): IValue {
+    const onExpr = _buildValue(op.array);
+    if (onExpr.type.primary !== DataType.array) {
+        throw new QueryError(`Cannot use [] expression on type ${onExpr.type.primary}`);
+    }
+    const from = op.from ? _buildValue(op.from).cast(Types.integer) : null;
+    const to = op.to ? _buildValue(op.to).cast(Types.integer) : null;
+    return new Evaluator(
+        onExpr.type // a slice of an array is the same array type
+        , null
+        , hash({ slice: onExpr.hash, from: from?.hash ?? null, to: to?.hash ?? null })
+        , [onExpr, ...(from ? [from] : []), ...(to ? [to] : [])]
+        , (raw, t) => {
+            const value = onExpr.get(raw, t);
+            if (!Array.isArray(value)) {
+                return null;
+            }
+            // Postgres slices are 1-based inclusive; missing bounds default to the
+            // ends, and out-of-range bounds are clamped.
+            const lo = Math.max(1, from ? from.get(raw, t) : 1);
+            const hi = Math.min(value.length, to ? to.get(raw, t) : value.length);
+            if (lo > hi) {
+                return [];
+            }
+            return value.slice(lo - 1, hi);
+        });
+}
+
 function buildTernary(op: ExprTernary): IValue {
     const oop = op.op;
     if (oop !== 'NOT BETWEEN' && oop !== 'BETWEEN') {
@@ -680,11 +837,35 @@ function buildTernary(op: ExprTernary): IValue {
 }
 
 
+/** A correlated-subquery outer reference: an outer column whose value is fed in per
+ * outer row via a mutable holder (which the compiled subquery body reads). */
+interface Correlation {
+    outer: IValue;
+    holder: { value: any };
+}
+
+/** Builds a subquery's selection, collecting correlated (outer-query) references so the
+ * outer row can be fed in at enumeration time (see `bind`). */
+function buildSubquerySelection(op: SelectStatement): { onData: _ISelection; bind: (raw: any, t: any) => void } {
+    const correlations: Correlation[] = [];
+    const collector = {
+        register: (outer: IValue) => {
+            const holder = { value: null as any };
+            correlations.push({ outer, holder });
+            return holder;
+        },
+    };
+    const onData = withCorrelation(collector as any, () => buildSelect(op));
+    const bind = (raw: any, t: any) => {
+        for (const c of correlations) {
+            c.holder.value = c.outer.get(raw, t);
+        }
+    };
+    return { onData, bind };
+}
+
 function buildSelectAsArray(op: SelectStatement): IValue {
-    // todo: handle refs to 'data' in op statement.
-    //  ... and refactor this. This is way too hacky to be maintainable
-    //   (this wont allow the subrequest to access outer context, for instance)
-    const onData = buildSelect(op);
+    const { onData, bind } = buildSubquerySelection(op);
     if (onData.columns.length !== 1) {
         throw new QueryError('subquery must return only one column', '42601');
     }
@@ -694,6 +875,7 @@ function buildSelectAsArray(op: SelectStatement): IValue {
         , Math.random().toString() // must not be indexable => always different hash
         , null // , onData.columns[0]
         , (raw, t) => {
+            bind(raw, t);
             const ret = [];
             for (const v of onData.enumerate(t!)) {
                 ret.push(onData.columns[0].get(v, t));
@@ -702,6 +884,73 @@ function buildSelectAsArray(op: SelectStatement): IValue {
         }, {
         forceNotConstant: true
     });
+}
+
+/** EXISTS(subquery): only the presence of rows matters (column count is irrelevant).
+ * Yields one element per row so the `exists` builtin can test non-emptiness. */
+function buildExistsArray(op: SelectStatement): IValue {
+    const { onData, bind } = buildSubquerySelection(op);
+    return new Evaluator(
+        Types.bool.asList()
+        , null
+        , Math.random().toString()
+        , null
+        , (raw, t) => {
+            bind(raw, t);
+            const ret: boolean[] = [];
+            for (const _ of onData.enumerate(t!)) {
+                ret.push(true);
+            }
+            return ret;
+        }, {
+        forceNotConstant: true
+    });
+}
+
+/** A bare subquery used as a scalar value: reduces the rows to a single value
+ * (0 rows -> null, >1 row -> error), matching Postgres scalar-subquery semantics. */
+function buildScalarSubquery(op: SelectStatement): IValue {
+    const arr = buildSelectAsArray(op);
+    const elemType = (arr.type as ArrayType).of;
+    return new Evaluator(
+        elemType
+        , null
+        , Math.random().toString()
+        , null
+        , (raw, t) => {
+            const list = arr.get(raw, t);
+            if (!list || list.length === 0) {
+                return null;
+            }
+            if (list.length > 1) {
+                throw new QueryError('more than one row returned by a subquery used as an expression', '21000');
+            }
+            return list[0];
+        }, {
+        forceNotConstant: true
+    });
+}
+
+/** If `ref` names a column of an enclosing query (correlated subquery), returns a value
+ * backed by a per-outer-row holder; otherwise null. */
+function buildCorrelatedRef(ref: any): IValue | nil {
+    const collector = currentCorrelation();
+    if (!collector) {
+        return null;
+    }
+    const outer = resolveOuterColumn(ref);
+    if (!outer) {
+        return null;
+    }
+    const holder = (collector as any).register(outer) as { value: any };
+    return new Evaluator(
+        outer.type
+        , null
+        , Math.random().toString() // per-row value; never fold as constant / index
+        , null
+        , () => holder.value
+        , { forceNotConstant: true }
+    );
 }
 
 
@@ -725,14 +974,14 @@ function buildExtract(op: ExprExtract): IValue {
     }
     switch (op.field.name) {
         case 'millennium':
-            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 1000));
+            return extract(Types.date, x => Math.ceil(utc(x).year() / 1000));
         case 'century':
-            return extract(Types.date, x => Math.ceil(moment.utc(x).year() / 100));
+            return extract(Types.date, x => Math.ceil(utc(x).year() / 100));
         case 'decade':
-            return extract(Types.date, x => Math.floor(moment.utc(x).year() / 10));
+            return extract(Types.date, x => Math.floor(utc(x).year() / 10));
         case 'day':
             if (from.canCast(Types.date)) {
-                return extract(Types.date, x => moment.utc(x).date());
+                return extract(Types.date, x => utc(x).date());
             }
             return extract(Types.interval, (x: Interval) => x.days ?? 0);
         case 'second':
@@ -758,42 +1007,42 @@ function buildExtract(op: ExprExtract): IValue {
             return extract(Types.interval, (x: Interval) => (x.seconds ?? 0) * 1000 + (x.milliseconds ?? 0), Types.float);
         case 'month':
             if (from.canCast(Types.date)) {
-                return extract(Types.date, x => moment.utc(x).month() + 1);
+                return extract(Types.date, x => utc(x).month() + 1);
             }
             return extract(Types.interval, (x: Interval) => x.months ?? 0);
         case 'year':
             if (from.canCast(Types.date)) {
-                return extract(Types.date, x => moment.utc(x).year());
+                return extract(Types.date, x => utc(x).year());
             }
             return extract(Types.interval, (x: Interval) => x.years ?? 0);
         case 'dow':
-            return extract(Types.date, x => moment.utc(x).day());
+            return extract(Types.date, x => utc(x).day());
         case 'isodow':
             return extract(Types.date, x => {
-                const dow = moment.utc(x).day();
+                const dow = utc(x).day();
                 return dow ? dow : 7;
             });
         case 'doy':
-            return extract(Types.date, x => moment.utc(x).dayOfYear());
+            return extract(Types.date, x => utc(x).dayOfYear());
         case 'epoch':
             if (from.canCast(Types.timestamp())) {
-                return extract(Types.timestamp(), x => moment.utc(x).unix(), Types.float);
+                return extract(Types.timestamp(), x => utc(x).unix(), Types.float);
             }
             return extract(Types.interval, (x: Interval) => intervalToSec(x));
         case 'hour':
             if (from.canCast(Types.timestamp())) {
-                return extract(Types.timestamp(), x => moment.utc(x).hour());
+                return extract(Types.timestamp(), x => utc(x).hour());
             }
             return extract(Types.interval, (x: Interval) => x.hours ?? 0);
         case 'isoyear':
             return extract(Types.date, x => {
-                const d = moment.utc(x);
+                const d = utc(x);
                 return d.dayOfYear() <= 1 ? d.year() - 1 : d.year();
             });
         case 'quarter':
-            return extract(Types.date, x => moment.utc(x).quarter());
+            return extract(Types.date, x => utc(x).quarter());
         case 'week':
-            return extract(Types.date, x => moment.utc(x).week());
+            return extract(Types.date, x => utc(x).week());
         case 'microseconds':
             if (from.canCast(Types.time)) {
                 return extract(Types.time, x => {
@@ -847,6 +1096,25 @@ function buildOverlay(op: ExprOverlay): IValue {
                 return null;
             }
             return before + _placing + after;
+        });
+}
+
+function buildPosition(op: ExprPosition): IValue {
+    // position(substring in string) -> 1-based index, 0 if absent
+    const substring = _buildValue(op.substring).cast(Types.text());
+    const string = _buildValue(op.string).cast(Types.text());
+    return new Evaluator(
+        Types.integer
+        , null
+        , hash({ position: substring.hash, in: string.hash })
+        , [substring, string]
+        , (raw, t) => {
+            const sub = substring.get(raw, t) as string;
+            const str = string.get(raw, t) as string;
+            if (nullIsh(sub) || nullIsh(str)) {
+                return null;
+            }
+            return str.indexOf(sub) + 1;
         });
 }
 

@@ -4,7 +4,7 @@
 import { nullIsh } from '../utils'
 import { bufToString, isBuf } from './buffer-node';
 import { literal } from './pg-escape';
-import stringify from 'json-stable-stringify';
+import stringify from './stable-stringify';
 
 export function toLiteral(val: any) {
   return prepareValue(val);

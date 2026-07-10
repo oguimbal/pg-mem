@@ -1,5 +1,5 @@
 import { watchUse, ignore, errorMessage, pushExecutionCtx, fromEntries } from '../utils';
-import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue } from '../interfaces-private';
+import { _ISchema, _Transaction, _FunctionDefinition, _ArgDefDetails, _IType, _ISelection, _IStatement, NotSupported, QueryError, nil, OnStatementExecuted, _IStatementExecutor, StatementResult, Parameter, IValue, PreparedStatementRunner, _IPreparedQuery } from '../interfaces-private';
 import { toSql, Statement } from 'pgsql-ast-parser';
 import { ExecuteCreateTable } from './schema-amends/create-table';
 import { ExecuteCreateSequence } from './schema-amends/create-sequence';
@@ -8,12 +8,16 @@ import { CreateIndexExec } from './schema-amends/create-index';
 import { Alter } from './schema-amends/alter';
 import { AlterSequence } from './schema-amends/alter-sequence';
 import { DropIndex } from './schema-amends/drop-index';
+import { AlterIndex } from './schema-amends/alter-index';
 import { DropTable } from './schema-amends/drop-table';
 import { DropSequence } from './schema-amends/drop-sequence';
-import { CommitExecutor, RollbackExecutor, BeginStatementExec } from './transaction-statements';
+import { CommitExecutor, RollbackExecutor, BeginStatementExec, SavepointExecutor, ReleaseSavepointExecutor } from './transaction-statements';
 import { TruncateTable } from './records-mutations/truncate-table';
 import { ShowExecutor } from './show';
 import { SetExecutor } from './set';
+import { CreateRoleExecutor, DropRoleExecutor, SetRoleExecutor, ResetExecutor } from './roles';
+import { CreatePolicy, DropPolicy } from './schema-amends/create-policy';
+import { CreateTrigger } from './schema-amends/create-trigger';
 import { CreateEnum } from './schema-amends/create-enum';
 import { CreateView } from './schema-amends/create-view';
 import { CreateMaterializedView } from './schema-amends/create-materialized-view';
@@ -25,6 +29,13 @@ import { withSelection, withStatement, withNameResolver, INameResolver } from '.
 import { DropType } from './schema-amends/drop-type';
 import { AlterEnum } from "./schema-amends/alter-enum";
 import { Comment } from './schema-amends/comment';
+import { ExecutePrepared } from './execute-prepared';
+import { CreateDomain } from './schema-amends/create-domain';
+import { CreateCompositeType } from './schema-amends/create-composite-type';
+import { InsteadOfView } from './records-mutations/instead-of';
+import { MergeExec } from './records-mutations/merge';
+import { hasInsteadOf, TriggerOp } from './triggers';
+import { _IView, _ITable } from '../interfaces-private';
 
 const detailsIncluded = Symbol('errorDetailsIncluded');
 
@@ -72,12 +83,27 @@ export class StatementExec implements _IStatement {
                 return new CommitExecutor(p);
             case 'rollback':
                 return new RollbackExecutor(p);
-            case 'select':
+            case 'savepoint':
+                return new SavepointExecutor(p);
+            case 'release savepoint':
+                return new ReleaseSavepointExecutor(p);
             case 'delete':
             case 'update':
-            case 'insert':
+            case 'insert': {
+                // DML on a view with an INSTEAD OF trigger fires the trigger instead
+                const io = this.insteadOfViewExecutor(p);
+                if (io) { return io; }
+                return new SelectExec(this, p);
+            }
+            case 'merge':
+                return new MergeExec(this, p);
+            case 'select':
             case 'union':
             case 'union all':
+            case 'intersect':
+            case 'intersect all':
+            case 'except':
+            case 'except all':
             case 'values':
             case 'with recursive':
             case 'with':
@@ -110,6 +136,20 @@ export class StatementExec implements _IStatement {
             case 'set names':
             case 'set timezone':
                 return new SetExecutor(p);
+            case 'create role':
+                return new CreateRoleExecutor(p);
+            case 'drop role':
+                return new DropRoleExecutor(p);
+            case 'set role':
+                return new SetRoleExecutor(p);
+            case 'reset':
+                return new ResetExecutor(p);
+            case 'create policy':
+                return new CreatePolicy(this, p);
+            case 'drop policy':
+                return new DropPolicy(this, p);
+            case 'create trigger':
+                return new CreateTrigger(this, p);
             case 'create enum':
                 return new CreateEnum(this, p);
             case 'alter enum':
@@ -129,9 +169,31 @@ export class StatementExec implements _IStatement {
             case 'comment':
                 return new Comment(this, p);
             case 'raise':
-            case 'deallocate':
+            case 'grant':
+            case 'revoke':
+            case 'alter role':
+            case 'alter default privileges':
+                // pg-mem has no privilege/role-config system: parse & ignore (dumps, RLS setup)
                 ignore(p);
                 return new SimpleExecutor(p, () => { });
+            case 'notify':
+            case 'listen':
+            case 'unlisten':
+                // no async notification delivery in-memory: parse & ignore
+                ignore(p);
+                return new SimpleExecutor(p, () => { });
+
+            case 'deallocate':
+                ignore(p.target);
+                return new SimpleExecutor(p, () => {
+                    const tgt = p.target;
+                    if ('option' in tgt) {
+                        // DEALLOCATE ALL
+                        this.db.preparedStatements.clear();
+                    } else if (!this.db.preparedStatements.delete(tgt.name)) {
+                        throw new QueryError(`prepared statement "${tgt.name}" does not exist`, '26000');
+                    }
+                }, 'DEALLOCATE');
 
             case 'refresh materialized view':
                 // todo: a decent materialized view implementation
@@ -139,18 +201,73 @@ export class StatementExec implements _IStatement {
                 return new SimpleExecutor(p, () => { });
 
             case 'tablespace':
-                throw new NotSupported('"TABLESPACE" statement');
-            case 'prepare':
-                throw new NotSupported('"PREPARE" statement');
+                // tablespaces are physical storage; meaningless in-memory
+                ignore(p);
+                return new SimpleExecutor(p, () => { });
+            case 'prepare': {
+                // plan the statement now (like postgres: at PREPARE time), outside any
+                // execution context, then stash a runner. The raw (unproxied) inner AST is
+                // used so it gets its own coverage checking inside schema.prepare.
+                ignore(p.statement);
+                ignore(p.args);
+                const raw = this.statement as typeof p;
+                const compiled = this.schema.prepare([raw.statement]) as _IPreparedQuery;
+                const runner: PreparedStatementRunner = (args, t) => {
+                    const res = compiled.bind(args).executeAll(t) as any;
+                    const { state, ...result } = res;
+                    return { result, state };
+                };
+                return new SimpleExecutor(p, () => {
+                    if (this.db.preparedStatements.has(p.name.name)) {
+                        throw new QueryError(`prepared statement "${p.name.name}" already exists`, '42P05');
+                    }
+                    this.db.preparedStatements.set(p.name.name, runner);
+                }, 'PREPARE');
+            }
+            case 'execute':
+                return new ExecutePrepared(this, p);
             case 'create composite type':
-                throw new NotSupported('create composite type');
+                return new CreateCompositeType(this, p);
+            case 'create domain':
+                return new CreateDomain(this, p);
             case 'drop trigger':
-                throw new NotSupported('"drop trigger" statement');
+                // DROP TRIGGER <name> ON <table|view> [IF EXISTS]
+                return new SimpleExecutor(p, () => {
+                    const dp = p as any;
+                    const obj = this.schema.getThisOrSiblingFor(dp.onTable)
+                        .getObject(dp.onTable, { nullIfNotFound: !!dp.ifExists });
+                    if (!obj) {
+                        return; // IF EXISTS: unknown relation is a no-op
+                    }
+                    if (obj.type !== 'table' && obj.type !== 'view') {
+                        throw new QueryError(`"${dp.onTable.name}" is not a table or view`);
+                    }
+                    (obj as _ITable | _IView).dropTrigger(dp.name.name, !!dp.ifExists);
+                }, 'DROP TRIGGER');
             case 'alter index':
-                throw new NotSupported('"alter index" statement');
+                return new AlterIndex(this, p);
             default:
                 throw NotSupported.never(p, 'statement type');
         }
+    }
+
+    /** if this DML targets a view with a matching INSTEAD OF trigger, an executor for it */
+    private insteadOfViewExecutor(p: Statement): _IStatementExecutor | null {
+        const target = p.type === 'insert' ? p.into
+            : p.type === 'update' ? p.table
+                : (p as any).from;
+        if (!target || target.type === 'statement') {
+            return null;
+        }
+        const obj = this.schema.getObject(target, { nullIfNotFound: true });
+        if (obj?.type !== 'view') {
+            return null;
+        }
+        const op = p.type as TriggerOp;
+        if (!hasInsteadOf(obj as _IView, op)) {
+            return null;
+        }
+        return new InsteadOfView(obj as _IView, p as any);
     }
 
 

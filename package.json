@@ -14,6 +14,7 @@
     "release:playground": "bun build:playground && cd dist && git init && git add -A && git commit -m\"initial\" && git remote add origin git@github.com:oguimbal/pg-mem-playground.git && git push --set-upstream origin master --force",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "bun test",
+    "conformance": "bun tools/conformance/run.ts",
     "build:deno": "node ./tools/deno-transpile.js --copy && node ./tools/deno-transpile.js --process",
     "cover": "NODE_OPTIONS=--openssl-legacy-provider cross-env NODE_ENV=coverage nyc --reporter=lcov --reporter=text bun test"
   },
@@ -43,9 +44,7 @@
   "dependencies": {
     "functional-red-black-tree": "^1.0.1",
     "immutable": "^4.3.4",
-    "json-stable-stringify": "^1.0.1",
     "lru-cache": "^6.0.0",
-    "moment": "^2.27.0",
     "object-hash": "^2.0.3",
     "pgsql-ast-parser": "^12.0.2"
   },

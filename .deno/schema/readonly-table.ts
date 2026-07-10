@@ -1,4 +1,4 @@
-import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler, Row } from '../interfaces-private.ts';
+import { _ITable, _ISelection, _ISchema, _Transaction, _IIndex, IValue, NotSupported, PermissionDeniedError, _Column, SchemaField, IndexDef, _Explainer, _SelectExplanation, _IType, ChangeHandler, Stats, DropHandler, IndexHandler, RegClass, RegType, Reg, _IConstraint, TruncateHandler, Row, _INamedIndex } from '../interfaces-private.ts';
 import { CreateColumnDef, ExprRef, TableConstraint } from 'https://deno.land/x/pgsql_ast_parser@12.0.2/mod.ts';
 import { DataSourceBase } from '../transforms/transform-base.ts';
 import { Schema, ColumnNotFound, nil, ISubscription, ColumnDef } from '../interfaces.ts';
@@ -6,6 +6,8 @@ import { buildAlias } from '../transforms/alias.ts';
 import { columnEvaluator } from '../transforms/selection.ts';
 import { colByName, findTemplate } from '../utils.ts';
 import { cleanResults } from '../execution/clean-results.ts';
+import { TableRls, emptyRls } from '../execution/rls.ts';
+import { TableTriggers, emptyTriggers } from '../execution/triggers.ts';
 
 export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _ISelection {
 
@@ -141,6 +143,33 @@ export abstract class ReadOnlyTable extends DataSourceBase implements _ITable, _
         throw new PermissionDeniedError(this.name);
     }
     dropIndex(t: _Transaction, name: string): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    renameIndex(oldName: string, newName: string): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    *listIndexes(): Iterable<_INamedIndex> {
+        // read-only catalog tables expose no user indexes
+    }
+    fillDefaults(): void {
+        // read-only catalog tables are never inserted into
+    }
+    // read-only catalog tables never carry row-level security
+    readonly rls: TableRls = emptyRls();
+    createPolicy(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    dropPolicy(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    setRowLevelSecurity(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    readonly triggers: TableTriggers = emptyTriggers();
+    createTrigger(): void {
+        throw new PermissionDeniedError(this.name);
+    }
+    dropTrigger(): void {
         throw new PermissionDeniedError(this.name);
     }
     setHidden(): this {

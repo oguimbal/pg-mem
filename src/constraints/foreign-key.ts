@@ -2,6 +2,7 @@ import { ISubscription, NotSupported, QueryError } from '../interfaces';
 import { Expr, ExprBinary, TableConstraintForeignKey } from 'pgsql-ast-parser';
 import { asTable, CreateIndexColDef, _IConstraint, _ITable, _Transaction } from '../interfaces-private';
 import { nullIsh } from '../utils';
+import { deferCheck } from '../execution/deferred-checks';
 
 export class ForeignKey implements _IConstraint {
 
@@ -124,6 +125,8 @@ export class ForeignKey implements _IConstraint {
         //  when changing something in this table,
         //  then there must be a key match in the foreign table
         // =====================
+        // DEFERRABLE INITIALLY DEFERRED postpones this existence check to commit time
+        const deferred = !!cst.deferrable && !!cst.initiallyDeferred;
         this.unsubs.push(table.onBeforeChange(cst.localColumns.map(x => x.name), (_, neu, dt) => {
             if (!neu) {
                 return;
@@ -151,13 +154,19 @@ export class ForeignKey implements _IConstraint {
                 right: b,
             }), equals[0]);
 
-            // check there is a match
-            let yielded = false;
-            for (const _ of ftable.selection.filter(expr).enumerate(dt)) {
-                yielded = true;
-            }
-            if (!yielded) {
-                throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
+            const check = (checkT: _Transaction) => {
+                let yielded = false;
+                for (const _ of ftable.selection.filter(expr).enumerate(checkT)) {
+                    yielded = true;
+                }
+                if (!yielded) {
+                    throw new QueryError(`insert or update on table "${ftable.name}" violates foreign key constraint on table "${this.name}"`);
+                }
+            };
+            if (deferred) {
+                deferCheck(dt, check);
+            } else {
+                check(dt);
             }
         }));
 

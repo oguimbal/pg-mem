@@ -1,5 +1,6 @@
 import { Types } from '../../datatypes';
-import { DataType, FunctionDefinition, _IDb, _ISchema } from '../../interfaces-private';
+import { DataType, FunctionDefinition, _IDb, _ISchema, GLOBAL_VARS, QueryError } from '../../interfaces-private';
+import { executionCtx } from '../../utils';
 import { PgAttributeTable } from './pg-attribute-list';
 import { PgClassListTable } from './pg-class';
 import { PgConstraintTable } from './pg-constraints-list';
@@ -9,12 +10,19 @@ import { PgNamespaceTable } from './pg-namespace-list';
 import { PgSequencesTable } from './pg-sequences-list';
 import { PgTypeTable } from './pg-type-list';
 import { PgUserTable } from './pg-user-list';
+import { PgRolesTable } from './pg-roles-list';
+import { PgPoliciesTable } from './pg-policies-list';
+import { PgIndexesTable } from './pg-indexes-list';
+import { PgTablesTable } from './pg-tables-list';
 import { allFunctions } from '../../functions';
 import { PgRange } from './pg-range';
 import { sqlSubstring } from '../../parser/expression-builder';
 import { PgDatabaseTable } from './pg-database';
 import { registerCommonOperators } from './binary-operators';
+import { registerRanges } from './ranges';
+import { registerTextSearch } from './text-search';
 import { registerSqlFunctionLanguage } from './sql-function-language';
+import { registerPlpgsqlLanguage } from '../../execution/plpgsql';
 import { PgProc } from './pg-proc';
 import { PgStatioUserTables } from './pg_statio_user_tables';
 
@@ -38,6 +46,7 @@ export function setupPgCatalog(db: _IDb) {
         ._registerType(Types.float)
         ._registerType(Types.integer)
         ._registerType(Types.bigint)
+        ._registerTypeSizeable(DataType.decimal, Types.decimal)
         ._registerType(Types.bytea)
         ._registerType(Types.point)
         ._registerType(Types.line)
@@ -64,6 +73,10 @@ export function setupPgCatalog(db: _IDb) {
     new PgEnumTable(catalog).register();
     new PgSequencesTable(catalog).register();
     new PgUserTable(catalog).register();
+    new PgRolesTable(catalog).register();
+    new PgPoliciesTable(catalog).register();
+    new PgIndexesTable(catalog).register();
+    new PgTablesTable(catalog).register();
 
 
     // this is an ugly hack...
@@ -78,19 +91,61 @@ export function setupPgCatalog(db: _IDb) {
 
     addFns(catalog, allFunctions);
 
+    // set_config / current_setting share the per-transaction GLOBAL_VARS store (the same
+    // one SET writes to). This is what Supabase RLS relies on: set_config('request.jwt.
+    // claims', ...) then current_setting('request.jwt.claims', true) inside a policy.
+    // nb: the is_local distinction is not modelled (settings persist for the session).
     catalog.registerFunction({
         name: 'set_config',
         args: [Types.text(), Types.text(), Types.bool],
         returns: Types.text(),
         impure: true,
+        allowNullArguments: true,
         implementation: (cfg: string, val: string, is_local: boolean) => {
-            // todo - implement this... used to override search_path in dumps.
-            //       => have a dynamic search_path.
-            //       => not trivial du to the "is_local" arg
-            //  https://www.postgresql.org/docs/9.3/functions-admin.html
+            const t = executionCtx().transaction;
+            t.set(GLOBAL_VARS, t.getMap(GLOBAL_VARS).set(cfg, val));
             return val;
         }
     });
+
+    const readSetting = (name: string, missingOk: boolean) => {
+        const v = executionCtx().transaction.getMap(GLOBAL_VARS).get(name);
+        if (v === undefined || v === null) {
+            if (missingOk) { return null; }
+            throw new QueryError(`unrecognized configuration parameter "${name}"`, '42704');
+        }
+        return v;
+    };
+    catalog.registerFunction({
+        name: 'current_setting',
+        args: [Types.text()],
+        returns: Types.text(),
+        impure: true,
+        implementation: (name: string) => readSetting(name, false),
+    });
+    catalog.registerFunction({
+        name: 'current_setting',
+        args: [Types.text(), Types.bool],
+        returns: Types.text(),
+        impure: true,
+        implementation: (name: string, missingOk: boolean) => readSetting(name, !!missingOk),
+    });
+
+    // UUID generation (pgcrypto / uuid-ossp; core in modern postgres). Used by Supabase's
+    // default `id uuid primary key default gen_random_uuid()`.
+    const uuidv4 = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+    for (const name of ['gen_random_uuid', 'uuid_generate_v4']) {
+        catalog.registerFunction({
+            name,
+            args: [],
+            returns: Types.uuid,
+            impure: true,
+            implementation: uuidv4,
+        });
+    }
 
     catalog.registerFunction({
         name: 'substring',
@@ -124,10 +179,62 @@ export function setupPgCatalog(db: _IDb) {
         implementation: x => 'Fake description provided by pg-mem',
     });
 
+    // version()/size functions — introspection tools & admin dashboards call these.
+    // pg-mem is in-memory with no on-disk footprint, so sizes are nominal (0).
+    catalog.registerFunction({
+        name: 'version',
+        args: [],
+        returns: Types.text(),
+        implementation: () => 'PostgreSQL 16.4 (pg-mem) on javascript, in-memory',
+    });
+    const sizePretty = (bytes: number | string): string => {
+        let n = Number(bytes);
+        if (!isFinite(n)) { return '0 bytes'; }
+        if (Math.abs(n) < 10 * 1024) { return `${Math.round(n)} bytes`; }
+        const units = ['kB', 'MB', 'GB', 'TB', 'PB'];
+        let i = 0;
+        n /= 1024;
+        while (Math.abs(n) >= 10 * 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return `${Math.round(n)} ${units[i]}`;
+    };
+    catalog.registerFunction({
+        name: 'pg_size_pretty',
+        args: [Types.bigint],
+        returns: Types.text(),
+        implementation: sizePretty,
+    });
+    catalog.registerFunction({
+        name: 'pg_size_pretty',
+        args: [Types.integer],
+        returns: Types.text(),
+        implementation: sizePretty,
+    });
+    // pg-mem holds no on-disk data; report a nominal 0-byte size for any target.
+    for (const name of ['pg_database_size', 'pg_relation_size', 'pg_table_size', 'pg_total_relation_size', 'pg_indexes_size']) {
+        for (const arg of [Types.text(), Types.integer]) {
+            catalog.registerFunction({ name, args: [arg], returns: Types.bigint, implementation: () => '0' });
+        }
+    }
+
     registerCommonOperators(catalog);
+    registerRanges(catalog);
+    registerTextSearch(catalog);
 
 
     registerSqlFunctionLanguage(db);
+    registerPlpgsqlLanguage(db);
+
+    // Extensions can't ship native code here, but their DDL should not fail (Supabase and
+    // many migrations `create extension if not exists ...`). Register the common ones as
+    // no-ops; the functions they'd provide that pg-mem needs (gen_random_uuid, ...) are
+    // registered as builtins above.
+    for (const ext of [
+        'pgcrypto', 'uuid-ossp', 'pgjwt', 'pgsodium', 'pg_graphql', 'pg_stat_statements',
+        'pg_net', 'supabase_vault', 'citext', 'hstore', 'pg_trgm', 'unaccent',
+        'btree_gin', 'btree_gist', 'moddatetime', 'postgis',
+    ]) {
+        db.registerExtension(ext, () => { /* no-op: no native code in-memory */ });
+    }
 
     catalog.setReadonly()
 }

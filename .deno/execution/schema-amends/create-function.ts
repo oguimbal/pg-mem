@@ -20,6 +20,10 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
 
         const lang = schema.db.getLanguage(fn.language.name);
 
+        // SECURITY DEFINER/INVOKER is a privilege concept; pg-mem has no roles, so
+        // the body simply runs with the caller's (only) rights either way.
+        ignore(fn.security);
+
         // determine arg types
         const args = withSelection(schema.dualTable.selection, () => fn.arguments.map<_ArgDefDetails>(a => ({
             name: a.name?.name,
@@ -36,21 +40,39 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
         if (typeof fn.code !== 'string') {
             throw new QueryError('no function body specified');
         }
-        switch (fn.returns.kind) {
-            case 'table':
-                const columns = fn.returns.columns.map(c => ({
-                    name: c.name.name,
-                    type: schema.getType(c.type),
-                }));
-                returns = Types.record(columns).asArray();
-                break;
-            case 'array':
-            case null:
-            case undefined:
-                returns = schema.getType(fn.returns);
-                break;
-            default:
-                throw NotSupported.never(fn.returns);
+        // "returns trigger" is a pseudo return type; the function is only ever invoked by
+        // the trigger machinery, so any placeholder type works for registration.
+        const isTrigger = (fn.returns.kind === null || fn.returns.kind === undefined)
+            && /^trigger$/i.test((fn.returns as any).name ?? '');
+        // "returns void" has no value; represent it as null (the function returns null)
+        const isVoid = (fn.returns.kind === null || fn.returns.kind === undefined)
+            && /^void$/i.test((fn.returns as any).name ?? '');
+        if (isTrigger) {
+            returns = Types.record([]);
+        } else if (isVoid) {
+            returns = Types.null;
+        } else {
+            switch (fn.returns.kind) {
+                case 'table':
+                    const columns = fn.returns.columns.map(c => ({
+                        name: c.name.name,
+                        type: schema.getType(c.type),
+                    }));
+                    returns = Types.record(columns).asArray();
+                    break;
+                case 'array':
+                case null:
+                case undefined:
+                    returns = schema.getType(fn.returns);
+                    // RETURNS SETOF <t> yields a set of <t>: the value is an array of <t>
+                    // (one row per element), matching how the SRF machinery expands it
+                    if (fn.setof) {
+                        returns = returns.asArray();
+                    }
+                    break;
+                default:
+                    throw NotSupported.never(fn.returns);
+            }
         }
 
         let argsVariadic: _IType | nil;
@@ -78,6 +100,8 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             argsVariadic,
             impure: fn.purity !== 'immutable',
             allowNullArguments: fn.onNullInput === 'call',
+            // RETURNS TABLE(...) / RETURNS SETOF ...: set-returning (impl returns an array)
+            setReturning: fn.returns.kind === 'table' || !!fn.setof,
         };
         this.replace = fn.orReplace ?? false;
 
@@ -96,7 +120,7 @@ export class CreateFunction extends ExecHelper implements _IStatementExecutor {
             // ... argument names must be the same
             for (let i = 0; i < args.length; i++) {
                 const exName = existing.args[i].name
-                if (exName ?? null !== args[i].name ?? null) {
+                if ((exName ?? null) !== (args[i].name ?? null)) {
                     throw new QueryError(`cannot change name of input parameter "${exName}"`, '42P13');
                 }
             }

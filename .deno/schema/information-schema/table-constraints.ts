@@ -2,6 +2,7 @@ import { _ITable, _ISelection, IValue, _IIndex, _IDb, IndexKey, setId, _ISchema 
 import { Schema } from '../../interfaces.ts';
 import { Types } from '../../datatypes/index.ts';
 import { ReadOnlyTable } from '../readonly-table.ts';
+import { listConstraintRows } from './constraint-rows.ts';
 
 // https://www.postgresql.org/docs/13/catalog-pg-range.html
 export class TableConstraints extends ReadOnlyTable implements _ITable {
@@ -29,11 +30,26 @@ export class TableConstraints extends ReadOnlyTable implements _ITable {
     }
 
     *enumerate() {
+        for (const c of listConstraintRows(this.db)) {
+            const ret = {
+                constraint_catalog: 'pgmem',
+                constraint_schema: c.schema,
+                constraint_name: c.name,
+                table_catalog: 'pgmem',
+                table_schema: c.schema,
+                table_name: c.table,
+                constraint_type: c.type,
+                is_deferrable: false,
+                initially_deferred: false,
+                enforced: true,
+            };
+            yield setId(ret, `/information_schema/table_constraints/${c.schema}/${c.table}/${c.name}`);
+        }
     }
 
 
     hasItem(value: any): boolean {
-        return false;
+        return !!value;
     }
 
 }

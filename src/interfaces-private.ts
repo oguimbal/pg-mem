@@ -1,6 +1,10 @@
 import { IMemoryDb, IMemoryTable, DataType, IType, TableEvent, GlobalEvent, ISchema, SchemaField, MemoryDbOptions, nil, Schema, QueryError, ISubscription, LanguageCompiler, ArgDefDetails, QueryResult, IBoundQuery, IPreparedQuery } from './interfaces';
-import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall } from 'pgsql-ast-parser';
+import { Expr, SelectedColumn, CreateColumnDef, AlterColumn, LimitStatement, OrderByStatement, TableConstraint, AlterSequenceChange, CreateSequenceOptions, QName, DataTypeDef, ExprRef, Name, BinaryOperator, ValuesStatement, CreateExtensionStatement, DropFunctionStatement, ExprCall, Statement } from 'pgsql-ast-parser';
 import { Map as ImMap, Record, Set as ImSet } from 'immutable';
+import type { TableRls, Policy } from './execution/rls';
+export type { TableRls, Policy } from './execution/rls';
+import type { TableTriggers, Trigger } from './execution/triggers';
+export type { TableTriggers, Trigger } from './execution/triggers';
 
 export * from './interfaces';
 
@@ -109,6 +113,9 @@ export interface StatementResult {
     state: _Transaction;
 }
 
+/** Runs a PREPAREd statement: binds argument values and executes against a transaction. */
+export type PreparedStatementRunner = (args: any[], t: _Transaction) => StatementResult;
+
 export type OnStatementExecuted = (t: _Transaction) => void;
 
 export interface QueryObjOpts extends Partial<BeingCreated> {
@@ -129,6 +136,8 @@ export interface _FunctionDefinition {
     returns?: _IType | nil;
     impure?: boolean;
     allowNullArguments?: boolean;
+    /** Returns a set (one output row per element of the returned array) */
+    setReturning?: boolean;
     implementation: (...args: any[]) => any;
 }
 
@@ -153,6 +162,12 @@ export interface _Transaction {
     /** Commits this transaction and all underlying transactions */
     fullCommit(): _Transaction;
     rollback(): _Transaction;
+    /** Capture the current state under a named savepoint */
+    savepoint(name: string): void;
+    /** Restore the state captured by a named savepoint (keeping the savepoint) */
+    rollbackTo(name: string): void;
+    /** Discard a named savepoint (and any established after it) */
+    release(name: string): void;
     delete(identity: symbol): void;
     /** Set data persisted in this transaction */
     set<T>(identity: symbol, data: T): T;
@@ -373,6 +388,13 @@ export interface _IDb extends IMemoryDb {
     readonly public: _ISchema;
     readonly data: _Transaction;
     readonly searchPath: ReadonlyArray<string>;
+    /** session-scoped named prepared statements (SQL-level PREPARE / EXECUTE);
+     * each entry is a runner that binds args and executes against a transaction */
+    readonly preparedStatements: Map<string, PreparedStatementRunner>;
+
+    /** schema-defining statements executed on this db, in order (used by serialize()) */
+    readonly ddl: Statement[];
+    recordDdl(statements: Statement[]): void;
 
     createSchema(db: string): _ISchema;
     getSchema(db?: string | null, nullIfNotFound?: false): _ISchema;
@@ -420,11 +442,22 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     readonly db: _IDb;
     readonly selection: _ISelection;
     readonly ownerSchema: _ISchema;
+    /** Row-level security state (enabled/forced flags + policies) */
+    readonly rls: TableRls;
+    createPolicy(policy: Policy): void;
+    dropPolicy(name: string, ifExists: boolean): void;
+    setRowLevelSecurity(action: 'enable' | 'disable' | 'force' | 'no force'): void;
+    /** Triggers attached to this table */
+    readonly triggers: TableTriggers;
+    createTrigger(trigger: Trigger): void;
+    dropTrigger(name: string, ifExists: boolean): void;
     doInsert(t: _Transaction, toInsert: Row, opts?: ChangeOpts): Row | nil | void;
     setHidden(): this;
     setReadonly(): this;
     delete(t: _Transaction, toDelete: Row): void;
     update(t: _Transaction, toUpdate: Row): Row | never;
+    /** After bulk-loading rows, advance serial/identity counters past the loaded values */
+    restoreSerials?(t: _Transaction, rows: Row[]): void;
     createIndex(t: _Transaction, expressions: CreateIndexDef): _IConstraint | nil;
     createIndex(t: _Transaction, expressions: Name[], type: 'primary' | 'unique', indexName?: string | nil): _IConstraint;
     setReadonly(): this;
@@ -438,6 +471,11 @@ export interface _ITable extends IMemoryTable<any>, _RelationBase {
     addConstraint(constraint: TableConstraint, t: _Transaction): _IConstraint | nil;
     getIndex(...forValues: IValue[]): _IIndex | nil;
     dropIndex(t: _Transaction, name: string): void;
+    renameIndex(oldName: string, newName: string): void;
+    /** apply column DEFAULTs to a candidate row (idempotent) */
+    fillDefaults(row: any, t: _Transaction): void;
+    /** the indexes defined on this table (btree indexes, incl. those backing constraints) */
+    listIndexes(): Iterable<_INamedIndex>;
     drop(t: _Transaction, cascade: boolean): void;
     /** Will be executed when one of the given columns is affected (update/delete) */
     onBeforeChange(columns: 'all' | (string | _Column)[], check: ChangeHandler): ISubscription;
@@ -458,6 +496,10 @@ export interface _IView extends _RelationBase {
     readonly type: 'view';
     readonly db: _IDb;
     readonly selection: _ISelection;
+    /** INSTEAD OF triggers defined on this view */
+    readonly triggers: TableTriggers;
+    createTrigger(trigger: Trigger): void;
+    dropTrigger(name: string, ifExists: boolean): void;
     drop(t: _Transaction): void;
 }
 
@@ -544,6 +586,12 @@ export interface IValue<TRaw = any> {
 
     /** is 'any()' call ? */
     readonly isAny: boolean;
+
+    /** is 'all()' call ? */
+    readonly isAll: boolean;
+
+    /** is 'any()' or 'all()' call ? */
+    readonly isQuantified: boolean;
 
     /** Is a constant... i.e. not dependent on columns. ex: (2+2) or NOW() */
     readonly isConstant: boolean;

@@ -59,6 +59,16 @@ describe('Cross/Carthesian joins', () => {
         ]);
     })
 
+    it('explicit CROSS JOIN syntax', () => {
+        ab();
+        expect(many(`select * from ta cross join tb`)).toEqual([
+            { ida: 'a1', va: 1, idb: 'b1', vb: 11 },
+            { ida: 'a1', va: 1, idb: 'b2', vb: 12 },
+            { ida: 'a2', va: 2, idb: 'b1', vb: 11 },
+            { ida: 'a2', va: 2, idb: 'b2', vb: 12 }
+        ]);
+    })
+
 
     it('simple join on index', () => {
         preventCataJoin(db);
