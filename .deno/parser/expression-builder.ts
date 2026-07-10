@@ -11,7 +11,7 @@ import { aggregationFunctions, getAggregator } from '../transforms/aggregation.t
 import { getWindower } from '../transforms/window.ts';
 import moment from 'https://deno.land/x/momentjs@2.29.1-deno/mod.ts';
 import { IS_PARTIAL_INDEXING } from '../execution/clean-results.ts';
-import { buildCtx } from './context.ts';
+import { buildCtx, resolveOuterColumn, withCorrelation, currentCorrelation } from './context.ts';
 import { buildSelect } from '../execution/select.ts';
 
 
@@ -80,6 +80,11 @@ function _buildValueReal(val: Expr): IValue {
             if (found) {
                 return found;
             }
+            // correlated subquery: the ref may be a column of an enclosing query
+            const correlated = buildCorrelatedRef(val);
+            if (correlated) {
+                return correlated;
+            }
             // try to get a parameter reference
             const arg = !val.table && getParameter(val.name);
             if (arg) {
@@ -124,6 +129,8 @@ function _buildValueReal(val: Expr): IValue {
             return buildMember(val);
         case 'arrayIndex':
             return buildArrayIndex(val);
+        case 'arraySlice':
+            return buildArraySlice(val);
         case 'boolean':
             return Value.bool(val.value);
         case 'ternary':
@@ -138,7 +145,9 @@ function _buildValueReal(val: Expr): IValue {
         case 'with':
         case 'with recursive':
         case 'values':
-            return buildSelectAsArray(val);
+            // a bare subquery in expression position is scalar (one row, one column);
+            // the array form is only for IN / ANY / ALL / EXISTS / ARRAY(...)
+            return buildScalarSubquery(val);
         case 'array select':
             return buildSelectAsArray(val.select);
         case 'constant':
@@ -228,7 +237,21 @@ function _buildCall(val: ExprCall): IValue {
     if (nm === 'row' && !val.over) {
         return buildRowConstructor(val.args);
     }
-    const args = val.args.map(x => _buildValue(x));
+    // exists/any/all consume the subquery as a set of rows (array), not a scalar.
+    // EXISTS only cares whether any row exists (any number of columns is fine);
+    // ANY/ALL need the single-column value list.
+    const args = val.args.map(x => {
+        if (!isSubqueryNode(x)) {
+            return _buildValue(x);
+        }
+        if (nm === 'exists') {
+            return buildExistsArray(x as any);
+        }
+        if (nm === 'any' || nm === 'all') {
+            return buildSelectAsArray(x as any);
+        }
+        return _buildValue(x);
+    });
     return Value.function(val.function, args);
 }
 
@@ -319,9 +342,24 @@ function buildUnary(op: UnaryOperator, operand: Expr) {
     }
 }
 
+const SUBQUERY_NODE_TYPES = new Set([
+    'select', 'union', 'union all', 'intersect', 'intersect all',
+    'except', 'except all', 'with', 'with recursive', 'values',
+]);
+export function isSubqueryNode(e: Expr): boolean {
+    return SUBQUERY_NODE_TYPES.has((e as any).type);
+}
+
+/** Build a subquery as a list of its (single-column) row values — the form needed by
+ * IN / ANY / ALL / EXISTS. Supports correlation (see buildSelectAsArray). */
+export function buildSubqueryArray(op: Expr): IValue {
+    return buildSelectAsArray(op as any);
+}
+
 function buildIn(left: Expr, array: Expr, inclusive: boolean): IValue {
     let leftValue = _buildValue(left);
-    let rightValue = _buildValue(array);
+    // `x IN (subquery)` needs the subquery's rows as a list, not a scalar
+    let rightValue = isSubqueryNode(array) ? buildSelectAsArray(array as any) : _buildValue(array);
     return Value.in(leftValue, rightValue, inclusive);
 }
 
@@ -728,6 +766,34 @@ function buildArrayIndex(op: ExprArrayIndex): IValue {
 }
 
 
+function buildArraySlice(op: any): IValue {
+    const onExpr = _buildValue(op.array);
+    if (onExpr.type.primary !== DataType.array) {
+        throw new QueryError(`Cannot use [] expression on type ${onExpr.type.primary}`);
+    }
+    const from = op.from ? _buildValue(op.from).cast(Types.integer) : null;
+    const to = op.to ? _buildValue(op.to).cast(Types.integer) : null;
+    return new Evaluator(
+        onExpr.type // a slice of an array is the same array type
+        , null
+        , hash({ slice: onExpr.hash, from: from?.hash ?? null, to: to?.hash ?? null })
+        , [onExpr, ...(from ? [from] : []), ...(to ? [to] : [])]
+        , (raw, t) => {
+            const value = onExpr.get(raw, t);
+            if (!Array.isArray(value)) {
+                return null;
+            }
+            // Postgres slices are 1-based inclusive; missing bounds default to the
+            // ends, and out-of-range bounds are clamped.
+            const lo = Math.max(1, from ? from.get(raw, t) : 1);
+            const hi = Math.min(value.length, to ? to.get(raw, t) : value.length);
+            if (lo > hi) {
+                return [];
+            }
+            return value.slice(lo - 1, hi);
+        });
+}
+
 function buildTernary(op: ExprTernary): IValue {
     const oop = op.op;
     if (oop !== 'NOT BETWEEN' && oop !== 'BETWEEN') {
@@ -771,11 +837,35 @@ function buildTernary(op: ExprTernary): IValue {
 }
 
 
+/** A correlated-subquery outer reference: an outer column whose value is fed in per
+ * outer row via a mutable holder (which the compiled subquery body reads). */
+interface Correlation {
+    outer: IValue;
+    holder: { value: any };
+}
+
+/** Builds a subquery's selection, collecting correlated (outer-query) references so the
+ * outer row can be fed in at enumeration time (see `bind`). */
+function buildSubquerySelection(op: SelectStatement): { onData: _ISelection; bind: (raw: any, t: any) => void } {
+    const correlations: Correlation[] = [];
+    const collector = {
+        register: (outer: IValue) => {
+            const holder = { value: null as any };
+            correlations.push({ outer, holder });
+            return holder;
+        },
+    };
+    const onData = withCorrelation(collector as any, () => buildSelect(op));
+    const bind = (raw: any, t: any) => {
+        for (const c of correlations) {
+            c.holder.value = c.outer.get(raw, t);
+        }
+    };
+    return { onData, bind };
+}
+
 function buildSelectAsArray(op: SelectStatement): IValue {
-    // todo: handle refs to 'data' in op statement.
-    //  ... and refactor this. This is way too hacky to be maintainable
-    //   (this wont allow the subrequest to access outer context, for instance)
-    const onData = buildSelect(op);
+    const { onData, bind } = buildSubquerySelection(op);
     if (onData.columns.length !== 1) {
         throw new QueryError('subquery must return only one column', '42601');
     }
@@ -785,6 +875,7 @@ function buildSelectAsArray(op: SelectStatement): IValue {
         , Math.random().toString() // must not be indexable => always different hash
         , null // , onData.columns[0]
         , (raw, t) => {
+            bind(raw, t);
             const ret = [];
             for (const v of onData.enumerate(t!)) {
                 ret.push(onData.columns[0].get(v, t));
@@ -793,6 +884,73 @@ function buildSelectAsArray(op: SelectStatement): IValue {
         }, {
         forceNotConstant: true
     });
+}
+
+/** EXISTS(subquery): only the presence of rows matters (column count is irrelevant).
+ * Yields one element per row so the `exists` builtin can test non-emptiness. */
+function buildExistsArray(op: SelectStatement): IValue {
+    const { onData, bind } = buildSubquerySelection(op);
+    return new Evaluator(
+        Types.bool.asList()
+        , null
+        , Math.random().toString()
+        , null
+        , (raw, t) => {
+            bind(raw, t);
+            const ret: boolean[] = [];
+            for (const _ of onData.enumerate(t!)) {
+                ret.push(true);
+            }
+            return ret;
+        }, {
+        forceNotConstant: true
+    });
+}
+
+/** A bare subquery used as a scalar value: reduces the rows to a single value
+ * (0 rows -> null, >1 row -> error), matching Postgres scalar-subquery semantics. */
+function buildScalarSubquery(op: SelectStatement): IValue {
+    const arr = buildSelectAsArray(op);
+    const elemType = (arr.type as ArrayType).of;
+    return new Evaluator(
+        elemType
+        , null
+        , Math.random().toString()
+        , null
+        , (raw, t) => {
+            const list = arr.get(raw, t);
+            if (!list || list.length === 0) {
+                return null;
+            }
+            if (list.length > 1) {
+                throw new QueryError('more than one row returned by a subquery used as an expression', '21000');
+            }
+            return list[0];
+        }, {
+        forceNotConstant: true
+    });
+}
+
+/** If `ref` names a column of an enclosing query (correlated subquery), returns a value
+ * backed by a per-outer-row holder; otherwise null. */
+function buildCorrelatedRef(ref: any): IValue | nil {
+    const collector = currentCorrelation();
+    if (!collector) {
+        return null;
+    }
+    const outer = resolveOuterColumn(ref);
+    if (!outer) {
+        return null;
+    }
+    const holder = (collector as any).register(outer) as { value: any };
+    return new Evaluator(
+        outer.type
+        , null
+        , Math.random().toString() // per-row value; never fold as constant / index
+        , null
+        , () => holder.value
+        , { forceNotConstant: true }
+    );
 }
 
 

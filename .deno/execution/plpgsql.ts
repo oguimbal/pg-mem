@@ -35,15 +35,20 @@ export interface TriggerContext {
 // ---- parsing -------------------------------------------------------------------------
 
 function stripComments(code: string): string {
-    return code
-        .replace(/--[^\n]*/g, '')
-        .replace(/\/\*[\s\S]*?\*\//g, '');
+    // strip -- and /* */ comments, but never inside a '…' string or $tag$…$tag$ block
+    return code.replace(
+        /('(?:[^']|'')*')|(\$([a-zA-Z_]\w*)?\$[\s\S]*?\$\3\$)|--[^\n]*|\/\*[\s\S]*?\*\//g,
+        (m, str, dollar) => (str || dollar) ? m : '',
+    );
 }
 
 /** Tokenize a plpgsql fragment: strings, numbers, `..` range, `:=`, words, punctuation. */
 function tokenize(code: string): string[] {
+    // A $tag$…$tag$ (or $$…$$) dollar-quoted block is a single opaque token (matched
+    // first so its content — which may contain ; ' etc. — is not split). JS regex
+    // backreferences let us balance the tag, which the moo lexer can't do.
     return stripComments(code)
-        .match(/'(?:[^']|'')*'|\d+\.\d+|\d+|\.\.|:=|::|>=|<=|<>|!=|\|\||[a-zA-Z_][\w$]*|[(),.;]|[^\s]/g) ?? [];
+        .match(/\$([a-zA-Z_]\w*)?\$[\s\S]*?\$\1\$|'(?:[^']|'')*'|\d+\.\d+|\d+|\.\.|:=|::|>=|<=|<>|!=|\|\||[a-zA-Z_][\w$]*|[(),.;]|[^\s]/g) ?? [];
 }
 
 /** strip surrounding single quotes and unescape '' -> ' */
@@ -561,7 +566,16 @@ function makeHelpers(schema: _ISchema, params: Parameter[], returns: _IType | ni
     // variable parameters stay on top of the stack during compile - schema.prepare
     // pushes the statement's own (empty) param set, which would shadow them
     const compileStmt = (sql: string): any => {
-        const parsed = parse(sql);
+        let parsed;
+        try {
+            parsed = parse(sql);
+        } catch (e) {
+            // a syntax error (e.g. in dynamic EXECUTE) is a normal, catchable SQL
+            // error in Postgres (syntax_error / 42601), not an engine bug — surface
+            // it as a QueryError so BEGIN ... EXCEPTION WHEN OTHERS can handle it.
+            if (e instanceof QueryError) { throw e; }
+            throw new QueryError((e as any)?.message ?? String(e), '42601');
+        }
         const stmt = Array.isArray(parsed) ? parsed[0] : parsed;
         const se = new StatementExec(schema, stmt, null) as any;
         withParameters(params, () => se.compile());
