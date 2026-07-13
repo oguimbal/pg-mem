@@ -164,6 +164,14 @@ function buildComparison(this: void, on: _ISelection, filter: ExprBinary): _ISel
     let leftValue = buildValue(left);
     let rightValue = buildValue(right);
 
+    // `col = ANY(array)` / `col > ANY(array)` (and ALL) must NOT be optimized into a
+    // scalar index lookup: the ANY/ALL operand is an array, so comparing an indexed
+    // column against the array *value* matches no rows (silently returning nothing).
+    // Fall back to a seq scan, which evaluates ANY/ALL element-wise. See buildBinaryAny.
+    if (leftValue.isAny || rightValue.isAny) {
+        return null;
+    }
+
     if (leftValue.isConstant && rightValue.isConstant) {
         const global = buildValue(filter);
         const got = global.get();
