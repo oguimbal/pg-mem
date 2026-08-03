@@ -832,7 +832,7 @@ function buildOverlay(op: ExprOverlay): IValue {
             if (nullIsh(_from)) {
                 return null;
             }
-            const before = sqlSubstring(_value, 0, _from - 1);
+            const before = sqlSubstring(_value, 1, _from - 1);
             let after: string | nil;
             if (forr) {
                 const _for = forr.get(raw, t) as number;
@@ -872,7 +872,7 @@ function buildSubstring(op: ExprSubstring): IValue {
             if (nullIsh(_value)) {
                 return null;
             }
-            let start = 0;
+            let start = 1;
             let len: number | nil;
             if (from) {
                 start = from.get(raw, t) as number;
@@ -896,14 +896,13 @@ export function sqlSubstring(value: string, from = 0, len?: number | nil): strin
     }
     // sql substring is base-1
     from--;
-    if (from < 0) {
-        from = 0;
-    }
     if (!nullIsh(len)) {
         if (len! < 0) {
             throw new QueryError('negative substring length not allowed');
         }
-        return value.substr(from, len!);
+        const end = from + len!;
+        const start = from < 0 ? 0 : from;
+        return end <= start ? '' : value.substring(start, end);
     }
-    return value.substr(from);
+    return from < 0 ? value : value.substr(from);
 }
