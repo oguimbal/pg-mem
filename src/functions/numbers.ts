@@ -1,4 +1,4 @@
-import { DataType, FunctionDefinition } from "../interfaces";
+import { DataType, FunctionDefinition, nil } from "../interfaces";
 
 export const numberFunctions: FunctionDefinition[] = [
     {
@@ -6,13 +6,21 @@ export const numberFunctions: FunctionDefinition[] = [
         args: [DataType.integer],
         argsVariadic: DataType.integer,
         returns: DataType.integer,
-        implementation: (...args: number[]) => Math.max(...args),
+        allowNullArguments: true,
+        implementation: (...args: (number | nil)[]) => {
+            const values = args.filter((x): x is number => x !== null && x !== undefined);
+            return values.length ? Math.max(...values) : null;
+        },
     },
     {
         name: 'least',
         args: [DataType.integer],
         argsVariadic: DataType.integer,
         returns: DataType.integer,
-        implementation: (...args: number[]) => Math.min(...args),
+        allowNullArguments: true,
+        implementation: (...args: (number | nil)[]) => {
+            const values = args.filter((x): x is number => x !== null && x !== undefined);
+            return values.length ? Math.min(...values) : null;
+        },
     },
 ]

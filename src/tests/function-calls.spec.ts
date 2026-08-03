@@ -55,6 +55,21 @@ describe('Functions', () => {
             .toEqual([{ least: 1 }]);
     });
 
+    it('GREATEST ignores null arguments', () => {
+        expect(many(`select GREATEST(1, null, 3) as v;`))
+            .toEqual([{ v: 3 }]);
+    });
+
+    it('LEAST ignores null arguments', () => {
+        expect(many(`select LEAST(2, null, 1) as v;`))
+            .toEqual([{ v: 1 }]);
+    });
+
+    it('GREATEST returns null when all arguments are null', () => {
+        expect(many(`select GREATEST(null::int, null) as v;`))
+            .toEqual([{ v: null }]);
+    });
+
     it('can declare & call function', () => {
         db.registerLanguage('mylang', ({ code, args, returns }) => {
             expect(code).toBe('some code');
