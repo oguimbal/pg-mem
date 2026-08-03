@@ -35,6 +35,21 @@ describe('Functions', () => {
             .toEqual([{ concat: 'text-123-end' }]);
     });
 
+    it('concat_ws skips null arguments', () => {
+        expect(many(`select concat_ws(',', 'a', null, 'b') as v;`))
+            .toEqual([{ v: 'a,b' }]);
+    });
+
+    it('concat_ws returns null when the separator is null', () => {
+        expect(many(`select concat_ws(null, 'a', 'b') as v;`))
+            .toEqual([{ v: null }]);
+    });
+
+    it('concat_ws returns an empty string when every value is null', () => {
+        expect(many(`select concat_ws(',', null, null) as v;`))
+            .toEqual([{ v: '' }]);
+    });
+
     it('GREATEST 2 arguments', () => {
         expect(many(`select GREATEST(0, -1);`))
             .toEqual([{ greatest: 0 }]);

@@ -1,4 +1,4 @@
-import { DataType, FunctionDefinition } from '../interfaces-private';
+import { DataType, FunctionDefinition, nil } from '../interfaces-private';
 
 export const stringFunctions: FunctionDefinition[] = [
     {
@@ -27,6 +27,11 @@ export const stringFunctions: FunctionDefinition[] = [
         argsVariadic: DataType.text,
         returns: DataType.text,
         allowNullArguments: true,
-        implementation: (separator: string, ...x: string[]) => x?.join(separator),
+        implementation: (separator: string | nil, ...x: (string | nil)[]) => {
+            if (separator === null || separator === undefined) {
+                return null;
+            }
+            return x.filter(v => v !== null && v !== undefined).join(separator);
+        },
     },
 ]
