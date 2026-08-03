@@ -428,6 +428,9 @@ describe('Simple queries', () => {
             [`select substring('012345678' from 1) as v`, '012345678'],
             [`select substring('012345678' from 0) as v`, '012345678'],
             [`select substring('012345678' from -1) as v`, '012345678'],
+            [`select substring('012345678' from 0 for 3) as v`, '01'],
+            [`select substring('012345678' from -1 for 3) as v`, '0'],
+            [`select substring('012345678' from -5 for 2) as v`, ''],
         ]) {
             it(k, () => {
                 expect(many(k))
