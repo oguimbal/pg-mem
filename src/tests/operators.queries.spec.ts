@@ -420,6 +420,34 @@ describe('Operators', () => {
                 ]);
         });
 
+        it('executes like with an escaped percent sign', () => {
+            expect(many(`create table test(val text);
+                insert into test values ('a%b'), ('axb'), ('a_b'), (null);
+                select * from test where val like 'a\\%b'`))
+                .toEqual([
+                    { val: 'a%b' }
+                ]);
+        });
+
+        it('executes like with an escaped underscore', () => {
+            expect(many(`create table test(val text);
+                insert into test values ('a_b'), ('axb'), ('a%b'), (null);
+                select * from test where val like 'a\\_b'`))
+                .toEqual([
+                    { val: 'a_b' }
+                ]);
+        });
+
+        it('executes like with an escaped percent sign on an indexed column', () => {
+            expect(many(`create table test(val text);
+                create index on test(val);
+                insert into test values ('a%b'), ('axb'), ('a_b'), (null);
+                select * from test where val like 'a\\%b'`))
+                .toEqual([
+                    { val: 'a%b' }
+                ]);
+        });
+
 
         it('executes not like', () => {
             expect(many(`create table test(val text);

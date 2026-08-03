@@ -131,7 +131,8 @@ function buildBinaryFilter(this: void, on: _ISelection, filter: ExprBinary): _IS
                     if (nullIsh(str)) {
                         return new FalseFilter(on);
                     }
-                    const got = /^([^%_]+)([%_]?.+)$/.exec(str);
+                    const got = String(str).indexOf('\\') === -1
+                        && /^([^%_]+)([%_]?.+)$/.exec(str);
                     if (got) {
                         const start = got[1];
                         if (start.length === str) {

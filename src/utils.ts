@@ -290,11 +290,26 @@ export function queryJson(a: Json, b: Json) {
     return true;
 }
 
+function escapeRegexChar(char: string): string {
+    return char.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
 export function buildLikeMatcher(likeCondition: string, caseSensitive = true) {
-    // Escape regex characters from likeCondition
-    likeCondition = likeCondition.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-    let likeRegexString = likeCondition.replace(/\%/g, ".*").replace(/_/g, '.');
-    likeRegexString = "^" + likeRegexString + "$";
+    let likeRegexString = '^';
+    for (let i = 0; i < likeCondition.length; i++) {
+        const char = likeCondition[i];
+        if (char === '\\') {
+            const escaped = likeCondition[++i];
+            likeRegexString += escaped === undefined ? '\\\\' : escapeRegexChar(escaped);
+        } else if (char === '%') {
+            likeRegexString += '.*';
+        } else if (char === '_') {
+            likeRegexString += '.';
+        } else {
+            likeRegexString += escapeRegexChar(char);
+        }
+    }
+    likeRegexString += '$';
     const reg = new RegExp(likeRegexString, caseSensitive ? '' : 'i');
 
     return (stringToMatch: string | number) => {
