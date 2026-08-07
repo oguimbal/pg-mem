@@ -34,6 +34,22 @@ describe('Binary operators', () => {
         expectQueryError(() => many(`select 7 - CURRENT_DATE`), /operator does not exist: integer - date/);
     })
 
+    it('[bugfix] does not reverse the operands of a numeric subtraction', () => {
+        // bugfix of https://github.com/oguimbal/pg-mem/issues/482
+        none(`create table test (big bigint not null, i int not null);
+              insert into test values (328, 328);`);
+
+        expect(one(`select big - '300' as a from test`).a).toEqual(28);
+        expect(one(`select i - '300' as a from test`).a).toEqual(28);
+        expect(one(`select big - 300 as a from test`).a).toEqual(28);
+        expect(one(`select big - '300'::bigint as a from test`).a).toEqual(28);
+        expect(one(`select '400' - big as a from test`).a).toEqual(72);
+
+        expect(one(`select big + '300' as a from test`).a).toEqual(628);
+        expect(one(`select big * '2' as a from test`).a).toEqual(656);
+        expect(one(`select big / '4' as a from test`).a).toEqual(82);
+    })
+
     it.skip('should not be able to substract float to date', () => {
         // these should throw (#todo)
         expectQueryError(() => many(`select CURRENT_DATE - 7.5`), /operator does not exist: date - float/);
