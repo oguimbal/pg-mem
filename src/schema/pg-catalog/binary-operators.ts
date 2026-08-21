@@ -33,7 +33,7 @@ function registerNumericOperators(schema: _ISchema) {
     for (const [left, right, returns] of numberPairs()) {
         schema.registerOperator({
             operator: '-',
-            commutative: true,
+            commutative: false,
             left,
             right,
             returns,
